@@ -1,6 +1,6 @@
 {
-  "name": "stream-charts",
-  "version": "0.0.17-SNAPSHOT",
+  "name": "stream-charts-examples",
+  "version": "0.1.0",
   "types": "./src/app/index.d.ts",
   "homepage": "https://robphilipp.github.io/stream-charts/",
   "license": "MIT",
@@ -30,11 +30,11 @@
   "dependencies": {
     "d3": "^5.15.0",
     "prelude-ts": "^0.8.3",
-    "rxjs": "^6.5.4",
-    "react-scripts": "3.3.0",
-    "stream-charts": "file:../tmp/stream-charts/package/dist",
     "react": "^16.12.0",
-    "react-dom": "^16.12.0"
+    "react-dom": "^16.12.0",
+    "react-scripts": "3.3.0",
+    "rxjs": "^6.5.4",
+    "stream-charts": "^0.1.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^4.2.4",
