@@ -4,7 +4,7 @@
   "types": "./src/app/index.d.ts",
   "homepage": "https://robphilipp.github.io/stream-charts/",
   "license": "MIT",
-  "repository": "github:robphilipp/stream-charts",
+  "repository": "github:robphilipp/stream-charts-examples",
   "main": "./src/index.tsx",
   "scripts": {
     "start": "react-scripts start",
