@@ -1,6 +1,6 @@
 {
   "name": "stream-charts-examples",
-  "version": "0.2.0",
+  "version": "0.2.1-SNAPSHOT",
   "types": "./src/app/index.d.ts",
   "homepage": "https://robphilipp.github.io/stream-charts/",
   "license": "MIT",
