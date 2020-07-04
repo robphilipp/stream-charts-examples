@@ -1,5 +1,8 @@
 # change history
 
+## version 0.2.2 (raster svg height)
+Updated stream-charts to version that fixes the incorrect svg height calculation.
+
 ## version 0.2.1 (eslint)
 Fixed eslint errors
 
