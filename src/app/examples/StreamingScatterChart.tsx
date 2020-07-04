@@ -1,5 +1,5 @@
 import {default as React, useRef, useState} from "react";
-import {Series, ScatterChart, ChartData, regexFilter, RasterChart} from "stream-charts";
+import {Series, ScatterChart, ChartData, regexFilter} from "stream-charts";
 import {randomWeightDataObservable} from "./randomData";
 import {Observable, Subscription} from "rxjs";
 import Checkbox from "./Checkbox";
@@ -27,7 +27,12 @@ interface Props {
 }
 
 export function StreamingScatterChart(props: Props): JSX.Element {
-    const {seriesList, timeWindow = 100, plotHeight = 20, plotWidth = 500} = props;
+    const {
+        seriesList,
+        timeWindow = 100,
+        plotHeight = 20,
+        // plotWidth = 500
+    } = props;
 
     const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(seriesList.map(series => series.name), 0.1));
     const subscriptionRef = useRef<Subscription>();
