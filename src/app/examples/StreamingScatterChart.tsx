@@ -101,7 +101,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 }
             </p>
             <ScatterChart
-                width={plotWidth}
+                // width={plotWidth}
                 height={plotHeight}
                 seriesList={seriesList}
                 seriesObservable={observableRef.current}
@@ -118,6 +118,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 tracker={{visible: visibility.tracker}}
                 filter={filter}
                 // seriesColors={new Map()}
+                svgStyle={{width: '100%'}}
             />
         </div>
     );

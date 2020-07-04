@@ -82,9 +82,10 @@ function StreamingRasterChart(props: Props): JSX.Element {
         marginRight: 20
     };
 
+    // demonstrates the use of the 'shouldSubscribe' property
     useEffect(
         () => {
-            setTimeout(() => setShouldSubscribe(true), 1000);
+            setTimeout(() => setShouldSubscribe(true), 100);
         },
         []
     );
@@ -118,7 +119,7 @@ function StreamingRasterChart(props: Props): JSX.Element {
                 />
             </p>
             <RasterChart
-                width={plotWidth}
+                // width={plotWidth}
                 height={seriesList.length * seriesHeight}
                 seriesList={seriesList}
                 seriesObservable={observableRef.current}
@@ -134,6 +135,7 @@ function StreamingRasterChart(props: Props): JSX.Element {
                 magnifier={{visible: visibility.magnifier, magnification: 5}}
                 tracker={{visible: visibility.tracker}}
                 filter={filter}
+                svgStyle={{width: '100%'}}
             />
         </div>
     );
