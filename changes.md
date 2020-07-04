@@ -1,5 +1,8 @@
 # change history
 
+## version 0.2.1 (eslint)
+Fixed eslint errors
+
 ## version 0.2.0 (responsive)
 Updated examples to be responsive to window size
 
