@@ -1,6 +1,6 @@
 import * as React from 'react';
 import {useEffect, useRef, useState} from 'react';
-import {Datum, Series, RasterChart, ChartData, regexFilter, ScatterChart} from "stream-charts";
+import {Datum, Series, RasterChart, ChartData, regexFilter} from "stream-charts";
 import {Observable, Subscription} from "rxjs";
 import Checkbox from "./Checkbox";
 import {randomSpikeDataObservable} from "./randomData";
@@ -47,7 +47,12 @@ export interface SpikesChartData {
  * @constructor
  */
 function StreamingRasterChart(props: Props): JSX.Element {
-    const {seriesList, timeWindow = 100, seriesHeight = 20, plotWidth = 500} = props;
+    const {
+        seriesList,
+        timeWindow = 100,
+        seriesHeight = 20,
+        // plotWidth = 500
+    } = props;
 
     const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(seriesList.map(series => series.name)));
     const subscriptionRef = useRef<Subscription>();
