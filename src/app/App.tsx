@@ -2,6 +2,13 @@ import React from 'react';
 import StreamingRasterChart from "./examples/StreamingRasterChart";
 import {Series, seriesFrom} from "stream-charts";
 import { StreamingScatterChart } from './examples/StreamingScatterChart';
+import {
+    Grid, gridArea, GridItem, gridTemplateAreasBuilder,
+    gridTrackTemplateBuilder,
+    useWindowDimensions,
+    withFraction,
+    withPixels
+} from 'react-resizable-grid-layout';
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
 const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
@@ -10,22 +17,52 @@ const weights: Array<Series> = inputNeurons.flatMap(input => outputNeurons.map(o
 
 const App: React.FC = () => {
   return (
-    <div className="App" style={{backgroundColor: '#202020', float: 'left', width: '90%'}}>
-      <h3 style={{color: '#d2933f'}}>Streaming Scatter Chart</h3>
-        <StreamingScatterChart
-          timeWindow={1000}
-          seriesList={weights}
-          plotHeight={500}
-          plotWidth={900}
-        />
-      <h3 style={{color: '#d2933f'}}>Streaming Raster Chart</h3>
-        <StreamingRasterChart
-            timeWindow={1000}
-            seriesList={spikes}
-            seriesHeight={20}
-            plotWidth={900}
-        />
-    </div>
+      <Grid
+          dimensionsSupplier={useWindowDimensions}
+          gridTemplateColumns={gridTrackTemplateBuilder()
+              .addTrack(withPixels(40))
+              .addTrack(withFraction(1))
+              .addTrack(withPixels(40))
+              .build()}
+          gridTemplateRows={gridTrackTemplateBuilder()
+              .addTrack(withPixels(40))
+              .addTrack(withFraction(1))
+              .addTrack(withPixels(40))
+              .addTrack(withFraction(1))
+              .build()}
+          gridTemplateAreas={gridTemplateAreasBuilder()
+              .addArea("left-side", gridArea(1, 1, 4))
+              .addArea("scatter-header", gridArea(1, 2))
+              .addArea("scatter-chart", gridArea(2, 2))
+              .addArea("raster-header", gridArea(3, 2))
+              .addArea("raster-chart", gridArea(4, 2))
+              .addArea("left-side", gridArea(1, 3, 4))
+              .build()}
+          styles={{backgroundColor: '#202020'}}
+      >
+          <GridItem gridAreaName="scatter-header">
+              <h3 style={{color: '#d2933f'}}>Streaming Scatter Chart</h3>
+          </GridItem>
+          <GridItem gridAreaName="scatter-chart">
+              <StreamingScatterChart
+                  timeWindow={1000}
+                  seriesList={weights}
+                  plotHeight={500}
+                  plotWidth={900}
+              />
+          </GridItem>
+          <GridItem gridAreaName="raster-header">
+              <h3 style={{color: '#d2933f'}}>Streaming Raster Chart</h3>
+          </GridItem>
+          <GridItem gridAreaName="raster-chart">
+              <StreamingRasterChart
+                  timeWindow={1000}
+                  seriesList={spikes}
+                  seriesHeight={20}
+                  plotWidth={900}
+              />
+          </GridItem>
+      </Grid>
   );
 };
 
