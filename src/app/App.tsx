@@ -25,9 +25,9 @@ const App: React.FC = () => {
               .addTrack(withPixels(40))
               .build()}
           gridTemplateRows={gridTrackTemplateBuilder()
-              .addTrack(withPixels(40))
+              .addTrack(withPixels(50))
               .addTrack(withFraction(1))
-              .addTrack(withPixels(40))
+              .addTrack(withPixels(50))
               .addTrack(withFraction(1))
               .build()}
           gridTemplateAreas={gridTemplateAreasBuilder()

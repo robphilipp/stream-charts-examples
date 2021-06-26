@@ -1,5 +1,5 @@
 import {default as React, useRef, useState} from "react";
-import {Series, ScatterChart, ChartData, regexFilter} from "stream-charts";
+// import {Series, ScatterChart, ChartData, regexFilter} from "stream-charts";
 import {randomWeightDataObservable} from "./randomData";
 import {Observable, Subscription} from "rxjs";
 import Checkbox from "./Checkbox";
@@ -11,7 +11,10 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {RasterChart} from "../charts/RasterChart";
+import {Series} from "../charts/datumSeries";
+import { ChartData } from "../charts/chartData";
+import { regexFilter } from "../charts/regexFilter";
+import {ScatterChart} from "../charts/ScatterChart";
 
 interface Visibility {
     tooltip: boolean;
@@ -195,7 +198,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     // the `svgStyle` property allow you to set the svg container's style. for example, here the svg
                     // container has a relative width so that the chart width updates when the window is resized
                     svgStyle={{width: '100%'}}
-                />
+
+                    dropDataAfter={10000}/>
             </GridItem>
         </Grid>
     );

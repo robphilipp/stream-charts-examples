@@ -10,7 +10,7 @@ import { fromEvent, Observable, Subscription } from "rxjs";
 import { ChartData } from "./chartData";
 import { throttleTime, windowTime } from "rxjs/operators";
 import { defaultTrackerStyle, TrackerStyle } from "./TrackerStyle";
-import { grabWidth, initialSvgStyle, SvgStyle } from "./svgStyle";
+import {grabHeight, grabWidth, initialSvgStyle, SvgStyle} from "./svgStyle";
 
 const defaultMargin = { top: 30, right: 20, bottom: 30, left: 50 };
 const defaultSpikesStyle = {
@@ -76,7 +76,7 @@ type TextSelection = Selection<SVGTextElement, any, HTMLElement, any>;
 const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0;
 
 interface Props {
-    width?: number;
+    width: number;
     height: number;
     margin?: Partial<Margin>;
     spikesStyle?: Partial<{ margin: number, color: string, lineWidth: number, highlightColor: string, highlightWidth: number }>;
@@ -128,6 +128,7 @@ export function RasterChart(props: Props): JSX.Element {
         filter = /./,
         timeWindow,
         dropDataAfter = Infinity,
+        width,
         height,
         backgroundColor = '#202020',
     } = props;
@@ -149,16 +150,17 @@ export function RasterChart(props: Props): JSX.Element {
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
 
     // hold a reference to the current width and the plot dimensions
-    const width = useRef<number>(props.width || 500);
-    const plotDimRef = useRef<PlotDimensions>(adjustedDimensions(width.current, height, margin));
+    // const width = useRef<number>(props.width || 500)
+    // const height = useRef<number>(props.height || 300)
+    const plotDimRef = useRef<PlotDimensions>(adjustedDimensions(width, height, margin))
 
-    // resize event throttling
-    const resizeEventFlowRef = useRef<Observable<Event>>(
-        fromEvent(window, 'resize')
-            .pipe(
-                throttleTime(50)
-            )
-    );
+    // // resize event throttling
+    // const resizeEventFlowRef = useRef<Observable<Event>>(
+    //     fromEvent(window, 'resize')
+    //         .pipe(
+    //             throttleTime(50)
+    //         )
+    // );
 
     // the container that holds the d3 svg element
     const containerRef = useRef<SVGSVGElement>(null);
@@ -211,7 +213,7 @@ export function RasterChart(props: Props): JSX.Element {
         seriesRef.current = new Map<string, Series>(seriesList.map(series => [series.name, series]));
         currentTimeRef.current = 0;
         timeRangeRef.current = TimeRange(0, timeWindow);
-        updateDimensionsAndPlot();
+        updateDimensionsAndPlot(width, height);
     }
 
     // called on mount to set up the <g> element into which to render
@@ -220,14 +222,14 @@ export function RasterChart(props: Props): JSX.Element {
             if (containerRef.current) {
                 const svg = d3.select<SVGSVGElement, any>(containerRef.current);
                 axesRef.current = initializeAxes(svg, plotDimRef.current);
-                updateDimensionsAndPlot();
+                updateDimensionsAndPlot(width, height);
             }
 
-            // subscribe to the throttled resizing events using a consumer that updates the plot
-            const subscription = resizeEventFlowRef.current.subscribe(_ => updateDimensionsAndPlot());
-
-            // stop listening to resize events when this component unmounts
-            return () => subscription.unsubscribe();
+            // // subscribe to the throttled resizing events using a consumer that updates the plot
+            // const subscription = resizeEventFlowRef.current.subscribe(_ => updateDimensionsAndPlot());
+            //
+            // // stop listening to resize events when this component unmounts
+            // return () => subscription.unsubscribe();
         },
         // currentTimeRef, seriesRef, initializeAxes, onSubscribe, onUpdateData, etc are not included
         // in the dependency list because we only want this to run when the component mounts. The
@@ -237,6 +239,13 @@ export function RasterChart(props: Props): JSX.Element {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         []
     );
+
+    useEffect(
+        () => {
+            updateDimensionsAndPlot(width, height)
+        },
+        [height, width]
+    )
 
     // called on mount, dismount and when shouldSubscribe changes
     useEffect(
@@ -684,7 +693,7 @@ export function RasterChart(props: Props): JSX.Element {
      * @return {boolean} `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
      */
     function mouseInPlotArea(x: number, y: number): boolean {
-        return x > margin.left && x < width.current - margin.right &&
+        return x > margin.left && x < width - margin.right &&
             y > margin.top && y < height - margin.bottom;
     }
 
@@ -950,6 +959,7 @@ export function RasterChart(props: Props): JSX.Element {
                 ;
 
             // create or update the y-axis (user filters change the scale of the y-axis)
+            axesRef.current.lineHeight = (plotDimensions.height - margin.top) / liveDataRef.current.size;
             axesRef.current.yScale
                 .domain(filteredData.map(series => series.name))
                 .range([0, axesRef.current.lineHeight * filteredData.length]);
@@ -965,7 +975,7 @@ export function RasterChart(props: Props): JSX.Element {
             // once
             if (mainGRef.current === undefined) {
                 mainGRef.current = svg
-                    .attr('width', width.current)
+                    .attr('width', width)
                     .attr('height', height)
                     .attr('color', axisStyle.color)
                     .append<SVGGElement>('g')
@@ -995,7 +1005,7 @@ export function RasterChart(props: Props): JSX.Element {
             // set up for zooming
             const zoom = d3.zoom<SVGSVGElement, Datum>()
                 .scaleExtent([0, 10])
-                .translateExtent([[margin.left, margin.top], [width.current - margin.right, height - margin.bottom]])
+                .translateExtent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])
                 .on("zoom", () => onZoom(d3.event.transform, d3.event.sourceEvent.offsetX - margin.left, plotDimensions))
                 ;
 
@@ -1127,9 +1137,9 @@ export function RasterChart(props: Props): JSX.Element {
     /**
      * Updates the plot dimensions and then updates the plot
      */
-    function updateDimensionsAndPlot(): void {
-        width.current = grabWidth(containerRef.current);
-        plotDimRef.current = adjustedDimensions(width.current, height, margin);
+    function updateDimensionsAndPlot(width: number, height: number): void {
+        // width = grabWidth(containerRef.current);
+        plotDimRef.current = adjustedDimensions(width, height, margin);
         updatePlot(timeRangeRef.current, plotDimRef.current);
     }
 
