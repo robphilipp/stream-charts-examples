@@ -1,5 +1,5 @@
 import {Margin, PlotDimensions} from "./margins";
-import {RangeType} from "./timeRange";
+import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {AxisElementSelection, SvgSelection} from "./d3types";
 import {Axis, ScaleBand, ScaleLinear, ZoomTransform} from "d3";
@@ -33,10 +33,12 @@ export const defaultLineStyle: AxesLineStyle = {
     highlightWidth: 3
 }
 
+const noop = () => {/*empty*/}
 export interface LinearAxis {
     scale: ScaleLinear<number, number>
     selection: AxisElementSelection
     generator: Axis<number | { valueOf(): number }>
+    update: (domain: [startValue: number, endValue: number], plotDimensions: PlotDimensions, margin: Margin) => void
 }
 
 export interface CategoryAxis {
@@ -44,6 +46,7 @@ export interface CategoryAxis {
     selection: AxisElementSelection
     generator: Axis<string>
     categorySize: number
+    update: (categoryNames: Array<string>, unfilteredSize: number, plotDimensions: PlotDimensions, margin: Margin) => number
 }
 
 export enum AxisLocation {
@@ -106,7 +109,11 @@ function addLinearXAxis(
         .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${plotDimensions.height + margin.top + (margin.bottom / 3)})`)
         .text(axisLabel)
 
-    return {scale, selection, generator}
+    const axis = {scale, selection, generator, update: noop}
+    return {
+        ...axis,
+        update: (domain, plotDimensions, margin) => updateLinearXAxis(chartId, svg, axis, domain, plotDimensions, margin)
+    }
 }
 
 function addLinearYAxis(
@@ -141,7 +148,12 @@ function addLinearYAxis(
         .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom)/2}) rotate(-90)`)
         .text(axisLabel)
 
-    return {scale, selection, generator}
+    // return {scale, selection, generator}
+    const axis = {scale, selection, generator, update: noop}
+    return {
+        ...axis,
+        update: (domain, plotDimensions, margin) => updateLinearYAxis(chartId, svg, axis, domain, plotDimensions, margin, axesLabelFont)
+    }
 }
 
 export function addCategoryAxis(
@@ -175,10 +187,10 @@ function addCategoryYAxis(
     margin: Margin,
     axisLabel: string,
 ): CategoryAxis {
-    const lineHeight = (plotDimensions.height - margin.top) / categories.size;
+    const categorySize = (plotDimensions.height - margin.top) / categories.size;
     const scale = d3.scaleBand()
         .domain(Array.from(categories.keys()))
-        .range([0, lineHeight * categories.size]);
+        .range([0, categorySize * categories.size]);
 
     // create and add the axes
     const generator = d3.axisLeft(scale);
@@ -201,7 +213,72 @@ function addCategoryYAxis(
         .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom)/2}) rotate(-90)`)
         .text(axisLabel)
 
-    return {scale, selection, generator, categorySize: lineHeight}
+    const axis = {scale, selection, generator, categorySize, update: () => categorySize}
+
+    return {
+        ...axis,
+        update: (categoryNames, unfilteredSize, plotDimensions) => updateCategoryYAxis(chartId, svg, axis, plotDimensions, unfilteredSize, categoryNames, axesLabelFont, margin)
+    }
+
+    // return {scale, selection, generator, categorySize}
+}
+
+function updateLinearXAxis(
+    chartId: number,
+    svg: SvgSelection,
+    axis: LinearAxis,
+    domain: [startValue: number, endValue: number],
+    plotDimensions: PlotDimensions,
+    margin: Margin
+): void {
+    axis.scale.domain(domain).range([0, plotDimensions.width])
+
+    axis.selection
+        .attr('transform', `translate(${margin.left}, ${plotDimensions.height + margin.top - margin.bottom})`)
+        .call(axis.generator)
+    svg
+        .select(`#stream-chart-x-axis-label-${chartId}`)
+        .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${plotDimensions.height + margin.top + (margin.bottom / 3)})`)
+}
+
+function updateLinearYAxis(
+    chartId: number,
+    svg: SvgSelection,
+    axis: LinearAxis,
+    domain: [startValue: number, endValue: number],
+    plotDimensions: PlotDimensions,
+    margin: Margin,
+    axesLabelFont: AxesLabelFont,
+): void {
+    axis.scale.domain(domain).range([plotDimensions.height - margin.bottom, 0])
+    axis.selection.call(axis.generator)
+
+    svg
+        .select(`#stream-chart-y-axis-label-${chartId}`)
+        .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom)/2}) rotate(-90)`)
+}
+
+function updateCategoryYAxis(
+    chartId: number,
+    svg: SvgSelection,
+    axis: CategoryAxis,
+    plotDimensions: PlotDimensions,
+    unfilteredSize: number,
+    names: Array<string>,
+    axesLabelFont: AxesLabelFont,
+    margin: Margin,
+): number {
+    const categorySize = (plotDimensions.height - margin.top) / unfilteredSize
+    axis.scale
+        .domain(names)
+        .range([0, categorySize * names.length])
+    axis.selection.call(axis.generator)
+
+    svg
+        .select(`#stream-chart-y-axis-label-${chartId}`)
+        .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom)/2}) rotate(-90)`)
+
+    return categorySize
 }
 
 export function addClipArea(
@@ -220,8 +297,10 @@ export function addClipArea(
         .attr("height", plotDimensions.height - margin.top)
 }
 
+
+
 export interface ZoomResult {
-    range: RangeType
+    range: ContinuousAxisRange
     zoomFactor: number
 }
 /**
@@ -239,12 +318,33 @@ export function calculateZoomFor(
     x: number,
     plotDimensions: PlotDimensions,
     axis: LinearAxis,
-    range: RangeType,
+    range: ContinuousAxisRange,
 ): ZoomResult {
     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
     return {
         range: range.scale(transform.k, time),
         zoomFactor: transform.k
     } ;
-    // updatePlot(timeRangeRef.current, plotDimensions);
 }
+
+/**
+ * Adjusts the range and updates the plot when the plot is dragged to the left or right
+ * @param deltaX The amount that the plot is dragged
+ * @param plotDimensions The dimensions of the plot
+ * @param axis The axis being zoomed
+ * @param range The current range for the axis being zoomed
+ * @return The updated range
+ */
+export function calculatePanFor(
+    deltaX: number,
+    plotDimensions: PlotDimensions,
+    axis: LinearAxis,
+    range: ContinuousAxisRange,
+): ContinuousAxisRange {
+    const scale = axis.generator.scale<ScaleLinear<number, number>>()
+    const currentTime = range.start
+    const x = scale(currentTime)
+    const deltaTime = scale.invert(x + deltaX) - currentTime
+    return range.translate(-deltaTime)
+}
+

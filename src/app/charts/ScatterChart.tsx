@@ -4,7 +4,7 @@ import * as d3 from "d3"
 import {Axis, ScaleLinear, Selection, ZoomTransform} from "d3"
 import {adjustedDimensions, Margin, PlotDimensions} from "./margins"
 import {Datum, emptySeries, Series} from "./datumSeries"
-import {TimeRange, RangeType} from "./timeRange"
+import {continuousAxisRangeFor, ContinuousAxisRange} from "./continuousAxisRangeFor"
 import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle"
 import {Observable, Subscription} from "rxjs"
 import {ChartData} from "./chartData"
@@ -16,7 +16,7 @@ import {
     addLinearAxis,
     AxesLabelFont,
     AxesLineStyle,
-    AxisLocation, calculateZoomFor,
+    AxisLocation, calculatePanFor, calculateZoomFor,
     defaultAxesLabelFont,
     defaultLineStyle, LinearAxis
 } from "./axes";
@@ -116,7 +116,7 @@ interface Props {
  * `shouldSubscribe` property by setting it to `false`, and then some time later setting it to `true`.
  * Once the observable starts sourcing a sequence of {@link ChartData}, for performance, this chart updates
  * itself without invoking React's re-render.
- * @param {Props} props The properties from the parent
+ * @param props The properties from the parent
  * @return {JSX.Element} The scatter chart
  * @constructor
  */
@@ -195,7 +195,7 @@ export function ScatterChart(props: Props): JSX.Element {
     const tooltipRef = useRef<TooltipStyle>(tooltip)
 
     // calculates to the time-range based on the (min, max)-time from the props
-    const timeRangeRef = useRef<RangeType>(TimeRange(0, timeWindow))
+    const timeRangeRef = useRef<ContinuousAxisRange>(continuousAxisRangeFor(0, timeWindow))
 
     const seriesFilterRef = useRef<RegExp>(filter)
 
@@ -280,7 +280,7 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Calculates the min and max values for the specified array of time-series
-     * @param {Array<TimeSeries>} data The array of time-series
+     * @param data The array of time-series
      * @return {[number, number]} A pair with the min value as the first element and the max
      * value as the second element.
      */
@@ -305,7 +305,7 @@ export function ScatterChart(props: Props): JSX.Element {
     function initializeAxes(
         svg: SvgSelection,
         plotDimensions: PlotDimensions,
-        timeRange: RangeType,
+        timeRange: ContinuousAxisRange,
         axesLabelFont: AxesLabelFont,
         margin: Margin,
     ): Axes {
@@ -318,9 +318,9 @@ export function ScatterChart(props: Props): JSX.Element {
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param {ZoomTransform} transform The d3 zoom transformation information
-     * @param {number} x The x-position of the mouse when the scroll wheel or gesture is used
-     * @param {PlotDimensions} plotDimensions The dimensions of the plot
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
      */
     function onZoom(transform: ZoomTransform, x: number, plotDimensions: PlotDimensions): void {
         // only zoom if the mouse is in the plot area
@@ -334,16 +334,14 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param {number} deltaX The amount that the plot is dragged
-     * @param {PlotDimensions} plotDimensions The dimensions of the plot
+     * @param deltaX The amount that the plot is dragged
+     * @param plotDimensions The dimensions of the plot
      */
     function onPan(deltaX: number, plotDimensions: PlotDimensions): void {
-        const scale = axesRef.current!.xAxis.generator.scale<ScaleLinear<number, number>>()
-        const currentTime = timeRangeRef!.current.start
-        const x = scale(currentTime)
-        const deltaTime = scale.invert(x + deltaX) - currentTime
-        timeRangeRef.current = timeRangeRef.current!.translate(-deltaTime)
-        updatePlot(timeRangeRef.current, plotDimensions)
+        if (axesRef.current !== undefined) {
+            timeRangeRef.current = calculatePanFor(deltaX, plotDimensions, axesRef.current.xAxis, timeRangeRef.current)
+            updatePlot(timeRangeRef.current, plotDimensions)
+        }
     }
 
     /**
@@ -351,10 +349,10 @@ export function ScatterChart(props: Props): JSX.Element {
      * time. If the specified time is larger than any time in the specified data, the returns
      * the length of the data array. If the specified time is smaller than all the values in
      * the specified array, then returns -1.
-     * @param {TimeSeries} data The array of points from which to select the
+     * @param data The array of points from which to select the
      * boundary.
-     * @param {number} time The time for which to find the bounding points
-     * @return {number} The index of the upper boundary.
+     * @param time The time for which to find the bounding points
+     * @return The index of the upper boundary.
      */
     function boundingPointsIndex(data: TimeSeries, time: number): number {
         const length = data.length
@@ -372,8 +370,8 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Returns the (time, value) point that comes just before the mouse and just after the mouse
-     * @param {TimeSeries} data The time-series data
-     * @param {number} time The time represented by the mouse's x-coordinate
+     * @param data The time-series data
+     * @param time The time represented by the mouse's x-coordinate
      * @return {[[number, number], [number, number]]} the (time, value) point that comes just before
      * the mouse and just after the mouse. If the mouse is after the last point, then the "after" point
      * is `[NaN, NaN]`. If the mouse is before the first point, then the "before" point is `[NaN, NaN]`.
@@ -391,9 +389,9 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
-     * @param {Datum} datum The spike datum (t ms, s mV)
-     * @param {string} seriesName The name of the series (i.e. the neuron ID)
-     * @param {SVGPathElement} segment The SVG line element representing the spike, over which the mouse is hovering.
+     * @param datum The spike datum (t ms, s mV)
+     * @param seriesName The name of the series (i.e. the neuron ID)
+     * @param segment The SVG line element representing the spike, over which the mouse is hovering.
      */
     function handleShowTooltip(datum: TimeSeries, seriesName: string, segment: SVGPathElement): void {
         if (!(tooltipRef.current.visible || magnifier.visible) || !containerRef.current || !axesRef.current) {
@@ -536,10 +534,10 @@ export function ScatterChart(props: Props): JSX.Element {
     /**
      * Calculates the x-coordinate of the lower left-hand side of the tooltip rectangle (obviously without
      * "rounded corners"). Adjusts the x-coordinate so that tooltip is visible on the edges of the plot.
-     * @param {number} x The current x-coordinate of the mouse
-     * @param {number} textWidth The width of the tooltip text
-     * @param {PlotDimensions} plotDimensions The dimensions of the plot
-     * @return {number} The x-coordinate of the lower left-hand side of the tooltip rectangle
+     * @param x The current x-coordinate of the mouse
+     * @param textWidth The width of the tooltip text
+     * @param plotDimensions The dimensions of the plot
+     * @return The x-coordinate of the lower left-hand side of the tooltip rectangle
      */
     function tooltipX(x: number, textWidth: number, plotDimensions: PlotDimensions): number {
         if (x + textWidth + tooltip.paddingLeft + 10 > plotDimensions.width + margin.left) {
@@ -551,10 +549,10 @@ export function ScatterChart(props: Props): JSX.Element {
     /**
      * Calculates the y-coordinate of the lower-left-hand corner of the tooltip rectangle. Adjusts the y-coordinate
      * so that the tooltip is visible on the upper edge of the plot
-     * @param {number} y The y-coordinate of the series
-     * @param {number} textHeight The height of the header and neuron ID text
-     * @param {PlotDimensions} plotDimensions The dimensions of the plot
-     * @return {number} The y-coordinate of the lower-left-hand corner of the tooltip rectangle
+     * @param y The y-coordinate of the series
+     * @param textHeight The height of the header and neuron ID text
+     * @param plotDimensions The dimensions of the plot
+     * @return The y-coordinate of the lower-left-hand corner of the tooltip rectangle
      */
     function tooltipY(y: number, textHeight: number, plotDimensions: PlotDimensions): number {
         return y + margin.top - tooltip.paddingBottom - textHeight - tooltip.paddingTop
@@ -562,8 +560,8 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Removes the tooltip when the mouse has moved away from the spike
-     * @param {SVGPathElement} [segment] The SVG line element representing the spike, over which the mouse is hovering.
-     * @param {string} [seriesName] The optional name of the series
+     * @param [segment] The SVG line element representing the spike, over which the mouse is hovering.
+     * @param [seriesName] The optional name of the series
      */
     function handleHideTooltip(segment?: SVGPathElement, seriesName?: string) {
         if (segment && seriesName) {
@@ -578,7 +576,7 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Callback when the mouse tracker is to be shown
-     * @param {Selection<SVGLineElement, Datum, null, undefined> | undefined} path
+     * @param path
      */
     function handleShowTracker(path: Selection<SVGLineElement, Datum, null, undefined> | undefined) {
         if (containerRef.current && path) {
@@ -601,7 +599,7 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Called when the magnifier is enabled to set up the vertical bar magnifier lens
-     * @param {SvgSelection | undefined} svg The path selection
+     * @param svg The path selection
      * holding the magnifier whose properties need to be updated.
      */
     function handleShowMagnify(svg: SvgSelection | undefined) {
@@ -611,10 +609,10 @@ export function ScatterChart(props: Props): JSX.Element {
         /**
          * Determines whether specified datum is in the time interval centered around the current
          * mouse position
-         * @param {[number, number]} datum The datum represented in x-coordinates (i.e. screen rather than time)
-         * @param {[number, number]} mouse The (x, y)-coordinate of the current mouse position
-         * @param {number} radius The pixel interval for which transformations are applied
-         * @return {boolean} `true` if the datum is in the interval; `false` otherwise
+         * @param datum The datum represented in x-coordinates (i.e. screen rather than time)
+         * @param mouse The (x, y)-coordinate of the current mouse position
+         * @param radius The pixel interval for which transformations are applied
+         * @return `true` if the datum is in the interval; `false` otherwise
          */
         function inMagnifier(datum: [number, number], mouse: [number, number], radius: number): boolean {
             const dx = mouse[0] - datum[0]
@@ -624,13 +622,13 @@ export function ScatterChart(props: Props): JSX.Element {
 
         /**
          *
-         * @param {[number, number]} datum The (time, value) pair
-         * @param {[number, number]} mouse The mouse cursor position
-         * @param {number} radius The extent of the magnifier lens
-         * @param {RadialMagnifier} magnifier The bar magnifier function
-         * @param {ScaleLinear<number, number>} xScale The xScale to convert from data coordinates to screen coordinates
-         * @param {ScaleLinear<number, number>} yScale The xScale to convert from data coordinates to screen coordinates
-         * @return {Array<MagnifiedData>} The transformed paths
+         * @param datum The (time, value) pair
+         * @param mouse The mouse cursor position
+         * @param radius The extent of the magnifier lens
+         * @param magnifier The bar magnifier function
+         * @param xScale The xScale to convert from data coordinates to screen coordinates
+         * @param yScale The xScale to convert from data coordinates to screen coordinates
+         * @return The transformed paths
          */
         function magnify(datum: [number, number],
                          mouse: [number, number],
@@ -748,9 +746,9 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Calculates whether the mouse is in the plot-area
-     * @param {number} x The x-coordinate of the mouse's position
-     * @param {number} y The y-coordinate of the mouse's position
-     * @return {boolean} `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
+     * @param x The x-coordinate of the mouse's position
+     * @param y The y-coordinate of the mouse's position
+     * @return `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
      */
     function mouseInPlotArea(x: number, y: number): boolean {
         return x > margin.left && x < width - margin.right && y > margin.top && y < height - margin.bottom
@@ -758,8 +756,8 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Creates the SVG elements for displaying a radial magnifier lens on the data
-     * @param {SvgSelection} svg The SVG selection
-     * @param {boolean} visible `true` if the lens is visible; `false` otherwise
+     * @param svg The SVG selection
+     * @param visible `true` if the lens is visible; `false` otherwise
      * @return {MagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
      */
     function magnifierLens(svg: SvgSelection, visible: boolean): MagnifierSelection | undefined {
@@ -839,8 +837,8 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Creates a magnifier lens axis svg node and appends it to the specified svg selection
-     * @param {string} className The class name of the svg line line
-     * @param {SvgSelection} svg The svg selection to which to add the axis line
+     * @param className The class name of the svg line line
+     * @param svg The svg selection to which to add the axis line
      */
     function createMagnifierLensAxisLine(className: string, svg: SvgSelection): void {
         svg
@@ -853,11 +851,11 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Creates the svg node for a magnifier lens axis (either x or y) ticks and binds the ticks to the nodes
-     * @param {string} className The node's class name for selection
-     * @param {Array<number>} ticks The ticks represented as an array of integers. An integer of 0 places the
+     * @param className The node's class name for selection
+     * @param ticks The ticks represented as an array of integers. An integer of 0 places the
      * tick on the center of the lens. An integer of ± array_length / 2 - 1 places the tick on the lens boundary.
-     * @param {GSelection} selection The svg g node holding these axis ticks
-     * @return {LineSelection} A line selection these ticks
+     * @param selection The svg g node holding these axis ticks
+     * @return A line selection these ticks
      */
     function magnifierLensAxisTicks(className: string, ticks: Array<number>, selection: GSelection): LineSelection {
         return selection
@@ -875,9 +873,9 @@ export function ScatterChart(props: Props): JSX.Element {
     /**
      * Creates the svg text nodes for the magnifier lens axis (either x or y) tick labels and binds the text nodes
      * to the tick data.
-     * @param {Array<number>} ticks An array of indexes defining where the ticks are to be place. The indexes refer
+     * @param ticks An array of indexes defining where the ticks are to be place. The indexes refer
      * to the ticks handed to the `magnifierLensAxis` and have the same meaning visa-vie their locations
-     * @param {GSelection} selection The selection of the svg g node holding the axis ticks and these labels
+     * @param selection The selection of the svg g node holding the axis ticks and these labels
      * @return {Selection<SVGTextElement, number, SVGGElement, any>} The selection of these tick labels
      */
     function magnifierLensAxisLabels(ticks: Array<number>, selection: GSelection): Selection<SVGTextElement, number, SVGGElement, any> {
@@ -896,8 +894,8 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Creates the SVG elements for displaying a tracker line
-     * @param {SvgSelection} svg The SVG selection
-     * @param {boolean} visible `true` if the tracker is visible; `false` otherwise
+     * @param svg The SVG selection
+     * @param visible `true` if the tracker is visible; `false` otherwise
      * @return {TrackerSelection | undefined} The tracker selection if visible; otherwise undefined
      */
     function trackerControl(svg: SvgSelection, visible: boolean): TrackerSelection | undefined {
@@ -940,11 +938,10 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Updates the plot data for the specified time-range, which may have changed due to zoom or pan
-     * @param {TimeRange} timeRange The current time range
-     * @param {PlotDimensions} plotDimensions The dimensions of the plot
+     * @param timeRange The current time range
+     * @param plotDimensions The dimensions of the plot
      */
-    function updatePlot(timeRange: RangeType, plotDimensions: PlotDimensions): void {
-        // tooltipRef.current = tooltip
+    function updatePlot(timeRange: ContinuousAxisRange, plotDimensions: PlotDimensions): void {
         timeRangeRef.current = timeRange
 
         if (containerRef.current && axesRef.current) {
@@ -962,24 +959,9 @@ export function ScatterChart(props: Props): JSX.Element {
             minValueRef.current = minValue
             maxValueRef.current = maxValue
 
-            // create the x-axis
-            axesRef.current?.xAxis.scale
-                .domain([timeRangeRef.current.start, timeRangeRef.current.end])
-                .range([0, plotDimensions.width])
-
-            axesRef.current.xAxis.selection
-                .attr('transform', `translate(${margin.left}, ${plotDimensions.height + margin.top - margin.bottom})`)
-                .call(axesRef.current.xAxis.generator)
-
-            svg
-                .select(`#scatter-chart-x-axis-label-${chartId.current}`)
-                .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${plotDimensions.height + margin.top + (margin.bottom / 3)})`)
-
-            // create the y-axis
-            axesRef.current.yAxis.scale
-                .domain([Math.max(minY, minValue), Math.min(maxY, maxValue)])
-                .range([plotDimensions.height - margin.bottom, 0])
-            axesRef.current.yAxis.selection.call(axesRef.current.yAxis.generator)
+            // update the x and y axes
+            axesRef.current.xAxis.update([timeRangeRef.current.start, timeRangeRef.current.end], plotDimensions, margin)
+            axesRef.current.yAxis.update([Math.max(minY, minValue), Math.min(maxY, maxValue)], plotDimensions, margin)
 
             // create/update the magnifier lens if needed
             magnifierRef.current = magnifierLens(svg, magnifier.visible)
@@ -1086,8 +1068,8 @@ export function ScatterChart(props: Props): JSX.Element {
     /**
      * Returns the data in the time-range and the datum that comes just before the start of the time range.
      * The point before the time range is so that the line draws up to the y-axis, where it is clipped.
-     * @param {Series} series The series
-     * @return {TimeSeries} An array of (time, value) points that fit within the time range,
+     * @param series The series
+     * @return An array of (time, value) points that fit within the time range,
      * and the point just before the time range.
      */
     function selectInTimeRange(series: Series): TimeSeries {
@@ -1107,7 +1089,7 @@ export function ScatterChart(props: Props): JSX.Element {
      * Subscribes to the observable that streams chart events and hands the subscription a consumer
      * that updates the charts as events enter. Also hands the subscription back to the parent
      * component using the registered {@link onSubscribe} callback method from the properties.
-     * @return {Subscription} The subscription (disposable) for cancelling
+     * @return The subscription (disposable) for cancelling
      */
     function subscribe(): Subscription {
         const subscription = seriesObservable
@@ -1137,7 +1119,7 @@ export function ScatterChart(props: Props): JSX.Element {
                     // update the data
                     // liveDataRef.current = Array.from(seriesRef.current.values())
                     liveDataRef.current = seriesRef.current
-                    timeRangeRef.current = TimeRange(
+                    timeRangeRef.current = continuousAxisRangeFor(
                         Math.max(0, currentTimeRef.current - timeWindow),
                         Math.max(currentTimeRef.current, timeWindow)
                     )
@@ -1178,9 +1160,9 @@ export function ScatterChart(props: Props): JSX.Element {
 /**
  * Constructs a spectrum of colors, one for each time-series, starting with the `startColor` and interpolating
  * to the `stopColor`.
- * @param {Array<Series>} series The array holding the time-series
- * @param {string} startColor The "start" color for the interpolation
- * @param {string} stopColor The "stop" color for the interpolation
+ * @param series The array holding the time-series
+ * @param startColor The "start" color for the interpolation
+ * @param stopColor The "stop" color for the interpolation
  * @return {Map<string, string>} A map of the series name and associated colors
  */
 export function seriesColorsFor(series: Array<Series>, startColor: string, stopColor: string): Map<string, string> {
