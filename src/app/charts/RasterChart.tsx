@@ -1,16 +1,17 @@
-import { default as React, useEffect, useRef } from "react";
+import {default as React, useEffect, useMemo, useRef} from "react";
 import * as d3 from "d3";
-import { Axis, ScaleBand, ScaleLinear, Selection, ZoomTransform } from "d3";
-import { BarMagnifier, barMagnifierWith, LensTransformation } from "./barMagnifier";
-import { TimeRange, TimeRangeType } from "./timeRange";
-import { adjustedDimensions, Margin, PlotDimensions } from "./margins";
-import { Datum, emptySeries, PixelDatum, Series } from "./datumSeries";
-import { defaultTooltipStyle, TooltipStyle } from "./TooltipStyle";
-import { fromEvent, Observable, Subscription } from "rxjs";
-import { ChartData } from "./chartData";
-import { throttleTime, windowTime } from "rxjs/operators";
-import { defaultTrackerStyle, TrackerStyle } from "./TrackerStyle";
-import {grabHeight, grabWidth, initialSvgStyle, SvgStyle} from "./svgStyle";
+import {Axis, ScaleBand, ScaleLinear, Selection, ZoomTransform} from "d3";
+import {BarMagnifier, barMagnifierWith, LensTransformation} from "./barMagnifier";
+import {TimeRange, TimeRangeType} from "./timeRange";
+import {adjustedDimensions, Margin, PlotDimensions} from "./margins";
+import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
+import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
+import {Observable, Subscription} from "rxjs";
+import {ChartData} from "./chartData";
+import {windowTime} from "rxjs/operators";
+import {defaultTrackerStyle, TrackerStyle} from "./TrackerStyle";
+import {initialSvgStyle, SvgStyle} from "./svgStyle";
+import {addCategoryAxis, addLinearAxis, AxesLabelFont, AxisLocation, defaultAxesLabelFont} from "./axes";
 
 const defaultMargin = { top: 30, right: 20, bottom: 30, left: 50 };
 const defaultSpikesStyle = {
@@ -21,12 +22,6 @@ const defaultSpikesStyle = {
     highlightWidth: 4
 };
 const defaultAxesStyle = { color: '#d2933f' };
-const defaultAxesLabelFont = {
-    size: 12,
-    color: '#d2933f',
-    weight: 300,
-    family: 'sans-serif'
-};
 const defaultPlotGridLines = { visible: true, color: 'rgba(210,147,63,0.30)' };
 
 /**
@@ -80,7 +75,7 @@ interface Props {
     height: number;
     margin?: Partial<Margin>;
     spikesStyle?: Partial<{ margin: number, color: string, lineWidth: number, highlightColor: string, highlightWidth: number }>;
-    axisLabelFont?: Partial<{ size: number, color: string, family: string, weight: number }>;
+    axisLabelFont?: Partial<AxesLabelFont>;
     axisStyle?: Partial<{ color: string }>;
     backgroundColor?: string;
     plotGridLines?: Partial<{ visible: boolean, color: string }>;
@@ -139,7 +134,7 @@ export function RasterChart(props: Props): JSX.Element {
     const axisStyle = { ...defaultAxesStyle, ...props.axisStyle };
     const axisLabelFont = { ...defaultAxesLabelFont, ...props.axisLabelFont };
     const plotGridLines = { ...defaultPlotGridLines, ...props.plotGridLines };
-    const tooltip: TooltipStyle = { ...defaultTooltipStyle, ...props.tooltip };
+    const tooltip = useMemo<TooltipStyle>(() => ({ ...defaultTooltipStyle, ...props.tooltip }), [props.tooltip]);
     const magnifier = { ...defaultLineMagnifierStyle, ...props.magnifier };
     const tracker = { ...defaultTrackerStyle, ...props.tracker };
     const svgStyle = props.width ?
@@ -150,17 +145,7 @@ export function RasterChart(props: Props): JSX.Element {
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
 
     // hold a reference to the current width and the plot dimensions
-    // const width = useRef<number>(props.width || 500)
-    // const height = useRef<number>(props.height || 300)
     const plotDimRef = useRef<PlotDimensions>(adjustedDimensions(width, height, margin))
-
-    // // resize event throttling
-    // const resizeEventFlowRef = useRef<Observable<Event>>(
-    //     fromEvent(window, 'resize')
-    //         .pipe(
-    //             throttleTime(50)
-    //         )
-    // );
 
     // the container that holds the d3 svg element
     const containerRef = useRef<SVGSVGElement>(null);
@@ -221,7 +206,7 @@ export function RasterChart(props: Props): JSX.Element {
         () => {
             if (containerRef.current) {
                 const svg = d3.select<SVGSVGElement, any>(containerRef.current);
-                axesRef.current = initializeAxes(svg, plotDimRef.current);
+                axesRef.current = initializeAxes(svg, plotDimRef.current, timeRangeRef.current, liveDataRef.current, axisLabelFont, margin);
                 updateDimensionsAndPlot(width, height);
             }
 
@@ -322,65 +307,27 @@ export function RasterChart(props: Props): JSX.Element {
 
     /**
      * Initializes the axes
-     * @param {SvgSelection} svg The main svg element
-     * @param {PlotDimensions} plotDimensions The dimensions of the plot
-     * @return {Axes} The axes generators, selections, scales, and spike line height
+     * @param svg The main svg element
+     * @param plotDimensions The dimensions of the plot
+     * @param timeRange The current time-range of the plot
+     * @param axesLabelFont The font style for the axes labels
+     * @param margin The plot margins
+     * @return The axes generators, selections, scales, and spike line height
      */
-    function initializeAxes(svg: SvgSelection, plotDimensions: PlotDimensions): Axes {
-        // calculate the mapping between the times in the data (domain) and the display
-        // location on the screen (range)
-        const xScale = d3.scaleLinear()
-            .domain([timeRangeRef.current.start, timeRangeRef.current.end])
-            .range([0, plotDimensions.width]);
-
-        const lineHeight = (plotDimensions.height - margin.top) / liveDataRef.current.size;
-        const yScale = d3.scaleBand()
-            .domain(Array.from(liveDataRef.current.keys()))
-            .range([0, lineHeight * liveDataRef.current.size]);
-
-        // create and add the axes
-        const xAxisGenerator = d3.axisBottom(xScale);
-        const yAxisGenerator = d3.axisLeft(yScale);
-        const xAxisSelection = svg
-            .append<SVGGElement>('g')
-            .attr('id', `x-axis-selection-${chartId.current}`)
-            .attr('class', 'x-axis')
-            .attr('transform', `translate(${margin.left}, ${lineHeight * liveDataRef.current.size + margin.top})`)
-            .call(xAxisGenerator);
-
-        const yAxisSelection = svg
-            .append<SVGGElement>('g')
-            .attr('id', `y-axis-selection-${chartId.current}`)
-            .attr('class', 'y-axis')
-            .attr('transform', `translate(${margin.left}, ${margin.top})`)
-            .call(yAxisGenerator);
-
-        svg
-            .append<SVGTextElement>('text')
-            .attr('id', `raster-chart-x-axis-label-${chartId.current}`)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', axisLabelFont.size)
-            .attr('fill', axisLabelFont.color)
-            .attr('font-family', axisLabelFont.family)
-            .attr('font-weight', axisLabelFont.weight)
-            .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${lineHeight + 2 * margin.top + (margin.bottom / 3)})`)
-            .text("t (ms)");
-
-        // create the clipping region so that the lines are clipped at the y-axis
-        svg
-            .append("defs")
-            .append("clipPath")
-            .attr("id", `clip-spikes-${chartId.current}`)
-            .append("rect")
-            .attr("width", plotDimensions.width)
-            .attr("height", plotDimensions.height - margin.top)
-            ;
+    function initializeAxes(
+        svg: SvgSelection,
+        plotDimensions: PlotDimensions,
+        timeRange: TimeRangeType,
+        categories: Map<string, Series>,
+        axesLabelFont: AxesLabelFont,
+        margin: Margin,
+    ): Axes {
+        const xAxis = addLinearAxis(2, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
+        const yAxis = addCategoryAxis(2, svg, AxisLocation.Left, plotDimensions, categories, axesLabelFont, margin, "Neuron")
 
         return {
-            xAxisGenerator, yAxisGenerator,
-            xAxisSelection, yAxisSelection,
-            xScale, yScale,
-            lineHeight
+            xScale: xAxis.scale, xAxisSelection: xAxis.selection, xAxisGenerator: xAxis.generator,
+            yScale: yAxis.scale, yAxisSelection: yAxis.selection, yAxisGenerator: yAxis.generator, lineHeight: yAxis.categorySize
         }
     }
 
