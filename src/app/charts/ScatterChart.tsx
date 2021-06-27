@@ -4,7 +4,7 @@ import * as d3 from "d3"
 import {Axis, ScaleLinear, Selection, ZoomTransform} from "d3"
 import {adjustedDimensions, Margin, PlotDimensions} from "./margins"
 import {Datum, emptySeries, Series} from "./datumSeries"
-import {TimeRange, TimeRangeType} from "./timeRange"
+import {TimeRange, RangeType} from "./timeRange"
 import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle"
 import {Observable, Subscription} from "rxjs"
 import {ChartData} from "./chartData"
@@ -16,9 +16,9 @@ import {
     addLinearAxis,
     AxesLabelFont,
     AxesLineStyle,
-    AxisLocation,
+    AxisLocation, calculateZoomFor,
     defaultAxesLabelFont,
-    defaultLineStyle
+    defaultLineStyle, LinearAxis
 } from "./axes";
 import {AxisElementSelection, GSelection, LineSelection, SvgSelection, TextSelection} from "./d3types";
 
@@ -34,12 +34,14 @@ type TimeSeries = Array<[number, number]>
 const textWidthOf = (elem: Selection<SVGTextElement, any, HTMLElement, any>) => elem.node()?.getBBox()?.width || 0
 
 interface Axes {
-    xAxisGenerator: Axis<number | { valueOf(): number }>
-    yAxisGenerator: Axis<number | { valueOf(): number }>
-    xAxisSelection: AxisElementSelection
-    yAxisSelection: AxisElementSelection
-    xScale: ScaleLinear<number, number>
-    yScale: ScaleLinear<number, number>
+    xAxis: LinearAxis
+    yAxis: LinearAxis
+    // xAxisGenerator: Axis<number | { valueOf(): number }>
+    // yAxisGenerator: Axis<number | { valueOf(): number }>
+    // xAxisSelection: AxisElementSelection
+    // yAxisSelection: AxisElementSelection
+    // xScale: ScaleLinear<number, number>
+    // yScale: ScaleLinear<number, number>
 }
 
 /**
@@ -193,7 +195,7 @@ export function ScatterChart(props: Props): JSX.Element {
     const tooltipRef = useRef<TooltipStyle>(tooltip)
 
     // calculates to the time-range based on the (min, max)-time from the props
-    const timeRangeRef = useRef<TimeRangeType>(TimeRange(0, timeWindow))
+    const timeRangeRef = useRef<RangeType>(TimeRange(0, timeWindow))
 
     const seriesFilterRef = useRef<RegExp>(filter)
 
@@ -303,17 +305,14 @@ export function ScatterChart(props: Props): JSX.Element {
     function initializeAxes(
         svg: SvgSelection,
         plotDimensions: PlotDimensions,
-        timeRange: TimeRangeType,
+        timeRange: RangeType,
         axesLabelFont: AxesLabelFont,
         margin: Margin,
     ): Axes {
         const xAxis = addLinearAxis(1, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
         const yAxis = addLinearAxis(1, svg, AxisLocation.Left, plotDimensions, [minY, maxY], axesLabelFont, margin, "Weight")
 
-        return {
-            xScale: xAxis.scale, xAxisSelection: xAxis.selection, xAxisGenerator: xAxis.generator,
-            yScale: yAxis.scale, yAxisSelection: yAxis.selection, yAxisGenerator: yAxis.generator,
-        }
+        return {xAxis, yAxis}
     }
 
     /**
@@ -325,10 +324,10 @@ export function ScatterChart(props: Props): JSX.Element {
      */
     function onZoom(transform: ZoomTransform, x: number, plotDimensions: PlotDimensions): void {
         // only zoom if the mouse is in the plot area
-        if (x > 0 && x < width - margin.right) {
-            const time = axesRef.current!.xAxisGenerator.scale<ScaleLinear<number, number>>().invert(x)
-            timeRangeRef.current = timeRangeRef.current!.scale(transform.k, time)
-            zoomFactorRef.current = transform.k
+        if (x > 0 && x < width - margin.right && axesRef.current !== undefined) {
+            const {range, zoomFactor} = calculateZoomFor(transform, x, plotDimensions, axesRef.current.xAxis, timeRangeRef.current)
+            timeRangeRef.current = range
+            zoomFactorRef.current = zoomFactor
             updatePlot(timeRangeRef.current, plotDimensions)
         }
     }
@@ -339,7 +338,7 @@ export function ScatterChart(props: Props): JSX.Element {
      * @param {PlotDimensions} plotDimensions The dimensions of the plot
      */
     function onPan(deltaX: number, plotDimensions: PlotDimensions): void {
-        const scale = axesRef.current!.xAxisGenerator.scale<ScaleLinear<number, number>>()
+        const scale = axesRef.current!.xAxis.generator.scale<ScaleLinear<number, number>>()
         const currentTime = timeRangeRef!.current.start
         const x = scale(currentTime)
         const deltaTime = scale.invert(x + deltaX) - currentTime
@@ -402,7 +401,7 @@ export function ScatterChart(props: Props): JSX.Element {
         }
 
         const [x, y] = d3.mouse(containerRef.current)
-        const time = Math.round(axesRef.current.xScale.invert(x - margin.left))
+        const time = Math.round(axesRef.current?.xAxis.scale.invert(x - margin.left))
         const [lower, upper] = boundingPoints(datum, time)
 
         // Use D3 to select element, change color and size
@@ -592,7 +591,7 @@ export function ScatterChart(props: Props): JSX.Element {
 
             const label = d3.select<SVGTextElement, any>(`#scatter-chart-tracker-time-${chartId.current}`)
                 .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
-                .text(() => `${d3.format(",.0f")(axesRef.current!.xScale.invert(x - margin.left))} ms`)
+                .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
 
 
             const labelWidth = textWidthOf(label)
@@ -659,8 +658,8 @@ export function ScatterChart(props: Props): JSX.Element {
                 .attr('opacity', () => isMouseInPlotArea ? 1 : 0)
             
 
-            const xScale = axesRef.current!.xAxisGenerator.scale<ScaleLinear<number, number>>()
-            const yScale = axesRef.current!.yAxisGenerator.scale<ScaleLinear<number, number>>()
+            const xScale = axesRef.current!.xAxis.generator.scale<ScaleLinear<number, number>>()
+            const yScale = axesRef.current!.yAxis.generator.scale<ScaleLinear<number, number>>()
 
             if (isMouseInPlotArea) {
                 const radialMagnifier: RadialMagnifier = radialMagnifierWith(
@@ -944,7 +943,7 @@ export function ScatterChart(props: Props): JSX.Element {
      * @param {TimeRange} timeRange The current time range
      * @param {PlotDimensions} plotDimensions The dimensions of the plot
      */
-    function updatePlot(timeRange: TimeRangeType, plotDimensions: PlotDimensions): void {
+    function updatePlot(timeRange: RangeType, plotDimensions: PlotDimensions): void {
         // tooltipRef.current = tooltip
         timeRangeRef.current = timeRange
 
@@ -964,23 +963,23 @@ export function ScatterChart(props: Props): JSX.Element {
             maxValueRef.current = maxValue
 
             // create the x-axis
-            axesRef.current.xScale
+            axesRef.current?.xAxis.scale
                 .domain([timeRangeRef.current.start, timeRangeRef.current.end])
                 .range([0, plotDimensions.width])
 
-            axesRef.current.xAxisSelection
+            axesRef.current.xAxis.selection
                 .attr('transform', `translate(${margin.left}, ${plotDimensions.height + margin.top - margin.bottom})`)
-                .call(axesRef.current.xAxisGenerator)
+                .call(axesRef.current.xAxis.generator)
 
             svg
                 .select(`#scatter-chart-x-axis-label-${chartId.current}`)
                 .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${plotDimensions.height + margin.top + (margin.bottom / 3)})`)
 
             // create the y-axis
-            axesRef.current.yScale
+            axesRef.current.yAxis.scale
                 .domain([Math.max(minY, minValue), Math.min(maxY, maxValue)])
                 .range([plotDimensions.height - margin.bottom, 0])
-            axesRef.current.yAxisSelection.call(axesRef.current.yAxisGenerator)
+            axesRef.current.yAxis.selection.call(axesRef.current.yAxis.generator)
 
             // create/update the magnifier lens if needed
             magnifierRef.current = magnifierLens(svg, magnifier.visible)
@@ -1058,8 +1057,8 @@ export function ScatterChart(props: Props): JSX.Element {
                             .attr("class", 'time-series-lines')
                             .attr("id", `${series.name}`)
                             .attr("d", d3.line()
-                                .x((d: [number, number]) => axesRef.current!.xScale(d[0]))
-                                .y((d: [number, number]) => axesRef.current!.yScale(d[1]))
+                                .x((d: [number, number]) => axesRef.current!.xAxis.scale(d[0]))
+                                .y((d: [number, number]) => axesRef.current!.yAxis.scale(d[1]))
                             )
                             .attr("fill", "none")
                             // .attr("stroke", lineStyle.color)

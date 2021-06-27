@@ -1,22 +1,22 @@
 /**
  * The time-range contract
  */
-export interface TimeRangeType {
+export interface RangeType {
     start: number;
     end: number;
     scaleFactor: number;
     matchesOriginal: (start: number, end: number) => boolean;
-    scale: (factor: number, time: number) => TimeRangeType;
-    translate: (x: number) => TimeRangeType;
+    scale: (factor: number, time: number) => RangeType;
+    translate: (x: number) => RangeType;
 }
 
 /**
  * A time-range that can be scaled and transformed, all the while maintaining it original range values.
  * @param {number} _start The start of the time-range
  * @param {number} _end The end of the time-range
- * @return {TimeRangeType} A time-range object that can be scaled and transformed
+ * @return {RangeType} A time-range object that can be scaled and transformed
  */
-export function TimeRange(_start: number, _end: number): TimeRangeType {
+export function TimeRange(_start: number, _end: number): RangeType {
     // form a closure on the original start and end of the time-range
     const originalStart: number = Math.min(_start, _end);
     const originalEnd: number = Math.max(_start, _end);
@@ -25,9 +25,9 @@ export function TimeRange(_start: number, _end: number): TimeRangeType {
      * Updates the time-range based on the new start and end times
      * @param {number} start The new start of the time-range
      * @param {number} end The new end of the time-range
-     * @return {TimeRangeType} The updated time-range type
+     * @return {RangeType} The updated time-range type
      */
-    function updateTimeRange(start: number, end: number): TimeRangeType {
+    function updateTimeRange(start: number, end: number): RangeType {
 
         // the amount by which the time-range is currently scaled
         const scaleFactor = (end - start) / (originalEnd - originalStart);
@@ -49,7 +49,7 @@ export function TimeRange(_start: number, _end: number): TimeRangeType {
          * @param {number} factor The scale factor
          * @param {number} time The time from which to scale the interval
          */
-        function scale(factor: number, time: number): TimeRangeType {
+        function scale(factor: number, time: number): RangeType {
             const oldScale = scaleFactor;
             const dts = time - start;
             const dte = end - time;
@@ -62,7 +62,7 @@ export function TimeRange(_start: number, _end: number): TimeRangeType {
          * Translates the time-range by the sepecified amount
          * @param {number} x The amount by which to translate the time-range
          */
-        function translate(x: number): TimeRangeType {
+        function translate(x: number): RangeType {
             start += x;
             end += x;
             return updateTimeRange(start, end);
@@ -71,10 +71,10 @@ export function TimeRange(_start: number, _end: number): TimeRangeType {
         return {
             start: start,
             end: end,
-            matchesOriginal: matchesOriginal,
-            scaleFactor: scaleFactor,
-            scale: scale,
-            translate: translate
+            matchesOriginal,
+            scaleFactor,
+            scale,
+            translate
         }
     }
 

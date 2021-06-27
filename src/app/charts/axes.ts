@@ -1,8 +1,8 @@
 import {Margin, PlotDimensions} from "./margins";
-import {TimeRangeType} from "./timeRange";
+import {RangeType} from "./timeRange";
 import * as d3 from "d3";
 import {AxisElementSelection, SvgSelection} from "./d3types";
-import {Axis, ScaleBand, ScaleLinear} from "d3";
+import {Axis, ScaleBand, ScaleLinear, ZoomTransform} from "d3";
 import { Series } from "./datumSeries";
 
 export interface AxesLabelFont {
@@ -88,12 +88,13 @@ function addLinearXAxis(
         .domain(domain)
         .range([0, plotDimensions.width])
 
-    const generator = d3.axisBottom(scale)
+    const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
     const selection = svg
         .append<SVGGElement>('g')
         .attr('class', 'x-axis')
         .attr('transform', `translate(${margin.left}, ${plotDimensions.height})`)
 
+    // todo update the label location based on the location
     svg
         .append<SVGTextElement>('text')
         .attr('id', `stream-chart-x-axis-label-${chartId}`)
@@ -122,12 +123,13 @@ function addLinearYAxis(
         .domain(domain)
         .range([plotDimensions.height - margin.bottom, 0])
 
-    const generator = d3.axisLeft(scale)
+    const generator = location === AxisLocation.Left ? d3.axisLeft(scale) : d3.axisRight(scale)
     const selection = svg
         .append<SVGGElement>('g')
         .attr('class', 'y-axis')
         .attr('transform', `translate(${margin.left}, ${margin.top})`)
 
+    // todo update the label location based on the location
     svg
         .append<SVGTextElement>('text')
         .attr('id', `stream-chart-y-axis-label-${chartId}`)
@@ -216,4 +218,33 @@ export function addClipArea(
         .append("rect")
         .attr("width", plotDimensions.width)
         .attr("height", plotDimensions.height - margin.top)
+}
+
+export interface ZoomResult {
+    range: RangeType
+    zoomFactor: number
+}
+/**
+ * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+ * at the location of the mouse when the scroll wheel or gesture was applied.
+ * @param transform The d3 zoom transformation information
+ * @param x The x-position of the mouse when the scroll wheel or gesture is used
+ * @param plotDimensions The current dimensions of the plot
+ * @param axis The axis being zoomed
+ * @param range The current range for the axis being zoomed
+ * @return The updated range and the new zoom factor
+ */
+export function calculateZoomFor(
+    transform: ZoomTransform,
+    x: number,
+    plotDimensions: PlotDimensions,
+    axis: LinearAxis,
+    range: RangeType,
+): ZoomResult {
+    const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
+    return {
+        range: range.scale(transform.k, time),
+        zoomFactor: transform.k
+    } ;
+    // updatePlot(timeRangeRef.current, plotDimensions);
 }
