@@ -10,7 +10,7 @@ import {Observable, Subscription} from "rxjs"
 import {ChartData} from "./chartData"
 import {LensTransformation2d, RadialMagnifier, radialMagnifierWith} from "./radialMagnifier"
 import {windowTime} from "rxjs/operators"
-import {defaultTrackerStyle, TrackerStyle} from "./TrackerStyle"
+import {createTrackerControl, defaultTrackerStyle, TrackerStyle} from "./tracker"
 import {initialSvgStyle, SvgStyle} from "./svgStyle"
 import {
     addLinearAxis,
@@ -20,14 +20,21 @@ import {
     defaultAxesLabelFont,
     defaultLineStyle, LinearAxis
 } from "./axes";
-import {AxisElementSelection, GSelection, LineSelection, SvgSelection, TextSelection} from "./d3types";
+import {
+    AxisElementSelection,
+    GSelection,
+    LineSelection,
+    SvgSelection,
+    TextSelection,
+    TrackerSelection
+} from "./d3types";
 
 const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 const defaultAxesStyle = {color: '#d2933f'}
 
 // the axis-element type return when calling the ".call(axis)" function
 type MagnifierSelection = Selection<SVGCircleElement, Datum, null, undefined>
-type TrackerSelection = Selection<SVGLineElement, Datum, null, undefined>
+// type TrackerSelection = Selection<SVGLineElement, Datum, null, undefined>
 
 type TimeSeries = Array<[number, number]>
 
@@ -587,7 +594,7 @@ export function ScatterChart(props: Props): JSX.Element {
                 .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
             
 
-            const label = d3.select<SVGTextElement, any>(`#scatter-chart-tracker-time-${chartId.current}`)
+            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-time-${chartId.current}`)
                 .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
                 .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
 
@@ -899,39 +906,18 @@ export function ScatterChart(props: Props): JSX.Element {
      * @return {TrackerSelection | undefined} The tracker selection if visible; otherwise undefined
      */
     function trackerControl(svg: SvgSelection, visible: boolean): TrackerSelection | undefined {
-        if (visible && trackerRef.current === undefined) {
-            const trackerLine = svg
-                .append<SVGLineElement>('line')
-                .attr('class', 'tracker')
-                .attr('y1', margin.top)
-                .attr('y2', plotDimRef.current.height)
-                .attr('stroke', tracker.color)
-                .attr('stroke-width', tracker.lineWidth)
-                .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
-            
-
-            // create the text element holding the tracker time
-            svg
-                .append<SVGTextElement>('text')
-                .attr('id', `scatter-chart-tracker-time-${chartId.current}`)
-                .attr('y', Math.max(0, margin.top - 3))
-                .attr('fill', axisLabelFont.color)
-                .attr('font-family', axisLabelFont.family)
-                .attr('font-size', axisLabelFont.size)
-                .attr('font-weight', axisLabelFont.weight)
-                .attr('opacity', 0)
-                .text(() => '')
-
+        if (visible) {
+            if (trackerRef.current === undefined) {
+                trackerRef.current = createTrackerControl(
+                    chartId.current, svg, plotDimRef.current, margin, tracker, axisLabelFont
+                )
+            }
             svg.on('mousemove', () => handleShowTracker(trackerRef.current))
-
-            return trackerLine
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
         else if ((!visible && trackerRef.current) || tooltipRef.current.visible) {
             svg.on('mousemove', () => null)
             return undefined
-        } else if (visible && trackerRef.current) {
-            svg.on('mousemove', () => handleShowTracker(trackerRef.current))
         }
         return trackerRef.current
     }

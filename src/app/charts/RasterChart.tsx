@@ -1,25 +1,28 @@
 import {default as React, useEffect, useMemo, useRef} from "react";
 import * as d3 from "d3";
-import {Axis, ScaleBand, ScaleLinear, Selection, ZoomTransform} from "d3";
+import {ScaleBand, ScaleLinear, Selection, ZoomTransform} from "d3";
 import {BarMagnifier, barMagnifierWith, LensTransformation} from "./barMagnifier";
-import {continuousAxisRangeFor, ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {adjustedDimensions, Margin, PlotDimensions} from "./margins";
 import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
 import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {windowTime} from "rxjs/operators";
-import {defaultTrackerStyle, TrackerStyle} from "./TrackerStyle";
+import {createTrackerControl, defaultTrackerStyle, TrackerStyle} from "./tracker";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {
     addCategoryAxis,
     addLinearAxis,
     AxesLabelFont,
-    AxisLocation, calculatePanFor, calculateZoomFor,
+    AxisLocation,
+    calculatePanFor,
+    calculateZoomFor,
     CategoryAxis,
     defaultAxesLabelFont,
     LinearAxis
 } from "./axes";
+import {GSelection, LineSelection, SvgSelection, TrackerSelection} from "./d3types";
 
 const defaultMargin = { top: 30, right: 20, bottom: 30, left: 50 };
 const defaultSpikesStyle = {
@@ -70,15 +73,15 @@ interface Axes {
 }
 
 // the axis-element type return when calling the ".call(axis)" function
-type AxisElementSelection = Selection<SVGGElement, unknown, null, undefined>;
-type SvgSelection = Selection<SVGSVGElement, any, null, undefined>;
+// type AxisElementSelection = Selection<SVGGElement, unknown, null, undefined>;
+// type SvgSelection = Selection<SVGSVGElement, any, null, undefined>;
 type MagnifierSelection = Selection<SVGRectElement, Datum, null, undefined>;
-type LineSelection = Selection<SVGLineElement, any, SVGGElement, undefined>;
-type GSelection = Selection<SVGGElement, any, null, undefined>;
-type TrackerSelection = Selection<SVGLineElement, Datum, null, undefined>;
-type TextSelection = Selection<SVGTextElement, any, HTMLElement, any>;
+// type LineSelection = Selection<SVGLineElement, any, SVGGElement, undefined>;
+// type GSelection = Selection<SVGGElement, any, null, undefined>;
+// type TrackerSelection = Selection<SVGLineElement, Datum, null, undefined>;
+// type TextSelection = Selection<SVGTextElement, any, HTMLElement, any>;
 
-const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0;
+const textWidthOf = (elem: Selection<SVGTextElement, any, HTMLElement, any>) => elem.node()?.getBBox()?.width || 0;
 
 interface Props {
     width: number;
@@ -630,7 +633,7 @@ export function RasterChart(props: Props): JSX.Element {
                 .attr('stroke', tracker.color)
                 ;
 
-            const label = d3.select<SVGTextElement, any>(`#raster-chart-tracker-time-${chartId.current}`)
+            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-time-${chartId.current}`)
                 .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
                 .attr('fill', axisLabelFont.color)
                 .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
@@ -808,45 +811,20 @@ export function RasterChart(props: Props): JSX.Element {
      * @return {TrackerSelection | undefined} The tracker selection if visible; otherwise undefined
      */
     function trackerControl(svg: SvgSelection, visible: boolean, height: number): TrackerSelection | undefined {
-        if (visible && trackerRef.current === undefined) {
-            const trackerLine = svg
-                .append<SVGLineElement>('line')
-                .attr('class', 'tracker')
-                .attr('y1', margin.top)
-                .attr('y2', height + margin.top)
-                .attr('stroke', tracker.color)
-                .attr('stroke-width', tracker.lineWidth)
-                .attr('opacity', 0)
-                ;
-
-            // create the text element holding the tracker time
-            svg
-                .append<SVGTextElement>('text')
-                .attr('id', `raster-chart-tracker-time-${chartId.current}`)
-                .attr('y', Math.max(0, margin.top - 3))
-                .attr('fill', axisLabelFont.color)
-                .attr('font-family', axisLabelFont.family)
-                .attr('font-size', axisLabelFont.size)
-                .attr('font-weight', axisLabelFont.weight)
-                .attr('opacity', 0)
-                .text(() => '')
-
-            svg.on('mousemove', () => handleShowTracker(trackerRef.current));
-
-            return trackerLine;
+        if (visible) {
+            if (trackerRef.current === undefined) {
+                trackerRef.current = createTrackerControl(
+                    chartId.current, svg, plotDimRef.current, margin, tracker, axisLabelFont
+                )
+            }
+            svg.on('mousemove', () => handleShowTracker(trackerRef.current))
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
-        else if (!visible && trackerRef.current) {
-            svg.on('mousemove', () => null);
-            return undefined;
+        else if ((!visible && trackerRef.current) || tooltipRef.current.visible) {
+            svg.on('mousemove', () => null)
+            return undefined
         }
-        // when the tracker is visible and exists, then make sure the height is set (which can change due
-        // to filtering) and update the handler
-        else if (visible && trackerRef.current) {
-            trackerRef.current.attr('y2', height + margin.top);
-            svg.on('mousemove', () => handleShowTracker(trackerRef.current));
-        }
-        return trackerRef.current;
+        return trackerRef.current
     }
 
     /**
@@ -912,7 +890,7 @@ export function RasterChart(props: Props): JSX.Element {
             magnifierRef.current = magnifierLens(svg, magnifier.visible, filteredData.length * axesRef.current.yAxis.categorySize);
 
             // create/update the tracker line if needed
-            trackerRef.current = trackerControl(svg, tracker.visible, filteredData.length * axesRef.current.yAxis.categorySize);
+            trackerRef.current = trackerControl(svg, tracker.visible, filteredData.length * axesRef.current.yAxis.categorySize)
 
             // set up the main <g> container for svg and translate it based on the margins, but do it only
             // once
