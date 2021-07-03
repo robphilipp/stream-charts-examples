@@ -618,30 +618,30 @@ export function RasterChart(props: Props): JSX.Element {
         }
     }
 
-    /**
-     * Callback when the mouse tracker is to be shown
-     * @param {Selection<SVGLineElement, Datum, null, undefined> | undefined} path
-     * @callback
-        */
-    function handleShowTracker(path: Selection<SVGLineElement, Datum, null, undefined> | undefined) {
-        if (containerRef.current && path) {
-            const [x, y] = d3.mouse(containerRef.current);
-            path
-                .attr('x1', x)
-                .attr('x2', x)
-                .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
-                .attr('stroke', tracker.color)
-                ;
-
-            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-time-${chartId.current}`)
-                .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
-                .attr('fill', axisLabelFont.color)
-                .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
-
-            const labelWidth = textWidthOf(label);
-            label.attr('x', Math.min(plotDimRef.current.width + margin.left - labelWidth, x))
-        }
-    }
+    // /**
+    //  * Callback when the mouse tracker is to be shown
+    //  * @param {Selection<SVGLineElement, Datum, null, undefined> | undefined} path
+    //  * @callback
+    //     */
+    // function handleShowTracker(path: Selection<SVGLineElement, Datum, null, undefined> | undefined) {
+    //     if (containerRef.current && path) {
+    //         const [x, y] = d3.mouse(containerRef.current);
+    //         path
+    //             .attr('x1', x)
+    //             .attr('x2', x)
+    //             .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
+    //             .attr('stroke', tracker.color)
+    //             ;
+    //
+    //         const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-time-${chartId.current}`)
+    //             .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
+    //             .attr('fill', axisLabelFont.color)
+    //             .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
+    //
+    //         const labelWidth = textWidthOf(label);
+    //         label.attr('x', Math.min(plotDimRef.current.width + margin.left - labelWidth, x))
+    //     }
+    // }
 
     /**
      * Calculates whether the mouse is in the plot-area
@@ -811,13 +811,20 @@ export function RasterChart(props: Props): JSX.Element {
      * @return {TrackerSelection | undefined} The tracker selection if visible; otherwise undefined
      */
     function trackerControl(svg: SvgSelection, visible: boolean, height: number): TrackerSelection | undefined {
-        if (visible) {
+        if (visible && containerRef.current) {
             if (trackerRef.current === undefined) {
                 trackerRef.current = createTrackerControl(
-                    chartId.current, svg, plotDimRef.current, margin, tracker, axisLabelFont
+                    chartId.current,
+                    containerRef.current,
+                    svg,
+                    plotDimRef.current,
+                    margin,
+                    tracker,
+                    axisLabelFont,
+                    x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
                 )
             }
-            svg.on('mousemove', () => handleShowTracker(trackerRef.current))
+            // svg.on('mousemove', () => handleShowTracker(trackerRef.current))
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
         else if ((!visible && trackerRef.current) || tooltipRef.current.visible) {

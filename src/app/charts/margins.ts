@@ -8,6 +8,10 @@ export interface Margin {
     left: number;
 }
 
+export function noMargins(): Margin {
+    return {top: 0, bottom: 0, left: 0, right: 0}
+}
+
 export interface PlotDimensions {
     width: number;
     height: number;

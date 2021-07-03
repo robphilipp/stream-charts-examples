@@ -28,6 +28,7 @@ import {
     TextSelection,
     TrackerSelection
 } from "./d3types";
+import {mouseInPlotAreaFor, textWidthOf} from "./utils";
 
 const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 const defaultAxesStyle = {color: '#d2933f'}
@@ -38,7 +39,7 @@ type MagnifierSelection = Selection<SVGCircleElement, Datum, null, undefined>
 
 type TimeSeries = Array<[number, number]>
 
-const textWidthOf = (elem: Selection<SVGTextElement, any, HTMLElement, any>) => elem.node()?.getBBox()?.width || 0
+// const textWidthOf = (elem: Selection<SVGTextElement, any, HTMLElement, any>) => elem.node()?.getBBox()?.width || 0
 
 interface Axes {
     xAxis: LinearAxis
@@ -581,28 +582,28 @@ export function ScatterChart(props: Props): JSX.Element {
         d3.selectAll<SVGPathElement, Datum>('.tooltip').remove()
     }
 
-    /**
-     * Callback when the mouse tracker is to be shown
-     * @param path
-     */
-    function handleShowTracker(path: Selection<SVGLineElement, Datum, null, undefined> | undefined) {
-        if (containerRef.current && path) {
-            const [x, y] = d3.mouse(containerRef.current)
-            path
-                .attr('x1', x)
-                .attr('x2', x)
-                .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
-            
-
-            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-time-${chartId.current}`)
-                .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
-                .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
-
-
-            const labelWidth = textWidthOf(label)
-            label.attr('x', Math.min(plotDimRef.current.width + margin.left - labelWidth, x))
-        }
-    }
+    // /**
+    //  * Callback when the mouse tracker is to be shown
+    //  * @param path
+    //  */
+    // function handleShowTracker(path: Selection<SVGLineElement, Datum, null, undefined> | undefined) {
+    //     if (containerRef.current && path) {
+    //         const [x, y] = d3.mouse(containerRef.current)
+    //         path
+    //             .attr('x1', x)
+    //             .attr('x2', x)
+    //             .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
+    //
+    //
+    //         const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-time-${chartId.current}`)
+    //             .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
+    //             .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
+    //
+    //
+    //         const labelWidth = textWidthOf(label)
+    //         label.attr('x', Math.min(plotDimRef.current.width + margin.left - labelWidth, x))
+    //     }
+    // }
 
     /**
      * Called when the magnifier is enabled to set up the vertical bar magnifier lens
@@ -758,7 +759,8 @@ export function ScatterChart(props: Props): JSX.Element {
      * @return `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
      */
     function mouseInPlotArea(x: number, y: number): boolean {
-        return x > margin.left && x < width - margin.right && y > margin.top && y < height - margin.bottom
+        // return x > margin.left && x < width - margin.right && y > margin.top && y < height - margin.bottom
+        return mouseInPlotAreaFor(x, y, margin, {width, height})
     }
 
     /**
@@ -899,6 +901,7 @@ export function ScatterChart(props: Props): JSX.Element {
             
     }
 
+    // todo combine this into one location...
     /**
      * Creates the SVG elements for displaying a tracker line
      * @param svg The SVG selection
@@ -906,13 +909,20 @@ export function ScatterChart(props: Props): JSX.Element {
      * @return {TrackerSelection | undefined} The tracker selection if visible; otherwise undefined
      */
     function trackerControl(svg: SvgSelection, visible: boolean): TrackerSelection | undefined {
-        if (visible) {
+        if (visible && containerRef.current) {
             if (trackerRef.current === undefined) {
                 trackerRef.current = createTrackerControl(
-                    chartId.current, svg, plotDimRef.current, margin, tracker, axisLabelFont
+                    chartId.current,
+                    containerRef.current,
+                    svg,
+                    plotDimRef.current,
+                    margin,
+                    tracker,
+                    axisLabelFont,
+                        x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
                 )
             }
-            svg.on('mousemove', () => handleShowTracker(trackerRef.current))
+            // svg.on('mousemove', () => handleShowTracker(trackerRef.current))
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
         else if ((!visible && trackerRef.current) || tooltipRef.current.visible) {
