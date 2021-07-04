@@ -40,6 +40,10 @@ export function createTrackerControl(
     axisLabelFont: AxesLabelFont,
     trackerLabel: (x: number) => string,
 ): TrackerSelection {
+    const line = svg.select(`#stream-chart-tracker-line-${chartId}`) as Selection<SVGLineElement, Datum, null, undefined>
+    if (!line.empty()) {
+        return line
+    }
     const trackerLine = svg
         .append<SVGLineElement>('line')
         .attr('id', `stream-chart-tracker-line-${chartId}`)
