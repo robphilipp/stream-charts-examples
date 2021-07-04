@@ -3,13 +3,13 @@ import * as d3 from "d3";
 import {ScaleBand, ScaleLinear, Selection, ZoomTransform} from "d3";
 import {BarMagnifier, barMagnifierWith, LensTransformation} from "./barMagnifier";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
-import {adjustedDimensions, Margin, PlotDimensions} from "./margins";
+import {plotDimensionsFrom, Margin, Dimensions} from "./margins";
 import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
 import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {windowTime} from "rxjs/operators";
-import {createTrackerControl, defaultTrackerStyle, TrackerStyle} from "./tracker";
+import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {
     addCategoryAxis,
@@ -158,7 +158,7 @@ export function RasterChart(props: Props): JSX.Element {
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
 
     // hold a reference to the current width and the plot dimensions
-    const plotDimRef = useRef<PlotDimensions>(adjustedDimensions(width, height, margin))
+    const plotDimRef = useRef<Dimensions>(plotDimensionsFrom(width, height, margin))
 
     // the container that holds the d3 svg element
     const containerRef = useRef<SVGSVGElement>(null);
@@ -329,7 +329,7 @@ export function RasterChart(props: Props): JSX.Element {
      */
     function initializeAxes(
         svg: SvgSelection,
-        plotDimensions: PlotDimensions,
+        plotDimensions: Dimensions,
         timeRange: ContinuousAxisRange,
         categories: Map<string, Series>,
         axesLabelFont: AxesLabelFont,
@@ -348,7 +348,7 @@ export function RasterChart(props: Props): JSX.Element {
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The current dimensions of the plot
      */
-    function onZoom(transform: ZoomTransform, x: number, plotDimensions: PlotDimensions): void {
+    function onZoom(transform: ZoomTransform, x: number, plotDimensions: Dimensions): void {
         if (x > 0 && x < width - margin.right && axesRef.current !== undefined) {
             const {range, zoomFactor} = calculateZoomFor(transform, x, plotDimensions, axesRef.current.xAxis, timeRangeRef.current)
             timeRangeRef.current = range
@@ -362,7 +362,7 @@ export function RasterChart(props: Props): JSX.Element {
      * @param deltaX The amount that the plot is dragged
      * @param plotDimensions The current dimensions of the plot
      */
-    function onPan(deltaX: number, plotDimensions: PlotDimensions): void {
+    function onPan(deltaX: number, plotDimensions: Dimensions): void {
         if (axesRef.current !== undefined) {
             timeRangeRef.current = calculatePanFor(deltaX, plotDimensions, axesRef.current.xAxis, timeRangeRef.current)
             updatePlot(timeRangeRef.current, plotDimensions)
@@ -618,31 +618,6 @@ export function RasterChart(props: Props): JSX.Element {
         }
     }
 
-    // /**
-    //  * Callback when the mouse tracker is to be shown
-    //  * @param {Selection<SVGLineElement, Datum, null, undefined> | undefined} path
-    //  * @callback
-    //     */
-    // function handleShowTracker(path: Selection<SVGLineElement, Datum, null, undefined> | undefined) {
-    //     if (containerRef.current && path) {
-    //         const [x, y] = d3.mouse(containerRef.current);
-    //         path
-    //             .attr('x1', x)
-    //             .attr('x2', x)
-    //             .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
-    //             .attr('stroke', tracker.color)
-    //             ;
-    //
-    //         const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-time-${chartId.current}`)
-    //             .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
-    //             .attr('fill', axisLabelFont.color)
-    //             .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
-    //
-    //         const labelWidth = textWidthOf(label);
-    //         label.attr('x', Math.min(plotDimRef.current.width + margin.left - labelWidth, x))
-    //     }
-    // }
-
     /**
      * Calculates whether the mouse is in the plot-area
      * @param x The x-coordinate of the mouse's position
@@ -807,13 +782,12 @@ export function RasterChart(props: Props): JSX.Element {
      * Creates the SVG elements for displaying a tracker line
      * @param svg The SVG selection
      * @param visible `true` if the tracker is visible; `false` otherwise
-     * @param height The height of the tracker bar
-     * @return {TrackerSelection | undefined} The tracker selection if visible; otherwise undefined
+     * @return The tracker selection if visible; otherwise undefined
      */
-    function trackerControl(svg: SvgSelection, visible: boolean, height: number): TrackerSelection | undefined {
+    function trackerControl(svg: SvgSelection, visible: boolean): TrackerSelection | undefined {
         if (visible && containerRef.current) {
             if (trackerRef.current === undefined) {
-                trackerRef.current = createTrackerControl(
+                return createTrackerControl(
                     chartId.current,
                     containerRef.current,
                     svg,
@@ -824,14 +798,12 @@ export function RasterChart(props: Props): JSX.Element {
                     x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
                 )
             }
-            // svg.on('mousemove', () => handleShowTracker(trackerRef.current))
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
         else if ((!visible && trackerRef.current) || tooltipRef.current.visible) {
-            svg.on('mousemove', () => null)
+            removeTrackerControl(svg)
             return undefined
         }
-        return trackerRef.current
     }
 
     /**
@@ -839,7 +811,7 @@ export function RasterChart(props: Props): JSX.Element {
      * @param svg The SVG selection holding the grid-lines
      * @param plotDimensions The current dimensions of the plot
      */
-    function addGridLines(svg: SvgSelection, plotDimensions: PlotDimensions): void {
+    function addGridLines(svg: SvgSelection, plotDimensions: Dimensions): void {
         const gridLines = svg
             .selectAll('.grid-line')
             .data(Array.from(liveDataRef.current.keys()).filter(name => name.match(seriesFilterRef.current)));
@@ -871,7 +843,7 @@ export function RasterChart(props: Props): JSX.Element {
      * @param timeRange The current time range
      * @param plotDimensions The current dimensions of the plot
      */
-    function updatePlot(timeRange: ContinuousAxisRange, plotDimensions: PlotDimensions): void {
+    function updatePlot(timeRange: ContinuousAxisRange, plotDimensions: Dimensions): void {
         tooltipRef.current = tooltip;
         timeRangeRef.current = timeRange;
 
@@ -897,7 +869,7 @@ export function RasterChart(props: Props): JSX.Element {
             magnifierRef.current = magnifierLens(svg, magnifier.visible, filteredData.length * axesRef.current.yAxis.categorySize);
 
             // create/update the tracker line if needed
-            trackerRef.current = trackerControl(svg, tracker.visible, filteredData.length * axesRef.current.yAxis.categorySize)
+            trackerRef.current = trackerControl(svg, tracker.visible)
 
             // set up the main <g> container for svg and translate it based on the margins, but do it only
             // once
@@ -1067,7 +1039,7 @@ export function RasterChart(props: Props): JSX.Element {
      */
     function updateDimensionsAndPlot(width: number, height: number): void {
         // width = grabWidth(containerRef.current);
-        plotDimRef.current = adjustedDimensions(width, height, margin);
+        plotDimRef.current = plotDimensionsFrom(width, height, margin);
         updatePlot(timeRangeRef.current, plotDimRef.current);
     }
 

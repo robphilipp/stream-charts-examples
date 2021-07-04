@@ -1,7 +1,7 @@
 import {SvgSelection, TrackerSelection} from "./d3types";
 import {Selection} from "d3";
 import {Datum} from "./datumSeries";
-import {Margin, noMargins, PlotDimensions} from "./margins";
+import {Margin, Dimensions, containerDimensionsFrom} from "./margins";
 import {AxesLabelFont} from "./axes";
 import * as d3 from "d3";
 import {mouseInPlotAreaFor, textWidthOf} from "./utils";
@@ -28,20 +28,21 @@ export const defaultTrackerStyle: TrackerStyle = {
  * @param tracker The tracker style
  * @param axisLabelFont The font used for the axis labels
  * @param trackerLabel A function that returns the tracker label string for a given x-value
- * @return {TrackerSelection | undefined} The tracker selection if visible; otherwise undefined
+ * @return The tracker selection
  */
 export function createTrackerControl(
     chartId: number,
     container: SVGSVGElement,
     svg: SvgSelection,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     margin: Margin,
     tracker: TrackerStyle,
     axisLabelFont: AxesLabelFont,
     trackerLabel: (x: number) => string,
-): TrackerSelection | undefined {
+): TrackerSelection {
     const trackerLine = svg
         .append<SVGLineElement>('line')
+        .attr('id', `stream-chart-tracker-line-${chartId}`)
         .attr('class', 'tracker')
         .attr('y1', margin.top)
         .attr('y2', plotDimensions.height)
@@ -53,7 +54,7 @@ export function createTrackerControl(
     // create the text element holding the tracker time
     svg
         .append<SVGTextElement>('text')
-        .attr('id', `stream-chart-tracker-time-${chartId}`)
+        .attr('id', `stream-chart-tracker-label-${chartId}`)
         .attr('y', Math.max(0, margin.top - 3))
         .attr('fill', axisLabelFont.color)
         .attr('font-family', axisLabelFont.family)
@@ -62,24 +63,26 @@ export function createTrackerControl(
         .attr('opacity', 0)
         .text(() => '')
 
-    const containerDimensions = {
-        width: plotDimensions.width + margin.left + margin.right,
-        height: plotDimensions.height + margin.top + margin.bottom
-    }
+    const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on('mousemove', () => handleShowTracker(
-        chartId, container, trackerLine, margin, containerDimensions, trackerLabel
+        chartId, container, margin, containerDimensions, trackerLabel
     ))
 
     return trackerLine
 }
 
-
+/**
+ * Removes the tracker control from the chart
+ * @param svg The svg selection holding the tracker contol
+ */
+export function removeTrackerControl(svg: SvgSelection) {
+    svg.on('mousemove', () => null)
+}
 
 /**
  * Callback when the mouse tracker is to be shown
  * @param chartId The ID number of the chart
  * @param container The svg container
- * @param trackerLine The SVG line element selection representing the tracker line on the plot
  * @param margin The plot margins
  * @param dimensions The container dimensions (i.e. the plot dimensions plus its margins)
  * @param trackerLabel A function that returns the tracker label string
@@ -87,26 +90,30 @@ export function createTrackerControl(
 function handleShowTracker(
     chartId: number,
     container: SVGSVGElement,
-    trackerLine: TrackerSelection,
     margin: Margin,
-    dimensions: PlotDimensions,
+    dimensions: Dimensions,
     trackerLabel: (x: number) => string
 ): void {
-    if (container && trackerLine) {
+    if (container) {
+        // determine whether the mouse is in the plot area
         const [x, y] = d3.mouse(container)
-        trackerLine
+        const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
+
+        // when the mouse is in the plot area, then set the opacity of the tracker line and label to 1,
+        // which means it is fully visible. when the mouse is not in the plot area, set the opacity to 0,
+        // which means the tracker line and label are invisible.
+        d3.select<SVGLineElement, Datum>(`#stream-chart-tracker-line-${chartId}`)
             .attr('x1', x)
             .attr('x2', x)
-            .attr('opacity', () => mouseInPlotAreaFor(x, y, margin, dimensions) ? 1 : 0)
+            .attr('opacity', () => inPlot ? 1 : 0)
 
-
-        const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-time-${chartId}`)
-            .attr('opacity', () => mouseInPlotAreaFor(x, y, margin, dimensions) ? 1 : 0)
+        const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-${chartId}`)
+            .attr('opacity', () => inPlot ? 1 : 0)
             .text(() => trackerLabel(x))
 
-
+        // adjust the label position when the tracker is at the right-most edges of the plot so that
+        // the label remains visible (i.e. doesn't get clipped)
         const labelWidth = textWidthOf(label)
         label.attr('x', Math.min(dimensions.width - margin.right - labelWidth, x))
     }
 }
-

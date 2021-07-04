@@ -1,4 +1,4 @@
-import {Margin, PlotDimensions} from "./margins";
+import {Margin, Dimensions} from "./margins";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {AxisElementSelection, SvgSelection} from "./d3types";
@@ -38,7 +38,7 @@ export interface LinearAxis {
     scale: ScaleLinear<number, number>
     selection: AxisElementSelection
     generator: Axis<number | { valueOf(): number }>
-    update: (domain: [startValue: number, endValue: number], plotDimensions: PlotDimensions, margin: Margin) => void
+    update: (domain: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => void
 }
 
 export interface CategoryAxis {
@@ -46,7 +46,7 @@ export interface CategoryAxis {
     selection: AxisElementSelection
     generator: Axis<string>
     categorySize: number
-    update: (categoryNames: Array<string>, unfilteredSize: number, plotDimensions: PlotDimensions, margin: Margin) => number
+    update: (categoryNames: Array<string>, unfilteredSize: number, plotDimensions: Dimensions, margin: Margin) => number
 }
 
 export enum AxisLocation {
@@ -60,7 +60,7 @@ export function addLinearAxis(
     chartId: number,
     svg: SvgSelection,
     location: AxisLocation,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     domain: [minValue: number, maxValue: number],
     axesLabelFont: AxesLabelFont,
     margin: Margin,
@@ -80,7 +80,7 @@ export function addLinearAxis(
 function addLinearXAxis(
     chartId: number,
     svg: SvgSelection,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     location: AxisLocation.Bottom | AxisLocation.Top,
     domain: [minValue: number, maxValue: number],
     axesLabelFont: AxesLabelFont,
@@ -119,7 +119,7 @@ function addLinearXAxis(
 function addLinearYAxis(
     chartId: number,
     svg: SvgSelection,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     location: AxisLocation.Left | AxisLocation.Right,
     domain: [minValue: number, maxValue: number],
     axesLabelFont: AxesLabelFont,
@@ -160,7 +160,7 @@ export function addCategoryAxis(
     chartId: number,
     svg: SvgSelection,
     location: AxisLocation,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     categories: Map<string, Series>,
     axesLabelFont: AxesLabelFont,
     margin: Margin,
@@ -181,7 +181,7 @@ export function addCategoryAxis(
 function addCategoryYAxis(
     chartId: number,
     svg: SvgSelection,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     categories: Map<string, Series>,
     axesLabelFont: AxesLabelFont,
     margin: Margin,
@@ -228,7 +228,7 @@ function updateLinearXAxis(
     svg: SvgSelection,
     axis: LinearAxis,
     domain: [startValue: number, endValue: number],
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     margin: Margin
 ): void {
     axis.scale.domain(domain).range([0, plotDimensions.width])
@@ -246,7 +246,7 @@ function updateLinearYAxis(
     svg: SvgSelection,
     axis: LinearAxis,
     domain: [startValue: number, endValue: number],
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     margin: Margin,
     axesLabelFont: AxesLabelFont,
 ): void {
@@ -262,7 +262,7 @@ function updateCategoryYAxis(
     chartId: number,
     svg: SvgSelection,
     axis: CategoryAxis,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     unfilteredSize: number,
     names: Array<string>,
     axesLabelFont: AxesLabelFont,
@@ -284,7 +284,7 @@ function updateCategoryYAxis(
 export function addClipArea(
     chartId: number,
     svg: SvgSelection,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     margin: Margin
 ) {
     // create the clipping region so that the lines are clipped at the y-axis
@@ -316,7 +316,7 @@ export interface ZoomResult {
 export function calculateZoomFor(
     transform: ZoomTransform,
     x: number,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     axis: LinearAxis,
     range: ContinuousAxisRange,
 ): ZoomResult {
@@ -337,7 +337,7 @@ export function calculateZoomFor(
  */
 export function calculatePanFor(
     deltaX: number,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     axis: LinearAxis,
     range: ContinuousAxisRange,
 ): ContinuousAxisRange {
