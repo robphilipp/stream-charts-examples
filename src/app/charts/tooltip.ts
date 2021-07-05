@@ -1,26 +1,19 @@
 import {TimeSeries} from "./plot";
 import * as d3 from "d3";
+import {ScaleBand} from "d3";
 import {Datum} from "./datumSeries";
-import {TextSelection} from "./d3types";
 import {Dimensions, Margin} from "./margins";
-import {Axes, AxesLineStyle, CategoryAxis, LinearAxis} from "./axes";
+import {CategoryAxis} from "./axes";
 import {TooltipStyle} from "./TooltipStyle";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
-import {ScaleBand} from "d3";
 
 export interface TooltipDimensions {contentWidth: number, contentHeight: number}
 
 /**
  * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
  * @param tooltipId A unique ID for the tooltip
- * @param datum The spike datum (t ms, s mV)
- * @param seriesName The name of the series (i.e. the neuron ID)
- * @param segment The SVG line element representing the spike, over which the mouse is hovering.
  * @param container The container holding the SVG element
- * @param axes The axes for the chart
  * @param margin The margin around the plot
- * @param lineStyle The style of the axes lines used for the tooltip
- * @param chartId The ID of the chart
  * @param tooltipStyle The tooltip style information
  * @param plotDimensions The dimensions of the plot
  * @param tooltipContent Function that adds the tooltip content and then returns the width and height of
