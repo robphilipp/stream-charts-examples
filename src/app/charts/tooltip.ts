@@ -3,9 +3,10 @@ import * as d3 from "d3";
 import {Datum} from "./datumSeries";
 import {TextSelection} from "./d3types";
 import {Dimensions, Margin} from "./margins";
-import {Axes, AxesLineStyle, LinearAxis} from "./axes";
+import {Axes, AxesLineStyle, CategoryAxis, LinearAxis} from "./axes";
 import {TooltipStyle} from "./TooltipStyle";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
+import {ScaleBand} from "d3";
 
 export interface TooltipDimensions {contentWidth: number, contentHeight: number}
 
@@ -26,16 +27,13 @@ export interface TooltipDimensions {contentWidth: number, contentHeight: number}
  * the content. The callback function is handed the datum, svg path element, and the series name and must
  * return a [TooltipDimension] object that holds the width and height of the content.
  */
-export function createTooltipControl(
+export function createTooltip(
     tooltipId: string,
-    datum: TimeSeries,
-    seriesName: string,
-    segment: SVGPathElement,
     container: SVGSVGElement,
     margin: Margin,
     tooltipStyle: TooltipStyle,
     plotDimensions: PlotDimensions,
-    tooltipContent: (datum: TimeSeries, seriesName: string, segment: SVGPathElement) => TooltipDimensions
+    tooltipContent: () => TooltipDimensions
 ): void {
 
     // create the rounded rectangle for the tooltip's background
@@ -50,7 +48,7 @@ export function createTooltipControl(
         .attr('stroke-width', tooltipStyle.borderWidth)
 
     // call the callback to add the content
-    const {contentWidth, contentHeight} = tooltipContent(datum, seriesName, segment)
+    const {contentWidth, contentHeight} = tooltipContent()
 
     // set the position, width, and height of the tooltip rect based on the text height and width and the padding
     const [x, y] = d3.mouse(container)
@@ -97,6 +95,30 @@ export function tooltipX(x: number, textWidth: number, plotDimensions: Dimension
  */
 export function tooltipY(y: number, textHeight: number, plotDimensions: Dimensions, tooltipStyle: TooltipStyle, margin: Margin): number {
     return y + margin.top - tooltipStyle.paddingBottom - textHeight - tooltipStyle.paddingTop
+}
+
+/**
+ * Calculates the y-coordinate of the lower-left-hand corner of the tooltip rectangle. Adjusts the y-coordinate
+ * so that the tooltip is visible on the upper edge of the plot
+ * @param seriesName The name of the series
+ * @param textHeight The height of the header and neuron ID text
+ * @param axis The category axis for determining the y-value of the tooltip
+ * @param tooltipStyle The tooltip style
+ * @param margin The plot margin
+ * @param categoryHeight The height (in pixels) of the category
+ * @return The y-coordinate of the lower-left-hand corner of the tooltip rectangle
+ */
+export function categoryTooltipY(
+    seriesName: string,
+    textHeight: number,
+    axis: CategoryAxis,
+    tooltipStyle: TooltipStyle,
+    margin: Margin,
+    categoryHeight: number
+): number {
+    const scale = axis.generator.scale<ScaleBand<string>>();
+    const y = (scale(seriesName) || 0) + margin.top - tooltipStyle.paddingBottom
+    return y > 0 ? y : y + tooltipStyle.paddingBottom + textHeight + tooltipStyle.paddingTop + categoryHeight
 }
 
 

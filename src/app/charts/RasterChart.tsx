@@ -1,9 +1,9 @@
 import {default as React, useEffect, useMemo, useRef} from "react";
 import * as d3 from "d3";
-import {ScaleBand, ScaleLinear, Selection, ZoomTransform} from "d3";
+import {ScaleLinear, Selection, ZoomTransform} from "d3";
 import {BarMagnifier, barMagnifierWith, LensTransformation} from "./barMagnifier";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
-import {plotDimensionsFrom, Margin, Dimensions} from "./margins";
+import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
 import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
 import {Observable, Subscription} from "rxjs";
@@ -13,7 +13,8 @@ import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, Tracker
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {
     addCategoryAxis,
-    addLinearAxis, Axes,
+    addLinearAxis,
+    Axes,
     AxesLabelFont,
     AxisLocation,
     calculatePanFor,
@@ -23,6 +24,7 @@ import {
     LinearAxis
 } from "./axes";
 import {GSelection, LineSelection, SvgSelection, TrackerSelection} from "./d3types";
+import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltip";
 
 const defaultMargin = {top: 30, right: 20, bottom: 30, left: 50};
 const defaultSpikesStyle = {
@@ -352,30 +354,34 @@ export function RasterChart(props: Props): JSX.Element {
      * @param spike The SVG line element representing the spike, over which the mouse is hovering.
      */
     function handleShowTooltip(datum: Datum, seriesName: string, spike: SVGLineElement): void {
-        if (!tooltipRef.current.visible) {
-            return;
+        if (tooltipRef.current.visible && containerRef.current && axesRef.current) {
+            // Use D3 to select element, change color and size
+            d3.select<SVGLineElement, Datum>(spike)
+                .attr('stroke', spikesStyle.highlightColor)
+                .attr('stroke-width', spikesStyle.highlightWidth)
+                .attr('stroke-linecap', "round")
+
+            createTooltip(
+                `r${datum.time}-${seriesName}-${chartId.current}`,
+                containerRef.current,
+                margin,
+                tooltip,
+                plotDimRef.current,
+                () => addTooltipContent(datum, seriesName, axesRef.current?.yAxis)
+            )
         }
+    }
 
-        // Use D3 to select element, change color and size
-        d3.select<SVGLineElement, Datum>(spike)
-            .attr('stroke', spikesStyle.highlightColor)
-            .attr('stroke-width', spikesStyle.highlightWidth)
-            .attr('stroke-linecap', "round")
-        ;
-
-        if (tooltipRef.current.visible) {
-            // create the rounded rectangle for the tooltip's background
-            const rect = d3.select<SVGSVGElement | null, any>(containerRef.current)
-                .append<SVGRectElement>('rect')
-                .attr('id', `r${datum.time}-${seriesName}-${chartId.current}`)
-                .attr('class', 'tooltip')
-                .attr('rx', tooltipRef.current.borderRadius)
-                .attr('fill', tooltipRef.current.backgroundColor)
-                .attr('fill-opacity', tooltipRef.current.backgroundOpacity)
-                .attr('stroke', tooltipRef.current.borderColor)
-                .attr('stroke-width', tooltipRef.current.borderWidth)
-            ;
-
+    /**
+     * Adds the tooltip content for the data point
+     * @param datum The data point over which the mouse is hovering
+     * @param seriesName The name of the series to which the datum belongs
+     * @param axis The category axis for determining the y-value for the tooltip
+     * @return The width and height of the tooltip content
+     */
+    function addTooltipContent(datum: Datum, seriesName: string, axis?: CategoryAxis): TooltipDimensions {
+        if (containerRef.current && axis) {
+            const [x, ] = d3.mouse(containerRef.current)
             // display the neuron ID in the tooltip
             const header = d3.select<SVGSVGElement | null, any>(containerRef.current)
                 .append<SVGTextElement>("text")
@@ -386,7 +392,6 @@ export function RasterChart(props: Props): JSX.Element {
                 .attr('font-size', tooltipRef.current.fontSize)
                 .attr('font-weight', tooltipRef.current.fontWeight)
                 .text(() => seriesName)
-            ;
 
             // display the time (ms) and spike strength (mV) in the tooltip
             const text = d3.select<SVGSVGElement | null, any>(containerRef.current)
@@ -398,7 +403,6 @@ export function RasterChart(props: Props): JSX.Element {
                 .attr('font-size', tooltipRef.current.fontSize + 2)
                 .attr('font-weight', tooltipRef.current.fontWeight + 150)
                 .text(() => `${d3.format(",.0f")(datum.time)} ms, ${d3.format(",.2f")(datum.value)} mV`)
-            ;
 
             // calculate the max width and height of the text
             const tooltipWidth = Math.max(header.node()?.getBBox()?.width || 0, text.node()?.getBBox()?.width || 0);
@@ -407,62 +411,22 @@ export function RasterChart(props: Props): JSX.Element {
             const textHeight = headerTextHeight + idHeight;
 
             // set the header text location
+            const spikeHeight = plotDimRef.current.height / liveDataRef.current.size
+            const xTooltip = tooltipX(x, tooltipWidth, plotDimRef.current, tooltip, margin) + tooltipRef.current.paddingLeft
+            const yTooltip = categoryTooltipY(seriesName, textHeight, axis, tooltip, margin, spikeHeight) + tooltipRef.current.paddingTop
             header
-                .attr('x', () => tooltipX(datum.time, tooltipWidth) + tooltipRef.current.paddingLeft)
-                .attr('y', () => tooltipY(seriesName, textHeight) - idHeight + textHeight + tooltipRef.current.paddingTop)
-            ;
+                .attr('x', () => xTooltip)
+                .attr('y', () => yTooltip - idHeight + textHeight)
 
             // set the tooltip text (i.e. neuron ID) location
             text
-                .attr('x', () => tooltipX(datum.time, tooltipWidth) + tooltipRef.current.paddingLeft)
-                .attr('y', () => tooltipY(seriesName, textHeight) + textHeight + tooltipRef.current.paddingTop)
-            ;
+                .attr('x', () => xTooltip)
+                .attr('y', () => yTooltip + textHeight)
 
-            // set the position, width, and height of the tooltip rect based on the text height and width and the padding
-            rect.attr('x', () => tooltipX(datum.time, tooltipWidth))
-                .attr('y', () => tooltipY(seriesName, textHeight))
-                .attr('width', tooltipWidth + tooltipRef.current.paddingLeft + tooltipRef.current.paddingRight)
-                .attr('height', textHeight + tooltipRef.current.paddingTop + tooltipRef.current.paddingBottom)
-            ;
+            return {contentWidth: tooltipWidth, contentHeight: textHeight}
+        } else {
+            return {contentWidth: 0, contentHeight: 0}
         }
-    }
-
-    /**
-     * Calculates the x-coordinate of the lower left-hand side of the tooltip rectangle (obviously without
-     * "rounded corners"). Adjusts the x-coordinate so that tooltip is visible on the edges of the plot.
-     * @param time The spike time
-     * @param textWidth The width of the tooltip text
-     * @return The x-coordinate of the lower left-hand side of the tooltip rectangle
-     */
-    function tooltipX(time: number, textWidth: number): number {
-        return Math
-            .min(
-                Math.max(
-                    axesRef.current!.xAxis.generator.scale<ScaleLinear<number, number>>()(time),
-                    textWidth / 2
-                ),
-                plotDimRef.current.width - textWidth / 2
-            ) + margin.left - textWidth / 2 - tooltip.paddingLeft;
-    }
-
-    /**
-     * Calculates the y-coordinate of the lower-left-hand corner of the tooltip rectangle. Adjusts the y-coordinate
-     * so that the tooltip is visible on the upper edge of the plot
-     * @param seriesName The name of the series
-     * @param textHeight The height of the header and neuron ID text
-     * @return The y-coordinate of the lower-left-hand corner of the tooltip rectangle
-     */
-    function tooltipY(seriesName: string, textHeight: number): number {
-        const scale = axesRef.current!.yAxis.generator.scale<ScaleBand<string>>();
-        const y = (scale(seriesName) || 0) + margin.top - tooltip.paddingBottom - textHeight - tooltip.paddingTop;
-        return y > 0 ? y : y + tooltip.paddingBottom + textHeight + tooltip.paddingTop + spikeLineHeight();
-    }
-
-    /**
-     * @return The height of the spikes line
-     */
-    function spikeLineHeight(): number {
-        return plotDimRef.current.height / liveDataRef.current.size;
     }
 
     /**
@@ -477,9 +441,7 @@ export function RasterChart(props: Props): JSX.Element {
             .attr('stroke', spikesStyle.color)
             .attr('stroke-width', spikesStyle.lineWidth);
 
-        if (tooltipRef.current.visible) {
-            d3.selectAll<SVGLineElement, Datum>('.tooltip').remove();
-        }
+        removeTooltip()
     }
 
     /**

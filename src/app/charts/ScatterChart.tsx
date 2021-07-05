@@ -33,7 +33,7 @@ import {
 } from "./d3types";
 import {mouseInPlotAreaFor} from "./utils";
 import {TimeSeries} from "./plot";
-import {boundingPoints, createTooltipControl, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
+import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
 
 const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 const defaultAxesStyle = {color: '#d2933f'}
@@ -345,14 +345,13 @@ export function ScatterChart(props: Props): JSX.Element {
 
     /**
      * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
-     * @param datum The spike datum (t ms, s mV)
+     * @param datum The datum
      * @param seriesName The name of the series (i.e. the neuron ID)
      * @param segment The SVG line element representing the spike, over which the mouse is hovering.
      */
     function handleShowTooltip(datum: TimeSeries, seriesName: string, segment: SVGPathElement): void {
         if ((tooltipRef.current.visible || magnifierStyle.visible) && containerRef.current && axesRef.current) {
-
-            // grab the time needed for the tootlip ID
+            // grab the time needed for the tooltip ID
             const [x, ] = d3.mouse(containerRef.current)
             const time = Math.round(axesRef.current.xAxis.scale.invert(x - margin.left))
 
@@ -361,16 +360,13 @@ export function ScatterChart(props: Props): JSX.Element {
                 .attr('stroke', lineStyle.highlightColor)
                 .attr('stroke-width', lineStyle.highlightWidth)
 
-            createTooltipControl(
+            createTooltip(
                 `r${time}-${seriesName}-${chartId}`,
-                datum,
-                seriesName,
-                segment,
                 containerRef.current,
                 margin,
                 tooltipStyle,
                 plotDimRef.current,
-                addTooltipContent
+                () => addTooltipContent(datum, seriesName)
             )
         }
     }
@@ -380,8 +376,8 @@ export function ScatterChart(props: Props): JSX.Element {
      * @param seriesName The name of the series (i.e. the neuron ID)
      * @param segment The SVG line element representing the spike, over which the mouse is hovering.
      */
-    function handleRemoveTooltip(seriesName: string, segment: SVGPathElement) {
-        if (segment && seriesName && lineStyle && colorsRef.current) {
+    function handleRemoveTooltip(seriesName?: string, segment?: SVGPathElement) {
+        if (segment && seriesName) {
             d3.select<SVGPathElement, Datum>(segment)
                 .attr('stroke', colorsRef.current.get(seriesName) || lineStyle.color)
                 .attr('stroke-width', lineStyle.lineWidth)
@@ -393,19 +389,13 @@ export function ScatterChart(props: Props): JSX.Element {
      * Callback function that adds tooltip content and returns the tooltip width and text height
      * @param datum The spike datum (t ms, s mV)
      * @param seriesName The name of the series (i.e. the neuron ID)
-     * @param segment The SVG line element representing the spike, over which the mouse is hovering.
      * @return The width and text height of the tooltip content
      */
-    function addTooltipContent(datum: TimeSeries, seriesName: string, segment: SVGPathElement): TooltipDimensions {
+    function addTooltipContent(datum: TimeSeries, seriesName: string): TooltipDimensions {
         if (containerRef.current && axesRef.current) {
             const [x, y] = d3.mouse(containerRef.current)
             const time = Math.round(axesRef.current.xAxis.scale.invert(x - margin.left))
             const [lower, upper] = boundingPoints(datum, time)
-
-            // Use D3 to select element, change color and size
-            d3.select<SVGPathElement, Datum>(segment)
-                .attr('stroke', lineStyle.highlightColor)
-                .attr('stroke-width', lineStyle.highlightWidth)
 
             // display the neuron ID in the tooltip
             const header = d3.select<SVGSVGElement | null, any>(containerRef.current)
@@ -876,7 +866,7 @@ export function ScatterChart(props: Props): JSX.Element {
                 .on("start", () => {
                     // during a pan, we want to hide the tooltip
                     tooltipRef.current.visible = false
-                    removeTooltip()
+                    handleRemoveTooltip()
                     d3.select(containerRef.current).style("cursor", "move")
                 })
                 .on("drag", () => onPan(d3.event.dx, plotDimensions))
