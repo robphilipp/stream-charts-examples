@@ -8,5 +8,7 @@ export type GSelection = Selection<SVGGElement, any, null, undefined>
 export type LineSelection = Selection<SVGLineElement, any, SVGGElement, undefined>
 export type TextSelection = Selection<SVGTextElement, any, null, undefined>
 
+export type RadialMagnifierSelection = Selection<SVGCircleElement, Datum, null, undefined>
+
 export type TrackerSelection = Selection<SVGLineElement, Datum, null, undefined>
 

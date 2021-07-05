@@ -13,7 +13,7 @@ import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, Tracker
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {
     addCategoryAxis,
-    addLinearAxis,
+    addLinearAxis, Axes,
     AxesLabelFont,
     AxisLocation,
     calculatePanFor,
@@ -58,11 +58,6 @@ const defaultLineMagnifierStyle: LineMagnifierStyle = {
 
 interface MagnifiedDatum extends Datum {
     lens: LensTransformation
-}
-
-interface Axes {
-    xAxis: LinearAxis
-    yAxis: CategoryAxis
 }
 
 // the axis-element type return when calling the ".call(axis)" function
@@ -165,7 +160,7 @@ export function RasterChart(props: Props): JSX.Element {
     const zoomFactorRef = useRef<number>(1);
 
     // reference to the axes for the plot
-    const axesRef = useRef<Axes>();
+    const axesRef = useRef<Axes<LinearAxis, CategoryAxis>>();
 
     // unlike the magnifier, the handler forms a closure on the tooltip properties, and so if they change in this
     // component, the closed properties are unchanged. using a ref allows the properties to which the reference
@@ -312,7 +307,7 @@ export function RasterChart(props: Props): JSX.Element {
         categories: Map<string, Series>,
         axesLabelFont: AxesLabelFont,
         margin: Margin,
-    ): Axes {
+    ): Axes<LinearAxis, CategoryAxis> {
         const xAxis = addLinearAxis(2, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
         const yAxis = addCategoryAxis(2, svg, AxisLocation.Left, plotDimensions, categories, axesLabelFont, margin, "Neuron")
 

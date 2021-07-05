@@ -13,7 +13,7 @@ import {windowTime} from "rxjs/operators"
 import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker"
 import {initialSvgStyle, SvgStyle} from "./svgStyle"
 import {
-    addLinearAxis,
+    addLinearAxis, Axes,
     AxesLabelFont,
     AxesLineStyle,
     AxisLocation,
@@ -23,21 +23,25 @@ import {
     defaultLineStyle,
     LinearAxis
 } from "./axes";
-import {GSelection, LineSelection, SvgSelection, TextSelection, TrackerSelection} from "./d3types";
+import {
+    GSelection,
+    LineSelection,
+    RadialMagnifierSelection,
+    SvgSelection,
+    TextSelection,
+    TrackerSelection
+} from "./d3types";
 import {mouseInPlotAreaFor} from "./utils";
+import {TimeSeries} from "./plot";
+import {boundingPoints, createTooltipControl, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
 
 const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 const defaultAxesStyle = {color: '#d2933f'}
 
 // the axis-element type return when calling the ".call(axis)" function
-type MagnifierSelection = Selection<SVGCircleElement, Datum, null, undefined>
+// type RadialMagnifierSelection = Selection<SVGCircleElement, Datum, null, undefined>
 
-type TimeSeries = Array<[number, number]>
-
-interface Axes {
-    xAxis: LinearAxis
-    yAxis: LinearAxis
-}
+// type TimeSeries = Array<[number, number]>
 
 /**
  * Holds the actual datum and the associated transformation information
@@ -156,9 +160,9 @@ export function ScatterChart(props: Props): JSX.Element {
 
     // the container that holds the d3 svg element
     const containerRef = useRef<SVGSVGElement>(null)
-    const mainGRef = useRef<Selection<SVGGElement, any, null, undefined>>()
+    const mainGRef = useRef<GSelection>()
 
-    const magnifierRef = useRef<MagnifierSelection>()
+    const magnifierRef = useRef<RadialMagnifierSelection>()
     const magnifierXAxisRef = useRef<LineSelection>()
     const magnifierXAxisLabelRef = useRef<Selection<SVGTextElement, any, SVGGElement, undefined>>()
     const magnifierYAxisRef = useRef<LineSelection>()
@@ -169,7 +173,7 @@ export function ScatterChart(props: Props): JSX.Element {
     const zoomFactorRef = useRef<number>(5)
 
     // reference to the axes for the plot
-    const axesRef = useRef<Axes>()
+    const axesRef = useRef<Axes<LinearAxis, LinearAxis>>()
 
     // reference for the min/max values
     const minValueRef = useRef<number>(minY)
@@ -300,7 +304,7 @@ export function ScatterChart(props: Props): JSX.Element {
         timeRange: ContinuousAxisRange,
         axesLabelFont: AxesLabelFont,
         margin: Margin,
-    ): Axes {
+    ): Axes<LinearAxis, LinearAxis> {
         const xAxis = addLinearAxis(1, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
         const yAxis = addLinearAxis(1, svg, AxisLocation.Left, plotDimensions, [minY, maxY], axesLabelFont, margin, "Weight")
 
@@ -340,166 +344,152 @@ export function ScatterChart(props: Props): JSX.Element {
     }
 
     /**
-     * Returns the index of the data point whose time is the upper boundary on the specified
-     * time. If the specified time is larger than any time in the specified data, the returns
-     * the length of the data array. If the specified time is smaller than all the values in
-     * the specified array, then returns -1.
-     * @param data The array of points from which to select the
-     * boundary.
-     * @param time The time for which to find the bounding points
-     * @return The index of the upper boundary.
-     */
-    function boundingPointsIndex(data: TimeSeries, time: number): number {
-        const length = data.length
-        if (time > data[length - 1][0]) {
-            return length
-        }
-        if (time < data[0][0]) {
-            return 0
-        }
-        return data.findIndex((value, index, array) => {
-            const lowerIndex = Math.max(0, index - 1)
-            return array[lowerIndex][0] <= time && time <= array[index][0]
-        })
-    }
-
-    /**
-     * Returns the (time, value) point that comes just before the mouse and just after the mouse
-     * @param data The time-series data
-     * @param time The time represented by the mouse's x-coordinate
-     * @return {[[number, number], [number, number]]} the (time, value) point that comes just before
-     * the mouse and just after the mouse. If the mouse is after the last point, then the "after" point
-     * is `[NaN, NaN]`. If the mouse is before the first point, then the "before" point is `[NaN, NaN]`.
-     */
-    function boundingPoints(data: TimeSeries, time: number): [[number, number], [number, number]] {
-        const upperIndex = boundingPointsIndex(data, time)
-        if (upperIndex <= 0) {
-            return [[NaN, NaN], data[0]]
-        }
-        if (upperIndex >= data.length) {
-            return [data[data.length - 1], [NaN, NaN]]
-        }
-        return [data[upperIndex - 1], data[upperIndex]]
-    }
-
-    /**
      * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
      * @param datum The spike datum (t ms, s mV)
      * @param seriesName The name of the series (i.e. the neuron ID)
      * @param segment The SVG line element representing the spike, over which the mouse is hovering.
      */
     function handleShowTooltip(datum: TimeSeries, seriesName: string, segment: SVGPathElement): void {
-        if (!(tooltipRef.current.visible || magnifierStyle.visible) || !containerRef.current || !axesRef.current) {
-            return
+        if ((tooltipRef.current.visible || magnifierStyle.visible) && containerRef.current && axesRef.current) {
+
+            // grab the time needed for the tootlip ID
+            const [x, ] = d3.mouse(containerRef.current)
+            const time = Math.round(axesRef.current.xAxis.scale.invert(x - margin.left))
+
+            // Use d3 to select element, change color and size
+            d3.select<SVGPathElement, Datum>(segment)
+                .attr('stroke', lineStyle.highlightColor)
+                .attr('stroke-width', lineStyle.highlightWidth)
+
+            createTooltipControl(
+                `r${time}-${seriesName}-${chartId}`,
+                datum,
+                seriesName,
+                segment,
+                containerRef.current,
+                margin,
+                tooltipStyle,
+                plotDimRef.current,
+                addTooltipContent
+            )
         }
+    }
 
-        const [x, y] = d3.mouse(containerRef.current)
-        const time = Math.round(axesRef.current?.xAxis.scale.invert(x - margin.left))
-        const [lower, upper] = boundingPoints(datum, time)
+    /**
+     * Unselects the time series and removes the tooltip
+     * @param seriesName The name of the series (i.e. the neuron ID)
+     * @param segment The SVG line element representing the spike, over which the mouse is hovering.
+     */
+    function handleRemoveTooltip(seriesName: string, segment: SVGPathElement) {
+        if (segment && seriesName && lineStyle && colorsRef.current) {
+            d3.select<SVGPathElement, Datum>(segment)
+                .attr('stroke', colorsRef.current.get(seriesName) || lineStyle.color)
+                .attr('stroke-width', lineStyle.lineWidth)
+        }
+        removeTooltip()
+    }
 
-        // Use D3 to select element, change color and size
-        d3.select<SVGPathElement, Datum>(segment)
-            .attr('stroke', lineStyle.highlightColor)
-            .attr('stroke-width', lineStyle.highlightWidth)
+    /**
+     * Callback function that adds tooltip content and returns the tooltip width and text height
+     * @param datum The spike datum (t ms, s mV)
+     * @param seriesName The name of the series (i.e. the neuron ID)
+     * @param segment The SVG line element representing the spike, over which the mouse is hovering.
+     * @return The width and text height of the tooltip content
+     */
+    function addTooltipContent(datum: TimeSeries, seriesName: string, segment: SVGPathElement): TooltipDimensions {
+        if (containerRef.current && axesRef.current) {
+            const [x, y] = d3.mouse(containerRef.current)
+            const time = Math.round(axesRef.current.xAxis.scale.invert(x - margin.left))
+            const [lower, upper] = boundingPoints(datum, time)
 
+            // Use D3 to select element, change color and size
+            d3.select<SVGPathElement, Datum>(segment)
+                .attr('stroke', lineStyle.highlightColor)
+                .attr('stroke-width', lineStyle.highlightWidth)
 
-        // create the rounded rectangle for the tooltip's background
-        const rect = d3.select<SVGSVGElement | null, any>(containerRef.current)
-            .append<SVGRectElement>('rect')
-            .attr('id', `r${time}-${seriesName}-${chartId.current}`)
-            .attr('class', 'tooltip')
-            .attr('rx', tooltipRef.current.borderRadius)
-            .attr('fill', tooltipRef.current.backgroundColor)
-            .attr('fill-opacity', tooltipRef.current.backgroundOpacity)
-            .attr('stroke', tooltipRef.current.borderColor)
-            .attr('stroke-width', tooltipRef.current.borderWidth)
-
-
-        // display the neuron ID in the tooltip
-        const header = d3.select<SVGSVGElement | null, any>(containerRef.current)
-            .append<SVGTextElement>("text")
-            .attr('id', `tn${time}-${seriesName}-${chartId.current}`)
-            .attr('class', 'tooltip')
-            .attr('fill', tooltipRef.current.fontColor)
-            .attr('font-family', 'sans-serif')
-            .attr('font-size', tooltipRef.current.fontSize)
-            .attr('font-weight', tooltipRef.current.fontWeight)
-            .text(() => seriesName)
-
-
-        // create the table that shows the points that come before and after the mouse time, and the
-        // changes in the time and value
-        const table = d3.select<SVGSVGElement | null, any>(containerRef.current)
-            .append("g")
-            .attr('id', `t${time}-${seriesName}-header-${chartId.current}`)
-            .attr('class', 'tooltip')
-            .attr('fill', tooltipRef.current.fontColor)
-            .attr('font-family', 'sans-serif')
-            .attr('font-size', tooltipRef.current.fontSize + 2)
-            .attr('font-weight', tooltipRef.current.fontWeight + 150)
-
-
-        const headerRow = table.append('g').attr('font-weight', tooltipRef.current.fontWeight + 550)
-        const hrLower = headerRow.append<SVGTextElement>("text").text(() => 'before')
-        const hrUpper = headerRow.append<SVGTextElement>("text").text(() => 'after')
-        const hrDelta = headerRow.append<SVGTextElement>("text").text(() => '∆')
-
-        const trHeader = table.append<SVGTextElement>("text").text(() => 't (ms)')
-        const trLower = table.append<SVGTextElement>("text").text(() => formatTime(lower[0]))
-        const trUpper = table.append<SVGTextElement>("text").text(() => formatTime(upper[0]))
-        const trDelta = table.append<SVGTextElement>("text").text(() => formatTimeChange(lower[0], upper[0]))
-
-        const vrHeader = table.append<SVGTextElement>("text").text(() => tooltipValueLabel)
-        const vrLower = table.append<SVGTextElement>("text").text(() => formatValue(lower[1]))
-        const vrUpper = table.append<SVGTextElement>("text").text(() => formatValue(upper[1]))
-        const vrDelta = table.append<SVGTextElement>("text").text(() => formatValueChange(lower[1], upper[1]))
-
-        const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
-        const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0
-        const spacesWidthFor = (spaces: number) => spaces * textWidthOf(hrLower) / 5
-
-        // calculate the max width and height of the text
-        const tooltipWidth = Math.max(textWidthOf(header), spacesWidthFor(33))
-        const headerTextHeight = textHeightOf(header)
-        const headerRowHeight = textHeightOf(hrLower)
-        const timeRowHeight = textHeightOf(trHeader)
-        const valueRowHeight = textHeightOf(vrHeader)
-        const textHeight = headerTextHeight + headerRowHeight + timeRowHeight + valueRowHeight
-
-        // set the header text location
-        const xTooltip = tooltipX(x, tooltipWidth, plotDimRef.current) + tooltipRef.current.paddingLeft
-        const yTooltip = tooltipY(y, textHeight, plotDimRef.current) + tooltipRef.current.paddingTop
-        header
-            .attr('x', () => xTooltip)
-            .attr('y', () => yTooltip - (headerRowHeight + timeRowHeight + valueRowHeight) + textHeight)
+            // display the neuron ID in the tooltip
+            const header = d3.select<SVGSVGElement | null, any>(containerRef.current)
+                .append<SVGTextElement>("text")
+                .attr('id', `tn${time}-${seriesName}-${chartId.current}`)
+                .attr('class', 'tooltip')
+                .attr('fill', tooltipRef.current.fontColor)
+                .attr('font-family', 'sans-serif')
+                .attr('font-size', tooltipRef.current.fontSize)
+                .attr('font-weight', tooltipRef.current.fontWeight)
+                .text(() => seriesName)
 
 
-        const hrRowY = yTooltip + headerTextHeight + headerRowHeight
-        const hrLowerX = spacesWidthFor(14)
-        const hrUpperX = spacesWidthFor(24)
-        const hrDeltaX = spacesWidthFor(32)
-        hrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(hrLower)).attr('y', () => hrRowY)
-        hrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(hrUpper)).attr('y', () => hrRowY)
-        hrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(hrDelta)).attr('y', () => hrRowY)
+            // create the table that shows the points that come before and after the mouse time, and the
+            // changes in the time and value
+            const table = d3.select<SVGSVGElement | null, any>(containerRef.current)
+                .append("g")
+                .attr('id', `t${time}-${seriesName}-header-${chartId.current}`)
+                .attr('class', 'tooltip')
+                .attr('fill', tooltipRef.current.fontColor)
+                .attr('font-family', 'sans-serif')
+                .attr('font-size', tooltipRef.current.fontSize + 2)
+                .attr('font-weight', tooltipRef.current.fontWeight + 150)
 
-        const trRowY = hrRowY + timeRowHeight
-        trHeader.attr('x', () => xTooltip).attr('y', () => trRowY)
-        trLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(trLower)).attr('y', () => trRowY)
-        trUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(trUpper)).attr('y', () => trRowY)
-        trDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(trDelta)).attr('y', () => trRowY)
 
-        const vrRowY = trRowY + valueRowHeight
-        vrHeader.attr('x', () => xTooltip).attr('y', () => vrRowY)
-        vrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(vrLower)).attr('y', () => vrRowY)
-        vrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(vrUpper)).attr('y', () => vrRowY)
-        vrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(vrDelta)).attr('y', () => vrRowY)
+            const headerRow = table.append('g').attr('font-weight', tooltipRef.current.fontWeight + 550)
+            const hrLower = headerRow.append<SVGTextElement>("text").text(() => 'before')
+            const hrUpper = headerRow.append<SVGTextElement>("text").text(() => 'after')
+            const hrDelta = headerRow.append<SVGTextElement>("text").text(() => '∆')
 
-        // set the position, width, and height of the tooltip rect based on the text height and width and the padding
-        rect.attr('x', () => tooltipX(x, tooltipWidth, plotDimRef.current))
-            .attr('y', () => tooltipY(y, textHeight, plotDimRef.current))
-            .attr('width', tooltipWidth + tooltipRef.current.paddingLeft + tooltipRef.current.paddingRight)
-            .attr('height', textHeight + tooltipRef.current.paddingTop + tooltipRef.current.paddingBottom)
+            const trHeader = table.append<SVGTextElement>("text").text(() => 't (ms)')
+            const trLower = table.append<SVGTextElement>("text").text(() => formatTime(lower[0]))
+            const trUpper = table.append<SVGTextElement>("text").text(() => formatTime(upper[0]))
+            const trDelta = table.append<SVGTextElement>("text").text(() => formatTimeChange(lower[0], upper[0]))
 
+            const vrHeader = table.append<SVGTextElement>("text").text(() => tooltipValueLabel)
+            const vrLower = table.append<SVGTextElement>("text").text(() => formatValue(lower[1]))
+            const vrUpper = table.append<SVGTextElement>("text").text(() => formatValue(upper[1]))
+            const vrDelta = table.append<SVGTextElement>("text").text(() => formatValueChange(lower[1], upper[1]))
+
+            const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
+            const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0
+            const spacesWidthFor = (spaces: number) => spaces * textWidthOf(hrLower) / 5
+
+            // calculate the max width and height of the text
+            const tooltipWidth = Math.max(textWidthOf(header), spacesWidthFor(33))
+            const headerTextHeight = textHeightOf(header)
+            const headerRowHeight = textHeightOf(hrLower)
+            const timeRowHeight = textHeightOf(trHeader)
+            const valueRowHeight = textHeightOf(vrHeader)
+            const textHeight = headerTextHeight + headerRowHeight + timeRowHeight + valueRowHeight
+
+            // set the header text location
+            const xTooltip = tooltipX(x, tooltipWidth, plotDimRef.current, tooltipStyle, margin) + tooltipRef.current.paddingLeft
+            const yTooltip = tooltipY(y, textHeight, plotDimRef.current, tooltipStyle, margin) + tooltipRef.current.paddingTop
+            header
+                .attr('x', () => xTooltip)
+                .attr('y', () => yTooltip - (headerRowHeight + timeRowHeight + valueRowHeight) + textHeight)
+
+
+            const hrRowY = yTooltip + headerTextHeight + headerRowHeight
+            const hrLowerX = spacesWidthFor(14)
+            const hrUpperX = spacesWidthFor(24)
+            const hrDeltaX = spacesWidthFor(32)
+            hrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(hrLower)).attr('y', () => hrRowY)
+            hrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(hrUpper)).attr('y', () => hrRowY)
+            hrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(hrDelta)).attr('y', () => hrRowY)
+
+            const trRowY = hrRowY + timeRowHeight
+            trHeader.attr('x', () => xTooltip).attr('y', () => trRowY)
+            trLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(trLower)).attr('y', () => trRowY)
+            trUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(trUpper)).attr('y', () => trRowY)
+            trDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(trDelta)).attr('y', () => trRowY)
+
+            const vrRowY = trRowY + valueRowHeight
+            vrHeader.attr('x', () => xTooltip).attr('y', () => vrRowY)
+            vrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(vrLower)).attr('y', () => vrRowY)
+            vrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(vrUpper)).attr('y', () => vrRowY)
+            vrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(vrDelta)).attr('y', () => vrRowY)
+
+            return {contentWidth: tooltipWidth, contentHeight: textHeight}
+        } else {
+            return {contentWidth: 0, contentHeight: 0}
+        }
     }
 
     function formatNumber(value: number, format: string): string {
@@ -527,56 +517,13 @@ export function ScatterChart(props: Props): JSX.Element {
     }
 
     /**
-     * Calculates the x-coordinate of the lower left-hand side of the tooltip rectangle (obviously without
-     * "rounded corners"). Adjusts the x-coordinate so that tooltip is visible on the edges of the plot.
-     * @param x The current x-coordinate of the mouse
-     * @param textWidth The width of the tooltip text
-     * @param plotDimensions The dimensions of the plot
-     * @return The x-coordinate of the lower left-hand side of the tooltip rectangle
-     */
-    function tooltipX(x: number, textWidth: number, plotDimensions: Dimensions): number {
-        if (x + textWidth + tooltipStyle.paddingLeft + 10 > plotDimensions.width + margin.left) {
-            return x - textWidth - tooltipStyle.paddingRight - margin.right
-        }
-        return x + tooltipStyle.paddingLeft
-    }
-
-    /**
-     * Calculates the y-coordinate of the lower-left-hand corner of the tooltip rectangle. Adjusts the y-coordinate
-     * so that the tooltip is visible on the upper edge of the plot
-     * @param y The y-coordinate of the series
-     * @param textHeight The height of the header and neuron ID text
-     * @param plotDimensions The dimensions of the plot
-     * @return The y-coordinate of the lower-left-hand corner of the tooltip rectangle
-     */
-    function tooltipY(y: number, textHeight: number, plotDimensions: Dimensions): number {
-        return y + margin.top - tooltipStyle.paddingBottom - textHeight - tooltipStyle.paddingTop
-    }
-
-    /**
-     * Removes the tooltip when the mouse has moved away from the spike
-     * @param [segment] The SVG line element representing the spike, over which the mouse is hovering.
-     * @param [seriesName] The optional name of the series
-     */
-    function handleHideTooltip(segment?: SVGPathElement, seriesName?: string) {
-        if (segment && seriesName) {
-            d3.select<SVGPathElement, Datum>(segment)
-                .attr('stroke', colorsRef.current.get(seriesName) || lineStyle.color)
-                .attr('stroke-width', lineStyle.lineWidth)
-
-        }
-
-        d3.selectAll<SVGPathElement, Datum>('.tooltip').remove()
-    }
-
-    /**
      * Called when the magnifier is enabled to set up the vertical bar magnifier lens
      * @param svg The path selection
      * holding the magnifier whose properties need to be updated.
      */
     function handleShowMagnify(svg: SvgSelection | undefined) {
 
-        const path: MagnifierSelection = svg!.select('.magnifier')
+        const path: RadialMagnifierSelection = svg!.select('.magnifier')
 
         /**
          * Determines whether specified datum is in the time interval centered around the current
@@ -720,9 +667,9 @@ export function ScatterChart(props: Props): JSX.Element {
      * Creates the SVG elements for displaying a radial magnifier lens on the data
      * @param svg The SVG selection
      * @param visible `true` if the lens is visible; `false` otherwise
-     * @return {MagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
+     * @return {RadialMagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
      */
-    function magnifierLens(svg: SvgSelection, visible: boolean): MagnifierSelection | undefined {
+    function magnifierLens(svg: SvgSelection, visible: boolean): RadialMagnifierSelection | undefined {
         if (visible && magnifierRef.current === undefined) {
             const radialGradient = svg
                 .append<SVGDefsElement>('defs')
@@ -929,7 +876,7 @@ export function ScatterChart(props: Props): JSX.Element {
                 .on("start", () => {
                     // during a pan, we want to hide the tooltip
                     tooltipRef.current.visible = false
-                    handleHideTooltip()
+                    removeTooltip()
                     d3.select(containerRef.current).style("cursor", "move")
                 })
                 .on("drag", () => onPan(d3.event.dx, plotDimensions))
@@ -1000,7 +947,9 @@ export function ScatterChart(props: Props): JSX.Element {
                             .on(
                                 "mouseleave",
                                 (datumArray, i, group) =>
-                                    tooltipRef.current.visible ? handleHideTooltip(group[i], series.name) : null
+                                    tooltipRef.current.visible ?
+                                        handleRemoveTooltip(series.name, group[i]) :
+                                        null
                             ),
                         update => update,
                         exit => exit.remove()

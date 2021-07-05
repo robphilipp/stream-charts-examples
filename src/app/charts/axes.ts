@@ -34,16 +34,24 @@ export const defaultLineStyle: AxesLineStyle = {
 }
 
 const noop = () => {/*empty*/}
-export interface LinearAxis {
-    scale: ScaleLinear<number, number>
+
+export interface Axes<X extends BaseAxis, Y extends BaseAxis> {
+    xAxis: X
+    yAxis: Y
+}
+
+export interface BaseAxis {
     selection: AxisElementSelection
+}
+
+export interface LinearAxis extends BaseAxis {
+    scale: ScaleLinear<number, number>
     generator: Axis<number | { valueOf(): number }>
     update: (domain: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => void
 }
 
-export interface CategoryAxis {
+export interface CategoryAxis extends BaseAxis {
     scale: ScaleBand<string>
-    selection: AxisElementSelection
     generator: Axis<string>
     categorySize: number
     update: (categoryNames: Array<string>, unfilteredSize: number, plotDimensions: Dimensions, margin: Margin) => number
