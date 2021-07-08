@@ -7,7 +7,10 @@ import {CategoryAxis} from "./axes";
 import {TooltipStyle} from "./TooltipStyle";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 
-export interface TooltipDimensions {contentWidth: number, contentHeight: number}
+export interface TooltipDimensions {
+    contentWidth: number,
+    contentHeight: number
+}
 
 /**
  * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.

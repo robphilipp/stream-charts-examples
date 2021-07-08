@@ -6,7 +6,7 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRange
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
 import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
-import {Observable, Subscription} from "rxjs";
+import {Observable, range, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {windowTime} from "rxjs/operators";
 import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker";
@@ -25,6 +25,7 @@ import {
 } from "./axes";
 import {GSelection, LineSelection, SvgSelection, TrackerSelection} from "./d3types";
 import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltip";
+import {handleZoom} from "./utils";
 
 const defaultMargin = {top: 30, right: 20, bottom: 30, left: 50};
 const defaultSpikesStyle = {
@@ -324,14 +325,13 @@ export function RasterChart(props: Props): JSX.Element {
      * @param plotDimensions The current dimensions of the plot
      */
     function onZoom(transform: ZoomTransform, x: number, plotDimensions: Dimensions): void {
-        if (x > 0 && x < width - margin.right && axesRef.current !== undefined) {
-            const {
-                range,
-                zoomFactor
-            } = calculateZoomFor(transform, x, plotDimensions, axesRef.current.xAxis, timeRangeRef.current)
-            timeRangeRef.current = range
-            zoomFactorRef.current = zoomFactor
-            updatePlot(timeRangeRef.current, plotDimensions)
+        if (axesRef.current !== undefined) {
+            const zoom = handleZoom(transform, x, plotDimensions, width, margin, axesRef.current.xAxis, timeRangeRef.current)
+            if (zoom) {
+                timeRangeRef.current = zoom.timeRange
+                zoomFactorRef.current = zoom.zoomFactor
+                updatePlot(timeRangeRef.current, plotDimensions)
+            }
         }
     }
 
@@ -381,7 +381,9 @@ export function RasterChart(props: Props): JSX.Element {
      */
     function addTooltipContent(datum: Datum, seriesName: string, axis?: CategoryAxis): TooltipDimensions {
         if (containerRef.current && axis) {
-            const [x, ] = d3.mouse(containerRef.current)
+            const [x,] = d3.mouse(containerRef.current)
+
+            // todo...finally, these can be exposed as a callback for the user of the <RasterChart/>
             // display the neuron ID in the tooltip
             const header = d3.select<SVGSVGElement | null, any>(containerRef.current)
                 .append<SVGTextElement>("text")

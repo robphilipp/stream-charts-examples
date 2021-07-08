@@ -1,5 +1,7 @@
 import {Margin, Dimensions} from "./margins"
-import {Selection} from "d3";
+import {Selection, ZoomTransform} from "d3";
+import {Axes, calculateZoomFor, LinearAxis} from "./axes";
+import {TimeRangeType} from "stream-charts/dist/src/app/charts/timeRange";
 
 /**
  * Calculates whether the mouse is in the plot-area
@@ -14,3 +16,38 @@ export function mouseInPlotAreaFor(x: number, y: number, margin: Margin, dimensi
 }
 
 export const textWidthOf = (elem: Selection<SVGTextElement, any, HTMLElement, any>) => elem.node()?.getBBox()?.width || 0
+
+/**
+ * The object returned by the zoom
+ */
+export interface Zoom {
+    zoomFactor: number,
+    timeRange: TimeRangeType,
+}
+
+/**
+ * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+ * at the location of the mouse when the scroll wheel or gesture was applied.
+ * @param transform The d3 zoom transformation information
+ * @param x The x-position of the mouse when the scroll wheel or gesture is used
+ * @param plotDimensions The current dimensions of the plot
+ * @param containerWidth The container width
+ * @param margin The plot margins
+ * @param xAxis The linear x-axis
+ * @param timeRange The time-range of the current x-axis
+ * @return The zoom factor and updated time-range
+ */
+export function handleZoom(
+    transform: ZoomTransform,
+    x: number,
+    plotDimensions: Dimensions,
+    containerWidth: number,
+    margin: Margin,
+    xAxis: LinearAxis,
+    timeRange: TimeRangeType,
+): Zoom | undefined {
+    if (x > 0 && x < containerWidth - margin.right) {
+        const {range, zoomFactor} = calculateZoomFor(transform, x, plotDimensions, xAxis, timeRange)
+        return {zoomFactor, timeRange: range}
+    }
+}

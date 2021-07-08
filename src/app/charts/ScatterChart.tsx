@@ -31,7 +31,7 @@ import {
     TextSelection,
     TrackerSelection
 } from "./d3types";
-import {mouseInPlotAreaFor} from "./utils";
+import {handleZoom, mouseInPlotAreaFor} from "./utils";
 import {TimeSeries} from "./plot";
 import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
 
@@ -319,15 +319,13 @@ export function ScatterChart(props: Props): JSX.Element {
      * @param plotDimensions The dimensions of the plot
      */
     function onZoom(transform: ZoomTransform, x: number, plotDimensions: Dimensions): void {
-        // only zoom if the mouse is in the plot area
-        if (x > 0 && x < width - margin.right && axesRef.current !== undefined) {
-            const {
-                range,
-                zoomFactor
-            } = calculateZoomFor(transform, x, plotDimensions, axesRef.current.xAxis, timeRangeRef.current)
-            timeRangeRef.current = range
-            zoomFactorRef.current = zoomFactor
-            updatePlot(timeRangeRef.current, plotDimensions)
+        if (axesRef.current !== undefined) {
+            const zoom = handleZoom(transform, x, plotDimensions, width, margin, axesRef.current.xAxis, timeRangeRef.current)
+            if (zoom) {
+                timeRangeRef.current = zoom.timeRange
+                zoomFactorRef.current = zoom.zoomFactor
+                updatePlot(timeRangeRef.current, plotDimensions)
+            }
         }
     }
 
@@ -397,6 +395,7 @@ export function ScatterChart(props: Props): JSX.Element {
             const time = Math.round(axesRef.current.xAxis.scale.invert(x - margin.left))
             const [lower, upper] = boundingPoints(datum, time)
 
+            // todo...finally, these can be exposed as a callback for the user of the <ScatterChart/>
             // display the neuron ID in the tooltip
             const header = d3.select<SVGSVGElement | null, any>(containerRef.current)
                 .append<SVGTextElement>("text")
@@ -958,9 +957,12 @@ export function ScatterChart(props: Props): JSX.Element {
     function selectInTimeRange(series: Series): TimeSeries {
 
         function inTimeRange(datum: Datum, index: number, array: Datum[]): boolean {
-            // also want to include the point whose next value is in the time range
+            // also want to include the point whose previous or next value are in the time range
+            const prevDatum = array[Math.max(0, index - 1)]
             const nextDatum = array[Math.min(index + 1, array.length - 1)]
-            return nextDatum.time >= timeRangeRef.current.start && datum.time <= timeRangeRef.current.end
+            return (datum.time >= timeRangeRef.current.start && datum.time <= timeRangeRef.current.end) ||
+                (datum.time < timeRangeRef.current.start && nextDatum.time >= timeRangeRef.current.start) ||
+                (prevDatum.time <= timeRangeRef.current.end && datum.time > timeRangeRef.current.end)
         }
 
         return series.data
