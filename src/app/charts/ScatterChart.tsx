@@ -8,30 +8,30 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRange
 import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle"
 import {noop, Observable, Subscription} from "rxjs"
 import {ChartData} from "./chartData"
-import {LensTransformation2d, RadialMagnifier, radialMagnifierWith} from "./radialMagnifier"
+import {
+    createMagnifierLens,
+    magnifyAll,
+    RadialLensAxesSelections,
+    RadialMagnifier,
+    RadialMagnifierStyle,
+    radialMagnifierWith
+} from "./radialMagnifier"
 import {windowTime} from "rxjs/operators"
 import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker"
 import {initialSvgStyle, SvgStyle} from "./svgStyle"
 import {
-    addLinearAxis, Axes,
+    addLinearAxis,
+    Axes,
     AxesLabelFont,
     AxesLineStyle,
     AxisLocation,
     calculatePanFor,
-    calculateZoomFor,
     defaultAxesLabelFont,
     defaultLineStyle,
     LinearAxis
 } from "./axes";
-import {
-    GSelection,
-    LineSelection,
-    RadialMagnifierSelection,
-    SvgSelection,
-    TextSelection,
-    TrackerSelection
-} from "./d3types";
-import {handleZoom, mouseInPlotAreaFor} from "./utils";
+import {GSelection, RadialMagnifierSelection, SvgSelection, TextSelection, TrackerSelection} from "./d3types";
+import {formatTime, formatTimeChange, formatValue, formatValueChange, handleZoom, mouseInPlotAreaFor} from "./utils";
 import {TimeSeries} from "./plot";
 import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
 
@@ -43,24 +43,13 @@ const defaultAxesStyle = {color: '#d2933f'}
 
 // type TimeSeries = Array<[number, number]>
 
-/**
- * Holds the actual datum and the associated transformation information
- */
-interface MagnifiedData {
-    datum: [number, number]
-    lens: LensTransformation2d
-}
-
-/**
- * Properties for rendering the line-magnifier lens
- */
-interface RadialMagnifierStyle {
-    visible: boolean
-    radius: number
-    magnification: number
-    color: string,
-    lineWidth: number,
-}
+// /**
+//  * Holds the actual datum and the associated transformation information
+//  */
+// interface MagnifiedData {
+//     datum: [number, number]
+//     lens: LensTransformation2d
+// }
 
 const defaultRadialMagnifierStyle: RadialMagnifierStyle = {
     visible: false,
@@ -163,10 +152,7 @@ export function ScatterChart(props: Props): JSX.Element {
     const mainGRef = useRef<GSelection>()
 
     const magnifierRef = useRef<RadialMagnifierSelection>()
-    const magnifierXAxisRef = useRef<LineSelection>()
-    const magnifierXAxisLabelRef = useRef<Selection<SVGTextElement, any, SVGGElement, undefined>>()
-    const magnifierYAxisRef = useRef<LineSelection>()
-    const magnifierYAxisLabelRef = useRef<Selection<SVGTextElement, any, SVGGElement, undefined>>()
+    const magnifierAxesRef = useRef<RadialLensAxesSelections>()
 
     const trackerRef = useRef<Selection<SVGLineElement, Datum, null, undefined>>()
 
@@ -179,7 +165,6 @@ export function ScatterChart(props: Props): JSX.Element {
     const minValueRef = useRef<number>(minY)
     const maxValueRef = useRef<number>(maxY)
 
-    // const liveDataRef = useRef<Array<Series>>(seriesList)
     const liveDataRef = useRef<Map<string, Series>>(new Map<string, Series>(seriesList.map(series => [series.name, series])))
     const seriesRef = useRef<Map<string, Series>>(new Map<string, Series>(seriesList.map(series => [series.name, series])))
     const currentTimeRef = useRef<number>(0)
@@ -481,32 +466,32 @@ export function ScatterChart(props: Props): JSX.Element {
         }
     }
 
-    function formatNumber(value: number, format: string): string {
-        return isNaN(value) ? '---' : d3.format(format)(value)
-    }
-
-    function formatTime(value: number): string {
-        return formatNumber(value, " ,.0f")
-    }
-
-    function formatValue(value: number): string {
-        return formatNumber(value, " ,.3f")
-    }
-
-    function formatChange(v1: number, v2: number, format: string): string {
-        return isNaN(v1) || isNaN(v2) ? '---' : d3.format(format)(v2 - v1)
-    }
-
-    function formatTimeChange(v1: number, v2: number): string {
-        return formatChange(v1, v2, " ,.0f")
-    }
-
-    function formatValueChange(v1: number, v2: number): string {
-        return formatChange(v1, v2, " ,.3f")
-    }
+    // function formatNumber(value: number, format: string): string {
+    //     return isNaN(value) ? '---' : d3.format(format)(value)
+    // }
+    //
+    // function formatTime(value: number): string {
+    //     return formatNumber(value, " ,.0f")
+    // }
+    //
+    // function formatValue(value: number): string {
+    //     return formatNumber(value, " ,.3f")
+    // }
+    //
+    // function formatChange(v1: number, v2: number, format: string): string {
+    //     return isNaN(v1) || isNaN(v2) ? '---' : d3.format(format)(v2 - v1)
+    // }
+    //
+    // function formatTimeChange(v1: number, v2: number): string {
+    //     return formatChange(v1, v2, " ,.0f")
+    // }
+    //
+    // function formatValueChange(v1: number, v2: number): string {
+    //     return formatChange(v1, v2, " ,.3f")
+    // }
 
     /**
-     * Called when the magnifier is enabled to set up the vertical bar magnifier lens
+     * Called when the magnifier is enabled to set up the radial magnifier lens
      * @param svg The path selection
      * holding the magnifier whose properties need to be updated.
      */
@@ -514,53 +499,14 @@ export function ScatterChart(props: Props): JSX.Element {
 
         const path: RadialMagnifierSelection = svg!.select('.magnifier')
 
-        /**
-         * Determines whether specified datum is in the time interval centered around the current
-         * mouse position
-         * @param datum The datum represented in x-coordinates (i.e. screen rather than time)
-         * @param mouse The (x, y)-coordinate of the current mouse position
-         * @param radius The pixel interval for which transformations are applied
-         * @return `true` if the datum is in the interval; `false` otherwise
-         */
-        function inMagnifier(datum: [number, number], mouse: [number, number], radius: number): boolean {
-            const dx = mouse[0] - datum[0]
-            const dy = mouse[1] - datum[1]
-            return Math.sqrt(dx * dx + dy * dy) < radius
-        }
-
-        /**
-         *
-         * @param datum The (time, value) pair
-         * @param mouse The mouse cursor position
-         * @param radius The extent of the magnifier lens
-         * @param magnifier The bar magnifier function
-         * @param xScale The xScale to convert from data coordinates to screen coordinates
-         * @param yScale The xScale to convert from data coordinates to screen coordinates
-         * @return The transformed paths
-         */
-        function magnify(datum: [number, number],
-                         mouse: [number, number],
-                         radius: number,
-                         magnifier: RadialMagnifier,
-                         xScale: ScaleLinear<number, number>,
-                         yScale: ScaleLinear<number, number>): [number, number] {
-            const datumX = xScale(datum[0])
-            const datumY = yScale(datum[1])
-            if (inMagnifier([datumX + margin.left, datumY + margin.top], mouse, radius)) {
-                const transform = magnifier.magnify(datumX, datumY)
-                return [transform.xPrime, transform.yPrime]
-            }
-            return [datumX, datumY]
-        }
-
         // create the lens
         if (containerRef.current && path && svg) {
-            const [x, y] = d3.mouse(containerRef.current)
-            const isMouseInPlotArea = mouseInPlotAreaFor(x, y, margin, {width, height})
+            const [mx, my] = d3.mouse(containerRef.current)
+            const isMouseInPlotArea = mouseInPlotAreaFor(mx, my, margin, {width, height})
             path
                 .attr('r', magnifierStyle.radius)
-                .attr('cx', x)
-                .attr('cy', y)
+                .attr('cx', mx)
+                .attr('cy', my)
                 .attr('opacity', () => isMouseInPlotArea ? 1 : 0)
 
 
@@ -571,66 +517,64 @@ export function ScatterChart(props: Props): JSX.Element {
                 const radialMagnifier: RadialMagnifier = radialMagnifierWith(
                     magnifierStyle.radius,
                     magnifierStyle.magnification,
-                    [x - margin.left, y - margin.top]
+                    [mx - margin.left, my - margin.top]
                 )
                 mainGRef.current!
                     .selectAll<SVGSVGElement, Array<[number, number]>>('.time-series-lines')
                     .attr("d", data => {
-                        const magnified = data
-                            .map(datum => magnify(datum, [x, y], magnifierStyle.radius, radialMagnifier, xScale, yScale))
+                        const magnified = magnifyAll(data, [mx, my], magnifierStyle.radius, radialMagnifier, margin, xScale, yScale)
                         return d3.line()(magnified)
                     })
 
-
                 svg
                     .select(`#x-lens-axis-${chartId.current}`)
-                    .attr('x1', x - magnifierStyle.radius)
-                    .attr('x2', x + magnifierStyle.radius)
-                    .attr('y1', y)
-                    .attr('y2', y)
+                    .attr('x1', mx - magnifierStyle.radius)
+                    .attr('x2', mx + magnifierStyle.radius)
+                    .attr('y1', my)
+                    .attr('y2', my)
                     .attr('opacity', 0.3)
 
 
                 svg
                     .select(`#y-lens-axis-${chartId.current}`)
-                    .attr('x1', x)
-                    .attr('x2', x)
-                    .attr('y1', y - magnifierStyle.radius)
-                    .attr('y2', y + magnifierStyle.radius)
+                    .attr('x1', mx)
+                    .attr('x2', mx)
+                    .attr('y1', my - magnifierStyle.radius)
+                    .attr('y2', my + magnifierStyle.radius)
                     .attr('opacity', 0.3)
 
 
-                const axesMagnifier: RadialMagnifier = radialMagnifierWith(magnifierStyle.radius, magnifierStyle.magnification, [x, y])
-                magnifierXAxisRef.current!
+                const axesMagnifier: RadialMagnifier = radialMagnifierWith(magnifierStyle.radius, magnifierStyle.magnification, [mx, my])
+                magnifierAxesRef.current?.magnifierXAxis
                     .attr('stroke', magnifierStyle.color)
                     .attr('stroke-width', magnifierStyle.lineWidth)
                     .attr('opacity', 0.75)
-                    .attr('x1', datum => axesMagnifier.magnify(x + datum * magnifierStyle.radius / 5, y).xPrime)
-                    .attr('x2', datum => axesMagnifier.magnify(x + datum * magnifierStyle.radius / 5, y).xPrime)
-                    .attr('y1', y)
-                    .attr('y2', datum => axesMagnifier.magnify(x, y + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40).yPrime + 5)
+                    .attr('x1', datum => axesMagnifier.magnify(mx + datum * magnifierStyle.radius / 5, my).xPrime)
+                    .attr('x2', datum => axesMagnifier.magnify(mx + datum * magnifierStyle.radius / 5, my).xPrime)
+                    .attr('y1', my)
+                    .attr('y2', datum => axesMagnifier.magnify(mx, my + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40).yPrime + 5)
 
 
-                magnifierXAxisLabelRef.current!
-                    .attr('x', datum => axesMagnifier.magnify(x + datum * magnifierStyle.radius / 5, y).xPrime - 12)
-                    .attr('y', datum => axesMagnifier.magnify(x, y + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 30).yPrime + 20)
-                    .text(datum => Math.round(xScale.invert(x - margin.left + datum * magnifierStyle.radius / 5)))
+                magnifierAxesRef.current?.magnifierXAxisLabel
+                    .attr('x', datum => axesMagnifier.magnify(mx + datum * magnifierStyle.radius / 5, my).xPrime - 12)
+                    .attr('y', datum => axesMagnifier.magnify(mx, my + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 30).yPrime + 20)
+                    .text(datum => Math.round(xScale.invert(mx - margin.left + datum * magnifierStyle.radius / 5)))
 
 
-                magnifierYAxisRef.current!
+                magnifierAxesRef.current?.magnifierYAxis
                     .attr('stroke', magnifierStyle.color)
                     .attr('stroke-width', magnifierStyle.lineWidth)
                     .attr('opacity', 0.75)
-                    .attr('x1', datum => axesMagnifier.magnify(x - magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, y).xPrime - 2)
-                    .attr('x2', datum => axesMagnifier.magnify(x + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, y).xPrime + 2)
-                    .attr('y1', datum => axesMagnifier.magnify(x, y + datum * magnifierStyle.radius / 5).yPrime)
-                    .attr('y2', datum => axesMagnifier.magnify(x, y + datum * magnifierStyle.radius / 5).yPrime)
+                    .attr('x1', datum => axesMagnifier.magnify(mx - magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, my).xPrime - 2)
+                    .attr('x2', datum => axesMagnifier.magnify(mx + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, my).xPrime + 2)
+                    .attr('y1', datum => axesMagnifier.magnify(mx, my + datum * magnifierStyle.radius / 5).yPrime)
+                    .attr('y2', datum => axesMagnifier.magnify(mx, my + datum * magnifierStyle.radius / 5).yPrime)
 
 
-                magnifierYAxisLabelRef.current!
-                    .attr('x', datum => axesMagnifier.magnify(x + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, y).xPrime + 10)
-                    .attr('y', datum => axesMagnifier.magnify(x, y + datum * magnifierStyle.radius / 5).yPrime - 2)
-                    .text(datum => formatValue(yScale.invert(y - margin.top + datum * magnifierStyle.radius / 5)))
+                magnifierAxesRef.current?.magnifierYAxisLabel
+                    .attr('x', datum => axesMagnifier.magnify(mx + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, my).xPrime + 10)
+                    .attr('y', datum => axesMagnifier.magnify(mx, my + datum * magnifierStyle.radius / 5).yPrime - 2)
+                    .text(datum => formatValue(yScale.invert(my - margin.top + datum * magnifierStyle.radius / 5)))
 
             } else {
                 mainGRef.current!
@@ -644,10 +588,10 @@ export function ScatterChart(props: Props): JSX.Element {
 
                 svg.select(`#x-lens-axis-${chartId.current}`).attr('opacity', 0)
                 svg.select(`#y-lens-axis-${chartId.current}`).attr('opacity', 0)
-                magnifierXAxisRef.current!.attr('opacity', 0)
-                magnifierXAxisLabelRef.current!.text(() => '')
-                magnifierYAxisRef.current!.attr('opacity', 0)
-                magnifierYAxisLabelRef.current!.text(() => '')
+                magnifierAxesRef.current?.magnifierXAxis.attr('opacity', 0)
+                magnifierAxesRef.current?.magnifierXAxisLabel.text(() => '')
+                magnifierAxesRef.current?.magnifierYAxis.attr('opacity', 0)
+                magnifierAxesRef.current?.magnifierYAxisLabel.text(() => '')
             }
         }
     }
@@ -659,69 +603,17 @@ export function ScatterChart(props: Props): JSX.Element {
      * @return {RadialMagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
      */
     function magnifierLens(svg: SvgSelection, visible: boolean): RadialMagnifierSelection | undefined {
-        if (visible && magnifierRef.current === undefined) {
-            const radialGradient = svg
-                .append<SVGDefsElement>('defs')
-                .append<SVGLinearGradientElement>('radialGradient')
-                .attr('id', `radial-magnifier-gradient-${chartId.current}`)
-                .attr('cx', '47%')
-                .attr('cy', '47%')
-                .attr('r', '53%')
-                .attr('fx', '25%')
-                .attr('fy', '25%')
+        if (visible && magnifierRef.current === undefined && containerRef.current !== null && axesRef.current && mainGRef.current) {
+            const lens = createMagnifierLens(
+                chartId.current, svg, containerRef.current, margin, width, height, magnifierStyle,
+                axesRef.current, axisLabelFont, mainGRef.current, tooltipStyle, borderColor
+            )
 
-
-            radialGradient
-                .append<SVGStopElement>('stop')
-                .attr('offset', '0%')
-                .attr('stop-color', borderColor)
-
-
-            radialGradient
-                .append<SVGStopElement>('stop')
-                .attr('offset', '30%')
-                .attr('stop-color', tooltipStyle.backgroundColor)
-                .attr('stop-opacity', 0)
-
-
-            radialGradient
-                .append<SVGStopElement>('stop')
-                .attr('offset', '70%')
-                .attr('stop-color', tooltipStyle.backgroundColor)
-                .attr('stop-opacity', 0)
-
-
-            radialGradient
-                .append<SVGStopElement>('stop')
-                .attr('offset', '100%')
-                .attr('stop-color', borderColor)
-
-
-            const magnifierSelection = svg
-                .append<SVGCircleElement>('circle')
-                .attr('class', 'magnifier')
-                .style('fill', `url(#radial-magnifier-gradient-${chartId.current})`)
-
-
-            // create the lens axes', ticks and tick labels. the labels hold the time and values of the
-            // current mouse location
-            createMagnifierLensAxisLine(`x-lens-axis-${chartId.current}`, svg)
-            createMagnifierLensAxisLine(`y-lens-axis-${chartId.current}`, svg)
-
-            const lensTickIndexes = d3.range(-5, 6, 1)
-            const lensLabelIndexes = [-5, -1, 0, 1, 5]
-
-            const xLensAxisTicks = svg.append('g').attr('id', `x-lens-axis-ticks-${chartId.current}`)
-            magnifierXAxisRef.current = magnifierLensAxisTicks('x-lens-ticks', lensTickIndexes, xLensAxisTicks)
-            magnifierXAxisLabelRef.current = magnifierLensAxisLabels(lensLabelIndexes, xLensAxisTicks)
-
-            const yLensAxisTicks = svg.append('g').attr('id', `y-lens-axis-ticks-${chartId.current}`)
-            magnifierYAxisRef.current = magnifierLensAxisTicks('y-lens-ticks', lensTickIndexes, yLensAxisTicks)
-            magnifierYAxisLabelRef.current = magnifierLensAxisLabels(lensLabelIndexes, yLensAxisTicks)
+            magnifierAxesRef.current = {...lens.axesSelections}
 
             svg.on('mousemove', () => handleShowMagnify(svg))
 
-            return magnifierSelection
+            return lens.magnifierSelection
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
         else if ((!visible && magnifierRef.current) || tooltipRef.current.visible) {
@@ -731,63 +623,6 @@ export function ScatterChart(props: Props): JSX.Element {
             svg.on('mousemove', () => handleShowMagnify(svg))
         }
         return magnifierRef.current
-    }
-
-    /**
-     * Creates a magnifier lens axis svg node and appends it to the specified svg selection
-     * @param className The class name of the svg line line
-     * @param svg The svg selection to which to add the axis line
-     */
-    function createMagnifierLensAxisLine(className: string, svg: SvgSelection): void {
-        svg
-            .append('line')
-            .attr('id', className)
-            .attr('stroke', magnifierStyle.color)
-            .attr('stroke-width', magnifierStyle.lineWidth)
-            .attr('opacity', 0)
-    }
-
-    /**
-     * Creates the svg node for a magnifier lens axis (either x or y) ticks and binds the ticks to the nodes
-     * @param className The node's class name for selection
-     * @param ticks The ticks represented as an array of integers. An integer of 0 places the
-     * tick on the center of the lens. An integer of ± array_length / 2 - 1 places the tick on the lens boundary.
-     * @param selection The svg g node holding these axis ticks
-     * @return A line selection these ticks
-     */
-    function magnifierLensAxisTicks(className: string, ticks: Array<number>, selection: GSelection): LineSelection {
-        return selection
-            .selectAll('line')
-            .data(ticks)
-            .enter()
-            .append('line')
-            .attr('class', className)
-            .attr('stroke', magnifierStyle.color)
-            .attr('stroke-width', magnifierStyle.lineWidth)
-            .attr('opacity', 0)
-
-    }
-
-    /**
-     * Creates the svg text nodes for the magnifier lens axis (either x or y) tick labels and binds the text nodes
-     * to the tick data.
-     * @param ticks An array of indexes defining where the ticks are to be place. The indexes refer
-     * to the ticks handed to the `magnifierLensAxis` and have the same meaning visa-vie their locations
-     * @param selection The selection of the svg g node holding the axis ticks and these labels
-     * @return {Selection<SVGTextElement, number, SVGGElement, any>} The selection of these tick labels
-     */
-    function magnifierLensAxisLabels(ticks: Array<number>, selection: GSelection): Selection<SVGTextElement, number, SVGGElement, any> {
-        return selection
-            .selectAll('text')
-            .data(ticks)
-            .enter()
-            .append('text')
-            .attr('fill', axisLabelFont.color)
-            .attr('font-family', axisLabelFont.family)
-            .attr('font-size', axisLabelFont.size)
-            .attr('font-weight', axisLabelFont.weight)
-            .text(() => '')
-
     }
 
     /**
@@ -857,7 +692,6 @@ export function ScatterChart(props: Props): JSX.Element {
                     .attr('height', height)
                     .attr('color', axisStyle.color)
                     .append<SVGGElement>('g')
-
             }
 
             // set up panning
@@ -948,6 +782,26 @@ export function ScatterChart(props: Props): JSX.Element {
     }
 
     /**
+     * Determines whether the line segment is in the time-range
+     * @param datum The current datum
+     * @param index The index of the current datum
+     * @param array The array of datum
+     * @return `true` if the line segment is in the time-range, or if the line-segment
+     * that ends after the time-range end or that starts before the time-range start is
+     * in the time-range (i.e. intersects the time-range boundary). In other words, return
+     * `true` if the line segment is in the time-range or intersects the time-range boundary.
+     * Returns `false` otherwise.
+     */
+    function inTimeRange(datum: Datum, index: number, array: Datum[]): boolean {
+        // also want to include the point whose previous or next value are in the time range
+        const prevDatum = array[Math.max(0, index - 1)]
+        const nextDatum = array[Math.min(index + 1, array.length - 1)]
+        return (datum.time >= timeRangeRef.current.start && datum.time <= timeRangeRef.current.end) ||
+            (datum.time < timeRangeRef.current.start && nextDatum.time >= timeRangeRef.current.start) ||
+            (prevDatum.time <= timeRangeRef.current.end && datum.time > timeRangeRef.current.end)
+    }
+
+    /**
      * Returns the data in the time-range and the datum that comes just before the start of the time range.
      * The point before the time range is so that the line draws up to the y-axis, where it is clipped.
      * @param series The series
@@ -955,16 +809,6 @@ export function ScatterChart(props: Props): JSX.Element {
      * and the point just before the time range.
      */
     function selectInTimeRange(series: Series): TimeSeries {
-
-        function inTimeRange(datum: Datum, index: number, array: Datum[]): boolean {
-            // also want to include the point whose previous or next value are in the time range
-            const prevDatum = array[Math.max(0, index - 1)]
-            const nextDatum = array[Math.min(index + 1, array.length - 1)]
-            return (datum.time >= timeRangeRef.current.start && datum.time <= timeRangeRef.current.end) ||
-                (datum.time < timeRangeRef.current.start && nextDatum.time >= timeRangeRef.current.start) ||
-                (prevDatum.time <= timeRangeRef.current.end && datum.time > timeRangeRef.current.end)
-        }
-
         return series.data
             .filter((datum: Datum, index: number, array: Datum[]) => inTimeRange(datum, index, array))
             .map(datum => [datum.time, datum.value])

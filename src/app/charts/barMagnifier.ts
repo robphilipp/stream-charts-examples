@@ -1,3 +1,18 @@
+import {
+    BarMagnifierSelection,
+    GSelection,
+    LineSelection,
+    MagnifierTextSelection,
+    RadialMagnifierSelection,
+    SvgSelection
+} from "./d3types";
+import {Selection} from "d3";
+import {TooltipStyle} from "./TooltipStyle";
+import {AxesLabelFont, AxesLineStyle} from "./axes";
+import * as d3 from "d3";
+import {BarMagnifierStyle} from "./RasterChart";
+import {Margin} from "./margins";
+
 /**
  * The lens transformation information
  */
@@ -114,4 +129,161 @@ export function barMagnifierWith(radius: number, power: number, center: number):
     }
 
     return rescale();
+}
+
+/**
+ * Creates the svg node for a magnifier lens axis (either x or y) ticks and binds the ticks to the nodes
+ * @param className The node's class name for selection
+ * @param {Array<number>} ticks The ticks represented as an array of integers. An integer of 0 places the
+ * tick on the center of the lens. An integer of ± array_length / 2 - 1 places the tick on the lens boundary.
+ * @param selection The svg g node holding these axis ticks
+ * @return A line selection these ticks
+ */
+export function magnifierLensAxisTicks(
+    className: string,
+    ticks: Array<number>,
+    selection: GSelection,
+    tooltipStyle: TooltipStyle
+): LineSelection {
+    return selection
+        .selectAll('line')
+        .data(ticks)
+        .enter()
+        .append('line')
+        .attr('class', className)
+        .attr('stroke', tooltipStyle.borderColor)
+        .attr('stroke-width', 0.75)
+        .attr('opacity', 0)
+        ;
+}
+
+/**
+ * Creates the svg text nodes for the magnifier lens axis (either x or y) tick labels and binds the text nodes
+ * to the tick data.
+ * @param ticks An array of indexes defining where the ticks are to be place. The indexes refer
+ * to the ticks handed to the `magnifierLensAxis` and have the same meaning visa-vie their locations
+ * @param selection The selection of the svg g node holding the axis ticks and these labels
+ * @return The selection of these tick labels
+ */
+export function magnifierLensAxisLabels(
+    ticks: Array<number>,
+    selection: GSelection,
+    axisLabelFont: AxesLabelFont
+): MagnifierTextSelection {
+    return selection
+        .selectAll('text')
+        .data(ticks)
+        .enter()
+        .append('text')
+        .attr('fill', axisLabelFont.color)
+        .attr('font-family', axisLabelFont.family)
+        .attr('font-size', axisLabelFont.size)
+        .attr('font-weight', axisLabelFont.weight)
+        .text(() => '')
+        ;
+}
+
+export interface BarLensSelections {
+    magnifierSelection: BarMagnifierSelection
+    axesSelections: BarLensAxesSelections
+}
+
+export interface BarLensAxesSelections {
+    magnifierXAxis: LineSelection
+    magnifierXAxisLabel: MagnifierTextSelection
+}
+
+/**
+ * Creates the SVG elements for displaying a bar magnifier lens on the data
+ * @param svg The SVG selection
+ * @param height The height of the magnifier lens
+ * @return The magnifier selection if visible; otherwise undefined
+ */
+function magnifierLens(
+    chartId: number,
+    svg: SvgSelection,
+    magnifier: BarMagnifierStyle,
+    margin: Margin,
+    height: number,
+    axisStyle: AxesLineStyle,
+    tooltip: TooltipStyle,
+    axisLabelFont: AxesLabelFont
+): BarLensSelections {
+    const linearGradient = svg
+        .append<SVGDefsElement>('defs')
+        .append<SVGLinearGradientElement>('linearGradient')
+        .attr('id', `bar-magnifier-gradient-${chartId}`)
+        .attr('x1', '0%')
+        .attr('x2', '100%')
+        .attr('y1', '0%')
+        .attr('y2', '0%')
+    ;
+
+    const borderColor = d3.rgb(magnifier.color).brighter(3.5).hex();
+    linearGradient
+        .append<SVGStopElement>('stop')
+        .attr('offset', '0%')
+        .attr('stop-color', borderColor)
+    ;
+
+    linearGradient
+        .append<SVGStopElement>('stop')
+        .attr('offset', '30%')
+        .attr('stop-color', magnifier.color)
+        .attr('stop-opacity', 0)
+    ;
+
+    linearGradient
+        .append<SVGStopElement>('stop')
+        .attr('offset', '70%')
+        .attr('stop-color', magnifier.color)
+        .attr('stop-opacity', 0)
+    ;
+
+    linearGradient
+        .append<SVGStopElement>('stop')
+        .attr('offset', '100%')
+        .attr('stop-color', borderColor)
+    ;
+
+    const magnifierSelection = svg
+        .append<SVGRectElement>('rect')
+        .attr('class', 'bar-magnifier')
+        .attr('y', margin.top)
+        .attr('height', height)
+        .style('fill', `url(#bar-magnifier-gradient-${chartId})`)
+    ;
+
+    svg
+        .append<SVGLineElement>('line')
+        .attr('id', `magnifier-line-${chartId}`)
+        .attr('y1', margin.top)
+        .attr('y2', height + margin.top)
+        .attr('stroke', axisStyle.color)
+        .attr('stroke-width', tooltip.borderWidth)
+        .attr('opacity', 0)
+    ;
+
+    // create the text element holding the tracker time
+    svg
+        .append<SVGTextElement>('text')
+        .attr('id', `magnifier-line-time-${chartId}`)
+        .attr('y', Math.max(0, margin.top - 3))
+        .attr('fill', axisLabelFont.color)
+        .attr('font-family', axisLabelFont.family)
+        .attr('font-size', axisLabelFont.size)
+        .attr('font-weight', axisLabelFont.weight)
+        .attr('opacity', 0)
+        .text(() => '')
+
+    const lensTickIndexes = d3.range(-5, 6, 1);
+    const lensLabelIndexes = [-5, -1, 1, 5];
+
+    const xLensAxisTicks = svg.append('g').attr('id', `x-lens-axis-ticks-raster-${chartId}`);
+    const axisSelection = magnifierLensAxisTicks('x-lens-ticks', lensTickIndexes, xLensAxisTicks, tooltip);
+    const axisLabelSelection = magnifierLensAxisLabels(lensLabelIndexes, xLensAxisTicks, axisLabelFont);
+
+    return {
+        magnifierSelection, axesSelections: {magnifierXAxis: axisSelection, magnifierXAxisLabel: axisLabelSelection}
+    };
 }

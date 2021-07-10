@@ -1,7 +1,13 @@
 import {default as React, useEffect, useMemo, useRef} from "react";
 import * as d3 from "d3";
 import {ScaleLinear, Selection, ZoomTransform} from "d3";
-import {BarMagnifier, barMagnifierWith, LensTransformation} from "./barMagnifier";
+import {
+    BarMagnifier,
+    barMagnifierWith,
+    LensTransformation,
+    magnifierLensAxisLabels,
+    magnifierLensAxisTicks
+} from "./barMagnifier";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
@@ -23,9 +29,9 @@ import {
     defaultAxesLabelFont,
     LinearAxis
 } from "./axes";
-import {GSelection, LineSelection, SvgSelection, TrackerSelection} from "./d3types";
+import {BarMagnifierSelection, GSelection, LineSelection, SvgSelection, TrackerSelection} from "./d3types";
 import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltip";
-import {handleZoom} from "./utils";
+import {handleZoom, mouseInPlotAreaFor} from "./utils";
 
 const defaultMargin = {top: 30, right: 20, bottom: 30, left: 50};
 const defaultSpikesStyle = {
@@ -41,7 +47,7 @@ const defaultPlotGridLines = {visible: true, color: 'rgba(210,147,63,0.30)'};
 /**
  * Properties for rendering the line-magnifier lens
  */
-interface LineMagnifierStyle {
+export interface BarMagnifierStyle {
     visible: boolean;
     width: number;
     magnification: number;
@@ -50,7 +56,7 @@ interface LineMagnifierStyle {
     axisOpacity?: number;
 }
 
-const defaultLineMagnifierStyle: LineMagnifierStyle = {
+const defaultLineMagnifierStyle: BarMagnifierStyle = {
     visible: false,
     width: 125,
     magnification: 1,
@@ -63,8 +69,8 @@ interface MagnifiedDatum extends Datum {
     lens: LensTransformation
 }
 
-// the axis-element type return when calling the ".call(axis)" function
-type MagnifierSelection = Selection<SVGRectElement, Datum, null, undefined>;
+// // the axis-element type return when calling the ".call(axis)" function
+// type BarMagnifierSelection = Selection<SVGRectElement, Datum, null, undefined>;
 
 const textWidthOf = (elem: Selection<SVGTextElement, any, HTMLElement, any>) => elem.node()?.getBBox()?.width || 0;
 
@@ -78,7 +84,7 @@ interface Props {
     backgroundColor?: string;
     plotGridLines?: Partial<{ visible: boolean, color: string }>;
     tooltip?: Partial<TooltipStyle>;
-    magnifier?: Partial<LineMagnifierStyle>;
+    magnifier?: Partial<BarMagnifierStyle>;
     tracker?: Partial<TrackerStyle>;
     svgStyle?: Partial<SvgStyle>;
 
@@ -480,7 +486,7 @@ export function RasterChart(props: Props): JSX.Element {
 
         if (containerRef.current && path) {
             const [x, y] = d3.mouse(containerRef.current);
-            const isMouseInPlot = mouseInPlotArea(x, y);
+            const isMouseInPlot = mouseInPlotAreaFor(x, y, margin, plotDimRef.current);
             const deltaX = magnifier.width / 2;
             path
                 .attr('x', x - deltaX)
@@ -496,7 +502,7 @@ export function RasterChart(props: Props): JSX.Element {
             ;
 
             const label = d3.select<SVGTextElement, any>(`#magnifier-line-time-${chartId.current}`)
-                .attr('opacity', () => mouseInPlotArea(x, y) ? 1 : 0)
+                .attr('opacity', () => mouseInPlotAreaFor(x, y, margin, plotDimRef.current) ? 1 : 0)
                 .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
             ;
             label.attr('x', Math.min(plotDimRef.current.width + margin.left - textWidthOf(label), x));
@@ -559,25 +565,15 @@ export function RasterChart(props: Props): JSX.Element {
     }
 
     /**
-     * Calculates whether the mouse is in the plot-area
-     * @param x The x-coordinate of the mouse's position
-     * @param y The y-coordinate of the mouse's position
-     * @return `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
-     */
-    function mouseInPlotArea(x: number, y: number): boolean {
-        return x > margin.left && x < width - margin.right &&
-            y > margin.top && y < height - margin.bottom;
-    }
-
-    /**
      * Creates the SVG elements for displaying a bar magnifier lens on the data
      * @param svg The SVG selection
      * @param visible `true` if the lens is visible; `false` otherwise
      * @param height The height of the magnifier lens
-     * @return {MagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
+     * @return {BarMagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
      */
-    function magnifierLens(svg: SvgSelection, visible: boolean, height: number): MagnifierSelection | undefined {
+    function magnifierLens(svg: SvgSelection, visible: boolean, height: number): BarMagnifierSelection | undefined {
         if (visible && magnifierRef.current === undefined) {
+            // todo make call to external function in barMagnifier
             const linearGradient = svg
                 .append<SVGDefsElement>('defs')
                 .append<SVGLinearGradientElement>('linearGradient')
@@ -649,8 +645,8 @@ export function RasterChart(props: Props): JSX.Element {
             const lensLabelIndexes = [-5, -1, 1, 5];
 
             const xLensAxisTicks = svg.append('g').attr('id', `x-lens-axis-ticks-raster-${chartId.current}`);
-            magnifierXAxisRef.current = magnifierLensAxisTicks('x-lens-ticks', lensTickIndexes, xLensAxisTicks);
-            magnifierXAxisLabelRef.current = magnifierLensAxisLabels(lensLabelIndexes, xLensAxisTicks);
+            magnifierXAxisRef.current = magnifierLensAxisTicks('x-lens-ticks', lensTickIndexes, xLensAxisTicks, tooltipRef.current);
+            magnifierXAxisLabelRef.current = magnifierLensAxisLabels(lensLabelIndexes, xLensAxisTicks, axisLabelFont);
 
 
             // add the handler for the magnifier as the mouse moves
@@ -673,49 +669,6 @@ export function RasterChart(props: Props): JSX.Element {
             svg.on('mousemove', () => handleShowMagnify(svg));
         }
         return magnifierRef.current;
-    }
-
-    /**
-     * Creates the svg node for a magnifier lens axis (either x or y) ticks and binds the ticks to the nodes
-     * @param className The node's class name for selection
-     * @param {Array<number>} ticks The ticks represented as an array of integers. An integer of 0 places the
-     * tick on the center of the lens. An integer of ± array_length / 2 - 1 places the tick on the lens boundary.
-     * @param selection The svg g node holding these axis ticks
-     * @return A line selection these ticks
-     */
-    function magnifierLensAxisTicks(className: string, ticks: Array<number>, selection: GSelection): LineSelection {
-        return selection
-            .selectAll('line')
-            .data(ticks)
-            .enter()
-            .append('line')
-            .attr('class', className)
-            .attr('stroke', tooltipRef.current.borderColor)
-            .attr('stroke-width', 0.75)
-            .attr('opacity', 0)
-            ;
-    }
-
-    /**
-     * Creates the svg text nodes for the magnifier lens axis (either x or y) tick labels and binds the text nodes
-     * to the tick data.
-     * @param {Array<number>} ticks An array of indexes defining where the ticks are to be place. The indexes refer
-     * to the ticks handed to the `magnifierLensAxis` and have the same meaning visa-vie their locations
-     * @param selection The selection of the svg g node holding the axis ticks and these labels
-     * @return {Selection<SVGTextElement, number, SVGGElement, any>} The selection of these tick labels
-     */
-    function magnifierLensAxisLabels(ticks: Array<number>, selection: GSelection): Selection<SVGTextElement, number, SVGGElement, any> {
-        return selection
-            .selectAll('text')
-            .data(ticks)
-            .enter()
-            .append('text')
-            .attr('fill', axisLabelFont.color)
-            .attr('font-family', axisLabelFont.family)
-            .attr('font-size', axisLabelFont.size)
-            .attr('font-weight', axisLabelFont.weight)
-            .text(() => '')
-            ;
     }
 
     /**

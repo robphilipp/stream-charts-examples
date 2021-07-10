@@ -2,6 +2,7 @@ import {Margin, Dimensions} from "./margins"
 import {Selection, ZoomTransform} from "d3";
 import {Axes, calculateZoomFor, LinearAxis} from "./axes";
 import {TimeRangeType} from "stream-charts/dist/src/app/charts/timeRange";
+import * as d3 from "d3";
 
 /**
  * Calculates whether the mouse is in the plot-area
@@ -50,4 +51,28 @@ export function handleZoom(
         const {range, zoomFactor} = calculateZoomFor(transform, x, plotDimensions, xAxis, timeRange)
         return {zoomFactor, timeRange: range}
     }
+}
+
+export function formatNumber(value: number, format: string): string {
+    return isNaN(value) ? '---' : d3.format(format)(value)
+}
+
+export function formatTime(value: number): string {
+    return formatNumber(value, " ,.0f")
+}
+
+export function formatValue(value: number): string {
+    return formatNumber(value, " ,.3f")
+}
+
+export function formatChange(v1: number, v2: number, format: string): string {
+    return isNaN(v1) || isNaN(v2) ? '---' : d3.format(format)(v2 - v1)
+}
+
+export function formatTimeChange(v1: number, v2: number): string {
+    return formatChange(v1, v2, " ,.0f")
+}
+
+export function formatValueChange(v1: number, v2: number): string {
+    return formatChange(v1, v2, " ,.3f")
 }
