@@ -10,11 +10,11 @@ import {noop, Observable, Subscription} from "rxjs"
 import {ChartData} from "./chartData"
 import {
     createMagnifierLens,
-    magnifyAll, showMagniferLens,
+    magnifyAll, showMagnifierLens,
     RadialLensAxesSelections,
     RadialMagnifier,
     RadialMagnifierStyle,
-    radialMagnifierWith
+    radialMagnifierWith, hideMagnifierLens
 } from "./radialMagnifier"
 import {windowTime} from "rxjs/operators"
 import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker"
@@ -472,39 +472,23 @@ export function ScatterChart(props: Props): JSX.Element {
                 .attr('cy', my)
                 .attr('opacity', () => isMouseInPlotArea ? 1 : 0)
 
-
             const xScale = axesRef.current.xAxis.generator.scale<ScaleLinear<number, number>>()
             const yScale = axesRef.current.yAxis.generator.scale<ScaleLinear<number, number>>()
 
             if (isMouseInPlotArea) {
-                showMagniferLens(
+                showMagnifierLens(
                     chartId.current,
                     mainGRef.current,
                     svg,
                     [mx, my],
                     magnifierStyle,
-                    // radialMagnifier,
                     margin,
                     xScale,
                     yScale,
                     magnifierAxesRef.current
                 )
             } else {
-                mainGRef.current
-                    .selectAll<SVGSVGElement, Array<[number, number]>>('.time-series-lines')
-                    .attr("d", data => {
-                        const magnified: TimeSeries = data
-                            .map(([x, y]) => [xScale(x), yScale(y)])
-                        return d3.line()(magnified)
-                    })
-
-
-                svg.select(`#x-lens-axis-${chartId.current}`).attr('opacity', 0)
-                svg.select(`#y-lens-axis-${chartId.current}`).attr('opacity', 0)
-                magnifierAxesRef.current.magnifierXAxis.attr('opacity', 0)
-                magnifierAxesRef.current.magnifierXAxisLabel.text(() => '')
-                magnifierAxesRef.current.magnifierYAxis.attr('opacity', 0)
-                magnifierAxesRef.current.magnifierYAxisLabel.text(() => '')
+                hideMagnifierLens(chartId.current, mainGRef.current, svg, xScale, yScale, magnifierAxesRef.current)
             }
         }
     }

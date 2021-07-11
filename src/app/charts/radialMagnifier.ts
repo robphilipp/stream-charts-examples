@@ -5,6 +5,7 @@ import {GSelection, LineSelection, MagnifierTextSelection, RadialMagnifierSelect
 import {Axes, AxesLabelFont, LinearAxis} from "./axes";
 import {TooltipStyle} from "./TooltipStyle";
 import {formatValue} from "./utils";
+import {TimeSeries} from "./plot";
 
 /**
  * The lens transformation information
@@ -158,24 +159,27 @@ export function radialMagnifierWith(radius: number, power: number, center: [numb
     return rescale();
 }
 
-export function showMagniferLens(
+export function showMagnifierLens(
     chartId: number,
     mainG: GSelection,
     svg: SvgSelection,
     mouseCoord: [number, number],
     magnifierStyle: RadialMagnifierStyle,
-    // radialMagnifier: RadialMagnifier,
     margin: Margin,
     xScale: ScaleLinear<number, number>,
     yScale: ScaleLinear<number, number>,
     magnifierAxes: RadialLensAxesSelections
 ) {
     const [mx, my] = mouseCoord
+
+    // create the radial magnifier
     const radialMagnifier: RadialMagnifier = radialMagnifierWith(
         magnifierStyle.radius,
         magnifierStyle.magnification,
         [mx - margin.left, my - margin.top]
     )
+
+    // transform svg elements underneath the magnifier
     mainG
         .selectAll<SVGSVGElement, Array<[number, number]>>('.time-series-lines')
         .attr("d", data => {
@@ -243,6 +247,30 @@ export function showMagniferLens(
         .attr('x', datum => axesMagnifier.magnify(mx + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, my).xPrime + 10)
         .attr('y', datum => axesMagnifier.magnify(mx, my + datum * magnifierStyle.radius / 5).yPrime - 2)
         .text(datum => formatValue(yScale.invert(my - margin.top + datum * magnifierStyle.radius / 5)))
+}
+
+export function hideMagnifierLens(
+    chartId: number,
+    mainG: GSelection,
+    svg: SvgSelection,
+    xScale: ScaleLinear<number, number>,
+    yScale: ScaleLinear<number, number>,
+    magnifierAxes: RadialLensAxesSelections
+) {
+    mainG
+        .selectAll<SVGSVGElement, Array<[number, number]>>('.time-series-lines')
+        .attr("d", data => {
+            const magnified: TimeSeries = data
+                .map(([x, y]) => [xScale(x), yScale(y)])
+            return d3.line()(magnified)
+        })
+
+    svg.select(`#x-lens-axis-${chartId}`).attr('opacity', 0)
+    svg.select(`#y-lens-axis-${chartId}`).attr('opacity', 0)
+    magnifierAxes.magnifierXAxis.attr('opacity', 0)
+    magnifierAxes.magnifierXAxisLabel.text(() => '')
+    magnifierAxes.magnifierYAxis.attr('opacity', 0)
+    magnifierAxes.magnifierYAxisLabel.text(() => '')
 }
 
 /**
