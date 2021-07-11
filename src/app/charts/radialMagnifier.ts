@@ -4,6 +4,7 @@ import {Margin} from "./margins";
 import {GSelection, LineSelection, MagnifierTextSelection, RadialMagnifierSelection, SvgSelection} from "./d3types";
 import {Axes, AxesLabelFont, LinearAxis} from "./axes";
 import {TooltipStyle} from "./TooltipStyle";
+import {formatValue} from "./utils";
 
 /**
  * The lens transformation information
@@ -20,7 +21,7 @@ export interface LensTransformation2d {
 }
 
 /**
- * Properties for rendering the line-magnifier lens
+ * Properties for rendering the radial-magnifier lens
  */
 export interface RadialMagnifierStyle {
     visible: boolean
@@ -157,6 +158,93 @@ export function radialMagnifierWith(radius: number, power: number, center: [numb
     return rescale();
 }
 
+export function showMagniferLens(
+    chartId: number,
+    mainG: GSelection,
+    svg: SvgSelection,
+    mouseCoord: [number, number],
+    magnifierStyle: RadialMagnifierStyle,
+    // radialMagnifier: RadialMagnifier,
+    margin: Margin,
+    xScale: ScaleLinear<number, number>,
+    yScale: ScaleLinear<number, number>,
+    magnifierAxes: RadialLensAxesSelections
+) {
+    const [mx, my] = mouseCoord
+    const radialMagnifier: RadialMagnifier = radialMagnifierWith(
+        magnifierStyle.radius,
+        magnifierStyle.magnification,
+        [mx - margin.left, my - margin.top]
+    )
+    mainG
+        .selectAll<SVGSVGElement, Array<[number, number]>>('.time-series-lines')
+        .attr("d", data => {
+            const magnified = magnifyAll(
+                data,
+                [mx, my],
+                magnifierStyle.radius,
+                radialMagnifier,
+                margin,
+                xScale,
+                yScale
+            )
+            return d3.line()(magnified)
+        })
+
+    svg
+        .select(`#x-lens-axis-${chartId}`)
+        .attr('x1', mx - magnifierStyle.radius)
+        .attr('x2', mx + magnifierStyle.radius)
+        .attr('y1', my)
+        .attr('y2', my)
+        .attr('opacity', 0.3)
+
+    svg
+        .select(`#y-lens-axis-${chartId}`)
+        .attr('x1', mx)
+        .attr('x2', mx)
+        .attr('y1', my - magnifierStyle.radius)
+        .attr('y2', my + magnifierStyle.radius)
+        .attr('opacity', 0.3)
+
+    const axesMagnifier: RadialMagnifier = radialMagnifierWith(
+        magnifierStyle.radius,
+        magnifierStyle.magnification,
+        [mx, my]
+    )
+
+    magnifierAxes.magnifierXAxis
+        .attr('stroke', magnifierStyle.color)
+        .attr('stroke-width', magnifierStyle.lineWidth)
+        .attr('opacity', 0.75)
+        .attr('x1', datum => axesMagnifier.magnify(mx + datum * magnifierStyle.radius / 5, my).xPrime)
+        .attr('x2', datum => axesMagnifier.magnify(mx + datum * magnifierStyle.radius / 5, my).xPrime)
+        .attr('y1', my)
+        .attr('y2', datum => axesMagnifier.magnify(mx, my + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40).yPrime + 5)
+
+
+    magnifierAxes.magnifierXAxisLabel
+        .attr('x', datum => axesMagnifier.magnify(mx + datum * magnifierStyle.radius / 5, my).xPrime - 12)
+        .attr('y', datum => axesMagnifier.magnify(mx, my + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 30).yPrime + 20)
+        .text(datum => Math.round(xScale.invert(mx - margin.left + datum * magnifierStyle.radius / 5)))
+
+
+    magnifierAxes.magnifierYAxis
+        .attr('stroke', magnifierStyle.color)
+        .attr('stroke-width', magnifierStyle.lineWidth)
+        .attr('opacity', 0.75)
+        .attr('x1', datum => axesMagnifier.magnify(mx - magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, my).xPrime - 2)
+        .attr('x2', datum => axesMagnifier.magnify(mx + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, my).xPrime + 2)
+        .attr('y1', datum => axesMagnifier.magnify(mx, my + datum * magnifierStyle.radius / 5).yPrime)
+        .attr('y2', datum => axesMagnifier.magnify(mx, my + datum * magnifierStyle.radius / 5).yPrime)
+
+
+    magnifierAxes.magnifierYAxisLabel
+        .attr('x', datum => axesMagnifier.magnify(mx + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, my).xPrime + 10)
+        .attr('y', datum => axesMagnifier.magnify(mx, my + datum * magnifierStyle.radius / 5).yPrime - 2)
+        .text(datum => formatValue(yScale.invert(my - margin.top + datum * magnifierStyle.radius / 5)))
+}
+
 /**
  * @param datum The (x, y) pair in the data coordinates
  * @param xScale The xScale to convert from data coordinates to screen coordinates
@@ -248,128 +336,6 @@ function inMagnifier(datum: [number, number], mouse: [number, number], radius: n
     }
 }
 
-// /**
-//  * Called when the magnifier is enabled to set up the vertical bar magnifier lens
-//  * @param svg The path selection
-//  * holding the magnifier whose properties need to be updated.
-//  */
-// function handleShowMagnify(
-//     chartId: number,
-//     svg: SvgSelection,
-//     container: SVGSVGElement,
-//     margin: Margin,
-//     width: number,
-//     height: number,
-//     magnifierXAxis: LineSelection,
-//     magnifierXAxisLabel: MagnifierTextSelection,
-//     magnifierYAxis: LineSelection,
-//     magnifierYAxisLabel: MagnifierTextSelection,
-//     magnifierStyle: RadialMagnifierStyle,
-//     axes: Axes<LinearAxis, LinearAxis>,
-//     mainG: GSelection,
-// ) {
-//
-//     const path: RadialMagnifierSelection = svg.select('.magnifier')
-//
-//     // create the lens
-//     if (container && path && svg) {
-//         const [x, y] = d3.mouse(container)
-//         const isMouseInPlotArea = mouseInPlotAreaFor(x, y, margin, {width, height})
-//         path
-//             .attr('r', magnifierStyle.radius)
-//             .attr('cx', x)
-//             .attr('cy', y)
-//             .attr('opacity', () => isMouseInPlotArea ? 1 : 0)
-//
-//
-//         const xScale = axes.xAxis.generator.scale<ScaleLinear<number, number>>()
-//         const yScale = axes.yAxis.generator.scale<ScaleLinear<number, number>>()
-//
-//         if (isMouseInPlotArea) {
-//             const radialMagnifier: RadialMagnifier = radialMagnifierWith(
-//                 magnifierStyle.radius,
-//                 magnifierStyle.magnification,
-//                 [x - margin.left, y - margin.top]
-//             )
-//             mainG
-//                 .selectAll<SVGSVGElement, Array<[number, number]>>('.time-series-lines')
-//                 .attr("d", data => {
-//                     const magnified = data
-//                         .map(datum => magnify(datum, [x, y], magnifierStyle.radius, radialMagnifier, xScale, yScale, margin))
-//                     return d3.line()(magnified)
-//                 })
-//
-//
-//             svg
-//                 .select(`#x-lens-axis-${chartId}`)
-//                 .attr('x1', x - magnifierStyle.radius)
-//                 .attr('x2', x + magnifierStyle.radius)
-//                 .attr('y1', y)
-//                 .attr('y2', y)
-//                 .attr('opacity', 0.3)
-//
-//
-//             svg
-//                 .select(`#y-lens-axis-${chartId}`)
-//                 .attr('x1', x)
-//                 .attr('x2', x)
-//                 .attr('y1', y - magnifierStyle.radius)
-//                 .attr('y2', y + magnifierStyle.radius)
-//                 .attr('opacity', 0.3)
-//
-//
-//             const axesMagnifier: RadialMagnifier = radialMagnifierWith(magnifierStyle.radius, magnifierStyle.magnification, [x, y])
-//             magnifierXAxis
-//                 .attr('stroke', magnifierStyle.color)
-//                 .attr('stroke-width', magnifierStyle.lineWidth)
-//                 .attr('opacity', 0.75)
-//                 .attr('x1', datum => axesMagnifier.magnify(x + datum * magnifierStyle.radius / 5, y).xPrime)
-//                 .attr('x2', datum => axesMagnifier.magnify(x + datum * magnifierStyle.radius / 5, y).xPrime)
-//                 .attr('y1', y)
-//                 .attr('y2', datum => axesMagnifier.magnify(x, y + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40).yPrime + 5)
-//
-//
-//             magnifierXAxisLabel
-//                 .attr('x', datum => axesMagnifier.magnify(x + datum * magnifierStyle.radius / 5, y).xPrime - 12)
-//                 .attr('y', datum => axesMagnifier.magnify(x, y + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 30).yPrime + 20)
-//                 .text(datum => Math.round(xScale.invert(x - margin.left + datum * magnifierStyle.radius / 5)))
-//
-//
-//             magnifierYAxis
-//                 .attr('stroke', magnifierStyle.color)
-//                 .attr('stroke-width', magnifierStyle.lineWidth)
-//                 .attr('opacity', 0.75)
-//                 .attr('x1', datum => axesMagnifier.magnify(x - magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, y).xPrime - 2)
-//                 .attr('x2', datum => axesMagnifier.magnify(x + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, y).xPrime + 2)
-//                 .attr('y1', datum => axesMagnifier.magnify(x, y + datum * magnifierStyle.radius / 5).yPrime)
-//                 .attr('y2', datum => axesMagnifier.magnify(x, y + datum * magnifierStyle.radius / 5).yPrime)
-//
-//
-//             magnifierYAxisLabel
-//                 .attr('x', datum => axesMagnifier.magnify(x + magnifierStyle.radius * (1 - Math.abs(datum / 5)) / 40, y).xPrime + 10)
-//                 .attr('y', datum => axesMagnifier.magnify(x, y + datum * magnifierStyle.radius / 5).yPrime - 2)
-//                 .text(datum => formatValue(yScale.invert(y - margin.top + datum * magnifierStyle.radius / 5)))
-//
-//         } else {
-//             mainG
-//                 .selectAll<SVGSVGElement, Array<[number, number]>>('.time-series-lines')
-//                 .attr("d", data => {
-//                     const magnified: TimeSeries = data
-//                         .map(([x, y]) => [xScale(x), yScale(y)])
-//                     return d3.line()(magnified)
-//                 })
-//
-//
-//             svg.select(`#x-lens-axis-${chartId}`).attr('opacity', 0)
-//             svg.select(`#y-lens-axis-${chartId}`).attr('opacity', 0)
-//             magnifierXAxis.attr('opacity', 0)
-//             magnifierXAxisLabel.text(() => '')
-//             magnifierYAxis.attr('opacity', 0)
-//             magnifierYAxisLabel.text(() => '')
-//         }
-//     }
-// }
-
 export interface RadialLensSelections {
     magnifierSelection: RadialMagnifierSelection
     axesSelections: RadialLensAxesSelections
@@ -386,20 +352,15 @@ export interface RadialLensAxesSelections {
  * Creates the SVG elements for displaying a radial magnifier lens on the data
  * @param svg The SVG selection
  * @param visible `true` if the lens is visible; `false` otherwise
- * @return {RadialMagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
+ * @return The magnifier selection if visible; otherwise undefined
  */
 export function createMagnifierLens(
     chartId: number,
     svg: SvgSelection,
-    // visible: boolean,
     container: SVGSVGElement,
     margin: Margin,
     width: number,
     height: number,
-    // magnifierXAxis: LineSelection,
-    // magnifierXAxisLabel: MagnifierTextSelection,
-    // magnifierYAxis: LineSelection,
-    // magnifierYAxisLabel: MagnifierTextSelection,
     magnifierStyle: RadialMagnifierStyle,
     axes: Axes<LinearAxis, LinearAxis>,
     axesLabelFont: AxesLabelFont,
@@ -425,7 +386,6 @@ export function createMagnifierLens(
             .append<SVGStopElement>('stop')
             .attr('offset', '0%')
             .attr('stop-color', borderColor)
-
 
         radialGradient
             .append<SVGStopElement>('stop')

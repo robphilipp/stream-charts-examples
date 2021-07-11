@@ -2,7 +2,8 @@ import {default as React, useEffect, useMemo, useRef} from "react";
 import * as d3 from "d3";
 import {ScaleLinear, Selection, ZoomTransform} from "d3";
 import {
-    BarMagnifier,
+    BarLensAxesSelections,
+    BarMagnifier, BarMagnifierStyle,
     barMagnifierWith,
     LensTransformation,
     magnifierLensAxisLabels,
@@ -32,6 +33,7 @@ import {
 import {BarMagnifierSelection, GSelection, LineSelection, SvgSelection, TrackerSelection} from "./d3types";
 import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltip";
 import {handleZoom, mouseInPlotAreaFor} from "./utils";
+import {createMagnifierLens} from "./barMagnifier";
 
 const defaultMargin = {top: 30, right: 20, bottom: 30, left: 50};
 const defaultSpikesStyle = {
@@ -43,18 +45,6 @@ const defaultSpikesStyle = {
 };
 const defaultAxesStyle = {color: '#d2933f'};
 const defaultPlotGridLines = {visible: true, color: 'rgba(210,147,63,0.30)'};
-
-/**
- * Properties for rendering the line-magnifier lens
- */
-export interface BarMagnifierStyle {
-    visible: boolean;
-    width: number;
-    magnification: number;
-    color: string;
-    lineWidth: number;
-    axisOpacity?: number;
-}
 
 const defaultLineMagnifierStyle: BarMagnifierStyle = {
     visible: false,
@@ -159,9 +149,10 @@ export function RasterChart(props: Props): JSX.Element {
     const mainGRef = useRef<Selection<SVGGElement, any, null, undefined>>();
     const spikesRef = useRef<Selection<SVGGElement, Series, SVGGElement, any>>();
 
-    const magnifierRef = useRef<Selection<SVGRectElement, Datum, null, undefined>>();
-    const magnifierXAxisRef = useRef<LineSelection>();
-    const magnifierXAxisLabelRef = useRef<Selection<SVGTextElement, any, SVGGElement, undefined>>();
+    const magnifierRef = useRef<BarMagnifierSelection>();
+    // const magnifierXAxisRef = useRef<LineSelection>();
+    // const magnifierXAxisLabelRef = useRef<Selection<SVGTextElement, any, SVGGElement, undefined>>();
+    const magnifierAxesRef = useRef<BarLensAxesSelections>()
 
     const trackerRef = useRef<Selection<SVGLineElement, Datum, null, undefined>>();
 
@@ -508,7 +499,8 @@ export function RasterChart(props: Props): JSX.Element {
             label.attr('x', Math.min(plotDimRef.current.width + margin.left - textWidthOf(label), x));
 
             const axesMagnifier: BarMagnifier = barMagnifierWith(deltaX, magnifier.magnification, x);
-            magnifierXAxisRef.current!
+            // magnifierXAxisRef.current!
+            magnifierAxesRef.current?.magnifierXAxis
                 .attr('opacity', isMouseInPlot ? 1 : 0)
                 .attr('stroke', tooltipRef.current.borderColor)
                 .attr('stroke-width', 0.75)
@@ -518,7 +510,8 @@ export function RasterChart(props: Props): JSX.Element {
                 .attr('y2', y)
             ;
 
-            magnifierXAxisLabelRef.current!
+            // magnifierXAxisLabelRef.current!
+            magnifierAxesRef.current?.magnifierXAxisLabel
                 .attr('opacity', isMouseInPlot ? 1 : 0)
                 .attr('x', datum => axesMagnifier.magnify(x + datum * deltaX / 5).xPrime - 12)
                 .attr('y', _ => y + 20)
@@ -569,95 +562,24 @@ export function RasterChart(props: Props): JSX.Element {
      * @param svg The SVG selection
      * @param visible `true` if the lens is visible; `false` otherwise
      * @param height The height of the magnifier lens
-     * @return {BarMagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
+     * @return The magnifier selection if visible; otherwise undefined
      */
     function magnifierLens(svg: SvgSelection, visible: boolean, height: number): BarMagnifierSelection | undefined {
         if (visible && magnifierRef.current === undefined) {
             // todo make call to external function in barMagnifier
-            const linearGradient = svg
-                .append<SVGDefsElement>('defs')
-                .append<SVGLinearGradientElement>('linearGradient')
-                .attr('id', `bar-magnifier-gradient-${chartId.current}`)
-                .attr('x1', '0%')
-                .attr('x2', '100%')
-                .attr('y1', '0%')
-                .attr('y2', '0%')
-            ;
+            const lensInfo = createMagnifierLens(chartId.current, svg, magnifier, margin, height, axisLabelFont)
 
-            const borderColor = d3.rgb(magnifier.color).brighter(3.5).hex();
-            linearGradient
-                .append<SVGStopElement>('stop')
-                .attr('offset', '0%')
-                .attr('stop-color', borderColor)
-            ;
-
-            linearGradient
-                .append<SVGStopElement>('stop')
-                .attr('offset', '30%')
-                .attr('stop-color', magnifier.color)
-                .attr('stop-opacity', 0)
-            ;
-
-            linearGradient
-                .append<SVGStopElement>('stop')
-                .attr('offset', '70%')
-                .attr('stop-color', magnifier.color)
-                .attr('stop-opacity', 0)
-            ;
-
-            linearGradient
-                .append<SVGStopElement>('stop')
-                .attr('offset', '100%')
-                .attr('stop-color', borderColor)
-            ;
-
-            const magnifierSelection = svg
-                .append<SVGRectElement>('rect')
-                .attr('class', 'bar-magnifier')
-                .attr('y', margin.top)
-                .attr('height', height)
-                .style('fill', `url(#bar-magnifier-gradient-${chartId.current})`)
-            ;
-
-            svg
-                .append<SVGLineElement>('line')
-                .attr('id', `magnifier-line-${chartId.current}`)
-                .attr('y1', margin.top)
-                .attr('y2', height + margin.top)
-                .attr('stroke', axisStyle.color)
-                .attr('stroke-width', tooltip.borderWidth)
-                .attr('opacity', 0)
-            ;
-
-            // create the text element holding the tracker time
-            svg
-                .append<SVGTextElement>('text')
-                .attr('id', `magnifier-line-time-${chartId.current}`)
-                .attr('y', Math.max(0, margin.top - 3))
-                .attr('fill', axisLabelFont.color)
-                .attr('font-family', axisLabelFont.family)
-                .attr('font-size', axisLabelFont.size)
-                .attr('font-weight', axisLabelFont.weight)
-                .attr('opacity', 0)
-                .text(() => '')
-
-            const lensTickIndexes = d3.range(-5, 6, 1);
-            const lensLabelIndexes = [-5, -1, 1, 5];
-
-            const xLensAxisTicks = svg.append('g').attr('id', `x-lens-axis-ticks-raster-${chartId.current}`);
-            magnifierXAxisRef.current = magnifierLensAxisTicks('x-lens-ticks', lensTickIndexes, xLensAxisTicks, tooltipRef.current);
-            magnifierXAxisLabelRef.current = magnifierLensAxisLabels(lensLabelIndexes, xLensAxisTicks, axisLabelFont);
-
+            magnifierAxesRef.current = {...lensInfo.axesSelections}
 
             // add the handler for the magnifier as the mouse moves
-            svg.on('mousemove', () => handleShowMagnify(svg));
+            svg.on('mousemove', () => handleShowMagnify(svg))
 
-            return magnifierSelection;
+            return lensInfo.magnifierSelection
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
         else if ((!visible && magnifierRef.current) || tooltipRef.current.visible) {
-            svg.on('mousemove', () => null);
-            return undefined;
+            svg.on('mousemove', () => null)
+            return undefined
         }
             // when the magnifier is visible and exists, then make sure the height is set (which can change due
         // to filtering) and update the handler

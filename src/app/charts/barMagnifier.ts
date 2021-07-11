@@ -1,17 +1,21 @@
-import {
-    BarMagnifierSelection,
-    GSelection,
-    LineSelection,
-    MagnifierTextSelection,
-    RadialMagnifierSelection,
-    SvgSelection
-} from "./d3types";
-import {Selection} from "d3";
+import {BarMagnifierSelection, GSelection, LineSelection, MagnifierTextSelection, SvgSelection} from "./d3types";
+import * as d3 from "d3";
 import {TooltipStyle} from "./TooltipStyle";
 import {AxesLabelFont, AxesLineStyle} from "./axes";
-import * as d3 from "d3";
-import {BarMagnifierStyle} from "./RasterChart";
 import {Margin} from "./margins";
+
+/**
+ * Properties for rendering the line-magnifier lens
+ */
+export interface BarMagnifierStyle {
+    visible: boolean;
+    width: number;
+    magnification: number;
+    color: string;
+    lineWidth: number;
+    axisOpacity?: number;
+}
+
 
 /**
  * The lens transformation information
@@ -143,7 +147,8 @@ export function magnifierLensAxisTicks(
     className: string,
     ticks: Array<number>,
     selection: GSelection,
-    tooltipStyle: TooltipStyle
+    // tooltipStyle: TooltipStyle
+    magnifierStyle: BarMagnifierStyle
 ): LineSelection {
     return selection
         .selectAll('line')
@@ -151,7 +156,7 @@ export function magnifierLensAxisTicks(
         .enter()
         .append('line')
         .attr('class', className)
-        .attr('stroke', tooltipStyle.borderColor)
+        .attr('stroke', magnifierStyle.color)
         .attr('stroke-width', 0.75)
         .attr('opacity', 0)
         ;
@@ -199,14 +204,12 @@ export interface BarLensAxesSelections {
  * @param height The height of the magnifier lens
  * @return The magnifier selection if visible; otherwise undefined
  */
-function magnifierLens(
+export function createMagnifierLens(
     chartId: number,
     svg: SvgSelection,
-    magnifier: BarMagnifierStyle,
+    magnifierStyle: BarMagnifierStyle,
     margin: Margin,
     height: number,
-    axisStyle: AxesLineStyle,
-    tooltip: TooltipStyle,
     axisLabelFont: AxesLabelFont
 ): BarLensSelections {
     const linearGradient = svg
@@ -219,7 +222,7 @@ function magnifierLens(
         .attr('y2', '0%')
     ;
 
-    const borderColor = d3.rgb(magnifier.color).brighter(3.5).hex();
+    const borderColor = d3.rgb(magnifierStyle.color).brighter(3.5).hex();
     linearGradient
         .append<SVGStopElement>('stop')
         .attr('offset', '0%')
@@ -229,14 +232,14 @@ function magnifierLens(
     linearGradient
         .append<SVGStopElement>('stop')
         .attr('offset', '30%')
-        .attr('stop-color', magnifier.color)
+        .attr('stop-color', magnifierStyle.color)
         .attr('stop-opacity', 0)
     ;
 
     linearGradient
         .append<SVGStopElement>('stop')
         .attr('offset', '70%')
-        .attr('stop-color', magnifier.color)
+        .attr('stop-color', magnifierStyle.color)
         .attr('stop-opacity', 0)
     ;
 
@@ -259,8 +262,8 @@ function magnifierLens(
         .attr('id', `magnifier-line-${chartId}`)
         .attr('y1', margin.top)
         .attr('y2', height + margin.top)
-        .attr('stroke', axisStyle.color)
-        .attr('stroke-width', tooltip.borderWidth)
+        .attr('stroke', magnifierStyle.color)
+        .attr('stroke-width', magnifierStyle.lineWidth)
         .attr('opacity', 0)
     ;
 
@@ -280,7 +283,7 @@ function magnifierLens(
     const lensLabelIndexes = [-5, -1, 1, 5];
 
     const xLensAxisTicks = svg.append('g').attr('id', `x-lens-axis-ticks-raster-${chartId}`);
-    const axisSelection = magnifierLensAxisTicks('x-lens-ticks', lensTickIndexes, xLensAxisTicks, tooltip);
+    const axisSelection = magnifierLensAxisTicks('x-lens-ticks', lensTickIndexes, xLensAxisTicks, magnifierStyle);
     const axisLabelSelection = magnifierLensAxisLabels(lensLabelIndexes, xLensAxisTicks, axisLabelFont);
 
     return {
