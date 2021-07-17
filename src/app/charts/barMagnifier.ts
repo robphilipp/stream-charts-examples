@@ -1,8 +1,13 @@
 import {BarMagnifierSelection, GSelection, LineSelection, MagnifierTextSelection, SvgSelection} from "./d3types";
 import * as d3 from "d3";
 import {TooltipStyle} from "./TooltipStyle";
-import {AxesLabelFont, AxesLineStyle} from "./axes";
+import {AxesLabelFont, AxesLineStyle, LinearAxis} from "./axes";
 import {Margin} from "./margins";
+import {Datum} from "./datumSeries";
+import {ScaleLinear} from "d3";
+import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
+import {textWidthOf} from "./utils";
+import {SpikesStyle} from "./RasterChart";
 
 /**
  * Properties for rendering the line-magnifier lens
@@ -26,6 +31,10 @@ export interface LensTransformation {
 
     // the amount by which the spike is magnified at that location
     magnification: number;
+}
+
+export interface MagnifiedDatum extends Datum {
+    lens: LensTransformation
 }
 
 /**
@@ -289,4 +298,153 @@ export function createMagnifierLens(
     return {
         magnifierSelection, axesSelections: {magnifierXAxis: axisSelection, magnifierXAxisLabel: axisLabelSelection}
     };
+}
+
+/**
+ * Determines whether specified datum is in the time interval centered around the current
+ * mouse position
+ * @param datum The datum
+ * @param x The x-coordinate of the current mouse position
+ * @param xInterval The pixel interval for which transformations are applied
+ * @param xAxis The x-axis
+ * @param margin The plot margins
+ * @return `true` if the datum is in the interval; `false` otherwise
+ */
+export function inMagnifier(datum: Datum, x: number, xInterval: number, xAxis: LinearAxis, margin: Margin): boolean {
+    const scale = xAxis.generator.scale<ScaleLinear<number, number>>();
+    const datumX = scale(datum.time) + margin.left;
+    return datumX > x - xInterval && datumX < x + xInterval;
+}
+
+/**
+ * Converts the datum into the x-coordinate corresponding to its time
+ * @param datum The datum
+ * @param xAxis The x-axis
+ * @return The x-coordinate corresponding to its time
+ */
+export function xFrom(datum: Datum, xAxis: LinearAxis): number {
+    const scale = xAxis.generator.scale<ScaleLinear<number, number>>();
+    return scale(datum.time);
+}
+
+export function showMagnifierLens(
+    chartId: number,
+    svg: SvgSelection,
+    magnifier: BarMagnifierStyle,
+    magnifierAxes: BarLensAxesSelections,
+    margin: Margin,
+    mouseCoord: [number, number],
+    xAxis: LinearAxis,
+    plotDim: PlotDimensions,
+    zoomFactor: number,
+    spikesStyle: SpikesStyle
+): number {
+    const deltaX = magnifier.width / 2;
+    const path = d3.select('.bar-magnifier')
+    const [mx, my] = mouseCoord
+    path
+        .attr('x', mx - deltaX)
+        .attr('width', 2 * deltaX)
+        .attr('opacity', 1)
+
+    // add the magnifier axes and label
+    d3.select(`#magnifier-line-${chartId}`)
+        .attr('x1', mx)
+        .attr('x2', mx)
+        .attr('opacity', magnifier.axisOpacity || 0.35)
+
+    const label = d3.select<SVGTextElement, any>(`#magnifier-line-time-${chartId}`)
+        .attr('opacity', 1)
+        .text(() => `${d3.format(",.0f")(xAxis.scale.invert(mx - margin.left))} ms`)
+    label.attr('x', Math.min(plotDim.width + margin.left - textWidthOf(label), mx))
+
+    const axesMagnifier: BarMagnifier = barMagnifierWith(deltaX, magnifier.magnification, mx)
+    magnifierAxes.magnifierXAxis
+        .attr('opacity', 1)
+        .attr('stroke', magnifier.color)
+        .attr('stroke-width', 0.75)
+        .attr('x1', datum => axesMagnifier.magnify(mx + datum * deltaX / 5).xPrime)
+        .attr('x2', datum => axesMagnifier.magnify(mx + datum * deltaX / 5).xPrime)
+        .attr('y1', my - 10)
+        .attr('y2', my)
+
+    magnifierAxes.magnifierXAxisLabel
+        .attr('opacity', 1)
+        .attr('x', datum => axesMagnifier.magnify(mx + datum * deltaX / 5).xPrime - 12)
+        .attr('y', _ => my + 20)
+        .text(datum => Math.round(xAxis.scale.invert(mx - margin.left + datum * deltaX / 5)))
+
+    const barMagnifier: BarMagnifier = barMagnifierWith(deltaX, 3 * zoomFactor, mx - margin.left)
+    svg
+        // select all the spikes and keep only those that are within ±4∆t of the x-position of the mouse
+        .selectAll<SVGSVGElement, MagnifiedDatum>('.spikes-lines')
+        .filter(datum => inMagnifier(datum, mx, 4 * deltaX, xAxis, margin))
+        // supplement the datum with lens transformation information (new x and scale)
+        .each(datum => datum.lens = barMagnifier.magnify(xFrom(datum, xAxis)))
+        // update each spikes line with it's new x-coordinate and the magnified line-width
+        .attr('x1', datum => datum.lens.xPrime)
+        .attr('x2', datum => datum.lens.xPrime)
+        .attr('stroke-width', datum => spikesStyle.lineWidth * Math.min(2, Math.max(datum.lens.magnification, 1)))
+        .attr('shape-rendering', 'crispEdges')
+
+    return mx
+}
+
+export function hideMagnifierLens(
+    chartId: number,
+    svg: SvgSelection,
+    magnifier: BarMagnifierStyle,
+    magnifierAxes: BarLensAxesSelections,
+    margin: Margin,
+    mouseCoord: [number, number],
+    xAxis: LinearAxis,
+    plotDim: PlotDimensions,
+    spikesStyle: SpikesStyle
+): number {
+    const deltaX = magnifier.width / 2;
+    const path = d3.select('.bar-magnifier')
+    const [mx, my] = mouseCoord
+    path
+        .attr('x', mx - deltaX)
+        .attr('width', 2 * deltaX)
+        .attr('opacity', 0)
+
+    // add the magnifier axes and label
+    d3.select(`#magnifier-line-${chartId}`)
+        .attr('x1', mx)
+        .attr('x2', mx)
+        .attr('opacity', 0)
+
+    const label = d3.select<SVGTextElement, any>(`#magnifier-line-time-${chartId}`)
+        .attr('opacity', 0)
+        .text(() => `${d3.format(",.0f")(xAxis.scale.invert(mx - margin.left))} ms`)
+    label.attr('x', Math.min(plotDim.width + margin.left - textWidthOf(label), mx))
+
+    const axesMagnifier: BarMagnifier = barMagnifierWith(deltaX, magnifier.magnification, mx)
+    magnifierAxes.magnifierXAxis
+        .attr('opacity', 0)
+        .attr('stroke', magnifier.color)
+        .attr('stroke-width', 0.75)
+        .attr('x1', datum => axesMagnifier.magnify(mx + datum * deltaX / 5).xPrime)
+        .attr('x2', datum => axesMagnifier.magnify(mx + datum * deltaX / 5).xPrime)
+        .attr('y1', my - 10)
+        .attr('y2', my)
+
+    magnifierAxes.magnifierXAxisLabel
+        .attr('opacity', 0)
+        .attr('x', datum => axesMagnifier.magnify(mx + datum * deltaX / 5).xPrime - 12)
+        .attr('y', _ => my + 20)
+        .text(datum => Math.round(xAxis.scale.invert(mx - margin.left + datum * deltaX / 5)))
+
+    svg
+        .selectAll<SVGSVGElement, Datum>('.spikes-lines')
+        .attr('x1', datum => xFrom(datum, xAxis))
+        .attr('x2', datum => xFrom(datum, xAxis))
+        .attr('stroke-width', spikesStyle.lineWidth)
+
+    path
+        .attr('x', margin.left)
+        .attr('width', 0)
+
+    return 0
 }

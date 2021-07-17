@@ -459,23 +459,13 @@ export function ScatterChart(props: Props): JSX.Element {
      * holding the magnifier whose properties need to be updated.
      */
     function handleShowMagnify(svg: SvgSelection | undefined) {
-
-        const path: RadialMagnifierSelection = svg!.select('.magnifier')
-
-        // create the lens
-        if (containerRef.current && path && svg && axesRef.current && mainGRef.current && magnifierAxesRef.current) {
+        if (containerRef.current && svg && axesRef.current && mainGRef.current && magnifierAxesRef.current) {
             const [mx, my] = d3.mouse(containerRef.current)
-            const isMouseInPlotArea = mouseInPlotAreaFor(mx, my, margin, {width, height})
-            path
-                .attr('r', magnifierStyle.radius)
-                .attr('cx', mx)
-                .attr('cy', my)
-                .attr('opacity', () => isMouseInPlotArea ? 1 : 0)
 
             const xScale = axesRef.current.xAxis.generator.scale<ScaleLinear<number, number>>()
             const yScale = axesRef.current.yAxis.generator.scale<ScaleLinear<number, number>>()
 
-            if (isMouseInPlotArea) {
+            if (mouseInPlotAreaFor(mx, my, margin, {width, height})) {
                 showMagnifierLens(
                     chartId.current,
                     mainGRef.current,
@@ -488,7 +478,16 @@ export function ScatterChart(props: Props): JSX.Element {
                     magnifierAxesRef.current
                 )
             } else {
-                hideMagnifierLens(chartId.current, mainGRef.current, svg, xScale, yScale, magnifierAxesRef.current)
+                hideMagnifierLens(
+                    chartId.current,
+                    mainGRef.current,
+                    svg,
+                    xScale,
+                    yScale,
+                    magnifierAxesRef.current,
+                    [mx, my],
+                    magnifierStyle
+                )
             }
         }
     }
@@ -497,7 +496,7 @@ export function ScatterChart(props: Props): JSX.Element {
      * Creates the SVG elements for displaying a radial magnifier lens on the data
      * @param svg The SVG selection
      * @param visible `true` if the lens is visible; `false` otherwise
-     * @return {RadialMagnifierSelection | undefined} The magnifier selection if visible; otherwise undefined
+     * @return The magnifier selection if visible; otherwise undefined
      */
     function magnifierLens(svg: SvgSelection, visible: boolean): RadialMagnifierSelection | undefined {
         if (visible && magnifierRef.current === undefined && containerRef.current !== null && axesRef.current && mainGRef.current) {

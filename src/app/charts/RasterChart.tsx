@@ -4,10 +4,10 @@ import {ScaleLinear, Selection, ZoomTransform} from "d3";
 import {
     BarLensAxesSelections,
     BarMagnifier, BarMagnifierStyle,
-    barMagnifierWith,
+    barMagnifierWith, hideMagnifierLens, inMagnifier,
     LensTransformation,
     magnifierLensAxisLabels,
-    magnifierLensAxisTicks
+    magnifierLensAxisTicks, showMagnifierLens, xFrom
 } from "./barMagnifier";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
@@ -34,9 +34,19 @@ import {BarMagnifierSelection, GSelection, LineSelection, SvgSelection, TrackerS
 import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltip";
 import {handleZoom, mouseInPlotAreaFor} from "./utils";
 import {createMagnifierLens} from "./barMagnifier";
+import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 
 const defaultMargin = {top: 30, right: 20, bottom: 30, left: 50};
-const defaultSpikesStyle = {
+
+export interface SpikesStyle {
+    margin: number
+    color: string
+    lineWidth: number
+    highlightColor: string
+    highlightWidth: number
+}
+
+const defaultSpikesStyle: SpikesStyle = {
     margin: 2,
     color: '#008aad',
     lineWidth: 2,
@@ -54,15 +64,6 @@ const defaultLineMagnifierStyle: BarMagnifierStyle = {
     lineWidth: 1,
     axisOpacity: 0.35
 };
-
-interface MagnifiedDatum extends Datum {
-    lens: LensTransformation
-}
-
-// // the axis-element type return when calling the ".call(axis)" function
-// type BarMagnifierSelection = Selection<SVGRectElement, Datum, null, undefined>;
-
-const textWidthOf = (elem: Selection<SVGTextElement, any, HTMLElement, any>) => elem.node()?.getBBox()?.width || 0;
 
 interface Props {
     width: number;
@@ -448,111 +449,33 @@ export function RasterChart(props: Props): JSX.Element {
      * @param svg The svg selection holding the whole chart
      */
     function handleShowMagnify(svg: SvgSelection): void {
-
-        /**
-         * Determines whether specified datum is in the time interval centered around the current
-         * mouse position
-         * @param datum The datum
-         * @param x The x-coordinate of the current mouse position
-         * @param xInterval The pixel interval for which transformations are applied
-         * @return `true` if the datum is in the interval; `false` otherwise
-         */
-        function inMagnifier(datum: Datum, x: number, xInterval: number): boolean {
-            const scale = axesRef.current!.xAxis.generator.scale<ScaleLinear<number, number>>();
-            const datumX = scale(datum.time) + margin.left;
-            return datumX > x - xInterval && datumX < x + xInterval;
-        }
-
-        /**
-         * Converts the datum into the x-coordinate corresponding to its time
-         * @param datum The datum
-         * @return The x-coordinate corresponding to its time
-         */
-        function xFrom(datum: Datum): number {
-            const scale = axesRef.current!.xAxis.generator.scale<ScaleLinear<number, number>>();
-            return scale(datum.time);
-        }
-
-        const path = d3.select('.bar-magnifier')
-
-        if (containerRef.current && path) {
-            const [x, y] = d3.mouse(containerRef.current);
-            const isMouseInPlot = mouseInPlotAreaFor(x, y, margin, plotDimRef.current);
-            const deltaX = magnifier.width / 2;
-            path
-                .attr('x', x - deltaX)
-                .attr('width', 2 * deltaX)
-                .attr('opacity', () => isMouseInPlot ? 1 : 0)
-            ;
-
-            // add the magnifier axes and label
-            d3.select(`#magnifier-line-${chartId.current}`)
-                .attr('x1', x)
-                .attr('x2', x)
-                .attr('opacity', () => isMouseInPlot ? magnifier.axisOpacity || 0.35 : 0)
-            ;
-
-            const label = d3.select<SVGTextElement, any>(`#magnifier-line-time-${chartId.current}`)
-                .attr('opacity', () => mouseInPlotAreaFor(x, y, margin, plotDimRef.current) ? 1 : 0)
-                .text(() => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`)
-            ;
-            label.attr('x', Math.min(plotDimRef.current.width + margin.left - textWidthOf(label), x));
-
-            const axesMagnifier: BarMagnifier = barMagnifierWith(deltaX, magnifier.magnification, x);
-            // magnifierXAxisRef.current!
-            magnifierAxesRef.current?.magnifierXAxis
-                .attr('opacity', isMouseInPlot ? 1 : 0)
-                .attr('stroke', tooltipRef.current.borderColor)
-                .attr('stroke-width', 0.75)
-                .attr('x1', datum => axesMagnifier.magnify(x + datum * deltaX / 5).xPrime)
-                .attr('x2', datum => axesMagnifier.magnify(x + datum * deltaX / 5).xPrime)
-                .attr('y1', y - 10)
-                .attr('y2', y)
-            ;
-
-            // magnifierXAxisLabelRef.current!
-            magnifierAxesRef.current?.magnifierXAxisLabel
-                .attr('opacity', isMouseInPlot ? 1 : 0)
-                .attr('x', datum => axesMagnifier.magnify(x + datum * deltaX / 5).xPrime - 12)
-                .attr('y', _ => y + 20)
-                .text(datum => Math.round(axesRef.current!.xAxis.scale.invert(x - margin.left + datum * deltaX / 5)))
-            ;
-
-            // if the mouse is in the plot area and it has moved by at least 1 pixel, then show/update
-            // the bar magnifier
-            if (isMouseInPlot && Math.abs(x - mouseCoordsRef.current) >= 1) {
-                const barMagnifier: BarMagnifier = barMagnifierWith(deltaX, 3 * zoomFactorRef.current, x - margin.left);
-                svg
-                    // select all the spikes and keep only those that are within ±4∆t of the x-position of the mouse
-                    .selectAll<SVGSVGElement, MagnifiedDatum>('.spikes-lines')
-                    .filter(datum => inMagnifier(datum, x, 4 * deltaX))
-                    // supplement the datum with lens transformation information (new x and scale)
-                    .each(datum => {
-                        datum.lens = barMagnifier.magnify(xFrom(datum))
-                    })
-                    // update each spikes line with it's new x-coordinate and the magnified line-width
-                    .attr('x1', datum => datum.lens.xPrime)
-                    .attr('x2', datum => datum.lens.xPrime)
-                    .attr('stroke-width', datum => spikesStyle.lineWidth * Math.min(2, Math.max(datum.lens.magnification, 1)))
-                    .attr('shape-rendering', 'crispEdges')
-                ;
-                mouseCoordsRef.current = x;
-            }
-            // mouse is no longer in plot, hide the magnifier
-            else if (!isMouseInPlot) {
-                svg
-                    .selectAll<SVGSVGElement, Datum>('.spikes-lines')
-                    .attr('x1', datum => xFrom(datum))
-                    .attr('x2', datum => xFrom(datum))
-                    .attr('stroke-width', spikesStyle.lineWidth)
-                ;
-
-                path
-                    .attr('x', margin.left)
-                    .attr('width', 0)
-                ;
-
-                mouseCoordsRef.current = 0;
+        if (containerRef.current && axesRef.current && magnifierAxesRef.current) {
+            const [mx, my] = d3.mouse(containerRef.current);
+            if (mouseInPlotAreaFor(mx, my, margin, {width, height})) {
+                mouseCoordsRef.current = showMagnifierLens(
+                    chartId.current,
+                    svg,
+                    magnifier,
+                    magnifierAxesRef.current,
+                    margin,
+                    [mx, my],
+                    axesRef.current.xAxis,
+                    plotDimRef.current,
+                    zoomFactorRef.current,
+                    spikesStyle,
+                )
+            } else {
+                mouseCoordsRef.current = hideMagnifierLens(
+                    chartId.current,
+                    svg,
+                    magnifier,
+                    magnifierAxesRef.current,
+                    margin,
+                    [mx, my],
+                    axesRef.current.xAxis,
+                    plotDimRef.current,
+                    spikesStyle,
+                )
             }
         }
     }
@@ -711,7 +634,6 @@ export function RasterChart(props: Props): JSX.Element {
                 .on("start", () => d3.select(containerRef.current).style("cursor", "move"))
                 .on("drag", () => onPan(d3.event.dx, plotDimensions))
                 .on("end", () => d3.select(containerRef.current).style("cursor", "auto"))
-            ;
 
             svg.call(drag);
 

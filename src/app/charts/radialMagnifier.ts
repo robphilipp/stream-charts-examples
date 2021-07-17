@@ -171,6 +171,12 @@ export function showMagnifierLens(
     magnifierAxes: RadialLensAxesSelections
 ) {
     const [mx, my] = mouseCoord
+    svg
+        .select('.magnifier')
+        .attr('r', magnifierStyle.radius)
+        .attr('cx', mx)
+        .attr('cy', my)
+        .attr('opacity', () => 1)
 
     // create the radial magnifier
     const radialMagnifier: RadialMagnifier = radialMagnifierWith(
@@ -255,8 +261,18 @@ export function hideMagnifierLens(
     svg: SvgSelection,
     xScale: ScaleLinear<number, number>,
     yScale: ScaleLinear<number, number>,
-    magnifierAxes: RadialLensAxesSelections
+    magnifierAxes: RadialLensAxesSelections,
+    mouseCoord: [number, number],
+    magnifierStyle: RadialMagnifierStyle
 ) {
+    const [mx, my] = mouseCoord
+    svg
+        .select('.magnifier')
+        .attr('r', magnifierStyle.radius)
+        .attr('cx', mx)
+        .attr('cy', my)
+        .attr('opacity', () => 0)
+
     mainG
         .selectAll<SVGSVGElement, Array<[number, number]>>('.time-series-lines')
         .attr("d", data => {
