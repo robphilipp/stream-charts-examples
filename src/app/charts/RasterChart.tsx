@@ -35,6 +35,7 @@ import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, toolt
 import {handleZoom, mouseInPlotAreaFor} from "./utils";
 import {createMagnifierLens} from "./barMagnifier";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
+import {createPlotContainer, setClipPath} from "./plot";
 
 const defaultMargin = {top: 30, right: 20, bottom: 30, left: 50};
 
@@ -584,13 +585,13 @@ export function RasterChart(props: Props): JSX.Element {
         timeRangeRef.current = timeRange;
 
         if (containerRef.current && axesRef.current) {
+            // select the main svg element and bind the data to them
+            const svg = d3.select<SVGSVGElement, any>(containerRef.current);
+
             // filter out any data that doesn't match the current filter
             const filteredData = Array
                 .from(liveDataRef.current.values())
                 .filter(series => series.name.match(seriesFilterRef.current));
-
-            // select the text elements and bind the data to them
-            const svg = d3.select<SVGSVGElement, any>(containerRef.current);
 
             // update the x-axis (user filters change the location of x-axis)
             axesRef.current.xAxis.update([timeRangeRef.current.start, timeRangeRef.current.end], plotDimensions, margin)
@@ -610,16 +611,11 @@ export function RasterChart(props: Props): JSX.Element {
             // set up the main <g> container for svg and translate it based on the margins, but do it only
             // once
             if (mainGRef.current === undefined) {
-                mainGRef.current = svg
-                    .attr('width', width)
-                    .attr('height', height)
-                    .attr('color', axisStyle.color)
-                    .append<SVGGElement>('g')
-                ;
+                mainGRef.current = createPlotContainer(chartId.current, containerRef.current, {width, height}, axisStyle.color)
             } else {
                 // in case the axis color has changed
                 svg.attr('color', axisStyle.color);
-                spikesRef.current = mainGRef.current!
+                spikesRef.current = mainGRef.current
                     .selectAll<SVGGElement, Series>('g')
                     .data<Series>(filteredData)
                     .enter()
@@ -651,16 +647,8 @@ export function RasterChart(props: Props): JSX.Element {
                 addGridLines(svg, plotDimensions);
             }
 
-            // remove the old clipping region and add a new one with the updated plot dimensions
-            svg.select('defs').remove();
-            svg
-                .append('defs')
-                .append("clipPath")
-                .attr("id", `clip-spikes-${chartId.current}`)
-                .append("rect")
-                .attr("width", plotDimensions.width)
-                .attr("height", plotDimensions.height - margin.top)
-            ;
+            // define the clip-path so that the series lines don't go beyond the plot area
+            const clipPathId = setClipPath(chartId.current, svg, plotDimensions, margin)
 
             liveDataRef.current.forEach(series => {
                 const plotSeries = (series.name.match(seriesFilterRef.current)) ? series : emptySeries(series.name);
@@ -687,12 +675,12 @@ export function RasterChart(props: Props): JSX.Element {
                     .attr('stroke', spikesStyle.color)
                     .attr('stroke-width', spikesStyle.lineWidth)
                     .attr('stroke-linecap', "round")
-                    .attr("clip-path", `url(#clip-spikes-${chartId.current})`)
+                    .attr("clip-path", `url(#${clipPathId})`)
+                    // .attr("clip-path", `url(#clip-spikes-${chartId.current})`)
                     // even though the tooltip may not be set to show up on the mouseover, we want to attach the handler
                     // so that when the use enables tooltips the handlers will show the the tooltip
                     .on("mouseover", (datum, i, group) => handleShowTooltip(datum, series.name, group[i]))
                     .on("mouseleave", (datum, i, group) => handleHideTooltip(datum, series.name, group[i]))
-                ;
 
                 // update existing elements
                 container
@@ -707,7 +695,6 @@ export function RasterChart(props: Props): JSX.Element {
                     .attr('stroke', spikesStyle.color)
                     .on("mouseover", (datum, i, group) => handleShowTooltip(datum, series.name, group[i]))
                     .on("mouseleave", (datum, i, group) => handleHideTooltip(datum, series.name, group[i]))
-                ;
 
                 // exit old elements
                 container.exit().remove();

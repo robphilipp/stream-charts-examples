@@ -10,11 +10,10 @@ import {noop, Observable, Subscription} from "rxjs"
 import {ChartData} from "./chartData"
 import {
     createMagnifierLens,
-    magnifyAll, showMagnifierLens,
+    hideMagnifierLens,
     RadialLensAxesSelections,
-    RadialMagnifier,
     RadialMagnifierStyle,
-    radialMagnifierWith, hideMagnifierLens
+    showMagnifierLens
 } from "./radialMagnifier"
 import {windowTime} from "rxjs/operators"
 import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker"
@@ -31,8 +30,16 @@ import {
     LinearAxis
 } from "./axes";
 import {GSelection, RadialMagnifierSelection, SvgSelection, TextSelection, TrackerSelection} from "./d3types";
-import {formatTime, formatTimeChange, formatValue, formatValueChange, handleZoom, mouseInPlotAreaFor} from "./utils";
-import {TimeSeries} from "./plot";
+import {
+    formatTime,
+    formatTimeChange,
+    formatValue,
+    formatValueChange,
+    handleZoom,
+    minMaxTimeSeriesY,
+    mouseInPlotAreaFor
+} from "./utils";
+import {createPlotContainer, setClipPath, TimeSeries} from "./plot";
 import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
 
 const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
@@ -149,8 +156,7 @@ export function ScatterChart(props: Props): JSX.Element {
     const axesRef = useRef<Axes<LinearAxis, LinearAxis>>()
 
     // reference for the min/max values
-    const minValueRef = useRef<number>(minY)
-    const maxValueRef = useRef<number>(maxY)
+    const minMaxValueRef = useRef<[number, number]>([minY, maxY])
 
     const liveDataRef = useRef<Map<string, Series>>(new Map<string, Series>(seriesList.map(series => [series.name, series])))
     const seriesRef = useRef<Map<string, Series>>(new Map<string, Series>(seriesList.map(series => [series.name, series])))
@@ -247,21 +253,6 @@ export function ScatterChart(props: Props): JSX.Element {
     )
 
     /**
-     * Calculates the min and max values for the specified array of time-series
-     * @param data The array of time-series
-     * @return {[number, number]} A pair with the min value as the first element and the max
-     * value as the second element.
-     */
-    function calcMinMaxValues(data: Array<TimeSeries>): [number, number] {
-        const minValue = d3.min(data, series => d3.min(series, datum => datum[1])) || 0
-        const maxValue = d3.max(data, series => d3.max(series, datum => datum[1])) || 1
-        return [
-            Math.min(minValue, minValueRef.current),
-            Math.max(maxValue, maxValueRef.current)
-        ]
-    }
-
-    /**
      * Initializes the x and y axes and returns the axes generators, axes, and scale functions
      * @param svg The main SVG container
      * @param plotDimensions The dimensions of the plot
@@ -322,7 +313,7 @@ export function ScatterChart(props: Props): JSX.Element {
     function handleShowTooltip(datum: TimeSeries, seriesName: string, segment: SVGPathElement): void {
         if ((tooltipRef.current.visible || magnifierStyle.visible) && containerRef.current && axesRef.current) {
             // grab the time needed for the tooltip ID
-            const [x, ] = d3.mouse(containerRef.current)
+            const [x,] = d3.mouse(containerRef.current)
             const time = Math.round(axesRef.current.xAxis.scale.invert(x - margin.left))
 
             // Use d3 to select element, change color and size
@@ -553,8 +544,6 @@ export function ScatterChart(props: Props): JSX.Element {
      * @param plotDimensions The dimensions of the plot
      */
     function updatePlot(timeRange: ContinuousAxisRange, plotDimensions: Dimensions): void {
-        timeRangeRef.current = timeRange
-
         if (containerRef.current && axesRef.current) {
             // select the svg element bind the data to them
             const svg = d3.select<SVGSVGElement, any>(containerRef.current)
@@ -566,11 +555,11 @@ export function ScatterChart(props: Props): JSX.Element {
 
             // calculate and update the min and max values for updating the y-axis. only updates when
             // the min is less than the historical min, and the max is larger than the historical max.
-            const [minValue, maxValue] = calcMinMaxValues(data)
-            minValueRef.current = minValue
-            maxValueRef.current = maxValue
+            // const [minValue, maxValue] = calcMinMaxValues(data)
+            minMaxValueRef.current = minMaxTimeSeriesY(data, minMaxValueRef.current)
 
             // update the x and y axes
+            const [minValue, maxValue] = minMaxValueRef.current
             axesRef.current.xAxis.update([timeRangeRef.current.start, timeRangeRef.current.end], plotDimensions, margin)
             axesRef.current.yAxis.update([Math.max(minY, minValue), Math.min(maxY, maxValue)], plotDimensions, margin)
 
@@ -583,11 +572,10 @@ export function ScatterChart(props: Props): JSX.Element {
             // set up the main <g> container for svg and translate it based on the margins, but do it only
             // once
             if (mainGRef.current === undefined) {
-                mainGRef.current = svg
-                    .attr('width', width)
-                    .attr('height', height)
-                    .attr('color', axisStyle.color)
-                    .append<SVGGElement>('g')
+                mainGRef.current = createPlotContainer(chartId.current, containerRef.current, {
+                    width,
+                    height
+                }, axisStyle.color)
             }
 
             // set up panning
@@ -619,16 +607,8 @@ export function ScatterChart(props: Props): JSX.Element {
 
             svg.call(zoom)
 
-            // remove the old clipping region and add a new one with the updated plot dimensions
-            svg.select('defs').remove()
-            svg
-                .append('defs')
-                .append("clipPath")
-                .attr("id", `clip-series-${chartId.current}`)
-                .append("rect")
-                .attr("width", plotDimensions.width)
-                .attr("height", plotDimensions.height - margin.top)
-
+            // define the clip-path so that the series lines don't go beyond the plot area
+            const clipPathId = setClipPath(chartId.current, svg, plotDimensions, margin)
 
             liveDataRef.current.forEach((series, name) => {
                 const data = selectInTimeRange(series)
@@ -657,7 +637,8 @@ export function ScatterChart(props: Props): JSX.Element {
                             .attr("stroke", colorsRef.current.get(series.name) || lineStyle.color)
                             .attr("stroke-width", lineStyle.lineWidth)
                             .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                            .attr("clip-path", `url(#clip-series-${chartId.current})`)
+                            .attr("clip-path", `url(#${clipPathId})`)
+                            // .attr("clip-path", `url(#clip-series-${chartId.current})`)
                             .on(
                                 "mouseover",
                                 (datumArray, i, group) =>
