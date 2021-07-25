@@ -150,4 +150,4 @@ export const minMaxOf = <T>(accessor: (v: T) => number) =>
  * y-value for all the values in all the series.
  * @see minMaxOf
  */
-export const minMaxTimeSeriesY = minMaxOf((datum: [number, number]): number => datum[1])
+export const minMaxYFor = minMaxOf((datum: [number, number]): number => datum[1])

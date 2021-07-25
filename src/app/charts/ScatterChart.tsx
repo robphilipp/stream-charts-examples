@@ -36,7 +36,7 @@ import {
     formatValue,
     formatValueChange,
     handleZoom,
-    minMaxTimeSeriesY,
+    minMaxYFor,
     mouseInPlotAreaFor
 } from "./utils";
 import {createPlotContainer, setClipPath, TimeSeries} from "./plot";
@@ -549,14 +549,13 @@ export function ScatterChart(props: Props): JSX.Element {
             const svg = d3.select<SVGSVGElement, any>(containerRef.current)
 
             // create the tensor of data (time, value)
-            const data: Array<Array<[number, number]>> = Array
-                .from(liveDataRef.current.values())
-                .map(series => selectInTimeRange(series))
+            const boundedSeries: Map<string, Array<[number, number]>> = new Map()
+            liveDataRef.current
+                .forEach((series, name) => boundedSeries.set(name, selectInTimeRange(series)))
 
             // calculate and update the min and max values for updating the y-axis. only updates when
             // the min is less than the historical min, and the max is larger than the historical max.
-            // const [minValue, maxValue] = calcMinMaxValues(data)
-            minMaxValueRef.current = minMaxTimeSeriesY(data, minMaxValueRef.current)
+            minMaxValueRef.current = minMaxYFor(Array.from(boundedSeries.values()), minMaxValueRef.current)
 
             // update the x and y axes
             const [minValue, maxValue] = minMaxValueRef.current
@@ -569,13 +568,14 @@ export function ScatterChart(props: Props): JSX.Element {
             // create/update the tracker line if needed
             trackerRef.current = trackerControl(svg, trackerStyle.visible)
 
-            // set up the main <g> container for svg and translate it based on the margins, but do it only
-            // once
+            // set up the main <g> container for svg and translate it based on the margins, but do it only once
             if (mainGRef.current === undefined) {
-                mainGRef.current = createPlotContainer(chartId.current, containerRef.current, {
-                    width,
-                    height
-                }, axisStyle.color)
+                mainGRef.current = createPlotContainer(
+                    chartId.current,
+                    containerRef.current,
+                    {width, height},
+                    axisStyle.color
+                )
             }
 
             // set up panning
@@ -593,7 +593,6 @@ export function ScatterChart(props: Props): JSX.Element {
                     d3.select(containerRef.current).style("cursor", "auto")
                 })
 
-
             svg.call(drag)
 
             // set up for zooming
@@ -604,14 +603,12 @@ export function ScatterChart(props: Props): JSX.Element {
                     onZoom(d3.event.transform, d3.event.sourceEvent.offsetX - margin.left, plotDimensions)
                 })
 
-
             svg.call(zoom)
 
             // define the clip-path so that the series lines don't go beyond the plot area
             const clipPathId = setClipPath(chartId.current, svg, plotDimensions, margin)
 
-            liveDataRef.current.forEach((series, name) => {
-                const data = selectInTimeRange(series)
+            boundedSeries.forEach((data, name) => {
 
                 if (data.length === 0) return
 
@@ -621,20 +618,21 @@ export function ScatterChart(props: Props): JSX.Element {
 
                 // create the time-series paths
                 mainGRef.current!
-                    .selectAll(`#${series.name}`)
-                    .data([[], plotData], () => `${series.name}`)
+                    .selectAll(`#${name}`)
+                    .data([[], plotData], () => `${name}`)
                     .join(
                         enter => enter
                             .append("path")
                             .attr("class", 'time-series-lines')
-                            .attr("id", `${series.name}`)
+                            .attr("id", `${name}`)
+                            // .attr("id", `${series.name}`)
                             .attr("d", d3.line()
                                 .x((d: [number, number]) => axesRef.current!.xAxis.scale(d[0]))
                                 .y((d: [number, number]) => axesRef.current!.yAxis.scale(d[1]))
                             )
                             .attr("fill", "none")
                             // .attr("stroke", lineStyle.color)
-                            .attr("stroke", colorsRef.current.get(series.name) || lineStyle.color)
+                            .attr("stroke", colorsRef.current.get(name) || lineStyle.color)
                             .attr("stroke-width", lineStyle.lineWidth)
                             .attr('transform', `translate(${margin.left}, ${margin.top})`)
                             .attr("clip-path", `url(#${clipPathId})`)
@@ -642,13 +640,13 @@ export function ScatterChart(props: Props): JSX.Element {
                             .on(
                                 "mouseover",
                                 (datumArray, i, group) =>
-                                    tooltipRef.current.visible ? handleShowTooltip(datumArray, series.name, group[i]) : null
+                                    tooltipRef.current.visible ? handleShowTooltip(datumArray, name, group[i]) : null
                             )
                             .on(
                                 "mouseleave",
                                 (datumArray, i, group) =>
                                     tooltipRef.current.visible ?
-                                        handleRemoveTooltip(series.name, group[i]) :
+                                        handleRemoveTooltip(name, group[i]) :
                                         null
                             ),
                         update => update,
