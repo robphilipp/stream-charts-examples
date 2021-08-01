@@ -5,6 +5,8 @@ import {calculateZoomFor, LinearAxis} from "./axes";
 import {TimeRangeType} from "stream-charts/dist/src/app/charts/timeRange";
 import {TimeSeries} from "./plot";
 
+export const noop = () => {}
+
 /**
  * Calculates whether the mouse is in the plot-area
  * @param x The x-coordinate of the mouse's position
@@ -53,48 +55,6 @@ export function handleZoom(
         return {zoomFactor, timeRange: range}
     }
 }
-
-// export function configureZoom(
-//     svg: SvgSelection,
-//     margin: Margin,
-//     plotDimensions: PlotDimensions,
-//     width: number,
-//     height: number
-// ) {
-//     const zoom = d3.zoom<SVGSVGElement, Datum>()
-//         .scaleExtent([0, 10])
-//         .translateExtent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])
-//         .on("zoom", () => {
-//             onZoom(d3.event.transform, d3.event.sourceEvent.offsetX - margin.left, plotDimensions)
-//         })
-//
-//
-//     svg.call(zoom)
-// }
-//
-// /**
-//  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-//  * at the location of the mouse when the scroll wheel or gesture was applied.
-//  * @param transform The d3 zoom transformation information
-//  * @param x The x-position of the mouse when the scroll wheel or gesture is used
-//  * @param plotDimensions The dimensions of the plot
-//  */
-// function onZoom(
-//     transform: ZoomTransform,
-//     x: number,
-//     plotDimensions: Dimensions,
-//     xAxis: LinearAxis,
-//     timeRange: ContinuousAxisRange
-// ): void {
-//     // if (axesRef.current !== undefined) {
-//         const zoom = handleZoom(transform, x, plotDimensions, width, margin, xAxis, timeRange)
-//         if (zoom) {
-//             timeRangeRef.current = zoom.timeRange
-//             zoomFactorRef.current = zoom.zoomFactor
-//             updatePlot(timeRange, plotDimensions)
-//         }
-//     // }
-// }
 
 export function formatNumber(value: number, format: string): string {
     return isNaN(value) ? '---' : d3.format(format)(value)

@@ -4,11 +4,13 @@ import {Series, seriesFrom} from "stream-charts";
 import { StreamingScatterChart } from './examples/StreamingScatterChart';
 import {
     Grid, gridArea, GridItem, gridTemplateAreasBuilder,
-    gridTrackTemplateBuilder,
+    gridTrackTemplateBuilder, useGridCellHeight, useGridCellWidth,
     useWindowDimensions,
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
+import {Chart} from "./charts/Chart";
+import {Observable} from "rxjs";
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
 const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
@@ -44,24 +46,33 @@ const App: React.FC = () => {
               <h3 style={{color: '#d2933f'}}>Streaming Scatter Chart</h3>
           </GridItem>
           <GridItem gridAreaName="scatter-chart">
-              <StreamingScatterChart
-                  timeWindow={1000}
-                  seriesList={weights}
-                  plotHeight={500}
-                  plotWidth={900}
-              />
+              {/*<StreamingScatterChart*/}
+              {/*    timeWindow={1000}*/}
+              {/*    seriesList={weights}*/}
+              {/*    plotHeight={500}*/}
+              {/*    plotWidth={900}*/}
+              {/*/>*/}
+              <Chart
+                  width={useGridCellWidth()}
+                  height={useGridCellHeight()}
+                  // svgStyle={{'background-color': 'pink'}}
+                  backgroundColor='orange'
+                  seriesObservable={new Observable()}
+              >
+                  <div>test</div>
+              </Chart>
           </GridItem>
-          <GridItem gridAreaName="raster-header">
-              <h3 style={{color: '#d2933f'}}>Streaming Raster Chart</h3>
-          </GridItem>
-          <GridItem gridAreaName="raster-chart">
-              <StreamingRasterChart
-                  timeWindow={1000}
-                  seriesList={spikes}
-                  seriesHeight={20}
-                  plotWidth={900}
-              />
-          </GridItem>
+          {/*<GridItem gridAreaName="raster-header">*/}
+          {/*    <h3 style={{color: '#d2933f'}}>Streaming Raster Chart</h3>*/}
+          {/*</GridItem>*/}
+          {/*<GridItem gridAreaName="raster-chart">*/}
+          {/*    <StreamingRasterChart*/}
+          {/*        timeWindow={1000}*/}
+          {/*        seriesList={spikes}*/}
+          {/*        seriesHeight={20}*/}
+          {/*        plotWidth={900}*/}
+          {/*    />*/}
+          {/*</GridItem>*/}
       </Grid>
   );
 };

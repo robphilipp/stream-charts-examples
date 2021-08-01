@@ -1,19 +1,18 @@
 import {default as React, useEffect, useMemo, useRef} from "react";
 import * as d3 from "d3";
-import {ScaleLinear, Selection, ZoomTransform} from "d3";
+import {Selection, ZoomTransform} from "d3";
 import {
     BarLensAxesSelections,
-    BarMagnifier, BarMagnifierStyle,
-    barMagnifierWith, hideMagnifierLens, inMagnifier,
-    LensTransformation,
-    magnifierLensAxisLabels,
-    magnifierLensAxisTicks, showMagnifierLens, xFrom
+    BarMagnifierStyle,
+    createMagnifierLens,
+    hideMagnifierLens,
+    showMagnifierLens
 } from "./barMagnifier";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
 import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
-import {Observable, range, Subscription} from "rxjs";
+import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {windowTime} from "rxjs/operators";
 import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker";
@@ -25,16 +24,13 @@ import {
     AxesLabelFont,
     AxisLocation,
     calculatePanFor,
-    calculateZoomFor,
     CategoryAxis,
     defaultAxesLabelFont,
     LinearAxis
 } from "./axes";
-import {BarMagnifierSelection, GSelection, LineSelection, SvgSelection, TrackerSelection} from "./d3types";
+import {BarMagnifierSelection, SvgSelection, TrackerSelection} from "./d3types";
 import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltip";
-import {handleZoom, mouseInPlotAreaFor} from "./utils";
-import {createMagnifierLens} from "./barMagnifier";
-import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
+import {handleZoom, mouseInPlotAreaFor, noop} from "./utils";
 import {createPlotContainer, setClipPath} from "./plot";
 
 const defaultMargin = {top: 30, right: 20, bottom: 30, left: 50};
@@ -113,12 +109,9 @@ export function RasterChart(props: Props): JSX.Element {
         seriesObservable,
         windowingTime = 100,
         shouldSubscribe = true,
-        onSubscribe = (_: Subscription) => {
-        },
-        onUpdateData = () => {
-        },
-        onUpdateTime = (_: number) => {
-        },
+        onSubscribe = noop,
+        onUpdateData = noop,
+        onUpdateTime = noop,
         filter = /./,
         timeWindow,
         dropDataAfter = Infinity,
@@ -152,8 +145,6 @@ export function RasterChart(props: Props): JSX.Element {
     const spikesRef = useRef<Selection<SVGGElement, Series, SVGGElement, any>>();
 
     const magnifierRef = useRef<BarMagnifierSelection>();
-    // const magnifierXAxisRef = useRef<LineSelection>();
-    // const magnifierXAxisLabelRef = useRef<Selection<SVGTextElement, any, SVGGElement, undefined>>();
     const magnifierAxesRef = useRef<BarLensAxesSelections>()
 
     const trackerRef = useRef<Selection<SVGLineElement, Datum, null, undefined>>();
