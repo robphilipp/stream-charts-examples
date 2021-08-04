@@ -1,16 +1,22 @@
 import React from 'react';
-import StreamingRasterChart from "./examples/StreamingRasterChart";
 import {Series, seriesFrom} from "stream-charts";
-import { StreamingScatterChart } from './examples/StreamingScatterChart';
 import {
-    Grid, gridArea, GridItem, gridTemplateAreasBuilder,
-    gridTrackTemplateBuilder, useGridCellHeight, useGridCellWidth,
+    Grid,
+    gridArea,
+    GridItem,
+    gridTemplateAreasBuilder,
+    gridTrackTemplateBuilder,
+    useGridCellHeight,
+    useGridCellWidth,
     useWindowDimensions,
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
 import {Chart} from "./charts/Chart";
 import {Observable} from "rxjs";
+import {AxisX} from "./charts/AxisX";
+import {AxisLocation} from "./charts/axes";
+import {AxisY} from "./charts/AxisY";
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
 const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
@@ -55,10 +61,14 @@ const App: React.FC = () => {
               <Chart
                   width={useGridCellWidth()}
                   height={useGridCellHeight()}
+                  // margin={{...defaultMargin, left: 60}}
                   // svgStyle={{'background-color': 'pink'}}
-                  backgroundColor='orange'
+                  backgroundColor='lightgray'
                   seriesObservable={new Observable()}
               >
+                  <AxisX location={AxisLocation.Bottom} domain={[0, 100]} label="x-axis"/>
+                  <AxisY location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
+                  {/*<AxisX location={AxisLocation.Top} domain={[0, 100]} label="upper axis"/>*/}
                   <div>test</div>
               </Chart>
           </GridItem>

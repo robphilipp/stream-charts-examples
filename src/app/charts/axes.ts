@@ -85,7 +85,7 @@ export function addLinearAxis(
     }
 }
 
-function addLinearXAxis(
+export function addLinearXAxis(
     chartId: number,
     svg: SvgSelection,
     plotDimensions: Dimensions,
@@ -99,11 +99,14 @@ function addLinearXAxis(
         .domain(domain)
         .range([0, plotDimensions.width])
 
+    // todo make this actually depend on the axis location
     const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
+    // const yTranslation = location === AxisLocation.Bottom ? plotDimensions.height : margin.top
     const selection = svg
         .append<SVGGElement>('g')
         .attr('class', 'x-axis')
         .attr('transform', `translate(${margin.left}, ${plotDimensions.height})`)
+        // .attr('transform', `translate(${margin.left}, ${yTranslation})`)
 
     // todo update the label location based on the location
     svg
@@ -124,7 +127,7 @@ function addLinearXAxis(
     }
 }
 
-function addLinearYAxis(
+export function addLinearYAxis(
     chartId: number,
     svg: SvgSelection,
     plotDimensions: Dimensions,

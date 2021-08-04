@@ -6,11 +6,10 @@ import {Datum} from "./datumSeries";
 import {noop, Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {GSelection} from "./d3types";
-import ChartProvider from "./useChart";
+import ChartProvider, {defaultMargin} from "./useChart";
 import * as d3 from "d3";
 import {createPlotContainer} from "./plot";
 
-const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 const defaultAxesStyle = {color: '#d2933f'}
 const defaultBackground = '#202020';
 
@@ -72,7 +71,8 @@ export function Chart(props: Props): JSX.Element {
 
     // const [dimensions, setDimensions] = useState<Dimensions>({width, height})
 
-    // called on mount to set up the <g> element into which to render
+    // creates the main <g> element for the chart if it doesn't already exist, otherwise
+    // updates the svg element with the updated dimensions or style properties
     useEffect(
         () => {
             if (containerRef.current !== null) {
@@ -89,6 +89,9 @@ export function Chart(props: Props): JSX.Element {
                     .map(name => `${name}: ${svgStyle[name]}; `)
                     .join("")
 
+                // when the chart "backgroundColor" property is set (i.e. not the default value),
+                // then we need add it to the styles, overwriting any color that may have been
+                // set in the svg style object
                 const background = backgroundColor !== defaultBackground ?
                     `background-color: ${backgroundColor}; ` :
                     ''
@@ -100,7 +103,7 @@ export function Chart(props: Props): JSX.Element {
                     .attr('style', style + background)
             }
         },
-        [height, width]
+        [backgroundColor, height, svgStyle, width]
     )
 
     return (
@@ -110,6 +113,7 @@ export function Chart(props: Props): JSX.Element {
                 container={containerRef.current}
                 chartId={chartId.current}
                 containerDimensions={{width, height}}
+                margin={margin}
             >
                 {
                     // the chart elements are the children

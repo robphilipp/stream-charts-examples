@@ -1,6 +1,6 @@
 import * as React from 'react';
-import {createContext, useContext, useState} from 'react';
-import {Dimensions} from "./margins";
+import {createContext, useContext, useEffect, useState} from 'react';
+import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {GSelection} from "./d3types";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
@@ -8,11 +8,14 @@ import {Datum} from "./datumSeries";
 import {noop} from "./utils";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 
+export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
+
 interface UseChartValues {
     chartId: number
     plotDimensions: Dimensions
     mainG?: GSelection
-    container: SVGSVGElement | null
+    container: SVGSVGElement | null,
+    margin: Margin,
 
     // todo not sure about these
     seriesObservable?: Observable<ChartData>
@@ -39,6 +42,7 @@ const defaultUseChartValues: UseChartValues = {
     chartId: NaN,
     container: null,
     plotDimensions: {width: 0, height: 0},
+    margin: defaultMargin,
     windowingTime: NaN,
     shouldSubscribe: false,
 
@@ -62,12 +66,13 @@ const ChartContext = createContext<UseChartValues>(defaultUseChartValues)
 interface Props {
     container: SVGSVGElement | null
     chartId: number
-    containerDimensions: Dimensions
+    containerDimensions: Dimensions,
+    margin: Margin,
     children: JSX.Element | Array<JSX.Element>
 }
 
 export default function ChartProvider(props: Props): JSX.Element {
-    const {container, chartId} = props
+    const {container, chartId, containerDimensions, margin} = props
     // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
     const [dimensions, setDimensions] = useState<PlotDimensions>(defaultUseChartValues.plotDimensions)
     const [mainG, setMainG] = useState<GSelection>()
@@ -85,6 +90,14 @@ export default function ChartProvider(props: Props): JSX.Element {
     // function newChart(chartId: number, mainG: GSelection): void {
     //     setChartId(chartId)
     // }
+
+    // update the plot dimensions when the container size or margin change
+    useEffect(
+        () => {
+            setDimensions(plotDimensionsFrom(containerDimensions.width, containerDimensions.height, margin))
+        },
+        [containerDimensions, margin]
+    )
 
     function setMainGSelection(g: GSelection): void {
         setMainG(mainG)
@@ -123,6 +136,7 @@ export default function ChartProvider(props: Props): JSX.Element {
         value={{
             chartId,
             plotDimensions: dimensions,
+            margin,
             mainG, container,
             seriesObservable, windowingTime, shouldSubscribe,
             onSubscribe, onUpdateTime, onUpdateData,
