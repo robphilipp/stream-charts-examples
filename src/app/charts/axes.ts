@@ -4,6 +4,7 @@ import * as d3 from "d3";
 import {AxisElementSelection, SvgSelection} from "./d3types";
 import {Axis, ScaleBand, ScaleLinear, ZoomTransform} from "d3";
 import { Series } from "./datumSeries";
+import {addLinearXAxis} from "./AxisX";
 
 export interface AxesLabelFont {
     size: number
@@ -85,47 +86,47 @@ export function addLinearAxis(
     }
 }
 
-export function addLinearXAxis(
-    chartId: number,
-    svg: SvgSelection,
-    plotDimensions: Dimensions,
-    location: AxisLocation.Bottom | AxisLocation.Top,
-    domain: [minValue: number, maxValue: number],
-    axesLabelFont: AxesLabelFont,
-    margin: Margin,
-    axisLabel: string,
-): LinearAxis {
-    const scale = d3.scaleLinear()
-        .domain(domain)
-        .range([0, plotDimensions.width])
-
-    // todo make this actually depend on the axis location
-    const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
-    // const yTranslation = location === AxisLocation.Bottom ? plotDimensions.height : margin.top
-    const selection = svg
-        .append<SVGGElement>('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(${margin.left}, ${plotDimensions.height})`)
-        // .attr('transform', `translate(${margin.left}, ${yTranslation})`)
-
-    // todo update the label location based on the location
-    svg
-        .append<SVGTextElement>('text')
-        .attr('id', `stream-chart-x-axis-label-${chartId}`)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', axesLabelFont.size)
-        .attr('fill', axesLabelFont.color)
-        .attr('font-family', axesLabelFont.family)
-        .attr('font-weight', axesLabelFont.weight)
-        .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${plotDimensions.height + margin.top + (margin.bottom / 3)})`)
-        .text(axisLabel)
-
-    const axis = {scale, selection, generator, update: noop}
-    return {
-        ...axis,
-        update: (domain, plotDimensions, margin) => updateLinearXAxis(chartId, svg, axis, domain, plotDimensions, margin)
-    }
-}
+// export function addLinearXAxis(
+//     chartId: number,
+//     svg: SvgSelection,
+//     plotDimensions: Dimensions,
+//     location: AxisLocation.Bottom | AxisLocation.Top,
+//     domain: [minValue: number, maxValue: number],
+//     axesLabelFont: AxesLabelFont,
+//     margin: Margin,
+//     axisLabel: string,
+// ): LinearAxis {
+//     const scale = d3.scaleLinear()
+//         .domain(domain)
+//         .range([0, plotDimensions.width])
+//
+//     // todo make this actually depend on the axis location
+//     const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
+//     // const yTranslation = location === AxisLocation.Bottom ? plotDimensions.height : margin.top
+//     const selection = svg
+//         .append<SVGGElement>('g')
+//         .attr('class', 'x-axis')
+//         .attr('transform', `translate(${margin.left}, ${plotDimensions.height})`)
+//         // .attr('transform', `translate(${margin.left}, ${yTranslation})`)
+//
+//     // todo update the label location based on the location
+//     svg
+//         .append<SVGTextElement>('text')
+//         .attr('id', `stream-chart-x-axis-label-${chartId}`)
+//         .attr('text-anchor', 'middle')
+//         .attr('font-size', axesLabelFont.size)
+//         .attr('fill', axesLabelFont.color)
+//         .attr('font-family', axesLabelFont.family)
+//         .attr('font-weight', axesLabelFont.weight)
+//         .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${plotDimensions.height + margin.top + (margin.bottom / 3)})`)
+//         .text(axisLabel)
+//
+//     const axis = {scale, selection, generator, update: noop}
+//     return {
+//         ...axis,
+//         update: (domain, plotDimensions, margin) => updateLinearXAxis(chartId, svg, axis, domain, plotDimensions, margin)
+//     }
+// }
 
 export function addLinearYAxis(
     chartId: number,
@@ -234,23 +235,23 @@ function addCategoryYAxis(
     // return {scale, selection, generator, categorySize}
 }
 
-function updateLinearXAxis(
-    chartId: number,
-    svg: SvgSelection,
-    axis: LinearAxis,
-    domain: [startValue: number, endValue: number],
-    plotDimensions: Dimensions,
-    margin: Margin
-): void {
-    axis.scale.domain(domain).range([0, plotDimensions.width])
-
-    axis.selection
-        .attr('transform', `translate(${margin.left}, ${plotDimensions.height + margin.top - margin.bottom})`)
-        .call(axis.generator)
-    svg
-        .select(`#stream-chart-x-axis-label-${chartId}`)
-        .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${plotDimensions.height + margin.top + (margin.bottom / 3)})`)
-}
+// function updateLinearXAxis(
+//     chartId: number,
+//     svg: SvgSelection,
+//     axis: LinearAxis,
+//     domain: [startValue: number, endValue: number],
+//     plotDimensions: Dimensions,
+//     margin: Margin
+// ): void {
+//     axis.scale.domain(domain).range([0, plotDimensions.width])
+//
+//     axis.selection
+//         .attr('transform', `translate(${margin.left}, ${plotDimensions.height + margin.top - margin.bottom})`)
+//         .call(axis.generator)
+//     svg
+//         .select(`#stream-chart-x-axis-label-${chartId}`)
+//         .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${plotDimensions.height + margin.top + (margin.bottom / 3)})`)
+// }
 
 function updateLinearYAxis(
     chartId: number,

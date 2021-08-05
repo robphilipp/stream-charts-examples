@@ -1,7 +1,7 @@
 import * as React from 'react'
 import {useEffect, useRef} from 'react'
 import * as d3 from "d3";
-import {addLinearXAxis, addLinearYAxis, AxesLabelFont, AxisLocation, defaultAxesLabelFont, LinearAxis} from "./axes";
+import {addLinearYAxis, AxesLabelFont, AxisLocation, defaultAxesLabelFont, LinearAxis} from "./axes";
 import {useChart} from "./useChart";
 
 interface Props {

@@ -68,7 +68,7 @@ const App: React.FC = () => {
               >
                   <AxisX location={AxisLocation.Bottom} domain={[0, 100]} label="x-axis"/>
                   <AxisY location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
-                  {/*<AxisX location={AxisLocation.Top} domain={[0, 100]} label="upper axis"/>*/}
+                  {/*<AxisX location={AxisLocation.Top} domain={[0, 1000]} label="x-axis (2)"/>*/}
                   <div>test</div>
               </Chart>
           </GridItem>
