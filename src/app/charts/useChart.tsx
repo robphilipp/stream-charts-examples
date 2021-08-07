@@ -7,6 +7,7 @@ import {ChartData} from "./chartData";
 import {Datum} from "./datumSeries";
 import {noop} from "./utils";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
+import {BaseAxis} from "./axes";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 
@@ -14,8 +15,14 @@ interface UseChartValues {
     chartId: number
     plotDimensions: Dimensions
     mainG?: GSelection
-    container: SVGSVGElement | null,
-    margin: Margin,
+    container: SVGSVGElement | null
+    margin: Margin
+    color: string
+
+    xAxis: BaseAxis | null
+    addXAxis: (axis: BaseAxis) => void
+    yAxis: BaseAxis | null
+    addYAxis: (axis: BaseAxis) => void
 
     // todo not sure about these
     seriesObservable?: Observable<ChartData>
@@ -43,6 +50,13 @@ const defaultUseChartValues: UseChartValues = {
     container: null,
     plotDimensions: {width: 0, height: 0},
     margin: defaultMargin,
+    color: '#d2933f',
+
+    xAxis: null,
+    addXAxis: noop,
+    yAxis: null,
+    addYAxis: noop,
+
     windowingTime: NaN,
     shouldSubscribe: false,
 
@@ -66,17 +80,27 @@ const ChartContext = createContext<UseChartValues>(defaultUseChartValues)
 interface Props {
     container: SVGSVGElement | null
     chartId: number
-    containerDimensions: Dimensions,
-    margin: Margin,
+    containerDimensions: Dimensions
+    margin: Margin
+    color: string
     children: JSX.Element | Array<JSX.Element>
 }
 
 export default function ChartProvider(props: Props): JSX.Element {
-    const {container, chartId, containerDimensions, margin} = props
+    const {
+        chartId,
+        container,
+        containerDimensions,
+        margin,
+        color
+    } = props
     // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
     const [dimensions, setDimensions] = useState<PlotDimensions>(defaultUseChartValues.plotDimensions)
     const [mainG, setMainG] = useState<GSelection>()
     // const [container, setContainer] = useState<SVGSVGElement>()
+
+    const [xAxis, setXAxis] = useState<BaseAxis | null>(null)
+    const [yAxis, setYAxis] = useState<BaseAxis | null>(null)
 
     const [seriesObservable, setSeriesObservable] = useState<Observable<ChartData>>()
     const [windowingTime, setWindowingTime] = useState<number>(defaultUseChartValues.windowingTime)
@@ -100,7 +124,7 @@ export default function ChartProvider(props: Props): JSX.Element {
     )
 
     function setMainGSelection(g: GSelection): void {
-        setMainG(mainG)
+        setMainG(g)
     }
 
     function setObservable(observable: Observable<ChartData>): void {
@@ -109,6 +133,14 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     function updateDimensions(plotDimensions: PlotDimensions): void {
         setDimensions(plotDimensions)
+    }
+
+    function addXAxis(axis: BaseAxis): void {
+        setXAxis(axis)
+    }
+
+    function addYAxis(axis: BaseAxis): void {
+        setYAxis(axis)
     }
 
     function updateWindowingTime(window: number): void {
@@ -137,7 +169,10 @@ export default function ChartProvider(props: Props): JSX.Element {
             chartId,
             plotDimensions: dimensions,
             margin,
+            color,
             mainG, container,
+            xAxis, addXAxis,
+            yAxis, addYAxis,
             seriesObservable, windowingTime, shouldSubscribe,
             onSubscribe, onUpdateTime, onUpdateData,
             setMainGSelection,

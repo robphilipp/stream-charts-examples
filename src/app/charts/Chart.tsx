@@ -1,5 +1,5 @@
 import * as React from 'react'
-import {useEffect, useRef, useState} from 'react'
+import {useEffect, useRef} from 'react'
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {Datum} from "./datumSeries";
@@ -8,7 +8,6 @@ import {ChartData} from "./chartData";
 import {GSelection} from "./d3types";
 import ChartProvider, {defaultMargin} from "./useChart";
 import * as d3 from "d3";
-import {createPlotContainer} from "./plot";
 
 const defaultAxesStyle = {color: '#d2933f'}
 const defaultBackground = '#202020';
@@ -41,7 +40,7 @@ export function Chart(props: Props): JSX.Element {
     const {
         width,
         height,
-        color = '##d2933f',
+        color = '#d2933f',
         backgroundColor = defaultBackground,
         seriesObservable,
         windowingTime = 100,
@@ -114,6 +113,7 @@ export function Chart(props: Props): JSX.Element {
                 chartId={chartId.current}
                 containerDimensions={{width, height}}
                 margin={margin}
+                color={color}
             >
                 {
                     // the chart elements are the children

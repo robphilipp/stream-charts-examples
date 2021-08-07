@@ -20,6 +20,8 @@ export function ContinuousAxis(props: Props): null {
         container,
         plotDimensions,
         margin,
+        addXAxis,
+        addYAxis,
     } = useChart()
 
     const {
@@ -50,6 +52,8 @@ export function ContinuousAxis(props: Props): null {
                                 margin,
                                 label,
                             )
+                            // add the x-axis to the chart context
+                            addXAxis(axisRef.current)
                             break
 
                         case AxisLocation.Left:
@@ -64,6 +68,8 @@ export function ContinuousAxis(props: Props): null {
                                 margin,
                                 label,
                             )
+                            // add the x-axis to the chart context
+                            addYAxis(axisRef.current)
                     }
                 } else {
                     axisRef.current.update(domain, plotDimensions, margin)
