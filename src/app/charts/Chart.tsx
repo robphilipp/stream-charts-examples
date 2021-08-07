@@ -2,7 +2,7 @@ import * as React from 'react'
 import {useEffect, useRef} from 'react'
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
-import {Datum} from "./datumSeries";
+import {Datum, Series} from "./datumSeries";
 import {noop, Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {GSelection} from "./d3types";
@@ -21,6 +21,9 @@ interface Props {
     color?: string
     backgroundColor?: string
     svgStyle?: Partial<SvgStyle>
+
+    // initial data
+    initialData: Map<string, Series>
 
     // data stream
     seriesObservable: Observable<ChartData>
@@ -42,6 +45,7 @@ export function Chart(props: Props): JSX.Element {
         height,
         color = '#d2933f',
         backgroundColor = defaultBackground,
+        initialData,
         seriesObservable,
         windowingTime = 100,
         shouldSubscribe = true,
@@ -114,6 +118,7 @@ export function Chart(props: Props): JSX.Element {
                 containerDimensions={{width, height}}
                 margin={margin}
                 color={color}
+                initialData={initialData}
             >
                 {
                     // the chart elements are the children

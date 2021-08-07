@@ -8,9 +8,10 @@ import {noop} from "./utils";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 
 interface Props {
-    location: AxisLocation,
-    domain: [min: number, max: number],
-    font?: Partial<AxesLabelFont>,
+    id: string
+    location: AxisLocation
+    domain: [min: number, max: number]
+    font?: Partial<AxesLabelFont>
     label: string
 }
 
@@ -25,6 +26,7 @@ export function ContinuousAxis(props: Props): null {
     } = useChart()
 
     const {
+        id,
         location,
         domain,
         label
@@ -53,7 +55,7 @@ export function ContinuousAxis(props: Props): null {
                                 label,
                             )
                             // add the x-axis to the chart context
-                            addXAxis(axisRef.current)
+                            addXAxis(axisRef.current, id)
                             break
 
                         case AxisLocation.Left:
@@ -69,7 +71,7 @@ export function ContinuousAxis(props: Props): null {
                                 label,
                             )
                             // add the x-axis to the chart context
-                            addYAxis(axisRef.current)
+                            addYAxis(axisRef.current, id)
                     }
                 } else {
                     axisRef.current.update(domain, plotDimensions, margin)

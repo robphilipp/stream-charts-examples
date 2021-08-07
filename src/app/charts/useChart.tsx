@@ -1,10 +1,10 @@
 import * as React from 'react';
-import {createContext, useContext, useEffect, useState} from 'react';
+import {createContext, useContext, useEffect, useRef, useState} from 'react';
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {GSelection} from "./d3types";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
-import {Datum} from "./datumSeries";
+import {Datum, Series} from "./datumSeries";
 import {noop} from "./utils";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 import {BaseAxis} from "./axes";
@@ -19,10 +19,15 @@ interface UseChartValues {
     margin: Margin
     color: string
 
-    xAxis: BaseAxis | null
-    addXAxis: (axis: BaseAxis) => void
-    yAxis: BaseAxis | null
-    addYAxis: (axis: BaseAxis) => void
+    // xAxes: Map<string, BaseAxis>
+    addXAxis: (axis: BaseAxis, id: string) => void
+    xAxisFor: (id: string) => BaseAxis | undefined
+    // yAxes: Map<string, BaseAxis>
+    addYAxis: (axis: BaseAxis, id: string) => void
+    yAxisFor: (id: string) => BaseAxis | undefined
+
+    // initial data
+    initialData: Map<string, Series>
 
     // todo not sure about these
     seriesObservable?: Observable<ChartData>
@@ -52,10 +57,14 @@ const defaultUseChartValues: UseChartValues = {
     margin: defaultMargin,
     color: '#d2933f',
 
-    xAxis: null,
+    // xAxes: new Map(),
     addXAxis: noop,
-    yAxis: null,
+    xAxisFor: () => undefined,
+    // yAxes: new Map(),
     addYAxis: noop,
+    yAxisFor: () => undefined,
+
+    initialData: new Map(),
 
     windowingTime: NaN,
     shouldSubscribe: false,
@@ -83,6 +92,8 @@ interface Props {
     containerDimensions: Dimensions
     margin: Margin
     color: string
+    initialData: Map<string, Series>
+
     children: JSX.Element | Array<JSX.Element>
 }
 
@@ -92,15 +103,16 @@ export default function ChartProvider(props: Props): JSX.Element {
         container,
         containerDimensions,
         margin,
-        color
+        color,
+        initialData
     } = props
     // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
     const [dimensions, setDimensions] = useState<PlotDimensions>(defaultUseChartValues.plotDimensions)
     const [mainG, setMainG] = useState<GSelection>()
     // const [container, setContainer] = useState<SVGSVGElement>()
 
-    const [xAxis, setXAxis] = useState<BaseAxis | null>(null)
-    const [yAxis, setYAxis] = useState<BaseAxis | null>(null)
+    const xAxesRef = useRef<Map<string, BaseAxis>>(new Map())
+    const yAxesRef = useRef<Map<string, BaseAxis>>(new Map())
 
     const [seriesObservable, setSeriesObservable] = useState<Observable<ChartData>>()
     const [windowingTime, setWindowingTime] = useState<number>(defaultUseChartValues.windowingTime)
@@ -135,12 +147,28 @@ export default function ChartProvider(props: Props): JSX.Element {
         setDimensions(plotDimensions)
     }
 
-    function addXAxis(axis: BaseAxis): void {
-        setXAxis(axis)
+    function addXAxis(axis: BaseAxis, id: string): void {
+        xAxesRef.current.set(id, axis)
     }
 
-    function addYAxis(axis: BaseAxis): void {
-        setYAxis(axis)
+    function xAxisFor(id: string): BaseAxis | undefined {
+        const axis = xAxesRef.current.get(id)
+        if (axis === undefined && xAxesRef.current.size >= 1) {
+            return Array.from(xAxesRef.current.values())[0]
+        }
+        return axis
+    }
+
+    function addYAxis(axis: BaseAxis, id: string): void {
+        yAxesRef.current.set(id, axis)
+    }
+
+    function yAxisFor(id: string): BaseAxis | undefined {
+        const axis = yAxesRef.current.get(id)
+        if (axis === undefined && yAxesRef.current.size >= 1) {
+            return Array.from(yAxesRef.current.values())[0]
+        }
+        return axis
     }
 
     function updateWindowingTime(window: number): void {
@@ -170,9 +198,10 @@ export default function ChartProvider(props: Props): JSX.Element {
             plotDimensions: dimensions,
             margin,
             color,
+            initialData,
             mainG, container,
-            xAxis, addXAxis,
-            yAxis, addYAxis,
+            addXAxis, xAxisFor,
+            addYAxis, yAxisFor,
             seriesObservable, windowingTime, shouldSubscribe,
             onSubscribe, onUpdateTime, onUpdateData,
             setMainGSelection,

@@ -1,16 +1,23 @@
 import {useEffect} from 'react'
 import {useChart} from "./useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
-import {Dimensions} from "./margins";
 import * as d3 from "d3";
-import {minMaxYFor} from "./utils";
 import {createPlotContainer, setClipPath, TimeSeries} from "./plot";
 import {Datum, Series} from "./datumSeries";
 import {LinearAxis} from "./axes";
 import {GSelection} from "./d3types";
 
+export interface AxesAssignment {
+    xAxis: string
+    yAxis: string
+}
+
+export function axesAssigned(xAxis: string, yAxis: string): AxesAssignment {
+    return {xAxis, yAxis}
+}
+
 interface Props {
-    initialData: Map<string, Series>
+    axisAssignments?: Map<string, AxesAssignment>
 }
 
 export function ScatterPlot(props: Props): null {
@@ -19,23 +26,26 @@ export function ScatterPlot(props: Props): null {
         container,
         mainG,
         setMainGSelection,
-        xAxis,
-        yAxis,
+        xAxisFor,
+        yAxisFor,
         plotDimensions,
         margin,
         color,
+        initialData,
     } = useChart()
 
-    const {initialData} = props
+    const {axisAssignments = new Map()} = props
 
-    const xAxisLinear = xAxis as LinearAxis
-    const yAxisLinear = yAxis as LinearAxis
-    if (xAxis && !xAxisLinear) {
-        throw Error("Scatter plot requires that x-axis be of type LinearAxis")
-    }
-    if (yAxis && !yAxisLinear) {
-        throw Error("Scatter plot requires that y-axis be of type LinearAxis")
-    }
+    // const xAxis = xAxisFor(xAxisId)
+    // const xAxisLinear = xAxis as LinearAxis
+    // const yAxis = yAxisFor(yAxisId)
+    // const yAxisLinear = yAxis as LinearAxis
+    // if (xAxis && !xAxisLinear) {
+    //     throw Error("Scatter plot requires that x-axis be of type LinearAxis")
+    // }
+    // if (yAxis && !yAxisLinear) {
+    //     throw Error("Scatter plot requires that y-axis be of type LinearAxis")
+    // }
 
     useEffect(
         () => {
@@ -60,12 +70,32 @@ export function ScatterPlot(props: Props): null {
     // )
 
     /**
+     * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
+     * series name, then uses the default returned by the useChart() hook
+     * @param seriesName
+     */
+    function axesFor(seriesName: string): [xAxis: LinearAxis, yAxis: LinearAxis] {
+        const axes = axisAssignments.get(seriesName)
+        const xAxis = xAxisFor(axes?.xAxis || "")
+        const xAxisLinear = xAxis as LinearAxis
+        const yAxis = yAxisFor(axes?.yAxis || "")
+        const yAxisLinear = yAxis as LinearAxis
+        if (xAxis && !xAxisLinear) {
+            throw Error("Scatter plot requires that x-axis be of type LinearAxis")
+        }
+        if (yAxis && !yAxisLinear) {
+            throw Error("Scatter plot requires that y-axis be of type LinearAxis")
+        }
+        return [xAxisLinear, yAxisLinear]
+    }
+
+    /**
      * Updates the plot data for the specified time-range, which may have changed due to zoom or pan
      * @param timeRange The current time range
-     * @param plotDimensions The dimensions of the plot
+     * @param mainGElem The main <g> element selection for that holds the plot
      */
     function updatePlot(timeRange: ContinuousAxisRange, mainGElem: GSelection): void {
-        if (container && xAxisLinear && yAxisLinear) {
+        if (container) {// && xAxisLinear && yAxisLinear) {
             // select the svg element bind the data to them
             const svg = d3.select<SVGSVGElement, any>(container)
 
@@ -142,6 +172,8 @@ export function ScatterPlot(props: Props): null {
             boundedSeries.forEach((data, name) => {
 
                 if (data.length === 0) return
+                const [xAxisLinear, yAxisLinear] = axesFor(name)
+                if (xAxisLinear === undefined || yAxisLinear === undefined) return
 
                 // only show the data for which the filter matches
                 // const plotData = (series.name.match(seriesFilterRef.current)) ? data : []

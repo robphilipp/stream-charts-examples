@@ -17,13 +17,42 @@ import {Observable} from "rxjs";
 import {AxisLocation} from "./charts/axes";
 import {defaultMargin} from "./charts/useChart";
 import {ContinuousAxis} from "./charts/ContinuousAxis";
-import {ScatterPlot} from "./charts/ScatterPlot";
+import {axesAssigned, ScatterPlot} from "./charts/ScatterPlot";
 import {datumOf} from "./charts/datumSeries";
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
 const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
 const spikes: Array<Series> = inputNeurons.concat(outputNeurons).map(neuron => seriesFrom(neuron));
 const weights: Array<Series> = inputNeurons.flatMap(input => outputNeurons.map(output => seriesFrom(`${input}-${output}`)));
+
+const initialData = new Map([
+    ['test', seriesFrom('test', [
+        datumOf(10, 80),
+        datumOf(20, 220),
+        datumOf(30, 300),
+        datumOf(40, 380),
+        datumOf(50, 510),
+        datumOf(60, 620),
+        datumOf(70, 680),
+        datumOf(80, 1080),
+        datumOf(90, 980),
+        datumOf(100, 880),
+        datumOf(110, 980),
+    ])],
+    ['test2', seriesFrom('test2', [
+        datumOf(110, 80),
+        datumOf(100, 220),
+        datumOf(90, 300),
+        datumOf(80, 380),
+        datumOf(70, 510),
+        datumOf(60, 620),
+        datumOf(50, 680),
+        datumOf(40, 1080),
+        datumOf(30, 980),
+        datumOf(20, 880),
+        datumOf(10, 980),
+    ])],
+])
 
 const App: React.FC = () => {
     return (
@@ -65,45 +94,24 @@ const App: React.FC = () => {
                     height={useGridCellHeight()}
                     margin={{
                         ...defaultMargin,
-                        // top: 60,
-                        // right: 60
+                        top: 60,
+                        right: 60
                     }}
                     // svgStyle={{'background-color': 'pink'}}
                     backgroundColor='lightgray'
+                    initialData={initialData}
                     seriesObservable={new Observable()}
                 >
-                    <ContinuousAxis location={AxisLocation.Bottom} domain={[0, 100]} label="x-axis"/>
-                    <ContinuousAxis location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
-                    {/*<ContinuousAxis location={AxisLocation.Top} domain={[0, 1000]} label="x-axis (2)"/>*/}
-                    {/*<ContinuousAxis location={AxisLocation.Right} domain={[100, 200]} label="y-axis (2)"/>*/}
-                    <ScatterPlot initialData={new Map([
-                        ['test', seriesFrom('test', [
-                            datumOf(10, 80),
-                            datumOf(20, 220),
-                            datumOf(30, 300),
-                            datumOf(40, 380),
-                            datumOf(50, 510),
-                            datumOf(60, 620),
-                            datumOf(70, 680),
-                            datumOf(80, 1080),
-                            datumOf(90, 980),
-                            datumOf(100, 880),
-                            datumOf(110, 980),
-                        ])],
-                        ['test2', seriesFrom('test2', [
-                            datumOf(110, 80),
-                            datumOf(100, 220),
-                            datumOf(90, 300),
-                            datumOf(80, 380),
-                            datumOf(70, 510),
-                            datumOf(60, 620),
-                            datumOf(50, 680),
-                            datumOf(40, 1080),
-                            datumOf(30, 980),
-                            datumOf(20, 880),
-                            datumOf(10, 980),
-                        ])],
-                    ])}/>
+                    <ContinuousAxis id="x-axis-1" location={AxisLocation.Bottom} domain={[0, 100]} label="x-axis"/>
+                    <ContinuousAxis id="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
+                    <ContinuousAxis id="x-axis-2" location={AxisLocation.Top} domain={[0, 1000]} label="x-axis (2)"/>
+                    <ContinuousAxis id="y-axis-2" location={AxisLocation.Right} domain={[100, 1200]} label="y-axis (2)"/>
+                    <ScatterPlot
+                        axisAssignments={new Map([
+                            // ['test', axesAssigned("x-axis-1", "y-axis-1")],
+                            ['test2', axesAssigned("x-axis-2", "y-axis-2")],
+                        ])}
+                    />
                     <div>test</div>
                 </Chart>
             </GridItem>
