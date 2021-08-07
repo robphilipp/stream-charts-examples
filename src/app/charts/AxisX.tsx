@@ -69,14 +69,10 @@ export function addLinearXAxis(
     margin: Margin,
     axisLabel: string,
 ): LinearAxis {
-    const scale = d3.scaleLinear()
-        .domain(domain)
-        .range([0, plotDimensions.width])
+    const scale = d3.scaleLinear().domain(domain).range([0, plotDimensions.width])
 
-    const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
     const selection = svg
         .append<SVGGElement>('g')
-        .attr('class', `x-axis-${location}`)
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
 
     svg
@@ -90,10 +86,17 @@ export function addLinearXAxis(
         .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${labelYTranslation(location, plotDimensions, margin)})`)
         .text(axisLabel)
 
-    const axis = {scale, selection, generator, update: noop}
+    const axis: LinearAxis = {
+        scale,
+        selection,
+        generator: location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale),
+        update: noop
+    }
     return {
         ...axis,
-        update: (domain, plotDimensions, margin) => updateLinearXAxis(chartId, svg, axis, domain, plotDimensions, margin, location)
+        update: (domain, plotDimensions, margin) => updateLinearXAxis(
+            chartId, svg, axis, domain, plotDimensions, margin, location
+        )
     }
 }
 

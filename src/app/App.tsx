@@ -17,6 +17,7 @@ import {Observable} from "rxjs";
 import {AxisX} from "./charts/AxisX";
 import {AxisLocation} from "./charts/axes";
 import {AxisY} from "./charts/AxisY";
+import {defaultMargin} from "./charts/useChart";
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
 const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
@@ -61,14 +62,15 @@ const App: React.FC = () => {
               <Chart
                   width={useGridCellWidth()}
                   height={useGridCellHeight()}
-                  // margin={{...defaultMargin, left: 60}}
+                  margin={{...defaultMargin, top: 60, right: 60}}
                   // svgStyle={{'background-color': 'pink'}}
                   backgroundColor='lightgray'
                   seriesObservable={new Observable()}
               >
                   <AxisX location={AxisLocation.Bottom} domain={[0, 100]} label="x-axis"/>
                   <AxisY location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
-                  {/*<AxisX location={AxisLocation.Top} domain={[0, 1000]} label="x-axis (2)"/>*/}
+                  <AxisX location={AxisLocation.Top} domain={[0, 1000]} label="x-axis (2)"/>
+                  <AxisY location={AxisLocation.Right} domain={[100, 200]} label="y-axis (2)"/>
                   <div>test</div>
               </Chart>
           </GridItem>
