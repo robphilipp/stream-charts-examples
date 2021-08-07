@@ -302,7 +302,7 @@ export function RasterChart(props: Props): JSX.Element {
         margin: Margin,
     ): Axes<LinearAxis, CategoryAxis> {
         const xAxis = addLinearAxis(2, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
-        const yAxis = addCategoryAxis(2, svg, AxisLocation.Left, plotDimensions, categories, axesLabelFont, margin, "Neuron")
+        const yAxis = addCategoryAxis(2, svg, AxisLocation.Left, plotDimensions, Array.from(categories.keys()), axesLabelFont, margin, "Neuron")
 
         return {xAxis, yAxis}
     }
