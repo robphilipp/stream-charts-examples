@@ -22,7 +22,7 @@ import {
     addLinearAxis,
     Axes,
     AxesLabelFont,
-    AxesLineStyle,
+    SeriesLineStyle,
     AxisLocation,
     calculatePanFor,
     defaultAxesLabelFont,
@@ -60,7 +60,7 @@ interface Props {
     axisLabelFont?: Partial<AxesLabelFont>
     axisStyle?: Partial<CSSProperties>
     backgroundColor?: string
-    lineStyle?: Partial<AxesLineStyle>
+    lineStyle?: Partial<SeriesLineStyle>
     plotGridLines?: Partial<{ visible: boolean, color: string }>
     tooltip?: Partial<TooltipStyle>
     tooltipValueLabel?: string

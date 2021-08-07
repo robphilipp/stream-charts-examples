@@ -4,7 +4,7 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRange
 import * as d3 from "d3";
 import {createPlotContainer, setClipPath, TimeSeries} from "./plot";
 import {Datum, Series} from "./datumSeries";
-import {LinearAxis} from "./axes";
+import {defaultLineStyle, LinearAxis} from "./axes";
 import {GSelection} from "./d3types";
 
 export interface AxesAssignment {
@@ -18,6 +18,7 @@ export function axesAssigned(xAxis: string, yAxis: string): AxesAssignment {
 
 interface Props {
     axisAssignments?: Map<string, AxesAssignment>
+    colors?: Map<string, string>
 }
 
 export function ScatterPlot(props: Props): null {
@@ -31,21 +32,13 @@ export function ScatterPlot(props: Props): null {
         plotDimensions,
         margin,
         color,
+        seriesStyles,
         initialData,
     } = useChart()
 
-    const {axisAssignments = new Map()} = props
-
-    // const xAxis = xAxisFor(xAxisId)
-    // const xAxisLinear = xAxis as LinearAxis
-    // const yAxis = yAxisFor(yAxisId)
-    // const yAxisLinear = yAxis as LinearAxis
-    // if (xAxis && !xAxisLinear) {
-    //     throw Error("Scatter plot requires that x-axis be of type LinearAxis")
-    // }
-    // if (yAxis && !yAxisLinear) {
-    //     throw Error("Scatter plot requires that y-axis be of type LinearAxis")
-    // }
+    const {
+        axisAssignments = new Map()
+    } = props
 
     useEffect(
         () => {
@@ -61,13 +54,6 @@ export function ScatterPlot(props: Props): null {
         },
         [chartId, color, container, mainG, plotDimensions, setMainGSelection]
     )
-
-    // useEffect(
-    //     () => {
-    //         updatePlot(continuousAxisRangeFor(0, 100))
-    //     },
-    //     []
-    // )
 
     /**
      * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
@@ -121,24 +107,6 @@ export function ScatterPlot(props: Props): null {
             // // create/update the tracker line if needed
             // trackerRef.current = trackerControl(svg, trackerStyle.visible)
 
-            // set up the main <g> container for svg and translate it based on the margins, but do it only once
-            // if (mainG === undefined) {
-            //     setMainGSelection(createPlotContainer(
-            //         chartId,
-            //         container,
-            //         plotDimensions,
-            //         color
-            //     ))
-            // }
-
-            // const mainGElem = mainG !== undefined ?
-            //     mainG :
-            //     createPlotContainer(chartId, container, plotDimensions, color)
-            //
-            // if (mainG === undefined) {
-            //     setMainGSelection(mainGElem)
-            // }
-
             // set up panning
             // const drag = d3.drag<SVGSVGElement, Datum>()
             //     .on("start", () => {
@@ -174,6 +142,7 @@ export function ScatterPlot(props: Props): null {
                 if (data.length === 0) return
                 const [xAxisLinear, yAxisLinear] = axesFor(name)
                 if (xAxisLinear === undefined || yAxisLinear === undefined) return
+                const {color, lineWidth} = seriesStyles.get(name) || defaultLineStyle
 
                 // only show the data for which the filter matches
                 // const plotData = (series.name.match(seriesFilterRef.current)) ? data : []
@@ -195,9 +164,8 @@ export function ScatterPlot(props: Props): null {
                                 .y((d: [number, number]) => yAxisLinear.scale(d[1]))
                             )
                             .attr("fill", "none")
-                            // .attr("stroke", lineStyle.color)
-                            .attr("stroke", "orange")
-                            .attr("stroke-width", 2)
+                            .attr("stroke", color)
+                            .attr("stroke-width", lineWidth)
                             // .attr("stroke", colorsRef.current.get(name) || lineStyle.color)
                             // .attr("stroke-width", lineStyle.lineWidth)
                             .attr('transform', `translate(${margin.left}, ${margin.top})`)

@@ -14,7 +14,7 @@ import {
 } from 'react-resizable-grid-layout';
 import {Chart} from "./charts/Chart";
 import {Observable} from "rxjs";
-import {AxisLocation} from "./charts/axes";
+import {AxisLocation, defaultLineStyle} from "./charts/axes";
 import {defaultMargin} from "./charts/useChart";
 import {ContinuousAxis} from "./charts/ContinuousAxis";
 import {axesAssigned, ScatterPlot} from "./charts/ScatterPlot";
@@ -99,6 +99,10 @@ const App: React.FC = () => {
                     }}
                     // svgStyle={{'background-color': 'pink'}}
                     backgroundColor='lightgray'
+                    seriesStyles={new Map([
+                        ['test', {...defaultLineStyle, color: 'orange', lineWidth: 1}],
+                        ['test2', {...defaultLineStyle, color: 'blue', lineWidth: 3}],
+                    ])}
                     initialData={initialData}
                     seriesObservable={new Observable()}
                 >

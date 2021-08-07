@@ -19,14 +19,14 @@ export const defaultAxesLabelFont: AxesLabelFont = {
     family: 'sans-serif'
 }
 
-export interface AxesLineStyle {
+export interface SeriesLineStyle {
     color: string
     lineWidth: number
     highlightColor: string
     highlightWidth: number
 }
 
-export const defaultLineStyle: AxesLineStyle = {
+export const defaultLineStyle: SeriesLineStyle = {
     color: '#008aad',
     lineWidth: 1,
     highlightColor: '#d2933f',

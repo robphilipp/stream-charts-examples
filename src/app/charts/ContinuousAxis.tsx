@@ -120,7 +120,7 @@ export function addLinearXAxis(
     }
     return {
         ...axis,
-        update: (domain, plotDimensions, margin) => updateLinearXAxis(
+        update: (domain: [start: number, end: number], plotDimensions: PlotDimensions, margin: Margin) => updateLinearXAxis(
             chartId, svg, axis, domain, plotDimensions, margin, location
         )
     }

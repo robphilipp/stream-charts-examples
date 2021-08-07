@@ -7,7 +7,7 @@ import {ChartData} from "./chartData";
 import {Datum, Series} from "./datumSeries";
 import {noop} from "./utils";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
-import {BaseAxis} from "./axes";
+import {BaseAxis, SeriesLineStyle} from "./axes";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 
@@ -18,6 +18,7 @@ interface UseChartValues {
     container: SVGSVGElement | null
     margin: Margin
     color: string
+    seriesStyles: Map<string, SeriesLineStyle>
 
     // xAxes: Map<string, BaseAxis>
     addXAxis: (axis: BaseAxis, id: string) => void
@@ -56,6 +57,7 @@ const defaultUseChartValues: UseChartValues = {
     plotDimensions: {width: 0, height: 0},
     margin: defaultMargin,
     color: '#d2933f',
+    seriesStyles: new Map(),
 
     // xAxes: new Map(),
     addXAxis: noop,
@@ -92,6 +94,7 @@ interface Props {
     containerDimensions: Dimensions
     margin: Margin
     color: string
+    seriesStyles?: Map<string, SeriesLineStyle>
     initialData: Map<string, Series>
 
     children: JSX.Element | Array<JSX.Element>
@@ -104,7 +107,8 @@ export default function ChartProvider(props: Props): JSX.Element {
         containerDimensions,
         margin,
         color,
-        initialData
+        initialData,
+        seriesStyles = new Map()
     } = props
     // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
     const [dimensions, setDimensions] = useState<PlotDimensions>(defaultUseChartValues.plotDimensions)
@@ -198,6 +202,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             plotDimensions: dimensions,
             margin,
             color,
+            seriesStyles,
             initialData,
             mainG, container,
             addXAxis, xAxisFor,

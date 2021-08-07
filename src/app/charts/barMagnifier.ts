@@ -1,7 +1,7 @@
 import {BarMagnifierSelection, GSelection, LineSelection, MagnifierTextSelection, SvgSelection} from "./d3types";
 import * as d3 from "d3";
 import {TooltipStyle} from "./TooltipStyle";
-import {AxesLabelFont, AxesLineStyle, LinearAxis} from "./axes";
+import {AxesLabelFont, SeriesLineStyle, LinearAxis} from "./axes";
 import {Margin} from "./margins";
 import {Datum} from "./datumSeries";
 import {ScaleLinear} from "d3";

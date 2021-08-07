@@ -8,6 +8,7 @@ import {ChartData} from "./chartData";
 import {GSelection} from "./d3types";
 import ChartProvider, {defaultMargin} from "./useChart";
 import * as d3 from "d3";
+import {SeriesLineStyle} from "./axes";
 
 const defaultAxesStyle = {color: '#d2933f'}
 const defaultBackground = '#202020';
@@ -21,6 +22,7 @@ interface Props {
     color?: string
     backgroundColor?: string
     svgStyle?: Partial<SvgStyle>
+    seriesStyles?: Map<string, SeriesLineStyle>
 
     // initial data
     initialData: Map<string, Series>
@@ -45,6 +47,7 @@ export function Chart(props: Props): JSX.Element {
         height,
         color = '#d2933f',
         backgroundColor = defaultBackground,
+        seriesStyles = new Map(),
         initialData,
         seriesObservable,
         windowingTime = 100,
@@ -118,6 +121,7 @@ export function Chart(props: Props): JSX.Element {
                 containerDimensions={{width, height}}
                 margin={margin}
                 color={color}
+                seriesStyles={seriesStyles}
                 initialData={initialData}
             >
                 {
