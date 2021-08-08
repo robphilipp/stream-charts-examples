@@ -31,6 +31,7 @@ export function ScatterPlot(props: Props): null {
         xAxisFor,
         xAxes,
         xAxisDefaultName,
+        xAxisIds,
         yAxisFor,
         // yAxisIds,
         plotDimensions,
@@ -66,24 +67,36 @@ export function ScatterPlot(props: Props): null {
                 timeRanges: Map<string, ContinuousAxisRange>,
                 mainG: GSelection
             ): void {
-                series.forEach(name => {
-                    // grab the axis name from the assignments. note that the user may not have specified
-                    // an assignment when using the default axis, and so, in that case, use an empty string
-                    // for the assignment, which the "xAxisFor(...)" function will treat as a request to
-                    // return the default axis
-                    const axisName = axisAssignments.get(name)?.xAxis || xAxisDefaultName()
-                    const xAxis = xAxisFor(axisName) as LinearAxis
+                series
+                    // grab the x-axis assigned to the series, or use a the default x-axis if not
+                    // assignment has been made
+                    .map(name => axisAssignments.get(name)?.xAxis || xAxisDefaultName())
+                    // de-dup the array of axis IDs so that we don't end up applying the pan transformation
+                    // more than once
+                    .reduce((accum: Array<string>, axisId: string) => {
+                        if (!accum.find(id => id === axisId)) {
+                            accum.push(axisId)
+                        }
+                        return accum
+                    }, [])
+                    // run through the axis IDs, adjust their domain, and update the time-range set for that
+                    // axis
+                    .forEach(axisId => {
+                        const xAxis = xAxisFor(axisId) as LinearAxis
+                        const timeRange = timeRanges.get(axisId)
+                        if (timeRange) {
+                            // calculate the change in the time-range based on the pixel change from the drag event
+                            const {start, end} = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
 
-                    // calculate the change in the time-range based on the pixel change from the drag event
-                    const {start, end} = calculatePanFor(deltaX, plotDimensions, xAxis, timeRangeFor(name, timeRanges, axisAssignments))
+                            // update the time-range for the axis
+                            timeRanges.set(axisId, continuousAxisRangeFor(start, end))
 
-                    timeRanges.set(axisName, continuousAxisRangeFor(start, end))
+                            // update the axis' time-range
+                            xAxis.update([start, end], plotDimensions, margin)
+                        }
+                    })
 
-                    // update the axis' time-range
-                    xAxis.update([start, end], plotDimensions, margin)
-                })
-
-                // and now that all the axes are updated, update the plot
+                // need to update the plot with the new time-ranges
                 updatePlot(timeRanges, mainG)
             }
 
@@ -91,9 +104,8 @@ export function ScatterPlot(props: Props): null {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
 
-                // todo for the set of series assigned to each axis, calculate the bounding values
-
-                // create the tensor of data (time, value)
+                // create a map associating series-names to their time-series, which are represented
+                // as an array of (time, value)-pairs
                 const boundedSeries: Map<string, Array<[number, number]>> = new Map()
                 initialData
                     .forEach((series, name) =>
