@@ -30,8 +30,9 @@ export function ScatterPlot(props: Props): null {
         // setMainGSelection,
         xAxisFor,
         xAxes,
+        xAxisDefaultName,
         yAxisFor,
-        yAxisIds,
+        // yAxisIds,
         plotDimensions,
         margin,
         color,
@@ -60,7 +61,8 @@ export function ScatterPlot(props: Props): null {
              */
             function onPan(
                 deltaX: number,
-                plotDimensions: PlotDimensions, series: Array<string>,
+                plotDimensions: PlotDimensions,
+                series: Array<string>,
                 timeRanges: Map<string, ContinuousAxisRange>,
                 mainG: GSelection
             ): void {
@@ -69,14 +71,13 @@ export function ScatterPlot(props: Props): null {
                     // an assignment when using the default axis, and so, in that case, use an empty string
                     // for the assignment, which the "xAxisFor(...)" function will treat as a request to
                     // return the default axis
-                    const axisName = axisAssignments.get(name)?.xAxis || ""
+                    const axisName = axisAssignments.get(name)?.xAxis || xAxisDefaultName()
                     const xAxis = xAxisFor(axisName) as LinearAxis
 
                     // calculate the change in the time-range based on the pixel change from the drag event
-                    const {
-                        start,
-                        end
-                    } = calculatePanFor(deltaX, plotDimensions, xAxis, timeRangeFor(name, timeRanges, axisAssignments))
+                    const {start, end} = calculatePanFor(deltaX, plotDimensions, xAxis, timeRangeFor(name, timeRanges, axisAssignments))
+
+                    timeRanges.set(axisName, continuousAxisRangeFor(start, end))
 
                     // update the axis' time-range
                     xAxis.update([start, end], plotDimensions, margin)
@@ -211,147 +212,6 @@ export function ScatterPlot(props: Props): null {
         },
         [chartId, color, container, mainG, plotDimensions, updatePlot, xAxes]
     )
-
-    // function updatePlot(timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection): void {
-    //     /**
-    //      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-    //      * @param deltaX The amount that the plot is dragged
-    //      * @param plotDimensions The dimensions of the plot
-    //      */
-    //     function onPan(deltaX: number, plotDimensions: PlotDimensions, series: Array<string>, timeRanges: Map<string, ContinuousAxisRange>, mainG: GSelection): void {
-    //         series.forEach(name => {
-    //             // grab the axis name from the assignments. note that the user may not have specified
-    //             // an assignment when using the default axis, and so, in that case, use an empty string
-    //             // for the assignment, which the "xAxisFor(...)" function will treat as a request to
-    //             // return the default axis
-    //             const axisName = axisAssignments.get(name)?.xAxis || ""
-    //             const xAxis = xAxisFor(axisName) as LinearAxis
-    //
-    //             // calculate the change in the time-range based on the pixel change from the drag event
-    //             const {start, end} = calculatePanFor(deltaX, plotDimensions, xAxis, timeRangeFor(name, timeRanges, axisAssignments))
-    //
-    //             // update the axis' time-range
-    //             xAxis.update([start, end], plotDimensions, margin)
-    //         })
-    //
-    //         // and now that all the axes are updated, update the plot
-    //         updatePlot(timeRanges, mainG)
-    //     }
-    //
-    //     if (container) {
-    //         // select the svg element bind the data to them
-    //         const svg = d3.select<SVGSVGElement, any>(container)
-    //
-    //         // todo for the set of series assigned to each axis, calculate the bounding values
-    //
-    //         // create the tensor of data (time, value)
-    //         const boundedSeries: Map<string, Array<[number, number]>> = new Map()
-    //         initialData
-    //             .forEach((series, name) =>
-    //                 boundedSeries.set(
-    //                     name,
-    //                     selectInTimeRange(series, timeRangeFor(name, timeRanges, axisAssignments))
-    //                 ))
-    //         // liveDataRef.current
-    //         //     .forEach((series, name) => boundedSeries.set(name, selectInTimeRange(series)))
-    //         //
-    //         // // calculate and update the min and max values for updating the y-axis. only updates when
-    //         // // the min is less than the historical min, and the max is larger than the historical max.
-    //         // minMaxValueRef.current = minMaxYFor(Array.from(boundedSeries.values()), minMaxValueRef.current)
-    //         //
-    //         // // update the x and y axes
-    //         // const [minValue, maxValue] = minMaxValueRef.current
-    //         // axesRef.current.xAxis.update([timeRangeRef.current.start, timeRangeRef.current.end], plotDimensions, margin)
-    //         // axesRef.current.yAxis.update([Math.max(minY, minValue), Math.min(maxY, maxValue)], plotDimensions, margin)
-    //         //
-    //         // // create/update the magnifier lens if needed
-    //         // magnifierRef.current = magnifierLens(svg, magnifierStyle.visible)
-    //         //
-    //         // // create/update the tracker line if needed
-    //         // trackerRef.current = trackerControl(svg, trackerStyle.visible)
-    //
-    //         // set up panning
-    //         const drag = d3.drag<SVGSVGElement, Datum>()
-    //             .on("start", () => {
-    //                 // during a pan, we want to hide the tooltip
-    //                 // tooltipRef.current.visible = false
-    //                 // handleRemoveTooltip()
-    //                 d3.select(container).style("cursor", "move")
-    //             })
-    //             .on("drag", () => onPan(d3.event.dx, plotDimensions, Array.from(boundedSeries.keys()), timeRanges, mainGElem))
-    //             .on("end", () => {
-    //                 // if the tooltip was originally visible, then allow it to be seen again
-    //                 // tooltipRef.current.visible = tooltipStyle.visible
-    //                 d3.select(container).style("cursor", "auto")
-    //             })
-    //
-    //         svg.call(drag)
-    //
-    //         // // set up for zooming
-    //         // const zoom = d3.zoom<SVGSVGElement, Datum>()
-    //         //     .scaleExtent([0, 10])
-    //         //     .translateExtent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])
-    //         //     .on("zoom", () => {
-    //         //         onZoom(d3.event.transform, d3.event.sourceEvent.offsetX - margin.left, plotDimensions)
-    //         //     })
-    //         //
-    //         // svg.call(zoom)
-    //
-    //         // define the clip-path so that the series lines don't go beyond the plot area
-    //         const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
-    //
-    //         boundedSeries.forEach((data, name) => {
-    //
-    //             if (data.length === 0) return
-    //             const [xAxisLinear, yAxisLinear] = axesFor(name, axisAssignments, xAxisFor, yAxisFor)
-    //             if (xAxisLinear === undefined || yAxisLinear === undefined) return
-    //             const {color, lineWidth} = seriesStyles.get(name) || defaultLineStyle
-    //
-    //             // only show the data for which the filter matches
-    //             // const plotData = (series.name.match(seriesFilterRef.current)) ? data : []
-    //             // const plotData = (name.match(seriesFilterRef.current)) ? data : []
-    //             const plotData = data
-    //
-    //             // create the time-series paths
-    //             mainGElem
-    //                 .selectAll(`#${name}`)
-    //                 .data([[], plotData], () => `${name}`)
-    //                 .join(
-    //                     enter => enter
-    //                         .append("path")
-    //                         .attr("class", 'time-series-lines')
-    //                         .attr("id", `${name}`)
-    //                         // .attr("id", `${series.name}`)
-    //                         .attr("d", d3.line()
-    //                             .x((d: [number, number]) => xAxisLinear.scale(d[0]))
-    //                             .y((d: [number, number]) => yAxisLinear.scale(d[1]))
-    //                         )
-    //                         .attr("fill", "none")
-    //                         .attr("stroke", color)
-    //                         .attr("stroke-width", lineWidth)
-    //                         // .attr("stroke", colorsRef.current.get(name) || lineStyle.color)
-    //                         // .attr("stroke-width", lineStyle.lineWidth)
-    //                         .attr('transform', `translate(${margin.left}, ${margin.top})`)
-    //                         .attr("clip-path", `url(#${clipPathId})`),
-    //                     // .attr("clip-path", `url(#clip-series-${chartId.current})`)
-    //                     // .on(
-    //                     //     "mouseover",
-    //                     //     (datumArray, i, group) =>
-    //                     //         tooltipRef.current.visible ? handleShowTooltip(datumArray, name, group[i]) : null
-    //                     // )
-    //                     // .on(
-    //                     //     "mouseleave",
-    //                     //     (datumArray, i, group) =>
-    //                     //         tooltipRef.current.visible ?
-    //                     //             handleRemoveTooltip(name, group[i]) :
-    //                     //             null
-    //                     // ),
-    //                     update => update,
-    //                     exit => exit.remove()
-    //                 )
-    //         })
-    //     }
-    // }
 
     return null
 }

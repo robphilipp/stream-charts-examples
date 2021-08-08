@@ -27,7 +27,7 @@ export function setClipPath(chartId: number, svg: SvgSelection, plotDimensions: 
         .attr("id", clipPathId)
         .append("rect")
         .attr("width", plotDimensions.width)
-        .attr("height", plotDimensions.height - margin.top)
+        .attr("height", plotDimensions.height - margin.bottom)
 
     return clipPathId
 }

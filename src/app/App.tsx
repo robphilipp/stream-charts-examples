@@ -54,6 +54,23 @@ const initialData = new Map([
         datumOf(120, 80),
         datumOf(130, 80),
     ])],
+    ['test3', seriesFrom('test3', [
+        datumOf(10, 100),
+        datumOf(20, 103),
+        datumOf(30, 110),
+        datumOf(40, 100),
+        datumOf(50, 90),
+        datumOf(60, 88),
+        datumOf(70, 160),
+        datumOf(80, 130),
+        datumOf(90, 100),
+        datumOf(100, 120),
+        datumOf(110, 100),
+        datumOf(120, -250),
+        datumOf(130, 120),
+        datumOf(150, 180),
+        datumOf(170, 280),
+    ])],
 ])
 
 const App: React.FC = () => {
@@ -114,8 +131,9 @@ const App: React.FC = () => {
                     <ContinuousAxis id="y-axis-2" location={AxisLocation.Right} domain={[100, 1200]} label="y-axis (2)"/>
                     <ScatterPlot
                         axisAssignments={new Map([
-                            // ['test', axesAssigned("x-axis-1", "y-axis-1")],
+                            // ['test', assignedAxes("x-axis-1", "y-axis-1")],
                             ['test2', assignedAxes("x-axis-2", "y-axis-2")],
+                            // ['test3', assignedAxes("x-axis-1", "y-axis-1")],
                         ])}
                     />
                     <div>test</div>

@@ -24,10 +24,12 @@ interface UseChartValues {
     xAxisFor: (id: string) => BaseAxis | undefined
     xAxisIds: () => Array<string>
     xAxes: () => Map<string, BaseAxis>
+    xAxisDefaultName: () => string
     addYAxis: (axis: BaseAxis, id: string) => void
     yAxisFor: (id: string) => BaseAxis | undefined
     yAxisIds: () => Array<string>
     yAxes: () => Map<string, BaseAxis>
+    yAxisDefaultName: () => string
 
     // initial data
     initialData: Map<string, Series>
@@ -66,10 +68,12 @@ const defaultUseChartValues: UseChartValues = {
     xAxisFor: () => undefined,
     xAxisIds: () => [],
     xAxes: () => new Map(),
+    xAxisDefaultName: () => "",
     addYAxis: noop,
     yAxisFor: () => undefined,
     yAxisIds: () => [],
     yAxes: () => new Map(),
+    yAxisDefaultName: () => "",
 
     initialData: new Map(),
 
@@ -178,6 +182,10 @@ export default function ChartProvider(props: Props): JSX.Element {
         return new Map(xAxesRef.current)
     }
 
+    function xAxisDefaultName(): string {
+        return Array.from(xAxesRef.current.keys())[0]
+    }
+
     function addYAxis(axis: BaseAxis, id: string): void {
         yAxesRef.current.set(id, axis)
     }
@@ -196,6 +204,10 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     function yAxes(): Map<string, BaseAxis> {
         return new Map(yAxesRef.current)
+    }
+
+    function yAxisDefaultName(): string {
+        return Array.from(yAxesRef.current.keys())[0]
     }
 
     function updateWindowingTime(window: number): void {
@@ -228,8 +240,8 @@ export default function ChartProvider(props: Props): JSX.Element {
             seriesStyles,
             initialData,
             mainG, container,
-            addXAxis, xAxisFor, xAxisIds, xAxes,
-            addYAxis, yAxisFor, yAxisIds, yAxes,
+            addXAxis, xAxisFor, xAxisIds, xAxes, xAxisDefaultName,
+            addYAxis, yAxisFor, yAxisIds, yAxes, yAxisDefaultName,
             seriesObservable, windowingTime, shouldSubscribe,
             onSubscribe, onUpdateTime, onUpdateData,
             // setMainGSelection,
