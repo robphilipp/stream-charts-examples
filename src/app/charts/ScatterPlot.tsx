@@ -4,15 +4,17 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRange
 import * as d3 from "d3";
 import {createPlotContainer, setClipPath, TimeSeries} from "./plot";
 import {Datum, Series} from "./datumSeries";
-import {defaultLineStyle, LinearAxis} from "./axes";
+import {calculatePanFor, defaultLineStyle, LinearAxis} from "./axes";
 import {GSelection} from "./d3types";
+import {Dimensions} from "./margins";
+import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 
 export interface AxesAssignment {
     xAxis: string
     yAxis: string
 }
 
-export function axesAssigned(xAxis: string, yAxis: string): AxesAssignment {
+export function assignedAxes(xAxis: string, yAxis: string): AxesAssignment {
     return {xAxis, yAxis}
 }
 
@@ -28,7 +30,9 @@ export function ScatterPlot(props: Props): null {
         mainG,
         setMainGSelection,
         xAxisFor,
+        xAxes,
         yAxisFor,
+        yAxisIds,
         plotDimensions,
         margin,
         color,
@@ -37,7 +41,7 @@ export function ScatterPlot(props: Props): null {
     } = useChart()
 
     const {
-        axisAssignments = new Map()
+        axisAssignments = new Map<string, AxesAssignment>()
     } = props
 
     useEffect(
@@ -46,14 +50,24 @@ export function ScatterPlot(props: Props): null {
                 if (mainG === undefined) {
                     const mainGElem = createPlotContainer(chartId, container, plotDimensions, color)
                     setMainGSelection(mainGElem)
-                    updatePlot(continuousAxisRangeFor(0, 100), mainGElem)
+                    updatePlot(timeRanges(), mainGElem)
+                    // updatePlot(continuousAxisRangeFor(0, 100), mainGElem)
                 } else {
-                    updatePlot(continuousAxisRangeFor(0, 100), mainG)
+                    updatePlot(timeRanges(), mainG)
+                    // updatePlot(continuousAxisRangeFor(0, 100), mainG)
                 }
             }
         },
         [chartId, color, container, mainG, plotDimensions, setMainGSelection]
     )
+
+    function timeRanges(): Map<string, ContinuousAxisRange> {
+        return new Map(Array.from(xAxes().entries())
+            .map(([id, axis]) => {
+                const [start, end] = (axis as LinearAxis).scale.domain()
+                return [id, continuousAxisRangeFor(start, end)]
+            }))
+    }
 
     /**
      * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
@@ -75,20 +89,40 @@ export function ScatterPlot(props: Props): null {
         return [xAxisLinear, yAxisLinear]
     }
 
+    function timeRangeFor(seriesName: string, timeRanges: Map<string, ContinuousAxisRange>): ContinuousAxisRange {
+        const axisName = axisAssignments.get(seriesName)?.xAxis
+        if (axisName && axisName.length > 0) {
+            const timeRange = timeRanges.get(axisName)
+            if (timeRange) {
+                return timeRange
+            }
+            return continuousAxisRangeFor(-100, 100)
+        }
+        return Array.from(timeRanges.values())[0]
+    }
+
     /**
      * Updates the plot data for the specified time-range, which may have changed due to zoom or pan
      * @param timeRange The current time range
      * @param mainGElem The main <g> element selection for that holds the plot
      */
-    function updatePlot(timeRange: ContinuousAxisRange, mainGElem: GSelection): void {
+    // todo this should be a map(axis_id, timeRange)
+    // function updatePlot(timeRange: ContinuousAxisRange, mainGElem: GSelection): void {
+    function updatePlot(timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection): void {
         if (container) {// && xAxisLinear && yAxisLinear) {
             // select the svg element bind the data to them
             const svg = d3.select<SVGSVGElement, any>(container)
 
+            // todo for the set of series assigned to each axis, calculate the bounding values
+
             // create the tensor of data (time, value)
             const boundedSeries: Map<string, Array<[number, number]>> = new Map()
             initialData
-                .forEach((series, name) => boundedSeries.set(name, selectInTimeRange(series, timeRange)))
+                .forEach((series, name) =>
+                    boundedSeries.set(
+                        name,
+                        selectInTimeRange(series, timeRangeFor(name, timeRanges))
+                    ))
             // liveDataRef.current
             //     .forEach((series, name) => boundedSeries.set(name, selectInTimeRange(series)))
             //
@@ -108,22 +142,23 @@ export function ScatterPlot(props: Props): null {
             // trackerRef.current = trackerControl(svg, trackerStyle.visible)
 
             // set up panning
-            // const drag = d3.drag<SVGSVGElement, Datum>()
-            //     .on("start", () => {
-            //         // during a pan, we want to hide the tooltip
-            //         tooltipRef.current.visible = false
-            //         handleRemoveTooltip()
-            //         d3.select(containerRef.current).style("cursor", "move")
-            //     })
-            //     .on("drag", () => onPan(d3.event.dx, plotDimensions))
-            //     .on("end", () => {
-            //         // if the tooltip was originally visible, then allow it to be seen again
-            //         tooltipRef.current.visible = tooltipStyle.visible
-            //         d3.select(containerRef.current).style("cursor", "auto")
-            //     })
-            //
-            // svg.call(drag)
-            //
+            const drag = d3.drag<SVGSVGElement, Datum>()
+                .on("start", () => {
+                    // during a pan, we want to hide the tooltip
+                    // tooltipRef.current.visible = false
+                    // handleRemoveTooltip()
+                    d3.select(container).style("cursor", "move")
+                })
+                .on("drag", () => onPan(d3.event.dx, plotDimensions, Array.from(boundedSeries.keys()), timeRanges, mainGElem))
+                // .on("drag", () => onPan(d3.event.dx, plotDimensions, Array.from(boundedSeries.keys()), timeRange, mainGElem))
+                .on("end", () => {
+                    // if the tooltip was originally visible, then allow it to be seen again
+                    // tooltipRef.current.visible = tooltipStyle.visible
+                    d3.select(container).style("cursor", "auto")
+                })
+
+            svg.call(drag)
+
             // // set up for zooming
             // const zoom = d3.zoom<SVGSVGElement, Datum>()
             //     .scaleExtent([0, 10])
@@ -188,6 +223,31 @@ export function ScatterPlot(props: Props): null {
                     )
             })
         }
+    }
+
+    /**
+     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+     * @param deltaX The amount that the plot is dragged
+     * @param plotDimensions The dimensions of the plot
+     */
+    function onPan(deltaX: number, plotDimensions: PlotDimensions, series: Array<string>, timeRanges: Map<string, ContinuousAxisRange>, mainG: GSelection): void {
+        series.forEach(name => {
+            // grab the axis name from the assignments. note that the user may not have specified
+            // an assignment when using the default axis, and so, in that case, use an empty string
+            // for the assignment, which the "xAxisFor(...)" function will treat as a request to
+            // return the default axis
+            const axisName = axisAssignments.get(name)?.xAxis || ""
+            const xAxis = xAxisFor(axisName) as LinearAxis
+
+            // calculate the change in the time-range based on the pixel change from the drag event
+            const {start, end} = calculatePanFor(deltaX, plotDimensions, xAxis, timeRangeFor(name, timeRanges))
+
+            // update the axis' time-range
+            xAxis.update([start, end], plotDimensions, margin)
+        })
+
+        // and now that all the axes are updated, update the plot
+        updatePlot(timeRanges, mainG)
     }
 
     return null

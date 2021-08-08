@@ -17,7 +17,7 @@ import {Observable} from "rxjs";
 import {AxisLocation, defaultLineStyle} from "./charts/axes";
 import {defaultMargin} from "./charts/useChart";
 import {ContinuousAxis} from "./charts/ContinuousAxis";
-import {axesAssigned, ScatterPlot} from "./charts/ScatterPlot";
+import {assignedAxes, ScatterPlot} from "./charts/ScatterPlot";
 import {datumOf} from "./charts/datumSeries";
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
@@ -40,17 +40,19 @@ const initialData = new Map([
         datumOf(110, 980),
     ])],
     ['test2', seriesFrom('test2', [
-        datumOf(110, 80),
-        datumOf(100, 220),
-        datumOf(90, 300),
-        datumOf(80, 380),
-        datumOf(70, 510),
-        datumOf(60, 620),
-        datumOf(50, 680),
-        datumOf(40, 1080),
-        datumOf(30, 980),
-        datumOf(20, 880),
         datumOf(10, 980),
+        datumOf(20, 880),
+        datumOf(30, 980),
+        datumOf(40, 1080),
+        datumOf(50, 680),
+        datumOf(60, 620),
+        datumOf(70, 510),
+        datumOf(80, 380),
+        datumOf(90, 300),
+        datumOf(100, 220),
+        datumOf(110, 80),
+        datumOf(120, 80),
+        datumOf(130, 80),
     ])],
 ])
 
@@ -113,7 +115,7 @@ const App: React.FC = () => {
                     <ScatterPlot
                         axisAssignments={new Map([
                             // ['test', axesAssigned("x-axis-1", "y-axis-1")],
-                            ['test2', axesAssigned("x-axis-2", "y-axis-2")],
+                            ['test2', assignedAxes("x-axis-2", "y-axis-2")],
                         ])}
                     />
                     <div>test</div>

@@ -20,12 +20,14 @@ interface UseChartValues {
     color: string
     seriesStyles: Map<string, SeriesLineStyle>
 
-    // xAxes: Map<string, BaseAxis>
     addXAxis: (axis: BaseAxis, id: string) => void
     xAxisFor: (id: string) => BaseAxis | undefined
-    // yAxes: Map<string, BaseAxis>
+    xAxisIds: () => Array<string>
+    xAxes: () => Map<string, BaseAxis>
     addYAxis: (axis: BaseAxis, id: string) => void
     yAxisFor: (id: string) => BaseAxis | undefined
+    yAxisIds: () => Array<string>
+    yAxes: () => Map<string, BaseAxis>
 
     // initial data
     initialData: Map<string, Series>
@@ -59,12 +61,14 @@ const defaultUseChartValues: UseChartValues = {
     color: '#d2933f',
     seriesStyles: new Map(),
 
-    // xAxes: new Map(),
     addXAxis: noop,
     xAxisFor: () => undefined,
-    // yAxes: new Map(),
+    xAxisIds: () => [],
+    xAxes: () => new Map(),
     addYAxis: noop,
     yAxisFor: () => undefined,
+    yAxisIds: () => [],
+    yAxes: () => new Map(),
 
     initialData: new Map(),
 
@@ -163,6 +167,14 @@ export default function ChartProvider(props: Props): JSX.Element {
         return axis
     }
 
+    function xAxisIds(): Array<string> {
+        return Array.from(xAxesRef.current.keys())
+    }
+
+    function xAxes(): Map<string, BaseAxis> {
+        return new Map(xAxesRef.current)
+    }
+
     function addYAxis(axis: BaseAxis, id: string): void {
         yAxesRef.current.set(id, axis)
     }
@@ -173,6 +185,14 @@ export default function ChartProvider(props: Props): JSX.Element {
             return Array.from(yAxesRef.current.values())[0]
         }
         return axis
+    }
+
+    function yAxisIds(): Array<string> {
+        return Array.from(yAxesRef.current.keys())
+    }
+
+    function yAxes(): Map<string, BaseAxis> {
+        return new Map(yAxesRef.current)
     }
 
     function updateWindowingTime(window: number): void {
@@ -205,8 +225,8 @@ export default function ChartProvider(props: Props): JSX.Element {
             seriesStyles,
             initialData,
             mainG, container,
-            addXAxis, xAxisFor,
-            addYAxis, yAxisFor,
+            addXAxis, xAxisFor, xAxisIds, xAxes,
+            addYAxis, yAxisFor, yAxisIds, yAxes,
             seriesObservable, windowingTime, shouldSubscribe,
             onSubscribe, onUpdateTime, onUpdateData,
             setMainGSelection,
