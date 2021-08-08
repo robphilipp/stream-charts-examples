@@ -27,13 +27,11 @@ export function ScatterPlot(props: Props): null {
         chartId,
         container,
         mainG,
-        // setMainGSelection,
         xAxisFor,
         xAxes,
         xAxisDefaultName,
-        xAxisIds,
         yAxisFor,
-        // yAxisIds,
+        setTimeRangeFor,
         plotDimensions,
         margin,
         color,
@@ -90,6 +88,8 @@ export function ScatterPlot(props: Props): null {
 
                             // update the time-range for the axis
                             timeRanges.set(axisId, continuousAxisRangeFor(start, end))
+
+                            setTimeRangeFor(axisId, [start, end])
 
                             // update the axis' time-range
                             xAxis.update([start, end], plotDimensions, margin)
@@ -213,13 +213,16 @@ export function ScatterPlot(props: Props): null {
                 })
             }
         },
-        [axisAssignments, chartId, container, initialData, margin, plotDimensions, seriesStyles, xAxisFor, yAxisFor]
+        [axisAssignments, chartId, container, initialData, margin, plotDimensions, seriesStyles, xAxisDefaultName, xAxisFor, yAxisFor]
     )
 
     useEffect(
         () => {
             if (container && mainG) {
-                updatePlot(timeRanges(xAxes()), mainG)
+                const xAxesLinear = new Map<string, LinearAxis>(
+                    Array.from(xAxes().entries()).map(([id, axis]) => [id, axis as LinearAxis])
+                )
+                updatePlot(timeRanges(xAxesLinear), mainG)
             }
         },
         [chartId, color, container, mainG, plotDimensions, updatePlot, xAxes]
@@ -261,10 +264,16 @@ function selectInTimeRange(series: Series, timeRange: ContinuousAxisRange): Time
         .map(datum => [datum.time, datum.value])
 }
 
-function timeRanges(xAxes: Map<string, BaseAxis>): Map<string, ContinuousAxisRange> {
+/**
+ * Calculates the time-ranges for each of the axes in the map
+ * @param xAxes The map containing the axes and their associated IDs
+ * @return a map associating the axis IDs to their time-range
+ */
+// function timeRanges(xAxes: Map<string, BaseAxis>): Map<string, ContinuousAxisRange> {
+function timeRanges(xAxes: Map<string, LinearAxis>): Map<string, ContinuousAxisRange> {
     return new Map(Array.from(xAxes.entries())
         .map(([id, axis]) => {
-            const [start, end] = (axis as LinearAxis).scale.domain()
+            const [start, end] = axis.scale.domain()
             return [id, continuousAxisRangeFor(start, end)]
         }))
 }

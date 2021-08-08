@@ -4,6 +4,7 @@ import * as d3 from "d3";
 import {Axis, ScaleBand, ScaleLinear, ZoomTransform} from "d3";
 import {AxisElementSelection, SvgSelection} from "./d3types";
 import {addLinearXAxis, addLinearYAxis} from "./ContinuousAxis";
+import {noop} from "./utils";
 
 export interface AxesLabelFont {
     size: number
@@ -79,7 +80,8 @@ export function addLinearAxis(
 
         case AxisLocation.Bottom:
         case AxisLocation.Top:
-            return addLinearXAxis(chartId, svg, plotDimensions, location, domain, axesLabelFont, margin, axisLabel)
+            // return addLinearXAxis(chartId, svg, plotDimensions, location, domain, axesLabelFont, margin, axisLabel)
+            return addLinearXAxis(chartId, svg, plotDimensions, location, domain, axesLabelFont, margin, axisLabel, "", noop)
     }
 }
 

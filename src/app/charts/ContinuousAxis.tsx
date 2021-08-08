@@ -23,6 +23,8 @@ export function ContinuousAxis(props: Props): null {
         margin,
         addXAxis,
         addYAxis,
+        setTimeRangeFor,
+        timeRangeFor,
     } = useChart()
 
     const {
@@ -53,9 +55,15 @@ export function ContinuousAxis(props: Props): null {
                                 font,
                                 margin,
                                 label,
+                                id,
+                                setTimeRangeFor,
                             )
                             // add the x-axis to the chart context
                             addXAxis(axisRef.current, id)
+
+                            // set the time-range for the time-axis
+                            setTimeRangeFor(id, domain)
+
                             break
 
                         case AxisLocation.Left:
@@ -74,11 +82,24 @@ export function ContinuousAxis(props: Props): null {
                             addYAxis(axisRef.current, id)
                     }
                 } else {
-                    axisRef.current.update(domain, plotDimensions, margin)
+                    switch (location) {
+                        case AxisLocation.Bottom:
+                        case AxisLocation.Top:
+                            const timeRange = timeRangeFor(id)
+                            if (timeRange) {
+                                axisRef.current.update(timeRange, plotDimensions, margin)
+                            }
+                            break
+                        case AxisLocation.Left:
+                        case AxisLocation.Right:
+                            // todo will need to use and update the domain for the y-axis when using
+                            //      zoom...do something similar to what I did for the time-range
+                            axisRef.current.update(domain, plotDimensions, margin)
+                    }
                 }
             }
         },
-        [chartId, container, domain, label, location, margin, plotDimensions, props.font]
+        [addXAxis, addYAxis, chartId, container, domain, id, label, location, margin, plotDimensions, props.font, setTimeRangeFor]
     )
 
     return null
@@ -94,6 +115,8 @@ export function addLinearXAxis(
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
+    axisId: string,
+    setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
 ): LinearAxis {
     const scale = d3.scaleLinear().domain(domain).range([0, plotDimensions.width])
 
@@ -120,9 +143,12 @@ export function addLinearXAxis(
     }
     return {
         ...axis,
-        update: (domain: [start: number, end: number], plotDimensions: PlotDimensions, margin: Margin) => updateLinearXAxis(
-            chartId, svg, axis, domain, plotDimensions, margin, location
-        )
+        update: (domain: [start: number, end: number], plotDimensions: PlotDimensions, margin: Margin) => {
+            updateLinearXAxis(
+                chartId, svg, axis, domain, plotDimensions, margin, location
+            )
+            setTimeRangeFor(axisId, domain)
+        }
     }
 }
 

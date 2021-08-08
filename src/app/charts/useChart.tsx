@@ -21,15 +21,18 @@ interface UseChartValues {
     seriesStyles: Map<string, SeriesLineStyle>
 
     addXAxis: (axis: BaseAxis, id: string) => void
-    xAxisFor: (id: string) => BaseAxis | undefined
+    xAxisFor: (axisId: string) => BaseAxis | undefined
     xAxisIds: () => Array<string>
     xAxes: () => Map<string, BaseAxis>
     xAxisDefaultName: () => string
     addYAxis: (axis: BaseAxis, id: string) => void
-    yAxisFor: (id: string) => BaseAxis | undefined
+    yAxisFor: (axisId: string) => BaseAxis | undefined
     yAxisIds: () => Array<string>
     yAxes: () => Map<string, BaseAxis>
     yAxisDefaultName: () => string
+
+    timeRangeFor: (axisId: string) => [start: number, end: number] | undefined
+    setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
 
     // initial data
     initialData: Map<string, Series>
@@ -74,6 +77,9 @@ const defaultUseChartValues: UseChartValues = {
     yAxisIds: () => [],
     yAxes: () => new Map(),
     yAxisDefaultName: () => "",
+
+    timeRangeFor: () => [NaN, NaN],
+    setTimeRangeFor: noop,
 
     initialData: new Map(),
 
@@ -128,6 +134,8 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const xAxesRef = useRef<Map<string, BaseAxis>>(new Map())
     const yAxesRef = useRef<Map<string, BaseAxis>>(new Map())
+
+    const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
     const [seriesObservable, setSeriesObservable] = useState<Observable<ChartData>>()
     const [windowingTime, setWindowingTime] = useState<number>(defaultUseChartValues.windowingTime)
@@ -210,7 +218,16 @@ export default function ChartProvider(props: Props): JSX.Element {
         return Array.from(yAxesRef.current.keys())[0]
     }
 
-    function updateWindowingTime(window: number): void {
+    function timeRangeFor(axisId: string): [start: number, end: number] | undefined {
+        return timeRangesRef.current.get(axisId)
+    }
+
+    function setTimeRangeFor(axisId: string, timeRange: [start: number, end: number]): void {
+        timeRangesRef.current.set(axisId, timeRange)
+    }
+
+
+        function updateWindowingTime(window: number): void {
         setWindowingTime(window)
     }
 
@@ -242,6 +259,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             mainG, container,
             addXAxis, xAxisFor, xAxisIds, xAxes, xAxisDefaultName,
             addYAxis, yAxisFor, yAxisIds, yAxes, yAxisDefaultName,
+            timeRangeFor, setTimeRangeFor,
             seriesObservable, windowingTime, shouldSubscribe,
             onSubscribe, onUpdateTime, onUpdateData,
             // setMainGSelection,
