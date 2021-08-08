@@ -9,6 +9,7 @@ import {GSelection} from "./d3types";
 import ChartProvider, {defaultMargin} from "./useChart";
 import * as d3 from "d3";
 import {SeriesLineStyle} from "./axes";
+import {createPlotContainer} from "./plot";
 
 const defaultAxesStyle = {color: '#d2933f'}
 const defaultBackground = '#202020';
@@ -72,7 +73,7 @@ export function Chart(props: Props): JSX.Element {
     const plotDimRef = useRef<Dimensions>(plotDimensionsFrom(width, height, margin))
 
     // the container that holds the d3 svg element
-    const mainGRef = useRef<GSelection>()
+    const mainGRef = useRef<GSelection | null>(null)
     const containerRef = useRef<SVGSVGElement>(null)
 
     // const [dimensions, setDimensions] = useState<Dimensions>({width, height})
@@ -81,12 +82,10 @@ export function Chart(props: Props): JSX.Element {
     // updates the svg element with the updated dimensions or style properties
     useEffect(
         () => {
-            if (containerRef.current !== null) {
+            if (containerRef.current) {
                 // create the main SVG element if it doesn't already exist
-                if (mainGRef.current === undefined) {
-                    mainGRef.current = d3.select<SVGSVGElement, any>(containerRef.current)
-                        .append<SVGGElement>('g')
-                        .attr('id', `main-container-${chartId}`)
+                if (!mainGRef.current) {
+                    mainGRef.current = createPlotContainer(chartId.current, containerRef.current, plotDimRef.current, color)
                 }
 
                 // build up the svg style from the defaults and any svg style object
@@ -109,15 +108,16 @@ export function Chart(props: Props): JSX.Element {
                     .attr('style', style + background)
             }
         },
-        [backgroundColor, height, svgStyle, width]
+        [color, backgroundColor, height, svgStyle, width]
     )
 
     return (
         <>
             <svg ref={containerRef}/>
             <ChartProvider
-                container={containerRef.current}
                 chartId={chartId.current}
+                container={containerRef.current}
+                mainG={mainGRef.current}
                 containerDimensions={{width, height}}
                 margin={margin}
                 color={color}

@@ -14,7 +14,7 @@ export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 interface UseChartValues {
     chartId: number
     plotDimensions: Dimensions
-    mainG?: GSelection
+    mainG: GSelection | null
     container: SVGSVGElement | null
     margin: Margin
     color: string
@@ -44,7 +44,7 @@ interface UseChartValues {
 
     // newChart: (chartId: number, mainG: GSelection, container: SVGSVGElement) => void
     // newChart: (chartId: number, mainG: GSelection) => void
-    setMainGSelection: (g: GSelection) => void
+    // setMainGSelection: (g: GSelection) => void
     updateDimensions: (dimensions: PlotDimensions) => void
     updateWindowingTime: (window: number) => void
     updateShouldSubscribe: (subscribe: boolean) => void
@@ -56,6 +56,7 @@ interface UseChartValues {
 const defaultUseChartValues: UseChartValues = {
     chartId: NaN,
     container: null,
+    mainG: null,
     plotDimensions: {width: 0, height: 0},
     margin: defaultMargin,
     color: '#d2933f',
@@ -80,7 +81,7 @@ const defaultUseChartValues: UseChartValues = {
     onUpdateTime: noop,
 
     // newChart: noop,
-    setMainGSelection: noop,
+    // setMainGSelection: noop,
     updateDimensions: noop,
     updateWindowingTime: noop,
     updateShouldSubscribe: noop,
@@ -93,8 +94,9 @@ const defaultUseChartValues: UseChartValues = {
 const ChartContext = createContext<UseChartValues>(defaultUseChartValues)
 
 interface Props {
-    container: SVGSVGElement | null
     chartId: number
+    container: SVGSVGElement | null
+    mainG: GSelection | null
     containerDimensions: Dimensions
     margin: Margin
     color: string
@@ -108,6 +110,7 @@ export default function ChartProvider(props: Props): JSX.Element {
     const {
         chartId,
         container,
+        mainG,
         containerDimensions,
         margin,
         color,
@@ -116,7 +119,7 @@ export default function ChartProvider(props: Props): JSX.Element {
     } = props
     // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
     const [dimensions, setDimensions] = useState<PlotDimensions>(defaultUseChartValues.plotDimensions)
-    const [mainG, setMainG] = useState<GSelection>()
+    // const [mainG, setMainG] = useState<GSelection>()
     // const [container, setContainer] = useState<SVGSVGElement>()
 
     const xAxesRef = useRef<Map<string, BaseAxis>>(new Map())
@@ -143,9 +146,9 @@ export default function ChartProvider(props: Props): JSX.Element {
         [containerDimensions, margin]
     )
 
-    function setMainGSelection(g: GSelection): void {
-        setMainG(g)
-    }
+    // function setMainGSelection(g: GSelection): void {
+    //     setMainG(g)
+    // }
 
     function setObservable(observable: Observable<ChartData>): void {
         setSeriesObservable(observable)
@@ -229,7 +232,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             addYAxis, yAxisFor, yAxisIds, yAxes,
             seriesObservable, windowingTime, shouldSubscribe,
             onSubscribe, onUpdateTime, onUpdateData,
-            setMainGSelection,
+            // setMainGSelection,
             updateDimensions, updateWindowingTime, updateShouldSubscribe, setObservable,
             subscriptionHandler, dataUpdateHandler, timeUpdateHandler
         }}
