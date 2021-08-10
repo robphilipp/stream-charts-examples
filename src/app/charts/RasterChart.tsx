@@ -26,7 +26,7 @@ import {
     calculatePanFor,
     CategoryAxis,
     defaultAxesLabelFont,
-    LinearAxis
+    ContinuousNumericAxis
 } from "./axes";
 import {BarMagnifierSelection, SvgSelection, TrackerSelection} from "./d3types";
 import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltip";
@@ -153,7 +153,7 @@ export function RasterChart(props: Props): JSX.Element {
     const zoomFactorRef = useRef<number>(1);
 
     // reference to the axes for the plot
-    const axesRef = useRef<Axes<LinearAxis, CategoryAxis>>();
+    const axesRef = useRef<Axes<ContinuousNumericAxis, CategoryAxis>>();
 
     // unlike the magnifier, the handler forms a closure on the tooltip properties, and so if they change in this
     // component, the closed properties are unchanged. using a ref allows the properties to which the reference
@@ -300,7 +300,7 @@ export function RasterChart(props: Props): JSX.Element {
         categories: Map<string, Series>,
         axesLabelFont: AxesLabelFont,
         margin: Margin,
-    ): Axes<LinearAxis, CategoryAxis> {
+    ): Axes<ContinuousNumericAxis, CategoryAxis> {
         const xAxis = addLinearAxis(2, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
         const yAxis = addCategoryAxis(2, svg, AxisLocation.Left, plotDimensions, Array.from(categories.keys()), axesLabelFont, margin, "Neuron")
 

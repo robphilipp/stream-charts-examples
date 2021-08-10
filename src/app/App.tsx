@@ -19,6 +19,7 @@ import {defaultMargin} from "./charts/useChart";
 import {ContinuousAxis} from "./charts/ContinuousAxis";
 import {assignedAxes, ScatterPlot} from "./charts/ScatterPlot";
 import {datumOf} from "./charts/datumSeries";
+import * as d3 from 'd3';
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
 const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
@@ -125,10 +126,10 @@ const App: React.FC = () => {
                     initialData={initialData}
                     seriesObservable={new Observable()}
                 >
-                    <ContinuousAxis id="x-axis-1" location={AxisLocation.Bottom} domain={[0, 100]} label="x-axis"/>
-                    <ContinuousAxis id="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
-                    <ContinuousAxis id="x-axis-2" location={AxisLocation.Top} domain={[0, 1000]} label="x-axis (2)"/>
-                    <ContinuousAxis id="y-axis-2" location={AxisLocation.Right} domain={[100, 1200]} label="y-axis (2)"/>
+                    <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 100]} label="x-axis"/>
+                    <ContinuousAxis axisId="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
+                    <ContinuousAxis axisId="x-axis-2" location={AxisLocation.Top} domain={[100, 1000]} label="x-axis (2)"/>
+                    <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>
                     <ScatterPlot
                         axisAssignments={new Map([
                             // ['test', assignedAxes("x-axis-1", "y-axis-1")],

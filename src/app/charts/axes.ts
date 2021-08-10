@@ -1,9 +1,9 @@
 import {Dimensions, Margin} from "./margins";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
-import {Axis, ScaleBand, ScaleLinear, ZoomTransform} from "d3";
+import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
 import {AxisElementSelection, SvgSelection} from "./d3types";
-import {addLinearXAxis, addLinearYAxis} from "./ContinuousAxis";
+import {addContinuousNumericXAxis, addContinuousNumericYAxis} from "./ContinuousAxis";
 import {noop} from "./utils";
 
 export interface AxesLabelFont {
@@ -43,8 +43,9 @@ export interface BaseAxis {
     selection: AxisElementSelection
 }
 
-export interface LinearAxis extends BaseAxis {
-    scale: ScaleLinear<number, number>
+export interface ContinuousNumericAxis extends BaseAxis {
+    // scale: ScaleLinear<number, number>
+    scale: ScaleContinuousNumeric<number, number>
     generator: Axis<number | { valueOf(): number }>
     update: (domain: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => void
 }
@@ -72,16 +73,16 @@ export function addLinearAxis(
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
-): LinearAxis {
+): ContinuousNumericAxis {
     switch (location) {
         case AxisLocation.Left:
         case AxisLocation.Right:
-            return addLinearYAxis(chartId, svg, plotDimensions, location, domain, axesLabelFont, margin, axisLabel)
+            return addContinuousNumericYAxis(chartId, svg, plotDimensions, location, d3.scaleLinear(), domain, axesLabelFont, margin, axisLabel)
 
         case AxisLocation.Bottom:
         case AxisLocation.Top:
             // return addLinearXAxis(chartId, svg, plotDimensions, location, domain, axesLabelFont, margin, axisLabel)
-            return addLinearXAxis(chartId, svg, plotDimensions, location, domain, axesLabelFont, margin, axisLabel, "", noop)
+            return addContinuousNumericXAxis(chartId, svg, plotDimensions, location, d3.scaleLinear(), domain, axesLabelFont, margin, axisLabel, "", noop)
     }
 }
 
@@ -214,7 +215,7 @@ export function calculateZoomFor(
     transform: ZoomTransform,
     x: number,
     plotDimensions: Dimensions,
-    axis: LinearAxis,
+    axis: ContinuousNumericAxis,
     range: ContinuousAxisRange,
 ): ZoomResult {
     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
@@ -235,7 +236,7 @@ export function calculateZoomFor(
 export function calculatePanFor(
     deltaX: number,
     plotDimensions: Dimensions,
-    axis: LinearAxis,
+    axis: ContinuousNumericAxis,
     range: ContinuousAxisRange,
 ): ContinuousAxisRange {
     const scale = axis.generator.scale<ScaleLinear<number, number>>()

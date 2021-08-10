@@ -2,7 +2,7 @@ import * as d3 from 'd3'
 import {ScaleLinear, Selection} from "d3";
 import {Margin} from "./margins";
 import {GSelection, LineSelection, MagnifierTextSelection, RadialMagnifierSelection, SvgSelection} from "./d3types";
-import {Axes, AxesLabelFont, LinearAxis} from "./axes";
+import {Axes, AxesLabelFont, ContinuousNumericAxis} from "./axes";
 import {TooltipStyle} from "./TooltipStyle";
 import {formatValue} from "./utils";
 import {TimeSeries} from "./plot";
@@ -406,7 +406,7 @@ export function createMagnifierLens(
     width: number,
     height: number,
     magnifierStyle: RadialMagnifierStyle,
-    axes: Axes<LinearAxis, LinearAxis>,
+    axes: Axes<ContinuousNumericAxis, ContinuousNumericAxis>,
     axesLabelFont: AxesLabelFont,
     mainG: GSelection,
 

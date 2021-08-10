@@ -4,7 +4,7 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRange
 import * as d3 from "d3";
 import {setClipPath, TimeSeries} from "./plot";
 import {Datum, Series} from "./datumSeries";
-import {BaseAxis, calculatePanFor, defaultLineStyle, LinearAxis} from "./axes";
+import {BaseAxis, calculatePanFor, defaultLineStyle, ContinuousNumericAxis} from "./axes";
 import {GSelection} from "./d3types";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 
@@ -80,7 +80,7 @@ export function ScatterPlot(props: Props): null {
                     // run through the axis IDs, adjust their domain, and update the time-range set for that
                     // axis
                     .forEach(axisId => {
-                        const xAxis = xAxisFor(axisId) as LinearAxis
+                        const xAxis = xAxisFor(axisId) as ContinuousNumericAxis
                         const timeRange = timeRanges.get(axisId)
                         if (timeRange) {
                             // calculate the change in the time-range based on the pixel change from the drag event
@@ -219,8 +219,8 @@ export function ScatterPlot(props: Props): null {
     useEffect(
         () => {
             if (container && mainG) {
-                const xAxesLinear = new Map<string, LinearAxis>(
-                    Array.from(xAxes().entries()).map(([id, axis]) => [id, axis as LinearAxis])
+                const xAxesLinear = new Map<string, ContinuousNumericAxis>(
+                    Array.from(xAxes().entries()).map(([id, axis]) => [id, axis as ContinuousNumericAxis])
                 )
                 updatePlot(timeRanges(xAxesLinear), mainG)
             }
@@ -270,7 +270,7 @@ function selectInTimeRange(series: Series, timeRange: ContinuousAxisRange): Time
  * @return a map associating the axis IDs to their time-range
  */
 // function timeRanges(xAxes: Map<string, BaseAxis>): Map<string, ContinuousAxisRange> {
-function timeRanges(xAxes: Map<string, LinearAxis>): Map<string, ContinuousAxisRange> {
+function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
     return new Map(Array.from(xAxes.entries())
         .map(([id, axis]) => {
             const [start, end] = axis.scale.domain()
@@ -309,12 +309,12 @@ function axesFor(
     axisAssignments: Map<string, AxesAssignment>,
     xAxisFor: (id: string) => BaseAxis | undefined,
     yAxisFor: (id: string) => BaseAxis | undefined,
-): [xAxis: LinearAxis, yAxis: LinearAxis] {
+): [xAxis: ContinuousNumericAxis, yAxis: ContinuousNumericAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
-    const xAxisLinear = xAxis as LinearAxis
+    const xAxisLinear = xAxis as ContinuousNumericAxis
     const yAxis = yAxisFor(axes?.yAxis || "")
-    const yAxisLinear = yAxis as LinearAxis
+    const yAxisLinear = yAxis as ContinuousNumericAxis
     if (xAxis && !xAxisLinear) {
         throw Error("Scatter plot requires that x-axis be of type LinearAxis")
     }

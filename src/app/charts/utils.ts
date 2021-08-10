@@ -1,7 +1,7 @@
 import {Dimensions, Margin} from "./margins"
 import * as d3 from "d3";
 import {Selection, ZoomTransform} from "d3";
-import {calculateZoomFor, LinearAxis} from "./axes";
+import {calculateZoomFor, ContinuousNumericAxis} from "./axes";
 import {TimeRangeType} from "stream-charts/dist/src/app/charts/timeRange";
 import {TimeSeries} from "./plot";
 
@@ -47,7 +47,7 @@ export function handleZoom(
     plotDimensions: Dimensions,
     containerWidth: number,
     margin: Margin,
-    xAxis: LinearAxis,
+    xAxis: ContinuousNumericAxis,
     timeRange: TimeRangeType,
 ): Zoom | undefined {
     if (x > 0 && x < containerWidth - margin.right) {

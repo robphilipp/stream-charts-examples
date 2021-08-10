@@ -1,7 +1,7 @@
 import {BarMagnifierSelection, GSelection, LineSelection, MagnifierTextSelection, SvgSelection} from "./d3types";
 import * as d3 from "d3";
 import {TooltipStyle} from "./TooltipStyle";
-import {AxesLabelFont, SeriesLineStyle, LinearAxis} from "./axes";
+import {AxesLabelFont, SeriesLineStyle, ContinuousNumericAxis} from "./axes";
 import {Margin} from "./margins";
 import {Datum} from "./datumSeries";
 import {ScaleLinear} from "d3";
@@ -310,7 +310,7 @@ export function createMagnifierLens(
  * @param margin The plot margins
  * @return `true` if the datum is in the interval; `false` otherwise
  */
-export function inMagnifier(datum: Datum, x: number, xInterval: number, xAxis: LinearAxis, margin: Margin): boolean {
+export function inMagnifier(datum: Datum, x: number, xInterval: number, xAxis: ContinuousNumericAxis, margin: Margin): boolean {
     const scale = xAxis.generator.scale<ScaleLinear<number, number>>();
     const datumX = scale(datum.time) + margin.left;
     return datumX > x - xInterval && datumX < x + xInterval;
@@ -322,7 +322,7 @@ export function inMagnifier(datum: Datum, x: number, xInterval: number, xAxis: L
  * @param xAxis The x-axis
  * @return The x-coordinate corresponding to its time
  */
-export function xFrom(datum: Datum, xAxis: LinearAxis): number {
+export function xFrom(datum: Datum, xAxis: ContinuousNumericAxis): number {
     const scale = xAxis.generator.scale<ScaleLinear<number, number>>();
     return scale(datum.time);
 }
@@ -334,7 +334,7 @@ export function showMagnifierLens(
     magnifierAxes: BarLensAxesSelections,
     margin: Margin,
     mouseCoord: [number, number],
-    xAxis: LinearAxis,
+    xAxis: ContinuousNumericAxis,
     plotDim: PlotDimensions,
     zoomFactor: number,
     spikesStyle: SpikesStyle
@@ -397,7 +397,7 @@ export function hideMagnifierLens(
     magnifierAxes: BarLensAxesSelections,
     margin: Margin,
     mouseCoord: [number, number],
-    xAxis: LinearAxis,
+    xAxis: ContinuousNumericAxis,
     plotDim: PlotDimensions,
     spikesStyle: SpikesStyle
 ): number {

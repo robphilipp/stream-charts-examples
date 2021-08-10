@@ -27,7 +27,7 @@ import {
     calculatePanFor,
     defaultAxesLabelFont,
     defaultLineStyle,
-    LinearAxis
+    ContinuousNumericAxis
 } from "./axes";
 import {GSelection, RadialMagnifierSelection, SvgSelection, TextSelection, TrackerSelection} from "./d3types";
 import {
@@ -153,7 +153,7 @@ export function ScatterChart(props: Props): JSX.Element {
     const zoomFactorRef = useRef<number>(5)
 
     // reference to the axes for the plot
-    const axesRef = useRef<Axes<LinearAxis, LinearAxis>>()
+    const axesRef = useRef<Axes<ContinuousNumericAxis, ContinuousNumericAxis>>()
 
     // reference for the min/max values
     const minMaxValueRef = useRef<[number, number]>([minY, maxY])
@@ -267,7 +267,7 @@ export function ScatterChart(props: Props): JSX.Element {
         timeRange: ContinuousAxisRange,
         axesLabelFont: AxesLabelFont,
         margin: Margin,
-    ): Axes<LinearAxis, LinearAxis> {
+    ): Axes<ContinuousNumericAxis, ContinuousNumericAxis> {
         const xAxis = addLinearAxis(1, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
         const yAxis = addLinearAxis(1, svg, AxisLocation.Left, plotDimensions, [minY, maxY], axesLabelFont, margin, "Weight")
 

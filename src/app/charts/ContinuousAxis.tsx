@@ -1,4 +1,4 @@
-import {AxesLabelFont, AxisLocation, defaultAxesLabelFont, LinearAxis} from "./axes";
+import {AxesLabelFont, AxisLocation, defaultAxesLabelFont, ContinuousNumericAxis} from "./axes";
 import {useChart} from "./useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
@@ -6,12 +6,21 @@ import {SvgSelection} from "./d3types";
 import {Dimensions, Margin} from "./margins";
 import {noop} from "./utils";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
+import {ScaleContinuousNumeric} from "d3";
 
 interface Props {
-    id: string
+    // the unique ID of the axis
+    axisId: string
+    // the location of the axis. for x-axes, this must be either top or bottom. for
+    // y-axes, this mut be either left or right
     location: AxisLocation
+    // linear, log, or power scale that defaults to linear scale when not specified
+    scale?: ScaleContinuousNumeric<number, number>
+    // the min and max values for the axis
     domain: [min: number, max: number]
+    // the font for drawing the axis ticks and labels
     font?: Partial<AxesLabelFont>
+    // the axis label
     label: string
 }
 
@@ -28,13 +37,14 @@ export function ContinuousAxis(props: Props): null {
     } = useChart()
 
     const {
-        id,
+        axisId,
         location,
+        scale = d3.scaleLinear(),
         domain,
         label
     } = props
 
-    const axisRef = useRef<LinearAxis>()
+    const axisRef = useRef<ContinuousNumericAxis>()
 
     useEffect(
         () => {
@@ -46,46 +56,48 @@ export function ContinuousAxis(props: Props): null {
                     switch (location) {
                         case AxisLocation.Bottom:
                         case AxisLocation.Top:
-                            axisRef.current = addLinearXAxis(
+                            axisRef.current = addContinuousNumericXAxis(
                                 chartId,
                                 svg,
                                 plotDimensions,
                                 location,
+                                scale,
                                 domain,
                                 font,
                                 margin,
                                 label,
-                                id,
+                                axisId,
                                 setTimeRangeFor,
                             )
                             // add the x-axis to the chart context
-                            addXAxis(axisRef.current, id)
+                            addXAxis(axisRef.current, axisId)
 
                             // set the time-range for the time-axis
-                            setTimeRangeFor(id, domain)
+                            setTimeRangeFor(axisId, domain)
 
                             break
 
                         case AxisLocation.Left:
                         case AxisLocation.Right:
-                            axisRef.current = addLinearYAxis(
+                            axisRef.current = addContinuousNumericYAxis(
                                 chartId,
                                 svg,
                                 plotDimensions,
                                 location,
+                                scale,
                                 domain,
                                 font,
                                 margin,
                                 label,
                             )
                             // add the x-axis to the chart context
-                            addYAxis(axisRef.current, id)
+                            addYAxis(axisRef.current, axisId)
                     }
                 } else {
                     switch (location) {
                         case AxisLocation.Bottom:
                         case AxisLocation.Top:
-                            const timeRange = timeRangeFor(id)
+                            const timeRange = timeRangeFor(axisId)
                             if (timeRange) {
                                 axisRef.current.update(timeRange, plotDimensions, margin)
                             }
@@ -99,26 +111,36 @@ export function ContinuousAxis(props: Props): null {
                 }
             }
         },
-        [addXAxis, addYAxis, chartId, container, domain, id, label, location, margin, plotDimensions, props.font, setTimeRangeFor]
+        [
+            chartId,
+            axisId, label, location, props.font,
+            addXAxis, addYAxis,
+            domain,
+            scale,
+            container,
+            margin, plotDimensions,
+            setTimeRangeFor, timeRangeFor
+        ]
     )
 
     return null
 }
 
 
-export function addLinearXAxis(
+export function addContinuousNumericXAxis(
     chartId: number,
     svg: SvgSelection,
     plotDimensions: Dimensions,
     location: AxisLocation.Bottom | AxisLocation.Top,
+    scaleGenerator: ScaleContinuousNumeric<number, number>,
     domain: [minValue: number, maxValue: number],
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
     axisId: string,
     setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
-): LinearAxis {
-    const scale = d3.scaleLinear().domain(domain).range([0, plotDimensions.width])
+): ContinuousNumericAxis {
+    const scale = scaleGenerator.domain(domain).range([0, plotDimensions.width])
 
     const selection = svg
         .append<SVGGElement>('g')
@@ -135,7 +157,7 @@ export function addLinearXAxis(
         .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${labelYTranslation(location, plotDimensions, margin)})`)
         .text(axisLabel)
 
-    const axis: LinearAxis = {
+    const axis: ContinuousNumericAxis = {
         scale,
         selection,
         generator: location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale),
@@ -167,7 +189,7 @@ function labelYTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plo
 function updateLinearXAxis(
     chartId: number,
     svg: SvgSelection,
-    axis: LinearAxis,
+    axis: ContinuousNumericAxis,
     domain: [startValue: number, endValue: number],
     plotDimensions: Dimensions,
     margin: Margin,
@@ -184,17 +206,19 @@ function updateLinearXAxis(
 }
 
 
-export function addLinearYAxis(
+export function addContinuousNumericYAxis(
     chartId: number,
     svg: SvgSelection,
     plotDimensions: Dimensions,
     location: AxisLocation.Left | AxisLocation.Right,
+    scaleGenerator: ScaleContinuousNumeric<number, number>,
     domain: [minValue: number, maxValue: number],
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
-): LinearAxis {
-    const scale = d3.scaleLinear()
+): ContinuousNumericAxis {
+    // const scale = d3.scaleLinear()
+    const scale = scaleGenerator
         .domain(domain)
         .range([plotDimensions.height - margin.bottom, 0])
 
@@ -240,7 +264,7 @@ function labelXTranslation(location: AxisLocation.Left | AxisLocation.Right, plo
 function updateLinearYAxis(
     chartId: number,
     svg: SvgSelection,
-    axis: LinearAxis,
+    axis: ContinuousNumericAxis,
     domain: [startValue: number, endValue: number],
     plotDimensions: Dimensions,
     margin: Margin,
