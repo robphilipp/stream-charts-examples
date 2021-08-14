@@ -10,6 +10,7 @@ import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 import {Observable, Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
 import {ChartData} from "./chartData";
+import {noop} from "./utils";
 
 export interface AxesAssignment {
     xAxis: string
@@ -45,9 +46,9 @@ export function ScatterPlot(props: Props): null {
         shouldSubscribe,
         // windowingTimes,
 
-        onSubscribe,
-        onUpdateData,
-        onUpdateTime,
+        onSubscribe = noop,
+        onUpdateData = noop,
+        onUpdateTime = noop,
     } = useChart()
 
     const {
@@ -248,6 +249,88 @@ export function ScatterPlot(props: Props): null {
         ]
     )
 
+    const subscribe = useCallback(
+        () => {
+            if (seriesObservable === undefined || mainG === null) return undefined
+
+            const subscription = seriesObservable
+                .pipe(windowTime(windowingTime))
+                .subscribe(dataList => {
+                    dataList.forEach(data => {
+                        // // updated the current time to be the max of the new data
+                        // currentTimeRef.current = data.maxTime
+
+                        const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
+
+                        // add each new point to it's corresponding series
+                        data.newPoints.forEach((newData, name) => {
+                            // grab the current series associated with the new data
+                            const series = seriesRef.current.get(name) || emptySeries(name)
+
+                            // update the handler with the new data point
+                            onUpdateData(name, newData)
+
+                            // add the new data to the series
+                            series.data.push(...newData)
+
+                            // timeRangeRef.current = continuousAxisRangeFor(
+                            //     Math.max(0, currentTimeRef.current - timeWindow),
+                            //     Math.max(currentTimeRef.current, timeWindow)
+                            // )
+
+                            const axisId = axisAssignments.get(name)?.xAxis || xAxisDefaultName()
+                            const currentAxisTime = currentTimeRef.current.get(axisId)
+                            if (currentAxisTime !== undefined) {
+                                // drop data that is older than the max time-window
+                                // todo replace the infinity
+                                // while (currentAxisTime - series.data[0].time > dropDataAfter) {
+                                while (currentAxisTime - series.data[0].time > Infinity) {
+                                    series.data.shift()
+                                }
+
+                                // const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
+                                const range = timesWindows.get(axisId)
+                                if (range !== undefined && range.end < currentAxisTime) {
+                                    // onUpdateTime(currentAxisTime)
+                                    const timeWindow = range.end - range.start
+                                    const timeRange = continuousAxisRangeFor(
+                                        Math.max(0, currentAxisTime - timeWindow),
+                                        Math.max(currentAxisTime, timeWindow)
+                                    )
+                                    timesWindows.set(axisId, timeRange)
+                                }
+                            }
+                            // const axisId = xAxisDefaultName()
+                            // timeRanges(xAxesLinear)
+                            // timeRangeFor(name, ti)
+
+                        })
+
+                        // update the data
+                        liveDataRef.current = seriesRef.current
+                        timeRangesRef.current = timesWindows
+                        // timeRangeRef.current = continuousAxisRangeFor(
+                        //     Math.max(0, currentTimeRef.current - timeWindow),
+                        //     Math.max(currentTimeRef.current, timeWindow)
+                        // )
+                    }).then(() => {
+                        // updates the caller with the current time
+                        // onUpdateTime(currentTimeRef.current)
+
+                        if (timeRangesRef.current !== undefined) {
+                            updatePlot(timeRangesRef.current, mainG)
+                        }
+                    })
+                })
+
+            // provide the subscription to the caller
+            onSubscribe(subscription)
+
+            return subscription
+        },
+        [axisAssignments, mainG, onSubscribe, onUpdateData, seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName]
+    )
+
     useEffect(
         () => {
             if (container && mainG) {
@@ -271,93 +354,94 @@ export function ScatterPlot(props: Props): null {
                 return () => subscription?.unsubscribe()
             }
         },
-        [shouldSubscribe]
+        [shouldSubscribe, subscribe]
     )
 
-    /**
-     * Subscribes to the observable that streams chart events and hands the subscription a consumer
-     * that updates the charts as events enter. Also hands the subscription back to the parent
-     * component using the registered {@link onSubscribe} callback method from the properties.
-     * @return The subscription (disposable) for cancelling
-     */
-    function subscribe(): Subscription | undefined {
-        if (seriesObservable === undefined || mainG === null) return undefined
 
-        const subscription = seriesObservable
-            .pipe(windowTime(windowingTime))
-            .subscribe(dataList => {
-                dataList.forEach(data => {
-                    // // updated the current time to be the max of the new data
-                    // currentTimeRef.current = data.maxTime
-
-                    const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
-
-                    // add each new point to it's corresponding series
-                    data.newPoints.forEach((newData, name) => {
-                        // grab the current series associated with the new data
-                        const series = seriesRef.current.get(name) || emptySeries(name)
-
-                        // update the handler with the new data point
-                        onUpdateData(name, newData)
-
-                        // add the new data to the series
-                        series.data.push(...newData)
-
-                        // timeRangeRef.current = continuousAxisRangeFor(
-                        //     Math.max(0, currentTimeRef.current - timeWindow),
-                        //     Math.max(currentTimeRef.current, timeWindow)
-                        // )
-
-                        const axisId = axisAssignments.get(name)?.xAxis || xAxisDefaultName()
-                        const currentAxisTime = currentTimeRef.current.get(axisId)
-                        if (currentAxisTime !== undefined) {
-                            // drop data that is older than the max time-window
-                            // todo replace the infinity
-                            // while (currentAxisTime - series.data[0].time > dropDataAfter) {
-                            while (currentAxisTime - series.data[0].time > Infinity) {
-                                series.data.shift()
-                            }
-
-                            // const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
-                            const range = timesWindows.get(axisId)
-                            if (range !== undefined && range.end < currentAxisTime) {
-                                // onUpdateTime(currentAxisTime)
-                                const timeWindow = range.end - range.start
-                                const timeRange = continuousAxisRangeFor(
-                                    Math.max(0, currentAxisTime - timeWindow),
-                                    Math.max(currentAxisTime, timeWindow)
-                                )
-                                timesWindows.set(axisId, timeRange)
-                            }
-                        }
-                        // const axisId = xAxisDefaultName()
-                        // timeRanges(xAxesLinear)
-                        // timeRangeFor(name, ti)
-
-                    })
-
-                    // update the data
-                    liveDataRef.current = seriesRef.current
-                    timeRangesRef.current = timesWindows
-                    // timeRangeRef.current = continuousAxisRangeFor(
-                    //     Math.max(0, currentTimeRef.current - timeWindow),
-                    //     Math.max(currentTimeRef.current, timeWindow)
-                    // )
-                }).then(() => {
-                    // updates the caller with the current time
-                    // onUpdateTime(currentTimeRef.current)
-
-                    if (timeRangesRef.current !== undefined) {
-                        updatePlot(timeRangesRef.current, mainG)
-                    }
-                })
-            })
-
-        // provide the subscription to the caller
-        onSubscribe(subscription)
-
-        return subscription
-    }
+    // /**
+    //  * Subscribes to the observable that streams chart events and hands the subscription a consumer
+    //  * that updates the charts as events enter. Also hands the subscription back to the parent
+    //  * component using the registered {@link onSubscribe} callback method from the properties.
+    //  * @return The subscription (disposable) for cancelling
+    //  */
+    // function subscribe(): Subscription | undefined {
+    //     if (seriesObservable === undefined || mainG === null) return undefined
+    //
+    //     const subscription = seriesObservable
+    //         .pipe(windowTime(windowingTime))
+    //         .subscribe(dataList => {
+    //             dataList.forEach(data => {
+    //                 // // updated the current time to be the max of the new data
+    //                 // currentTimeRef.current = data.maxTime
+    //
+    //                 const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
+    //
+    //                 // add each new point to it's corresponding series
+    //                 data.newPoints.forEach((newData, name) => {
+    //                     // grab the current series associated with the new data
+    //                     const series = seriesRef.current.get(name) || emptySeries(name)
+    //
+    //                     // update the handler with the new data point
+    //                     onUpdateData(name, newData)
+    //
+    //                     // add the new data to the series
+    //                     series.data.push(...newData)
+    //
+    //                     // timeRangeRef.current = continuousAxisRangeFor(
+    //                     //     Math.max(0, currentTimeRef.current - timeWindow),
+    //                     //     Math.max(currentTimeRef.current, timeWindow)
+    //                     // )
+    //
+    //                     const axisId = axisAssignments.get(name)?.xAxis || xAxisDefaultName()
+    //                     const currentAxisTime = currentTimeRef.current.get(axisId)
+    //                     if (currentAxisTime !== undefined) {
+    //                         // drop data that is older than the max time-window
+    //                         // todo replace the infinity
+    //                         // while (currentAxisTime - series.data[0].time > dropDataAfter) {
+    //                         while (currentAxisTime - series.data[0].time > Infinity) {
+    //                             series.data.shift()
+    //                         }
+    //
+    //                         // const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
+    //                         const range = timesWindows.get(axisId)
+    //                         if (range !== undefined && range.end < currentAxisTime) {
+    //                             // onUpdateTime(currentAxisTime)
+    //                             const timeWindow = range.end - range.start
+    //                             const timeRange = continuousAxisRangeFor(
+    //                                 Math.max(0, currentAxisTime - timeWindow),
+    //                                 Math.max(currentAxisTime, timeWindow)
+    //                             )
+    //                             timesWindows.set(axisId, timeRange)
+    //                         }
+    //                     }
+    //                     // const axisId = xAxisDefaultName()
+    //                     // timeRanges(xAxesLinear)
+    //                     // timeRangeFor(name, ti)
+    //
+    //                 })
+    //
+    //                 // update the data
+    //                 liveDataRef.current = seriesRef.current
+    //                 timeRangesRef.current = timesWindows
+    //                 // timeRangeRef.current = continuousAxisRangeFor(
+    //                 //     Math.max(0, currentTimeRef.current - timeWindow),
+    //                 //     Math.max(currentTimeRef.current, timeWindow)
+    //                 // )
+    //             }).then(() => {
+    //                 // updates the caller with the current time
+    //                 // onUpdateTime(currentTimeRef.current)
+    //
+    //                 if (timeRangesRef.current !== undefined) {
+    //                     updatePlot(timeRangesRef.current, mainG)
+    //                 }
+    //             })
+    //         })
+    //
+    //     // provide the subscription to the caller
+    //     onSubscribe(subscription)
+    //
+    //     return subscription
+    // }
 
     return null
 }

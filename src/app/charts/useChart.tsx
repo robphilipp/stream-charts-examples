@@ -111,9 +111,9 @@ const defaultUseChartValues: UseChartValues = {
     updateWindowingTime: noop,
     // updateShouldSubscribe: noop,
     // setObservable: noop,
-    subscriptionHandler: noop,
-    dataUpdateHandler: noop,
-    timeUpdateHandler: noop,
+    subscriptionHandler: () => noop,
+    dataUpdateHandler: () => noop,
+    timeUpdateHandler: () => noop,
 }
 
 const ChartContext = createContext<UseChartValues>(defaultUseChartValues)
@@ -301,13 +301,17 @@ export default function ChartProvider(props: Props): JSX.Element {
             windowingTime,
             shouldSubscribe,
 
-            onSubscribe, onUpdateTime, onUpdateData,
+            onSubscribe,
+            onUpdateTime,
+            onUpdateData,
             // setMainGSelection,
             updateDimensions,
             updateWindowingTime,
             // updateShouldSubscribe,
             // setObservable,
-            subscriptionHandler, dataUpdateHandler, timeUpdateHandler
+            subscriptionHandler,
+            dataUpdateHandler,
+            timeUpdateHandler
         }}
     >
         {children}
