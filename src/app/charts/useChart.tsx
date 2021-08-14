@@ -37,6 +37,8 @@ interface UseChartValues {
     // initial data
     initialData: Map<string, Series>
 
+    seriesFilter: RegExp
+
     // todo not sure about these
     seriesObservable?: Observable<ChartData>
     windowingTime: number
@@ -83,6 +85,9 @@ const defaultUseChartValues: UseChartValues = {
 
     initialData: new Map(),
 
+    seriesFilter: /./,
+
+    //
     windowingTime: NaN,
     shouldSubscribe: false,
 
@@ -112,6 +117,7 @@ interface Props {
     color: string
     seriesStyles?: Map<string, SeriesLineStyle>
     initialData: Map<string, Series>
+    seriesFilter?: RegExp
 
     children: JSX.Element | Array<JSX.Element>
 }
@@ -125,6 +131,7 @@ export default function ChartProvider(props: Props): JSX.Element {
         margin,
         color,
         initialData,
+        seriesFilter = defaultUseChartValues.seriesFilter,
         seriesStyles = new Map()
     } = props
     // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
@@ -256,6 +263,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             color,
             seriesStyles,
             initialData,
+            seriesFilter,
             mainG, container,
             addXAxis, xAxisFor, xAxisIds, xAxes, xAxisDefaultName,
             addYAxis, yAxisFor, yAxisIds, yAxes, yAxisDefaultName,

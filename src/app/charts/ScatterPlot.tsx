@@ -13,9 +13,7 @@ export interface AxesAssignment {
     yAxis: string
 }
 
-export function assignedAxes(xAxis: string, yAxis: string): AxesAssignment {
-    return {xAxis, yAxis}
-}
+export const assignedAxes = (xAxis: string, yAxis: string): AxesAssignment => ({xAxis, yAxis})
 
 interface Props {
     axisAssignments?: Map<string, AxesAssignment>
@@ -37,10 +35,11 @@ export function ScatterPlot(props: Props): null {
         color,
         seriesStyles,
         initialData,
+        seriesFilter,
     } = useChart()
 
     const {
-        axisAssignments = new Map<string, AxesAssignment>()
+        axisAssignments = new Map<string, AxesAssignment>(),
     } = props
 
     const updatePlot = useCallback(
@@ -170,8 +169,8 @@ export function ScatterPlot(props: Props): null {
 
                     // only show the data for which the filter matches
                     // const plotData = (series.name.match(seriesFilterRef.current)) ? data : []
-                    // const plotData = (name.match(seriesFilterRef.current)) ? data : []
-                    const plotData = data
+                    const plotData = (name.match(seriesFilter)) ? data : []
+                    // const plotData = data
 
                     // create the time-series paths
                     mainGElem
@@ -213,7 +212,13 @@ export function ScatterPlot(props: Props): null {
                 })
             }
         },
-        [axisAssignments, chartId, container, initialData, margin, plotDimensions, seriesStyles, xAxisDefaultName, xAxisFor, yAxisFor]
+        [
+            chartId,
+            container, margin, plotDimensions,
+            setTimeRangeFor,
+            initialData, seriesFilter, seriesStyles, axisAssignments,
+            xAxisDefaultName, xAxisFor, yAxisFor
+        ]
     )
 
     useEffect(
@@ -236,6 +241,7 @@ export function ScatterPlot(props: Props): null {
  * @param datum The current datum
  * @param index The index of the current datum
  * @param array The array of datum
+ * @param timeRange The time-range against which to check the line segment
  * @return `true` if the line segment is in the time-range, or if the line-segment
  * that ends after the time-range end or that starts before the time-range start is
  * in the time-range (i.e. intersects the time-range boundary). In other words, return
@@ -255,6 +261,7 @@ function inTimeRange(datum: Datum, index: number, array: Datum[], timeRange: Con
  * Returns the data in the time-range and the datum that comes just before the start of the time range.
  * The point before the time range is so that the line draws up to the y-axis, where it is clipped.
  * @param series The series
+ * @param timeRange The time-range against which to check the line segment
  * @return An array of (time, value) points that fit within the time range,
  * and the point just before the time range.
  */

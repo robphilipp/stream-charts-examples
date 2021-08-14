@@ -27,7 +27,7 @@ const spikes: Array<Series> = inputNeurons.concat(outputNeurons).map(neuron => s
 const weights: Array<Series> = inputNeurons.flatMap(input => outputNeurons.map(output => seriesFrom(`${input}-${output}`)));
 
 const initialData = new Map([
-    ['test', seriesFrom('test', [
+    ['test1', seriesFrom('test', [
         datumOf(10, 80),
         datumOf(20, 220),
         datumOf(30, 300),
@@ -120,10 +120,11 @@ const App: React.FC = () => {
                     // svgStyle={{'background-color': 'pink'}}
                     backgroundColor='lightgray'
                     seriesStyles={new Map([
-                        ['test', {...defaultLineStyle, color: 'orange', lineWidth: 1}],
+                        ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1}],
                         ['test2', {...defaultLineStyle, color: 'blue', lineWidth: 3}],
                     ])}
                     initialData={initialData}
+                    // seriesFilter={/test*/}
                     seriesObservable={new Observable()}
                 >
                     <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 100]} label="x-axis"/>

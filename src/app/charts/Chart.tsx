@@ -27,6 +27,7 @@ interface Props {
 
     // initial data
     initialData: Map<string, Series>
+    seriesFilter?: RegExp
 
     // data stream
     seriesObservable: Observable<ChartData>
@@ -50,13 +51,14 @@ export function Chart(props: Props): JSX.Element {
         backgroundColor = defaultBackground,
         seriesStyles = new Map(),
         initialData,
+        seriesFilter = /./,
         seriesObservable,
         windowingTime = 100,
         shouldSubscribe = true,
         onSubscribe = noop,
         onUpdateData = noop,
         onUpdateTime = noop,
-        filter = /./,
+
         children,
     } = props
 
@@ -123,6 +125,7 @@ export function Chart(props: Props): JSX.Element {
                 color={color}
                 seriesStyles={seriesStyles}
                 initialData={initialData}
+                seriesFilter={seriesFilter}
             >
                 {
                     // the chart elements are the children
