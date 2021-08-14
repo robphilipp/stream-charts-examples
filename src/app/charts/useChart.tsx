@@ -35,7 +35,8 @@ interface UseChartValues {
     setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
 
     // initial data
-    initialData: Map<string, Series>
+    // initialData: Map<string, Series>
+    initialData: Array<Series>
 
     seriesFilter: RegExp
 
@@ -83,7 +84,8 @@ const defaultUseChartValues: UseChartValues = {
     timeRangeFor: () => [NaN, NaN],
     setTimeRangeFor: noop,
 
-    initialData: new Map(),
+    // initialData: new Map(),
+    initialData: [],
 
     seriesFilter: /./,
 
@@ -116,7 +118,8 @@ interface Props {
     margin: Margin
     color: string
     seriesStyles?: Map<string, SeriesLineStyle>
-    initialData: Map<string, Series>
+    // initialData: Map<string, Series>
+    initialData: Array<Series>
     seriesFilter?: RegExp
 
     children: JSX.Element | Array<JSX.Element>

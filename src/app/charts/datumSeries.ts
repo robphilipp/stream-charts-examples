@@ -29,6 +29,8 @@ export interface Series {
  * @param name The name of the series (i.e. neuron)
  * @param data The array of (time, value) pairs, where the value is the spike value (in mV)
  * @return A `Series` for object that can be used by the `RasterChart`
+ * @see seriesFromTuples
+ * @see emptySeries
  */
 export function seriesFrom(name: string, data: Array<Datum> = []): Series {
     return {
@@ -41,9 +43,23 @@ export function seriesFrom(name: string, data: Array<Datum> = []): Series {
 }
 
 /**
+ * Creates a series from the name and the optional array of (x, y) pairs (tuples)
+ * @param name The name of the series
+ * @param data The optional array of (x, y) pairs (tuples)
+ * @return A `Series` for object that can be used by the `RasterChart`
+ * @see seriesFrom
+ * @see emptySeries
+ */
+export function seriesFromTuples(name: string, data: Array<[number, number]> = []): Series {
+    return seriesFrom(name, data.map(([t, y]) => datumOf(t, y)))
+}
+
+/**
  * Returns an empty series with the specified name
  * @param {string} name The name of the series
  * @return {Series} The empty series
+ * @see seriesFrom
+ * @see seriesFromTuples
  */
 export function emptySeries(name: string): Series {
     return seriesFrom(name);

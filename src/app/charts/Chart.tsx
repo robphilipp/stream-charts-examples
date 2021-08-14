@@ -26,7 +26,8 @@ interface Props {
     seriesStyles?: Map<string, SeriesLineStyle>
 
     // initial data
-    initialData: Map<string, Series>
+    // initialData: Map<string, Series>
+    initialData: Array<Series>
     seriesFilter?: RegExp
 
     // data stream

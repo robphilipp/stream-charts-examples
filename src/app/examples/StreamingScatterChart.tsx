@@ -15,6 +15,12 @@ import {Series} from "../charts/datumSeries";
 import { ChartData } from "../charts/chartData";
 import { regexFilter } from "../charts/regexFilter";
 import {ScatterChart} from "../charts/ScatterChart";
+import {Chart} from "../charts/Chart";
+import {defaultMargin} from "../charts/useChart";
+import {AxisLocation, defaultLineStyle} from "../charts/axes";
+import {ContinuousAxis} from "../charts/ContinuousAxis";
+import * as d3 from "d3";
+import {assignedAxes, ScatterPlot} from "../charts/ScatterPlot";
 
 interface Visibility {
     tooltip: boolean;
@@ -33,20 +39,21 @@ const initialVisibility: Visibility = {
  */
 interface Props {
     timeWindow?: number;
-    seriesList: Array<Series>;
+    // seriesList: Array<Series>;
+    initialData: Array<Series>
+    // initialData: Map<string, Series>
     plotHeight?: number;
     plotWidth?: number;
 }
 
 export function StreamingScatterChart(props: Props): JSX.Element {
     const {
-        seriesList,
-        timeWindow = 100,
-        plotHeight = 20,
-        // plotWidth = 500
+        // seriesList,
+        initialData,
     } = props;
 
-    const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(seriesList.map(series => series.name), 0.1));
+    const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(initialData.map(series => series.name), 0.1));
+    // const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(seriesList.map(series => series.name), 0.1));
     const subscriptionRef = useRef<Subscription>();
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -85,12 +92,14 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 .addTrack(withFraction(1))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
-                .addTrack(withPixels(30))
+                .addTrack(withPixels(35))
                 .addTrack(withFraction(1))
+                .addTrack(withPixels(10))
                 .build()}
             gridTemplateAreas={gridTemplateAreasBuilder()
                 .addArea("chart-controls", gridArea(1, 1))
                 .addArea("chart", gridArea(2, 1))
+                .addArea("chart-bottom", gridArea(3, 1))
                 .build()}
             styles={{color: '#d2933f'}}
         >
@@ -138,68 +147,98 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
-                <ScatterChart
-                    // when the `width` property is specified, then the width of the chart will be that number
-                    // in pixels. alternatively, if the `svgStyle` property has a `width` property with a relative
-                    // width (i.e. percentage), then the chart will resize its width as the window resizes.
+                <Chart
                     width={useGridCellWidth()}
-
-                    // the `height` property specifies the height of the plot in pixels
                     height={useGridCellHeight()}
-                    // the `seriesList` is used to determine the list of series ids and initial data
-                    seriesList={seriesList}
-                    // the `seriesObservable` is the rxjs observable that streams `ChartData` to the chart.
-                    seriesObservable={observableRef.current}
-                    // the `onSubscribe` provides a callback that gets handed the subscription when the chart
-                    // subscribes to the rxjs observable. this can be used to hold on to the subscription for
-                    // cancelling, or to perform some other action when the chart subscribes to the observable
-                    onSubscribe={(subscription: Subscription) => subscriptionRef.current = subscription}
-                    // the `shouldSubscribe` property is optional, and true by default, which means that the chart
-                    // will subscribe to the observable when it mounts. however, you can set it to `false`, in which
-                    // case the chart will not subscribe to the observable until it is later set to `true`
-                    // shouldSubscribe={shouldSubscribe}
-
-                    // the `onUpdateTime` is an optional property that when specified will be called when the time
-                    // is updated. in this example, we use it to unsubscribe to the observable after 3 seconds
-                    onUpdateTime={(t: number) => {
-                        if (t > 3000) subscriptionRef.current!.unsubscribe()
+                    margin={{
+                        ...defaultMargin,
+                        top: 60,
+                        right: 60
                     }}
-                    // the `onUpdateData` is an optional property that when specified will be called when the data
-                    // is updated. please note that this could get called a lot and so should only perform a short
-                    // task
-                    // onUpdateData={(name: string, data: Array<Datum>) => do something}
+                    // svgStyle={{'background-color': 'pink'}}
+                    backgroundColor='lightgray'
+                    seriesStyles={new Map([
+                        ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1}],
+                        ['test2', {...defaultLineStyle, color: 'blue', lineWidth: 3}],
+                    ])}
+                    initialData={initialData}
+                    seriesFilter={filter}
+                    seriesObservable={new Observable()}
+                >
+                    <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 100]} label="x-axis"/>
+                    <ContinuousAxis axisId="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
+                    <ContinuousAxis axisId="x-axis-2" location={AxisLocation.Top} domain={[100, 1000]} label="x-axis (2)"/>
+                    <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>
+                    <ScatterPlot
+                        axisAssignments={new Map([
+                            // ['test', assignedAxes("x-axis-1", "y-axis-1")],
+                            ['test2', assignedAxes("x-axis-2", "y-axis-2")],
+                            // ['test3', assignedAxes("x-axis-1", "y-axis-1")],
+                        ])}
+                    />
+                </Chart>
+                {/*<ScatterChart*/}
+                {/*    // when the `width` property is specified, then the width of the chart will be that number*/}
+                {/*    // in pixels. alternatively, if the `svgStyle` property has a `width` property with a relative*/}
+                {/*    // width (i.e. percentage), then the chart will resize its width as the window resizes.*/}
+                {/*    width={useGridCellWidth()}*/}
 
-                    // the `timeWindow` property defines how much of the data is displayed in the chart's rolling
-                    // time window. for example, 2000 would mean that the most recent 2 seconds are displayed
-                    timeWindow={timeWindow}
-                    // the `windowingTime` is the amount of time that the data is buffered before the chart is updated.
-                    // the shorter this window, the smoother the updates, but the more CPU will be used. the window size
-                    // should be balanced with the amount of data. less data could have short window sizes. more data
-                    // should have longer window sizes
-                    windowingTime={50}
-                    // the `margin` around the plot
-                    margin={{top: 30, right: 20, bottom: 30, left: 75}}
-                    // the `tooltip` style properties that allow you to specify the way the tooltip looks
-                    tooltip={{visible: visibility.tooltip}}
-                    // the `tooltipValueLabel` specifies the value label in the tooltip. this represents the values
-                    // of the y-axis
-                    tooltipValueLabel='weight'
-                    // the `magnifier` style properties
-                    magnifier={{visible: visibility.magnifier, magnification: magnification, radius: 150}}
-                    // the `tracker` style properties
-                    tracker={{visible: visibility.tracker}}
-                    // the `filter` property specifies the javascript regex object used to filter the data. all series
-                    // whose name match the regex express will be displayed in the chart.
-                    filter={filter}
-                    // you can specify a map that holds the colors for each series id, or you can let the
-                    // chart pick the colors for you.
-                    // seriesColors={new Map()}
+                {/*    // the `height` property specifies the height of the plot in pixels*/}
+                {/*    height={useGridCellHeight()}*/}
+                {/*    // the `seriesList` is used to determine the list of series ids and initial data*/}
+                {/*    seriesList={seriesList}*/}
+                {/*    // the `seriesObservable` is the rxjs observable that streams `ChartData` to the chart.*/}
+                {/*    seriesObservable={observableRef.current}*/}
+                {/*    // the `onSubscribe` provides a callback that gets handed the subscription when the chart*/}
+                {/*    // subscribes to the rxjs observable. this can be used to hold on to the subscription for*/}
+                {/*    // cancelling, or to perform some other action when the chart subscribes to the observable*/}
+                {/*    onSubscribe={(subscription: Subscription) => subscriptionRef.current = subscription}*/}
+                {/*    // the `shouldSubscribe` property is optional, and true by default, which means that the chart*/}
+                {/*    // will subscribe to the observable when it mounts. however, you can set it to `false`, in which*/}
+                {/*    // case the chart will not subscribe to the observable until it is later set to `true`*/}
+                {/*    // shouldSubscribe={shouldSubscribe}*/}
 
-                    // the `svgStyle` property allow you to set the svg container's style. for example, here the svg
-                    // container has a relative width so that the chart width updates when the window is resized
-                    svgStyle={{width: '100%'}}
+                {/*    // the `onUpdateTime` is an optional property that when specified will be called when the time*/}
+                {/*    // is updated. in this example, we use it to unsubscribe to the observable after 3 seconds*/}
+                {/*    onUpdateTime={(t: number) => {*/}
+                {/*        if (t > 3000) subscriptionRef.current!.unsubscribe()*/}
+                {/*    }}*/}
+                {/*    // the `onUpdateData` is an optional property that when specified will be called when the data*/}
+                {/*    // is updated. please note that this could get called a lot and so should only perform a short*/}
+                {/*    // task*/}
+                {/*    // onUpdateData={(name: string, data: Array<Datum>) => do something}*/}
 
-                    dropDataAfter={10000}/>
+                {/*    // the `timeWindow` property defines how much of the data is displayed in the chart's rolling*/}
+                {/*    // time window. for example, 2000 would mean that the most recent 2 seconds are displayed*/}
+                {/*    timeWindow={timeWindow}*/}
+                {/*    // the `windowingTime` is the amount of time that the data is buffered before the chart is updated.*/}
+                {/*    // the shorter this window, the smoother the updates, but the more CPU will be used. the window size*/}
+                {/*    // should be balanced with the amount of data. less data could have short window sizes. more data*/}
+                {/*    // should have longer window sizes*/}
+                {/*    windowingTime={50}*/}
+                {/*    // the `margin` around the plot*/}
+                {/*    margin={{top: 30, right: 20, bottom: 30, left: 75}}*/}
+                {/*    // the `tooltip` style properties that allow you to specify the way the tooltip looks*/}
+                {/*    tooltip={{visible: visibility.tooltip}}*/}
+                {/*    // the `tooltipValueLabel` specifies the value label in the tooltip. this represents the values*/}
+                {/*    // of the y-axis*/}
+                {/*    tooltipValueLabel='weight'*/}
+                {/*    // the `magnifier` style properties*/}
+                {/*    magnifier={{visible: visibility.magnifier, magnification: magnification, radius: 150}}*/}
+                {/*    // the `tracker` style properties*/}
+                {/*    tracker={{visible: visibility.tracker}}*/}
+                {/*    // the `filter` property specifies the javascript regex object used to filter the data. all series*/}
+                {/*    // whose name match the regex express will be displayed in the chart.*/}
+                {/*    filter={filter}*/}
+                {/*    // you can specify a map that holds the colors for each series id, or you can let the*/}
+                {/*    // chart pick the colors for you.*/}
+                {/*    // seriesColors={new Map()}*/}
+
+                {/*    // the `svgStyle` property allow you to set the svg container's style. for example, here the svg*/}
+                {/*    // container has a relative width so that the chart width updates when the window is resized*/}
+                {/*    svgStyle={{width: '100%'}}*/}
+
+                {/*    dropDataAfter={10000}/>*/}
             </GridItem>
         </Grid>
     );

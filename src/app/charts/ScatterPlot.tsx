@@ -106,12 +106,18 @@ export function ScatterPlot(props: Props): null {
                 // create a map associating series-names to their time-series, which are represented
                 // as an array of (time, value)-pairs
                 const boundedSeries: Map<string, Array<[number, number]>> = new Map()
-                initialData
-                    .forEach((series, name) =>
-                        boundedSeries.set(
-                            name,
-                            selectInTimeRange(series, timeRangeFor(name, timeRanges, axisAssignments))
-                        ))
+                initialData.forEach(series =>
+                    boundedSeries.set(
+                        series.name,
+                        selectInTimeRange(series, timeRangeFor(series.name, timeRanges, axisAssignments))
+                    )
+                )
+                // initialData
+                //     .forEach((series, name) =>
+                //         boundedSeries.set(
+                //             name,
+                //             selectInTimeRange(series, timeRangeFor(name, timeRanges, axisAssignments))
+                //         ))
                 // liveDataRef.current
                 //     .forEach((series, name) => boundedSeries.set(name, selectInTimeRange(series)))
                 //
