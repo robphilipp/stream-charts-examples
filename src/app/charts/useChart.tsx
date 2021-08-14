@@ -179,7 +179,8 @@ export default function ChartProvider(props: Props): JSX.Element {
     const [onSubscribe, setOnSubscribe] = useState<(subscription: Subscription) => void>(noop)
     const [onUpdateData, setOnUpdateData] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
     // const [onUpdateTime, setOnUpdateTime] = useState<(axisId: string, time: number) => void>(noop)
-    const [timeUpdateHandlers, setTimeUpdateHandlers] = useState<Map<string, (updates: Map<string, ContinuousAxisRange>) => void>>(new Map())
+    const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>) => void>>(new Map())
+    // const [timeUpdateHandlers, setTimeUpdateHandlers] = useState<Map<string, (updates: Map<string, ContinuousAxisRange>) => void>>(new Map())
 
     // // function newChart(chartId: number, mainG: GSelection, container: SVGSVGElement): void {
     // function newChart(chartId: number, mainG: GSelection): void {
@@ -263,22 +264,25 @@ export default function ChartProvider(props: Props): JSX.Element {
     }
 
     function addTimeUpdateHandler(handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>) => void): void {
-        const handlers = new Map(timeUpdateHandlers)
-        handlers.set(handlerId, handler)
-        setTimeUpdateHandlers(handlers)
+        // const handlers = new Map(timeUpdateHandlers)
+        // handlers.set(handlerId, handler)
+        // setTimeUpdateHandlers(handlers)
+        timeUpdateHandlersRef.current.set(handlerId, handler)
     }
 
     function removeTimeUpdateHandler(handlerId: string): void {
-        if (timeUpdateHandlers.delete(handlerId)) {
-            setTimeUpdateHandlers(new Map(timeUpdateHandlers))
-        }
+        // if (timeUpdateHandlers.delete(handlerId)) {
+        //     setTimeUpdateHandlers(new Map(timeUpdateHandlers))
+        // }
+        timeUpdateHandlersRef.current.delete(handlerId)
     }
 
     function handleUpdateTime(updates: Map<string, ContinuousAxisRange>): void {
         updates.forEach(
             (range, id) => timeRangesRef.current.set(id, [range.start, range.end])
         )
-        timeUpdateHandlers.forEach((handler, id) => handler(updates))
+        // timeUpdateHandlers.forEach((handler, id) => handler(updates))
+        timeUpdateHandlersRef.current.forEach((handler, id) => handler(updates))
     }
 
     // function setWindowingTimeFor(axisId: string, windowingTime: number): void {

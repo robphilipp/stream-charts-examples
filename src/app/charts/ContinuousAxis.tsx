@@ -129,6 +129,9 @@ export function ContinuousAxis(props: Props): null {
                             if (timeRange) {
                                 axisRef.current.update(timeRange, plotDimensions, margin)
                             }
+                            if (timeUpdateHandlerIdRef.current !== undefined) {
+                                addTimeUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
+                            }
                             break
                         case AxisLocation.Left:
                         case AxisLocation.Right:
