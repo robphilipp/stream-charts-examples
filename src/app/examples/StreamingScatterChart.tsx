@@ -20,7 +20,7 @@ import {defaultMargin} from "../charts/useChart";
 import {AxisLocation, defaultLineStyle} from "../charts/axes";
 import {ContinuousAxis} from "../charts/ContinuousAxis";
 import * as d3 from "d3";
-import {assignedAxes, ScatterPlot} from "../charts/ScatterPlot";
+import {assignAxes, ScatterPlot} from "../charts/ScatterPlot";
 
 interface Visibility {
     tooltip: boolean;
@@ -39,21 +39,17 @@ const initialVisibility: Visibility = {
  */
 interface Props {
     timeWindow?: number;
-    // seriesList: Array<Series>;
     initialData: Array<Series>
-    // initialData: Map<string, Series>
     plotHeight?: number;
     plotWidth?: number;
 }
 
 export function StreamingScatterChart(props: Props): JSX.Element {
     const {
-        // seriesList,
         initialData,
     } = props;
 
     const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(initialData.map(series => series.name), 0.1));
-    // const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(seriesList.map(series => series.name), 0.1));
     const subscriptionRef = useRef<Subscription>();
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -163,7 +159,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     ])}
                     initialData={initialData}
                     seriesFilter={filter}
-                    seriesObservable={new Observable()}
+                    seriesObservable={observableRef.current}
+                    shouldSubscribe={false}
                 >
                     <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 100]} label="x-axis"/>
                     <ContinuousAxis axisId="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
@@ -171,9 +168,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>
                     <ScatterPlot
                         axisAssignments={new Map([
-                            // ['test', assignedAxes("x-axis-1", "y-axis-1")],
-                            ['test2', assignedAxes("x-axis-2", "y-axis-2")],
-                            // ['test3', assignedAxes("x-axis-1", "y-axis-1")],
+                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                            ['test2', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         ])}
                     />
                 </Chart>

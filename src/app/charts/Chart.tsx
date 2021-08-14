@@ -31,7 +31,7 @@ interface Props {
     seriesFilter?: RegExp
 
     // data stream
-    seriesObservable: Observable<ChartData>
+    seriesObservable?: Observable<ChartData>
     windowingTime?: number
     shouldSubscribe?: boolean
     onSubscribe?: (subscription: Subscription) => void
@@ -127,6 +127,9 @@ export function Chart(props: Props): JSX.Element {
                 seriesStyles={seriesStyles}
                 initialData={initialData}
                 seriesFilter={seriesFilter}
+
+                seriesObservable={seriesObservable}
+                shouldSubscribe={shouldSubscribe}
             >
                 {
                     // the chart elements are the children

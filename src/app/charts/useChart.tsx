@@ -40,22 +40,28 @@ interface UseChartValues {
 
     seriesFilter: RegExp
 
-    // todo not sure about these
+    // when showing static data, these aren't needed
     seriesObservable?: Observable<ChartData>
-    windowingTime: number
-    shouldSubscribe: boolean
+    windowingTime?: number
+    shouldSubscribe?: boolean
 
+    // the time axes will likely have different windowing times. the map
+    // associations the axis ID with the windowing time
+    // windowingTimes: Map<string, number>
+    // setWindowingTimeFor: (axisId: string, windowingTime: number) => void
+
+    // todo not sure about these
     onSubscribe: (subscription: Subscription) => void
     onUpdateData: (seriesName: string, data: Array<Datum>) => void
     onUpdateTime: (time: number) => void
-    setObservable: (observable: Observable<ChartData>) => void
+    // setObservable: (observable: Observable<ChartData>) => void
 
     // newChart: (chartId: number, mainG: GSelection, container: SVGSVGElement) => void
     // newChart: (chartId: number, mainG: GSelection) => void
     // setMainGSelection: (g: GSelection) => void
     updateDimensions: (dimensions: PlotDimensions) => void
     updateWindowingTime: (window: number) => void
-    updateShouldSubscribe: (subscribe: boolean) => void
+    // updateShouldSubscribe: (subscribe: boolean) => void
     subscriptionHandler: (subscribeHandler: (subscription: Subscription) => void) => void
     dataUpdateHandler: (updateDataHandler: (seriesName: string, data: Array<Datum>) => void) => void
     timeUpdateHandler: (updateTimeHandler: (time: number) => void) => void
@@ -92,6 +98,8 @@ const defaultUseChartValues: UseChartValues = {
     //
     windowingTime: NaN,
     shouldSubscribe: false,
+    // windowingTimes: new Map(),
+    // setWindowingTimeFor: noop,
 
     onSubscribe: noop,
     onUpdateData: noop,
@@ -101,8 +109,8 @@ const defaultUseChartValues: UseChartValues = {
     // setMainGSelection: noop,
     updateDimensions: noop,
     updateWindowingTime: noop,
-    updateShouldSubscribe: noop,
-    setObservable: noop,
+    // updateShouldSubscribe: noop,
+    // setObservable: noop,
     subscriptionHandler: noop,
     dataUpdateHandler: noop,
     timeUpdateHandler: noop,
@@ -118,9 +126,13 @@ interface Props {
     margin: Margin
     color: string
     seriesStyles?: Map<string, SeriesLineStyle>
-    // initialData: Map<string, Series>
     initialData: Array<Series>
     seriesFilter?: RegExp
+
+    // live data
+    seriesObservable?: Observable<ChartData>
+    windowingTime?: number
+    shouldSubscribe?: boolean
 
     children: JSX.Element | Array<JSX.Element>
 }
@@ -135,7 +147,10 @@ export default function ChartProvider(props: Props): JSX.Element {
         color,
         initialData,
         seriesFilter = defaultUseChartValues.seriesFilter,
-        seriesStyles = new Map()
+        seriesStyles = new Map(),
+
+        seriesObservable,
+        shouldSubscribe,
     } = props
     // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
     const [dimensions, setDimensions] = useState<PlotDimensions>(defaultUseChartValues.plotDimensions)
@@ -147,9 +162,10 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
-    const [seriesObservable, setSeriesObservable] = useState<Observable<ChartData>>()
-    const [windowingTime, setWindowingTime] = useState<number>(defaultUseChartValues.windowingTime)
-    const [shouldSubscribe, setShouldSubscribe] = useState<boolean>(defaultUseChartValues.shouldSubscribe)
+    // const [seriesObservable, setSeriesObservable] = useState<Observable<ChartData>>()
+    const [windowingTime, setWindowingTime] = useState<number>(defaultUseChartValues.windowingTime || 100)
+    // const [shouldSubscribe, setShouldSubscribe] = useState<boolean>(defaultUseChartValues.shouldSubscribe)
+    // const [windowingTimes, setWindowingTimes] = useState<Map<string, number>>(defaultUseChartValues.windowingTimes)
 
     const [onSubscribe, setOnSubscribe] = useState<(subscription: Subscription) => void>(noop)
     const [onUpdateData, setOnUpdateData] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
@@ -172,9 +188,9 @@ export default function ChartProvider(props: Props): JSX.Element {
     //     setMainG(g)
     // }
 
-    function setObservable(observable: Observable<ChartData>): void {
-        setSeriesObservable(observable)
-    }
+    // function setObservable(observable: Observable<ChartData>): void {
+    //     setSeriesObservable(observable)
+    // }
 
     function updateDimensions(plotDimensions: PlotDimensions): void {
         setDimensions(plotDimensions)
@@ -236,14 +252,19 @@ export default function ChartProvider(props: Props): JSX.Element {
         timeRangesRef.current.set(axisId, timeRange)
     }
 
+    // function setWindowingTimeFor(axisId: string, windowingTime: number): void {
+    //     const times = new Map(windowingTimes)
+    //     times.set(axisId, windowingTime)
+    //     setWindowingTimes(times)
+    // }
 
-        function updateWindowingTime(window: number): void {
+    function updateWindowingTime(window: number): void {
         setWindowingTime(window)
     }
 
-    function updateShouldSubscribe(subscribe: boolean): void {
-        setShouldSubscribe(subscribe)
-    }
+    // function updateShouldSubscribe(subscribe: boolean): void {
+    //     setShouldSubscribe(subscribe)
+    // }
 
     function subscriptionHandler(subscribeHandler: (subscription: Subscription) => void): void {
         setOnSubscribe(subscribeHandler)
@@ -267,14 +288,25 @@ export default function ChartProvider(props: Props): JSX.Element {
             seriesStyles,
             initialData,
             seriesFilter,
+
             mainG, container,
             addXAxis, xAxisFor, xAxisIds, xAxes, xAxisDefaultName,
             addYAxis, yAxisFor, yAxisIds, yAxes, yAxisDefaultName,
             timeRangeFor, setTimeRangeFor,
-            seriesObservable, windowingTime, shouldSubscribe,
+
+            // windowingTimes,
+            // setWindowingTimeFor,
+
+            seriesObservable,
+            windowingTime,
+            shouldSubscribe,
+
             onSubscribe, onUpdateTime, onUpdateData,
             // setMainGSelection,
-            updateDimensions, updateWindowingTime, updateShouldSubscribe, setObservable,
+            updateDimensions,
+            updateWindowingTime,
+            // updateShouldSubscribe,
+            // setObservable,
             subscriptionHandler, dataUpdateHandler, timeUpdateHandler
         }}
     >

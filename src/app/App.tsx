@@ -17,7 +17,7 @@ import {Observable} from "rxjs";
 import {AxisLocation, defaultLineStyle} from "./charts/axes";
 import {defaultMargin} from "./charts/useChart";
 import {ContinuousAxis} from "./charts/ContinuousAxis";
-import {assignedAxes, ScatterPlot} from "./charts/ScatterPlot";
+import {assignAxes, ScatterPlot} from "./charts/ScatterPlot";
 import {datumOf, seriesFromTuples} from "./charts/datumSeries";
 import * as d3 from 'd3';
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
@@ -68,7 +68,7 @@ const App: React.FC = () => {
             styles={{backgroundColor: '#202020'}}
         >
             <GridItem gridAreaName="scatter-header">
-                <h3 style={{color: '#d2933f'}}>Static Scatter Chart</h3>
+                <h3 style={{color: '#d2933f'}}>Streaming Scatter Chart</h3>
             </GridItem>
             <GridItem gridAreaName="scatter-chart">
                 {/*<StreamingScatterChart*/}
@@ -114,8 +114,7 @@ const App: React.FC = () => {
                 />
             </GridItem>
             <GridItem gridAreaName="raster-header">
-                <h3 style={{color: '#d2933f'}}>Streaming Scatter Chart</h3>
-                {/*<h3 style={{color: '#d2933f'}}>Streaming Raster Chart</h3>*/}
+                <h3 style={{color: '#d2933f'}}>Streaming Raster Chart</h3>
             </GridItem>
             {/*<GridItem gridAreaName="raster-chart">*/}
             {/*    <StreamingRasterChart*/}

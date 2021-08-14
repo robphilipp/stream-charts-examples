@@ -1,12 +1,12 @@
-import {AxesLabelFont, AxisLocation, defaultAxesLabelFont, ContinuousNumericAxis} from "./axes";
+import {AxesLabelFont, AxisLocation, ContinuousNumericAxis, defaultAxesLabelFont} from "./axes";
 import {useChart} from "./useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
+import {ScaleContinuousNumeric} from "d3";
 import {SvgSelection} from "./d3types";
 import {Dimensions, Margin} from "./margins";
 import {noop} from "./utils";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
-import {ScaleContinuousNumeric} from "d3";
 
 interface Props {
     // the unique ID of the axis
@@ -34,6 +34,7 @@ export function ContinuousAxis(props: Props): null {
         addYAxis,
         setTimeRangeFor,
         timeRangeFor,
+        // setWindowingTimeFor,
     } = useChart()
 
     const {
@@ -45,6 +46,14 @@ export function ContinuousAxis(props: Props): null {
     } = props
 
     const axisRef = useRef<ContinuousNumericAxis>()
+
+    // useEffect(
+    //     () => {
+    //         const [start, end] = domain
+    //         setWindowingTimeFor(axisId, Math.abs(end - start))
+    //     },
+    //     [axisId, domain, setWindowingTimeFor]
+    // )
 
     useEffect(
         () => {

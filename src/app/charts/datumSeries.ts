@@ -50,20 +50,27 @@ export function seriesFrom(name: string, data: Array<Datum> = []): Series {
  * @see seriesFrom
  * @see emptySeries
  */
-export function seriesFromTuples(name: string, data: Array<[number, number]> = []): Series {
-    return seriesFrom(name, data.map(([t, y]) => datumOf(t, y)))
-}
+export const seriesFromTuples = (name: string, data: Array<[number, number]> = []): Series =>
+    seriesFrom(name, data.map(([t, y]) => datumOf(t, y)))
 
 /**
  * Returns an empty series with the specified name
- * @param {string} name The name of the series
- * @return {Series} The empty series
+ * @param name The name of the series
+ * @return The empty series
  * @see seriesFrom
  * @see seriesFromTuples
  */
-export function emptySeries(name: string): Series {
-    return seriesFrom(name);
-}
+export const emptySeries = (name: string): Series => seriesFrom(name);
+
+/**
+ * Creates an array of empty series, one for each specified name
+ * @param names The names for each of the empty series
+ * @return An array of empty series with the specified names
+ * @see emptySeries
+ * @see seriesFrom
+ * @see seriesFromTuples
+ */
+export const emptySeriesFor = (names: Array<string>): Array<Series> => names.map(name => seriesFrom(name))
 
 export interface PixelDatum extends Datum {
     x: number;
