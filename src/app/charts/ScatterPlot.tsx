@@ -59,10 +59,17 @@ export function ScatterPlot(props: Props): null {
     const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
     // const currentTimeRef = useRef<number>(0)
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
-    const currentTimeRef = useRef<Map<string, number>>(new Map(initialData.map(series => [series.name, 0])))
+    // const currentTimeRef = useRef<Map<string, number>>(new Map(initialData.map(series => [series.name, 0])))
+    const currentTimeRef = useRef<Map<string, number>>(new Map())
     // const xAxesLinearRef = useRef<Map<string, ContinuousNumericAxis>>()
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>()
 
+    useEffect(
+        () => {
+            currentTimeRef.current = new Map(Array.from(xAxes().keys()).map(id => [id, 0]))
+        },
+        [xAxes]
+    )
 
     const updatePlot = useCallback(
         /**
@@ -279,7 +286,10 @@ export function ScatterPlot(props: Props): null {
                             // )
 
                             const axisId = axisAssignments.get(name)?.xAxis || xAxisDefaultName()
-                            const currentAxisTime = currentTimeRef.current.get(axisId)
+                            // todo, this should be the max time for the axis, which may not be the same
+                            //      for all axes
+                            const currentAxisTime = data.maxTime
+                            // const currentAxisTime = currentTimeRef.current.get(axisId)
                             if (currentAxisTime !== undefined) {
                                 // drop data that is older than the max time-window
                                 // todo replace the infinity
@@ -298,11 +308,9 @@ export function ScatterPlot(props: Props): null {
                                         Math.max(currentAxisTime, timeWindow)
                                     )
                                     timesWindows.set(axisId, timeRange)
+                                    currentTimeRef.current.set(axisId, timeRange.end)
                                 }
                             }
-                            // const axisId = xAxisDefaultName()
-                            // timeRanges(xAxesLinear)
-                            // timeRangeFor(name, ti)
 
                         })
 
@@ -315,7 +323,13 @@ export function ScatterPlot(props: Props): null {
                         // )
                     }).then(() => {
                         // updates the caller with the current time
+                        // const currentTime = Array
+                        //     .from(currentTimeRef.current.values())
+                        //     .reduce((vmax, v) => Math.max(vmax, v), -Infinity)
+                        // onUpdateTime(currentTime)
+                        // currentTimeRef.current.forEach((currentTime, id) => onUpdateTime(id, currentTime))
                         // onUpdateTime(currentTimeRef.current)
+                        onUpdateTime(timeRangesRef.current || new Map())
 
                         if (timeRangesRef.current !== undefined) {
                             updatePlot(timeRangesRef.current, mainG)
@@ -328,7 +342,10 @@ export function ScatterPlot(props: Props): null {
 
             return subscription
         },
-        [axisAssignments, mainG, onSubscribe, onUpdateData, seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName]
+        [
+            axisAssignments, mainG, onSubscribe, onUpdateData, onUpdateTime,
+            seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName
+        ]
     )
 
     useEffect(

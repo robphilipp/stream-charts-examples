@@ -30,7 +30,7 @@ const weights: Array<Series> = inputNeurons.flatMap(input => outputNeurons.map(o
 const initialData = [
     seriesFromTuples('test1', [
         [10, 80], [20, 220], [30, 300], [40, 380], [50, 510], [60, 620], [70, 680],
-        [80, 1080], [90, 980], [100, 880], [110, 980]
+        [80, 1080], [90, 980], [100, 880], [110, 750]
     ]),
     // seriesFromTuples('test2', [
     //     [100, 980], [200, 880], [300, 980], [400, 1080], [500, 680], [600, 620], [700, 510],

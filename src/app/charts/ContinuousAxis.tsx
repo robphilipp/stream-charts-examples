@@ -1,12 +1,13 @@
 import {AxesLabelFont, AxisLocation, ContinuousNumericAxis, defaultAxesLabelFont} from "./axes";
 import {useChart} from "./useChart";
-import {useEffect, useRef} from "react";
+import {useCallback, useEffect, useRef} from "react";
 import * as d3 from "d3";
 import {ScaleContinuousNumeric} from "d3";
 import {SvgSelection} from "./d3types";
 import {Dimensions, Margin} from "./margins";
 import {noop} from "./utils";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
+import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 
 interface Props {
     // the unique ID of the axis
@@ -35,6 +36,8 @@ export function ContinuousAxis(props: Props): null {
         setTimeRangeFor,
         timeRangeFor,
         // setWindowingTimeFor,
+        addTimeUpdateHandler,
+        removeTimeUpdateHandler
     } = useChart()
 
     const {
@@ -46,6 +49,7 @@ export function ContinuousAxis(props: Props): null {
     } = props
 
     const axisRef = useRef<ContinuousNumericAxis>()
+    const timeUpdateHandlerIdRef = useRef<string>()
 
     // useEffect(
     //     () => {
@@ -54,6 +58,17 @@ export function ContinuousAxis(props: Props): null {
     //     },
     //     [axisId, domain, setWindowingTimeFor]
     // )
+    const handleTimeUpdates = useCallback(
+        (updates: Map<string, ContinuousAxisRange>): void => {
+            if (timeUpdateHandlerIdRef.current && axisRef.current) {
+                const range = updates.get(axisId)
+                if (range) {
+                    axisRef.current.update([range.start, range.end], plotDimensions, margin)
+                }
+            }
+        },
+        [axisId, margin, plotDimensions]
+    )
 
     useEffect(
         () => {
@@ -83,6 +98,10 @@ export function ContinuousAxis(props: Props): null {
 
                             // set the time-range for the time-axis
                             setTimeRangeFor(axisId, domain)
+
+                            // add an update handler
+                            timeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location}`
+                            addTimeUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
 
                             break
 
@@ -121,14 +140,9 @@ export function ContinuousAxis(props: Props): null {
             }
         },
         [
-            chartId,
-            axisId, label, location, props.font,
-            addXAxis, addYAxis,
-            domain,
-            scale,
-            container,
-            margin, plotDimensions,
-            setTimeRangeFor, timeRangeFor
+            chartId, axisId, label, location, props.font, addXAxis, addYAxis,
+            domain, scale, container, margin, plotDimensions, setTimeRangeFor, timeRangeFor, addTimeUpdateHandler,
+            handleTimeUpdates
         ]
     )
 
