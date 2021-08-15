@@ -82,7 +82,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         initialData,
         25,
         25,
-        0, 1000
+        10, 1000
     ));
     // const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(initialData.map(series => series.name), 0.1));
     // const subscriptionRef = useRef<Subscription>();

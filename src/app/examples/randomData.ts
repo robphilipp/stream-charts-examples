@@ -1,8 +1,7 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-import {Datum, ChartData, emptyChartData} from "stream-charts";
-import {Series} from "../charts/datumSeries";
-import {initialChartData} from "../charts/chartData";
+import {Datum, Series} from "../charts/datumSeries";
+import {ChartData, initialChartData} from "../charts/chartData";
 
 const UPDATE_PERIOD_MS = 25;
 
@@ -16,6 +15,7 @@ const UPDATE_PERIOD_MS = 25;
 function randomSpikeData(time: number, series: Array<string>, updatePeriod: number): ChartData {
     return {
         maxTime: time,
+        maxTimes: new Map(series.map(name => [name, time])),
         newPoints: new Map(series
             .filter(_ => Math.random() > 0.5)
             .map(name => [
@@ -45,48 +45,91 @@ export function randomSpikeDataObservable(series: Array<string>, updatePeriod: n
 
 /**
  * Creates random weight data
- * @param {number} time The current time
- * @param {Array<string>} series The list of series names (identifiers) to update
- * @param {number} updatePeriod The update period (ms)
- * @param {number} delta The largest change in weight
- * @return {ChartData} The random chart data
+ * @param sequenceTime The current time
+ * @param series The list of series names (identifiers) to update
+ * @param seriesMaxTimes The maximum time for each series
+ * @param updatePeriod The update period (ms)
+ * @param delta The largest change in weight
+ * @return The random chart data
  */
 function randomWeightData(
-    time: number,
+    sequenceTime: number,
     series: Array<string>,
+    seriesMaxTimes: Map<string, number>,
     updatePeriod: number,
     delta: number,
 ): ChartData {
+    // seriesMaxTimes.forEach((maxTime, series, map) => map.set(series, maxTime + sequenceTime))
+    const maxTimes = new Map(Array.from(
+        seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
+    )
     return {
-        maxTime: time,
-        newPoints: new Map(series.map(name => [
-            name,
-            [{
-                time: time - Math.ceil(Math.random() * updatePeriod),
-                value: (Math.random() - 0.5) * 2 * delta
-            }]
-        ]))
+        maxTime: sequenceTime,
+        // maxTime: Array.from(seriesMaxTimes.values()).reduce((tMax, t) => Math.max(tMax, t), -Infinity),
+        // maxTimes: seriesMaxTimes,
+        maxTimes,
+        newPoints: new Map(series.map(name => {
+            const maxTime = seriesMaxTimes.get(name) || 0
+            return [
+                name,
+                [{
+                    time: sequenceTime + maxTime - Math.ceil(Math.random() * updatePeriod),
+                    value: (Math.random() - 0.5) * 2 * delta
+                }]
+            ]
+        }))
     };
 }
+// /**
+//  * Creates random weight data
+//  * @param {number} time The current time
+//  * @param {Array<string>} series The list of series names (identifiers) to update
+//  * @param {number} updatePeriod The update period (ms)
+//  * @param {number} delta The largest change in weight
+//  * @return {ChartData} The random chart data
+//  */
+// function randomWeightData(
+//     time: number,
+//     series: Array<string>,
+//     updatePeriod: number,
+//     delta: number,
+// ): ChartData {
+//     return {
+//         maxTime: time,
+//         maxTimes: new Map(series.map(name => [name, time])),
+//         newPoints: new Map(series.map(name => [
+//             name,
+//             [{
+//                 time: time - Math.ceil(Math.random() * updatePeriod),
+//                 value: (Math.random() - 0.5) * 2 * delta
+//             }]
+//         ]))
+//     };
+// }
 
 /**
  * Adds the accumulated chart data to the current random one
- * @param {ChartData} acc The accumulated chart data
- * @param {ChartData} cd The random chart data
- * @return {ChartData} The accumulated chart data
+ * @param accum The accumulated chart data
+ * @param currentData The random chart data
+ * @param min The minimum allowed value
+ * @param max The maximum allowed value
+ * @return The accumulated chart data
  */
-function accumulateChartData(acc: ChartData, cd: ChartData, min: number, max: number): ChartData {
+function accumulateChartData(accum: ChartData, currentData: ChartData, min: number, max: number): ChartData {
     return {
-        maxTime: cd.maxTime,
-        newPoints: mergeSeries(acc.newPoints, cd.newPoints, min, max)
+        maxTime: currentData.maxTime,
+        maxTimes: currentData.maxTimes,
+        newPoints: mergeSeries(accum.newPoints, currentData.newPoints, min, max)
     }
 }
 
 /**
  * Calculates the successive differences in the values to create a random walk for simulating neuron weights
- * @param {Map<string, Array<Datum>>} accum The "position" in the random walk
- * @param {Map<string, Array<Datum>>} incoming The changes in position
- * @return {Map<string, Array<Datum>>} The merged map holding the new random walk segments
+ * @param accum The "position" in the random walk
+ * @param incoming The changes in position
+ * @param min The minimum allowed value
+ * @param max The maximum allowed value
+ * @return The merged map holding the new random walk segments
  */
 function mergeSeries(
     accum: Map<string, Array<Datum>>,
@@ -131,6 +174,8 @@ function mergeSeries(
  * @param series The number of time-series for which to generate data (i.e. one for each neuron)
  * @param delta The max change in weight
  * @param [updatePeriod=25] The time-interval between the generation of subsequent data points
+ * @param min The minimum allowed value
+ * @param max The maximum allowed value
  * @return An observable that produces data.
  */
 export function randomWeightDataObservable(
@@ -144,10 +189,12 @@ export function randomWeightDataObservable(
     const initialData = initialChartData(series)
     return interval(updatePeriod).pipe(
         // convert the number sequence to a time
-        map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime),
+        map(sequence => (sequence + 1) * updatePeriod),
+        // map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime),
 
         // create a new (time, value) for each series
-        map((time, index) => randomWeightData(time, seriesNames, updatePeriod, delta)),
+        // map((time, index) => randomWeightData(time + initialData.maxTime, seriesNames, updatePeriod, delta)),
+        map((time, index) => randomWeightData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
 
         // add the random value to the previous random value in succession to create a random walk for each series
         scan((acc, value) => accumulateChartData(acc, value, min, max), initialData)

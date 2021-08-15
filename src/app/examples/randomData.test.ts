@@ -18,15 +18,6 @@ describe('when creating random data from an initial series', () => {
         ]),
     ]
 
-    // const observable = randomWeightDataObservable(initialData, 10, 100)
-    //
-    // it('should', () => {
-    //     observable.subscribe(data => {
-    //         // console.log(data.newPoints, data.maxTime)
-    //         expect(data.maxTime).toBeTruthy()
-    //     })
-    // })
-
     it('should create initial data', () => {
         const data = initialChartData(initialData)
         expect(data.maxTime).toBe(170)

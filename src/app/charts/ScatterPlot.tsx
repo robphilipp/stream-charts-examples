@@ -269,6 +269,20 @@ export function ScatterPlot(props: Props): null {
 
                         const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
 
+                        // calculate the max times for each x-axis, which is the max time over all the
+                        // series assigned to an x-axis
+                        const axesSeries = Array.from(data.maxTimes.entries())
+                            .reduce(
+                                (assignedSeries, [seriesName, maxTime]) => {
+                                    const id = axisAssignments.get(seriesName)?.xAxis || xAxisDefaultName()
+                                    const as = assignedSeries.get(id) || []
+                                    as.push(seriesName)
+                                    assignedSeries.set(id, as)
+                                    return assignedSeries
+                                },
+                                new Map<string, Array<string>>()
+                            )
+
                         // add each new point to it's corresponding series
                         data.newPoints.forEach((newData, name) => {
                             // grab the current series associated with the new data
@@ -281,9 +295,11 @@ export function ScatterPlot(props: Props): null {
                             series.data.push(...newData)
 
                             const axisId = axisAssignments.get(name)?.xAxis || xAxisDefaultName()
-                            // todo, this should be the max time for the axis, which may not be the same
-                            //      for all axes
-                            const currentAxisTime = data.maxTime
+                            const currentAxisTime = axesSeries.get(axisId)
+                                ?.reduce(
+                                    (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime),
+                                    -Infinity
+                                ) || data.maxTime
                             // const currentAxisTime = currentTimeRef.current.get(axisId)
                             if (currentAxisTime !== undefined) {
                                 // drop data that is older than the max time-window
@@ -331,7 +347,7 @@ export function ScatterPlot(props: Props): null {
 
             return subscription
         },
-        [axisAssignments, mainG, margin, onSubscribe, onUpdateData, plotDimensions, seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName, xAxisFor]
+        [axisAssignments, mainG, onSubscribe, onUpdateData, onUpdateTime, seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName]
     )
 
     // useEffect(

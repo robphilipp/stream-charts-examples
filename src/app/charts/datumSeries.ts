@@ -18,7 +18,7 @@ export function datumOf(time: number, value: number): Datum {
  */
 export interface Series {
     readonly name: string;
-    data: Datum[];
+    data: Array<Datum>;
     readonly last: () => Option<Datum>;
     readonly length: () => number;
     readonly isEmpty: () => boolean;
