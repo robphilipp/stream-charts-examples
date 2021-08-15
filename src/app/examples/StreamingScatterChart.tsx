@@ -34,6 +34,35 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
+const inputStyle = {
+    backgroundColor: '#202020',
+    outlineStyle: 'none',
+    borderColor: '#d2933f',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 3,
+    color: '#d2933f',
+    fontSize: 12,
+    padding: 4,
+    margin: 6,
+    marginRight: 20
+};
+
+const buttonStyle = {
+    backgroundColor: '#202020',
+    outlineStyle: 'none',
+    borderColor: '#d2933f',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 3,
+    color: '#d2933f',
+    fontSize: 12,
+    width: 50,
+    padding: 4,
+    margin: 6,
+    marginRight: 20
+}
+
 /**
  * The properties
  */
@@ -56,7 +85,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         0, 1000
     ));
     // const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(initialData.map(series => series.name), 0.1));
-    const subscriptionRef = useRef<Subscription>();
+    // const subscriptionRef = useRef<Subscription>();
+    const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
@@ -72,20 +102,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         setFilterValue(updatedFilter);
         regexFilter(updatedFilter).ifSome((regex: RegExp) => setFilter(regex));
     }
-
-    const inputStyle = {
-        backgroundColor: '#202020',
-        outlineStyle: 'none',
-        borderColor: '#d2933f',
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: '#d2933f',
-        fontSize: 12,
-        padding: 4,
-        margin: 6,
-        marginRight: 20
-    };
 
     return (
         <Grid
@@ -113,6 +129,12 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         onChange={event => handleUpdateRegex(event.currentTarget.value)}
                         style={inputStyle}
                     /></label>
+                    <button
+                        onClick={() => setRunning(!running)}
+                        style={buttonStyle}
+                    >
+                        {running ? "Stop" : "Run"}
+                    </button>
                     <Checkbox
                         key={1}
                         checked={visibility.tooltip}
@@ -166,20 +188,21 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     initialData={initialData}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
-                    shouldSubscribe={true}
+                    shouldSubscribe={running}
                     windowingTime={10}
                 >
-                    <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 20000]} label="x-axis"/>
+                    <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 5000]} label="x-axis"/>
+                    {/*<ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 20000]} label="x-axis"/>*/}
                     {/*<ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[0, 100]} label="x-axis"/>*/}
                     <ContinuousAxis axisId="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
-                    {/*<ContinuousAxis axisId="x-axis-2" location={AxisLocation.Top} domain={[100, 1000]} label="x-axis (2)"/>*/}
-                    {/*<ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>*/}
+                    <ContinuousAxis axisId="x-axis-2" location={AxisLocation.Top} domain={[100, 1000]} label="x-axis (2)"/>
+                    <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>
                     <ScatterPlot
-                        // axisAssignments={new Map([
-                        //     // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                        //     ['test2', assignAxes("x-axis-2", "y-axis-2")],
-                        //     // ['test3', assignAxes("x-axis-1", "y-axis-1")],
-                        // ])}
+                        axisAssignments={new Map([
+                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                            ['test2', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                        ])}
                     />
                 </Chart>
                 {/*<ScatterChart*/}
