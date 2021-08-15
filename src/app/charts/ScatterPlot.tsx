@@ -255,6 +255,14 @@ export function ScatterPlot(props: Props): null {
         ]
     )
 
+    const onUpdateTimeRef = useRef<(times: Map<string, ContinuousAxisRange>) => void>(onUpdateTime)
+    useEffect(
+        () => {
+            onUpdateTimeRef.current = onUpdateTime
+        },
+        [onUpdateTime]
+    )
+
     const subscribe = useCallback(
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
@@ -328,7 +336,7 @@ export function ScatterPlot(props: Props): null {
                         timeRangesRef.current = timesWindows
                     }).then(() => {
                         if (timeRangesRef.current !== undefined) {
-                            onUpdateTime(timeRangesRef.current)
+                            onUpdateTimeRef.current(timeRangesRef.current)
                             updatePlot(timeRangesRef.current, mainG)
                         }
                     })
@@ -340,7 +348,7 @@ export function ScatterPlot(props: Props): null {
             return subscription
         },
         [
-            axisAssignments, mainG, onSubscribe, onUpdateData, onUpdateTime,
+            axisAssignments, mainG, onSubscribe, onUpdateData,
             seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName
         ]
     )

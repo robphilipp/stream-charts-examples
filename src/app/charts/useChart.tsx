@@ -179,6 +179,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const [onSubscribe, setOnSubscribe] = useState<(subscription: Subscription) => void>(noop)
     const [onUpdateData, setOnUpdateData] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
+    // todo making this a state fixes the resize issue, but causes react to break its update depth...
     // const [onUpdateTime, setOnUpdateTime] = useState<(axisId: string, time: number) => void>(noop)
     const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>) => void>>(new Map())
     // const [timeUpdateHandlers, setTimeUpdateHandlers] = useState<Map<string, (updates: Map<string, ContinuousAxisRange>) => void>>(new Map())
