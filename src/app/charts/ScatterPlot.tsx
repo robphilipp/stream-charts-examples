@@ -10,6 +10,7 @@ import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
 import {noop} from "./utils";
+import {Margin} from "./margins";
 
 export interface AxesAssignment {
     xAxis: string
@@ -255,13 +256,38 @@ export function ScatterPlot(props: Props): null {
         ]
     )
 
-    const onUpdateTimeRef = useRef<(times: Map<string, ContinuousAxisRange>) => void>(onUpdateTime)
+    // const onUpdateTimeRef = useRef<(times: Map<string, ContinuousAxisRange>) => void>(onUpdateTime)
+    // useEffect(
+    //     () => {
+    //         onUpdateTimeRef.current = onUpdateTime
+    //     },
+    //     [onUpdateTime]
+    // )
+
+    const updatePlotRef = useRef(updatePlot)
     useEffect(
         () => {
-            onUpdateTimeRef.current = onUpdateTime
+            updatePlotRef.current = updatePlot
+        },
+        [updatePlot]
+    )
+
+    const updateTimeRef = useRef(onUpdateTime)
+    useEffect(
+        () => {
+            updateTimeRef.current = onUpdateTime
         },
         [onUpdateTime]
     )
+
+    function updateTiming() {
+        if (timeRangesRef.current !== undefined && mainG !== null) {
+            // todo, looks like the axis are getting update to the new dimensions
+            //     on resize and the plot updates them, but not for the series
+            updateTimeRef.current(timeRangesRef.current)
+            updatePlotRef.current(timeRangesRef.current, mainG)
+        }
+    }
 
     const subscribe = useCallback(
         () => {
@@ -328,17 +354,24 @@ export function ScatterPlot(props: Props): null {
                                     currentTimeRef.current.set(axisId, timeRange.end)
                                 }
                             }
-
                         })
 
                         // update the data
                         liveDataRef.current = seriesRef.current
                         timeRangesRef.current = timesWindows
                     }).then(() => {
-                        if (timeRangesRef.current !== undefined) {
-                            onUpdateTimeRef.current(timeRangesRef.current)
-                            updatePlot(timeRangesRef.current, mainG)
-                        }
+                        updateTiming()
+                        // if (timeRangesRef.current !== undefined) {
+                        //     // todo, looks like the axis are getting updated to the new dimensions
+                        //     //     on resize and the plot updates them, but not for the series
+                        //     onUpdateTime(timeRangesRef.current)
+                        //     updatePlot(timeRangesRef.current, mainG)
+                        //     // updatePlotRef.current(timeRangesRef.current, mainG)
+                        //     // const xAxesLinear = new Map<string, ContinuousNumericAxis>(
+                        //     //     Array.from(xAxes().entries()).map(([id, axis]) => [id, axis as ContinuousNumericAxis])
+                        //     // )
+                        //     // updatePlot(timeRanges(xAxesLinear), mainG)
+                        // }
                     })
                 })
 
@@ -349,7 +382,8 @@ export function ScatterPlot(props: Props): null {
         },
         [
             axisAssignments, mainG, onSubscribe, onUpdateData,
-            seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName
+            seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName,
+            onUpdateTime
         ]
     )
 
@@ -453,11 +487,7 @@ function timeRangeFor(
 ): ContinuousAxisRange {
     const axisName = axisAssignments.get(seriesName)?.xAxis
     if (axisName && axisName.length > 0) {
-        const timeRange = timeRanges.get(axisName)
-        if (timeRange) {
-            return timeRange
-        }
-        return continuousAxisRangeFor(-100, 100)
+        return timeRanges.get(axisName) || continuousAxisRangeFor(-100, 100)
     }
     return Array.from(timeRanges.values())[0]
 }

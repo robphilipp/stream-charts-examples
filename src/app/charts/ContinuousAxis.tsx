@@ -1,6 +1,6 @@
 import {AxesLabelFont, AxisLocation, ContinuousNumericAxis, defaultAxesLabelFont} from "./axes";
 import {useChart} from "./useChart";
-import {useCallback, useEffect, useRef} from "react";
+import {MutableRefObject, useCallback, useEffect, useRef} from "react";
 import * as d3 from "d3";
 import {ScaleContinuousNumeric} from "d3";
 import {SvgSelection} from "./d3types";
@@ -51,17 +51,55 @@ export function ContinuousAxis(props: Props): null {
     const axisRef = useRef<ContinuousNumericAxis>()
     const timeUpdateHandlerIdRef = useRef<string>()
 
-    const handleTimeUpdates = useCallback(
-        (updates: Map<string, ContinuousAxisRange>): void => {
-            if (timeUpdateHandlerIdRef.current && axisRef.current) {
-                const range = updates.get(axisId)
-                if (range) {
-                    axisRef.current.update([range.start, range.end], plotDimensions, margin)
-                }
-            }
+    const axisIdRef = useRef<string>(axisId)
+    // const plotDimRef = useRef<PlotDimensions>(plotDimensions)
+    const marginRef = useRef<Margin>(margin)
+    useEffect(
+        () => {
+            axisIdRef.current = axisId
+            // plotDimRef.current = plotDimensions
+            marginRef.current = margin
         },
-        [axisId, margin, plotDimensions]
+        [axisId, plotDimensions, margin]
     )
+    // const handleTimeUpdates = useRef((updates: Map<string, ContinuousAxisRange>): void => {
+    //     if (timeUpdateHandlerIdRef.current && axisRef.current) {
+    //         const range = updates.get(axisId)
+    //         if (range) {
+    //             axisRef.current.update([range.start, range.end], plotDimRef.current, marginRef.current)
+    //         }
+    //     }
+    // })
+    // const handleTimeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions): void => {
+    //     if (timeUpdateHandlerIdRef.current && axisRef.current) {
+    //         const range = updates.get(axisId)
+    //         if (range) {
+    //             axisRef.current.update([range.start, range.end], plotDim, marginRef.current)
+    //         }
+    //     }
+    // }
+    // const handleTimeUpdates = useCallback(
+    //     (updates: Map<string, ContinuousAxisRange>): void => {
+    //         if (timeUpdateHandlerIdRef.current && axisRef.current) {
+    //             const range = updates.get(axisId)
+    //             if (range) {
+    //                 axisRef.current.update([range.start, range.end], plotDimRef.current, marginRef.current)
+    //             }
+    //         }
+    //     },
+    //     [axisId, margin]
+    // )
+    // const handleTimeUpdates = useCallback(
+    //     (updates: Map<string, ContinuousAxisRange>): void => {
+    //         if (timeUpdateHandlerIdRef.current && axisRef.current) {
+    //             const range = updates.get(axisId)
+    //             if (range) {
+    //                 axisRef.current.update([range.start, range.end], plotDimRef.current, marginRef.current)
+    //             }
+    //         }
+    //     },
+    //     [axisId, margin]
+    // )
 
     useEffect(
         () => {
@@ -77,6 +115,14 @@ export function ContinuousAxis(props: Props): null {
                 //         }
                 //     }
                 // }
+                const handleTimeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions): void => {
+                    if (timeUpdateHandlerIdRef.current && axisRef.current) {
+                        const range = updates.get(axisId)
+                        if (range) {
+                            axisRef.current.update([range.start, range.end], plotDim, marginRef.current)
+                        }
+                    }
+                }
 
                 if (axisRef.current === undefined) {
                     switch (location) {
@@ -103,7 +149,11 @@ export function ContinuousAxis(props: Props): null {
 
                             // add an update handler
                             timeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
-                            addTimeUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
+                            addTimeUpdateHandler(
+                                timeUpdateHandlerIdRef.current,
+                                handleTimeUpdates
+                                // handleTimeUpdates(axisId, axisRef.current, plotDimensions, margin)
+                            )
 
                             break
 
@@ -132,7 +182,11 @@ export function ContinuousAxis(props: Props): null {
                                 axisRef.current.update(timeRange, plotDimensions, margin)
                             }
                             if (timeUpdateHandlerIdRef.current !== undefined) {
-                                addTimeUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
+                                addTimeUpdateHandler(
+                                    timeUpdateHandlerIdRef.current,
+                                    // handleTimeUpdates(axisIdRef.current, axisRef.current, plotDimRef.current, marginRef.current)
+                                    handleTimeUpdates
+                                )
                             }
                             break
                         case AxisLocation.Left:
@@ -147,13 +201,43 @@ export function ContinuousAxis(props: Props): null {
         [
             chartId, axisId, label, location, props.font, addXAxis, addYAxis,
             domain, scale, container, margin, plotDimensions, setTimeRangeFor, timeRangeFor, addTimeUpdateHandler,
-            handleTimeUpdates
+            // handleTimeUpdates
         ]
     )
 
     return null
 }
 
+// function handleTimeUpdates(
+//     axisId: string,
+//     axis: ContinuousNumericAxis,
+//     plotDimensions: PlotDimensions,
+//     margin: Margin
+// ): (updates: Map<string, ContinuousAxisRange>) => void {
+//     // if (timeUpdateHandlerIdRef.current && axis) {
+//     return updates => {
+//         const range = updates.get(axisId)
+//         if (range) {
+//             axis.update([range.start, range.end], plotDimensions, margin)
+//         }
+//     }
+//     // }
+// }
+// function handleTimeUpdates(
+//     axisId: React.MutableRefObject<string>,
+//     axis: React.MutableRefObject<ContinuousNumericAxis>,
+//     plotDimensions: React.MutableRefObject<PlotDimensions>,
+//     margin: React.MutableRefObject<Margin>
+// ): (updates: Map<string, ContinuousAxisRange>) => void {
+//     // if (timeUpdateHandlerIdRef.current && axis) {
+//     return updates => {
+//         const range = updates.get(axisId.current)
+//         if (range) {
+//             axis.current.update([range.start, range.end], plotDimensions.current, margin.current)
+//         }
+//     }
+//     // }
+// }
 
 export function addContinuousNumericXAxis(
     chartId: number,
