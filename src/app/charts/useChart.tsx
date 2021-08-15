@@ -283,7 +283,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             (range, id) => timeRangesRef.current.set(id, [range.start, range.end])
         )
         // timeUpdateHandlers.forEach((handler, id) => handler(updates))
-        timeUpdateHandlersRef.current.forEach((handler, id) => handler(updates))
+        timeUpdateHandlersRef.current.forEach((handler, ) => handler(updates))
     }
 
     // function setWindowingTimeFor(axisId: string, windowingTime: number): void {

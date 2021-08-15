@@ -69,6 +69,15 @@ export function ContinuousAxis(props: Props): null {
                 const svg = d3.select<SVGSVGElement, any>(container)
                 const font: AxesLabelFont = {...defaultAxesLabelFont, ...props.font}
 
+                // const handleTimeUpdates = (updates: Map<string, ContinuousAxisRange>): void => {
+                //     if (timeUpdateHandlerIdRef.current && axisRef.current) {
+                //         const range = updates.get(axisId)
+                //         if (range) {
+                //             axisRef.current.update([range.start, range.end], plotDimensions, margin)
+                //         }
+                //     }
+                // }
+
                 if (axisRef.current === undefined) {
                     switch (location) {
                         case AxisLocation.Bottom:
@@ -93,7 +102,7 @@ export function ContinuousAxis(props: Props): null {
                             setTimeRangeFor(axisId, domain)
 
                             // add an update handler
-                            timeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location}`
+                            timeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
                             addTimeUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
 
                             break

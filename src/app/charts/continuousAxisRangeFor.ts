@@ -2,24 +2,24 @@
  * The time-range contract
  */
 export interface ContinuousAxisRange {
-    start: number;
-    end: number;
-    scaleFactor: number;
-    matchesOriginal: (start: number, end: number) => boolean;
-    scale: (factor: number, time: number) => ContinuousAxisRange;
-    translate: (x: number) => ContinuousAxisRange;
+    start: number
+    end: number
+    scaleFactor: number
+    matchesOriginal: (start: number, end: number) => boolean
+    scale: (factor: number, time: number) => ContinuousAxisRange
+    translate: (x: number) => ContinuousAxisRange
 }
 
 /**
  * A time-range that can be scaled and transformed, all the while maintaining it original range values.
- * @param {number} _start The start of the time-range
- * @param {number} _end The end of the time-range
- * @return {ContinuousAxisRange} A time-range object that can be scaled and transformed
+ * @param _start The start of the time-range
+ * @param _end The end of the time-range
+ * @return A time-range object that can be scaled and transformed
  */
 export function continuousAxisRangeFor(_start: number, _end: number): ContinuousAxisRange {
     // form a closure on the original start and end of the time-range
-    const originalStart: number = Math.min(_start, _end);
-    const originalEnd: number = Math.max(_start, _end);
+    const originalStart = Math.min(_start, _end)
+    const originalEnd = Math.max(_start, _end)
 
     /**
      * Updates the time-range based on the new start and end times
@@ -30,7 +30,7 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
     function updateTimeRange(start: number, end: number): ContinuousAxisRange {
 
         // the amount by which the time-range is currently scaled
-        const scaleFactor = (end - start) / (originalEnd - originalStart);
+        const scaleFactor = (end - start) / (originalEnd - originalStart)
 
         /**
          * Determines whether the specified (start, end) interval matches the original interval
@@ -39,7 +39,7 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
          * @return {boolean} `true` if the specified interval matches the original interval; `false` otherwise
          */
         function matchesOriginal(start: number, end: number): boolean {
-            return originalStart === start && originalEnd === end;
+            return originalStart === start && originalEnd === end
         }
 
         /**
@@ -50,12 +50,12 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
          * @param {number} time The time from which to scale the interval
          */
         function scale(factor: number, time: number): ContinuousAxisRange {
-            const oldScale = scaleFactor;
-            const dts = time - start;
-            const dte = end - time;
-            start = time - dts * factor / oldScale;
-            end = time + dte * factor / oldScale;
-            return updateTimeRange(start, end);
+            const oldScale = scaleFactor
+            const dts = time - start
+            const dte = end - time
+            start = time - dts * factor / oldScale
+            end = time + dte * factor / oldScale
+            return updateTimeRange(start, end)
         }
 
         /**
@@ -63,9 +63,9 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
          * @param {number} x The amount by which to translate the time-range
          */
         function translate(x: number): ContinuousAxisRange {
-            start += x;
-            end += x;
-            return updateTimeRange(start, end);
+            start += x
+            end += x
+            return updateTimeRange(start, end)
         }
 
         return {
