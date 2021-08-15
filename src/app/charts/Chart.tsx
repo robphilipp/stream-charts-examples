@@ -129,6 +129,7 @@ export function Chart(props: Props): JSX.Element {
                 seriesFilter={seriesFilter}
 
                 seriesObservable={seriesObservable}
+                windowingTime={windowingTime}
                 shouldSubscribe={shouldSubscribe}
             >
                 {

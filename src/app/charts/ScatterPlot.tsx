@@ -4,12 +4,11 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRange
 import * as d3 from "d3";
 import {setClipPath, TimeSeries} from "./plot";
 import {Datum, emptySeries, Series} from "./datumSeries";
-import {BaseAxis, calculatePanFor, defaultLineStyle, ContinuousNumericAxis} from "./axes";
+import {BaseAxis, calculatePanFor, ContinuousNumericAxis, defaultLineStyle} from "./axes";
 import {GSelection} from "./d3types";
 import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
-import {Observable, Subscription} from "rxjs";
+import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
-import {ChartData} from "./chartData";
 import {noop} from "./utils";
 
 export interface AxesAssignment {
@@ -273,7 +272,7 @@ export function ScatterPlot(props: Props): null {
                         // series assigned to an x-axis
                         const axesSeries = Array.from(data.maxTimes.entries())
                             .reduce(
-                                (assignedSeries, [seriesName, maxTime]) => {
+                                (assignedSeries, [seriesName, ]) => {
                                     const id = axisAssignments.get(seriesName)?.xAxis || xAxisDefaultName()
                                     const as = assignedSeries.get(id) || []
                                     as.push(seriesName)
@@ -312,7 +311,6 @@ export function ScatterPlot(props: Props): null {
                                 // const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
                                 const range = timesWindows.get(axisId)
                                 if (range !== undefined && range.end < currentAxisTime) {
-                                    // onUpdateTime(currentAxisTime)
                                     const timeWindow = range.end - range.start
                                     const timeRange = continuousAxisRangeFor(
                                         Math.max(0, currentAxisTime - timeWindow),
@@ -331,12 +329,6 @@ export function ScatterPlot(props: Props): null {
                     }).then(() => {
                         if (timeRangesRef.current !== undefined) {
                             onUpdateTime(timeRangesRef.current)
-                            // update the x-axes with the new time-range
-                            // timeRangesRef.current.forEach((range, id) => {
-                            //         (xAxisFor(id) as ContinuousNumericAxis)
-                            //             .update([range.start, range.end], plotDimensions, margin)
-                            //     }
-                            // )
                             updatePlot(timeRangesRef.current, mainG)
                         }
                     })
@@ -347,7 +339,10 @@ export function ScatterPlot(props: Props): null {
 
             return subscription
         },
-        [axisAssignments, mainG, onSubscribe, onUpdateData, onUpdateTime, seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName]
+        [
+            axisAssignments, mainG, onSubscribe, onUpdateData, onUpdateTime,
+            seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName
+        ]
     )
 
     // useEffect(

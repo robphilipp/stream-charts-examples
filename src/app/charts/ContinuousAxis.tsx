@@ -51,13 +51,6 @@ export function ContinuousAxis(props: Props): null {
     const axisRef = useRef<ContinuousNumericAxis>()
     const timeUpdateHandlerIdRef = useRef<string>()
 
-    // useEffect(
-    //     () => {
-    //         const [start, end] = domain
-    //         setWindowingTimeFor(axisId, Math.abs(end - start))
-    //     },
-    //     [axisId, domain, setWindowingTimeFor]
-    // )
     const handleTimeUpdates = useCallback(
         (updates: Map<string, ContinuousAxisRange>): void => {
             if (timeUpdateHandlerIdRef.current && axisRef.current) {

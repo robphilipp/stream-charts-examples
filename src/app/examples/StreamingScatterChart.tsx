@@ -189,7 +189,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    windowingTime={10}
+                    windowingTime={1000}
                 >
                     <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 5000]} label="x-axis"/>
                     {/*<ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 20000]} label="x-axis"/>*/}

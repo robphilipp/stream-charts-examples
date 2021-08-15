@@ -64,7 +64,7 @@ interface UseChartValues {
     // newChart: (chartId: number, mainG: GSelection) => void
     // setMainGSelection: (g: GSelection) => void
     updateDimensions: (dimensions: PlotDimensions) => void
-    updateWindowingTime: (window: number) => void
+    // updateWindowingTime: (window: number) => void
     // updateShouldSubscribe: (subscribe: boolean) => void
     subscriptionHandler: (subscribeHandler: (subscription: Subscription) => void) => void
     dataUpdateHandler: (updateDataHandler: (seriesName: string, data: Array<Datum>) => void) => void
@@ -114,7 +114,7 @@ const defaultUseChartValues: UseChartValues = {
     // newChart: noop,
     // setMainGSelection: noop,
     updateDimensions: noop,
-    updateWindowingTime: noop,
+    // updateWindowingTime: noop,
     // updateShouldSubscribe: noop,
     // setObservable: noop,
     subscriptionHandler: () => noop,
@@ -159,6 +159,7 @@ export default function ChartProvider(props: Props): JSX.Element {
         seriesStyles = new Map(),
 
         seriesObservable,
+        windowingTime = defaultUseChartValues.windowingTime || 100,
         shouldSubscribe,
     } = props
     // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
@@ -172,7 +173,7 @@ export default function ChartProvider(props: Props): JSX.Element {
     const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
     // const [seriesObservable, setSeriesObservable] = useState<Observable<ChartData>>()
-    const [windowingTime, setWindowingTime] = useState<number>(defaultUseChartValues.windowingTime || 100)
+    // const [windowingTime, setWindowingTime] = useState<number>(defaultUseChartValues.windowingTime || 100)
     // const [shouldSubscribe, setShouldSubscribe] = useState<boolean>(defaultUseChartValues.shouldSubscribe)
     // const [windowingTimes, setWindowingTimes] = useState<Map<string, number>>(defaultUseChartValues.windowingTimes)
 
@@ -291,9 +292,9 @@ export default function ChartProvider(props: Props): JSX.Element {
     //     setWindowingTimes(times)
     // }
 
-    function updateWindowingTime(window: number): void {
-        setWindowingTime(window)
-    }
+    // function updateWindowingTime(window: number): void {
+    //     setWindowingTime(window)
+    // }
 
     // function updateShouldSubscribe(subscribe: boolean): void {
     //     setShouldSubscribe(subscribe)
@@ -339,7 +340,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             onUpdateData,
             // setMainGSelection,
             updateDimensions,
-            updateWindowingTime,
+            // updateWindowingTime,
             // updateShouldSubscribe,
             // setObservable,
             subscriptionHandler,
