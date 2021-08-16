@@ -276,12 +276,15 @@ export function ScatterPlot(props: Props): null {
      * defined above allow the axes' times to be update properly by avoid stale reference to these
      * functions.
      */
-    function updateTimingAndPlot(): void {
-        if (timeRangesRef.current !== undefined && mainG !== null) {
-            onUpdateTimeRef.current(timeRangesRef.current)
-            updatePlotRef.current(timeRangesRef.current, mainG)
-        }
-    }
+    const updateTimingAndPlot = useCallback(
+        () => {
+            if (timeRangesRef.current !== undefined && mainG !== null) {
+                onUpdateTimeRef.current(timeRangesRef.current)
+                updatePlotRef.current(timeRangesRef.current, mainG)
+            }
+        },
+        [mainG]
+    )
 
     const subscribe = useCallback(
         () => {
@@ -291,16 +294,14 @@ export function ScatterPlot(props: Props): null {
                 .pipe(windowTime(windowingTime))
                 .subscribe(dataList => {
                     dataList.forEach(data => {
-                        // // updated the current time to be the max of the new data
-                        // currentTimeRef.current = data.maxTime
-
+                        // grab the time-windows for the x-axes
                         const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
 
                         // calculate the max times for each x-axis, which is the max time over all the
                         // series assigned to an x-axis
                         const axesSeries = Array.from(data.maxTimes.entries())
                             .reduce(
-                                (assignedSeries, [seriesName, ]) => {
+                                (assignedSeries, [seriesName,]) => {
                                     const id = axisAssignments.get(seriesName)?.xAxis || xAxisDefaultName()
                                     const as = assignedSeries.get(id) || []
                                     as.push(seriesName)
