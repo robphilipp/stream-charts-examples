@@ -44,7 +44,6 @@ export interface BaseAxis {
 }
 
 export interface ContinuousNumericAxis extends BaseAxis {
-    // scale: ScaleLinear<number, number>
     scale: ScaleContinuousNumeric<number, number>
     generator: Axis<number | { valueOf(): number }>
     update: (domain: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => void
@@ -75,14 +74,37 @@ export function addLinearAxis(
     axisLabel: string,
 ): ContinuousNumericAxis {
     switch (location) {
+        // y-axis
         case AxisLocation.Left:
         case AxisLocation.Right:
-            return addContinuousNumericYAxis(chartId, svg, plotDimensions, location, d3.scaleLinear(), domain, axesLabelFont, margin, axisLabel)
+            return addContinuousNumericYAxis(
+                chartId,
+                svg,
+                plotDimensions,
+                location,
+                d3.scaleLinear(),
+                domain,
+                axesLabelFont,
+                margin,
+                axisLabel
+            )
 
+        // x-axis
         case AxisLocation.Bottom:
         case AxisLocation.Top:
-            // return addLinearXAxis(chartId, svg, plotDimensions, location, domain, axesLabelFont, margin, axisLabel)
-            return addContinuousNumericXAxis(chartId, svg, plotDimensions, location, d3.scaleLinear(), domain, axesLabelFont, margin, axisLabel, "", noop)
+            return addContinuousNumericXAxis(
+                chartId,
+                svg,
+                plotDimensions,
+                location,
+                d3.scaleLinear(),
+                domain,
+                axesLabelFont,
+                margin,
+                axisLabel,
+                "",
+                noop
+            )
     }
 }
 
@@ -92,7 +114,6 @@ export function addCategoryAxis(
     location: AxisLocation,
     plotDimensions: Dimensions,
     categories: Array<string>,
-    // categories: Map<string, Series>,
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
@@ -114,18 +135,14 @@ function addCategoryYAxis(
     svg: SvgSelection,
     plotDimensions: Dimensions,
     categories: Array<string>,
-    // categories: Map<string, Series>,
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
 ): CategoryAxis {
     const categorySize = (plotDimensions.height - margin.top) / categories.length;
-    // const categorySize = (plotDimensions.height - margin.top) / categories.size;
     const scale = d3.scaleBand()
-        // .domain(Array.from(categories.keys()))
         .domain(categories)
         .range([0, categorySize * categories.length]);
-        // .range([0, categorySize * categories.size]);
 
     // create and add the axes
     const generator = d3.axisLeft(scale);

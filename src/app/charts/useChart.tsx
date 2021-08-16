@@ -36,7 +36,6 @@ interface UseChartValues {
     setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
 
     // initial data
-    // initialData: Map<string, Series>
     initialData: Array<Series>
 
     seriesFilter: RegExp
@@ -45,13 +44,6 @@ interface UseChartValues {
     seriesObservable?: Observable<ChartData>
     windowingTime?: number
     shouldSubscribe?: boolean
-
-    // timeRanges: Map<string, [start: number, end: number]>
-
-    // the time axes will likely have different windowing times. the map
-    // associations the axis ID with the windowing time
-    // windowingTimes: Map<string, number>
-    // setWindowingTimeFor: (axisId: string, windowingTime: number) => void
 
     // todo not sure about these
     onSubscribe: (subscription: Subscription) => void
@@ -70,8 +62,6 @@ interface UseChartValues {
     // updateShouldSubscribe: (subscribe: boolean) => void
     subscriptionHandler: (subscribeHandler: (subscription: Subscription) => void) => void
     dataUpdateHandler: (updateDataHandler: (seriesName: string, data: Array<Datum>) => void) => void
-    // timeUpdateHandler: (updateTimeHandler: (axisId: string, time: number) => void) => void
-    // addTimeUpdateHandler: (handlerId: string, handler: React.MutableRefObject<(updates: Map<string, ContinuousAxisRange>) => void>) => void
     addTimeUpdateHandler: (handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions) => void) => void
     removeTimeUpdateHandler: (handlerId: string) => void
 }
@@ -99,7 +89,6 @@ const defaultUseChartValues: UseChartValues = {
     timeRangeFor: () => [NaN, NaN],
     setTimeRangeFor: noop,
 
-    // initialData: new Map(),
     initialData: [],
 
     seriesFilter: /./,
@@ -107,9 +96,6 @@ const defaultUseChartValues: UseChartValues = {
     //
     windowingTime: NaN,
     shouldSubscribe: false,
-    // windowingTimes: new Map(),
-    // setWindowingTimeFor: noop,
-    // timeRanges: new Map(),
 
     onSubscribe: noop,
     onUpdateData: noop,
@@ -166,15 +152,11 @@ export default function ChartProvider(props: Props): JSX.Element {
         windowingTime = defaultUseChartValues.windowingTime || 100,
         shouldSubscribe,
     } = props
-    // const [chartId, setChartId] = useState<number>(defaultUseChartValues.chartId)
     const [dimensions, setDimensions] = useState<PlotDimensions>(defaultUseChartValues.plotDimensions)
-    // const [mainG, setMainG] = useState<GSelection>()
-    // const [container, setContainer] = useState<SVGSVGElement>()
 
     const xAxesRef = useRef<Map<string, BaseAxis>>(new Map())
     const yAxesRef = useRef<Map<string, BaseAxis>>(new Map())
 
-    // const [timeRanges, setTimeRanges] = useState<Map<string, [start: number, end: number]>>(new Map())
     const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
     // const [seriesObservable, setSeriesObservable] = useState<Observable<ChartData>>()
@@ -185,15 +167,7 @@ export default function ChartProvider(props: Props): JSX.Element {
     const [onSubscribe, setOnSubscribe] = useState<(subscription: Subscription) => void>(noop)
     const [onUpdateData, setOnUpdateData] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
     // todo making this a state fixes the resize issue, but causes react to break its update depth...
-    // const [onUpdateTime, setOnUpdateTime] = useState<(axisId: string, time: number) => void>(noop)
-    // const timeUpdateHandlersRef = useRef<Map<string, React.MutableRefObject<(updates: Map<string, ContinuousAxisRange>) => void>>>(new Map())
     const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions) => void>>(new Map())
-    // const [timeUpdateHandlers, setTimeUpdateHandlers] = useState<Map<string, (updates: Map<string, ContinuousAxisRange>) => void>>(new Map())
-
-    // // function newChart(chartId: number, mainG: GSelection, container: SVGSVGElement): void {
-    // function newChart(chartId: number, mainG: GSelection): void {
-    //     setChartId(chartId)
-    // }
 
     // update the plot dimensions when the container size or margin change
     useEffect(
@@ -202,14 +176,6 @@ export default function ChartProvider(props: Props): JSX.Element {
         },
         [containerDimensions, margin]
     )
-
-    // function setMainGSelection(g: GSelection): void {
-    //     setMainG(g)
-    // }
-
-    // function setObservable(observable: Observable<ChartData>): void {
-    //     setSeriesObservable(observable)
-    // }
 
     function updateDimensions(plotDimensions: PlotDimensions): void {
         setDimensions(plotDimensions)
@@ -269,54 +235,22 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     function setTimeRangeFor(axisId: string, timeRange: [start: number, end: number]): void {
         timeRangesRef.current.set(axisId, timeRange)
-        // setTimeRanges(new Map(timeRanges.set(axisId, timeRange)))
     }
 
-    // function addTimeUpdateHandler(handlerId: string, handler: React.MutableRefObject<(updates: Map<string, ContinuousAxisRange>) => void>): void {
     function addTimeUpdateHandler(handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions) => void): void {
-        // const handlers = new Map(timeUpdateHandlers)
-        // handlers.set(handlerId, handler)
-        // setTimeUpdateHandlers(handlers)
         timeUpdateHandlersRef.current.set(handlerId, handler)
     }
 
     function removeTimeUpdateHandler(handlerId: string): void {
-        // if (timeUpdateHandlers.delete(handlerId)) {
-        //     setTimeUpdateHandlers(new Map(timeUpdateHandlers))
-        // }
         timeUpdateHandlersRef.current.delete(handlerId)
     }
 
     function handleUpdateTime(updates: Map<string, ContinuousAxisRange>): void {
-        // const ranges: Map<string, [number, number]> = new Map(
-        //     Array.from(updates.entries())
-        //         .map(([id, range]) => [id, [range.start, range.end]])
-        // )
-        // timeRangesRef.current = ranges
-        // setTimeRanges(ranges)
         updates.forEach(
             (range, id) => timeRangesRef.current.set(id, [range.start, range.end])
         )
-        // timeUpdateHandlers.forEach((handler, id) => handler(updates))
-        // timeUpdateHandlersRef.current.forEach(
-        //     (handler, ) => handler.current(updates)
-        // )
         timeUpdateHandlersRef.current.forEach((handler, ) => handler(updates, dimensions))
     }
-
-    // function setWindowingTimeFor(axisId: string, windowingTime: number): void {
-    //     const times = new Map(windowingTimes)
-    //     times.set(axisId, windowingTime)
-    //     setWindowingTimes(times)
-    // }
-
-    // function updateWindowingTime(window: number): void {
-    //     setWindowingTime(window)
-    // }
-
-    // function updateShouldSubscribe(subscribe: boolean): void {
-    //     setShouldSubscribe(subscribe)
-    // }
 
     function subscriptionHandler(subscribeHandler: (subscription: Subscription) => void): void {
         setOnSubscribe(subscribeHandler)
@@ -325,10 +259,6 @@ export default function ChartProvider(props: Props): JSX.Element {
     function dataUpdateHandler(updateDataHandler: (seriesName: string, data: Array<Datum>) => void): void {
         setOnUpdateData(updateDataHandler)
     }
-
-    // function timeUpdateHandler(updateTimeHandler: (axisId: string, time: number) => void): void {
-    //     setOnUpdateTime(updateTimeHandler)
-    // }
 
     const {children} = props
     return <ChartContext.Provider
@@ -346,25 +276,19 @@ export default function ChartProvider(props: Props): JSX.Element {
             addYAxis, yAxisFor, yAxisIds, yAxes, yAxisDefaultName,
             timeRangeFor, setTimeRangeFor,
 
-            // windowingTimes,
-            // setWindowingTimeFor,
-
             seriesObservable,
             windowingTime,
             shouldSubscribe,
-            // timeRanges,
 
             onSubscribe,
             onUpdateTime: handleUpdateTime,
             onUpdateData,
-            // setMainGSelection,
             updateDimensions,
             // updateWindowingTime,
             // updateShouldSubscribe,
             // setObservable,
             subscriptionHandler,
             dataUpdateHandler,
-            // timeUpdateHandler
             addTimeUpdateHandler,
             removeTimeUpdateHandler,
         }}
@@ -376,12 +300,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 export function useChart(): UseChartValues {
     const context = useContext<UseChartValues>(ChartContext)
     const {chartId, subscriptionHandler, dataUpdateHandler} = context
-    // const {chartId, subscriptionHandler, dataUpdateHandler, timeUpdateHandler} = context
-    if (
-        isNaN(chartId) || subscriptionHandler === undefined ||
-        // dataUpdateHandler === undefined || timeUpdateHandler === undefined
-        dataUpdateHandler === undefined
-    ) {
+    if (isNaN(chartId) || subscriptionHandler === undefined || dataUpdateHandler === undefined) {
         throw new Error("useChart can only be used when the parent is a <ChartProvider/>")
     }
     return context

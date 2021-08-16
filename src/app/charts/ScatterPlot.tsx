@@ -10,7 +10,6 @@ import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
 import {noop} from "./utils";
-import {Margin} from "./margins";
 
 export interface AxesAssignment {
     xAxis: string
@@ -57,11 +56,8 @@ export function ScatterPlot(props: Props): null {
 
     const liveDataRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
     const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
-    // const currentTimeRef = useRef<number>(0)
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
-    // const currentTimeRef = useRef<Map<string, number>>(new Map(initialData.map(series => [series.name, 0])))
     const currentTimeRef = useRef<Map<string, number>>(new Map())
-    // const xAxesLinearRef = useRef<Map<string, ContinuousNumericAxis>>()
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>()
 
     useEffect(
@@ -256,14 +252,9 @@ export function ScatterPlot(props: Props): null {
         ]
     )
 
-    // const onUpdateTimeRef = useRef<(times: Map<string, ContinuousAxisRange>) => void>(onUpdateTime)
-    // useEffect(
-    //     () => {
-    //         onUpdateTimeRef.current = onUpdateTime
-    //     },
-    //     [onUpdateTime]
-    // )
-
+    // need to keep the function references for use by the subscription, which forms a closure
+    // on them. without the references, the closures become stale, and resizing during streaming
+    // doesn't work properly
     const updatePlotRef = useRef(updatePlot)
     useEffect(
         () => {
@@ -272,19 +263,22 @@ export function ScatterPlot(props: Props): null {
         [updatePlot]
     )
 
-    const updateTimeRef = useRef(onUpdateTime)
+    const onUpdateTimeRef = useRef(onUpdateTime)
     useEffect(
         () => {
-            updateTimeRef.current = onUpdateTime
+            onUpdateTimeRef.current = onUpdateTime
         },
         [onUpdateTime]
     )
 
-    function updateTiming() {
+    /**
+     * Updates the timing using the onUpdateTime and updatePlot references. This and the references
+     * defined above allow the axes' times to be update properly by avoid stale reference to these
+     * functions.
+     */
+    function updateTimingAndPlot(): void {
         if (timeRangesRef.current !== undefined && mainG !== null) {
-            // todo, looks like the axis are getting update to the new dimensions
-            //     on resize and the plot updates them, but not for the series
-            updateTimeRef.current(timeRangesRef.current)
+            onUpdateTimeRef.current(timeRangesRef.current)
             updatePlotRef.current(timeRangesRef.current, mainG)
         }
     }
@@ -333,16 +327,13 @@ export function ScatterPlot(props: Props): null {
                                     (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime),
                                     -Infinity
                                 ) || data.maxTime
-                            // const currentAxisTime = currentTimeRef.current.get(axisId)
                             if (currentAxisTime !== undefined) {
                                 // drop data that is older than the max time-window
                                 // todo replace the infinity
-                                // while (currentAxisTime - series.data[0].time > dropDataAfter) {
                                 while (currentAxisTime - series.data[0].time > Infinity) {
                                     series.data.shift()
                                 }
 
-                                // const timesWindows = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
                                 const range = timesWindows.get(axisId)
                                 if (range !== undefined && range.end < currentAxisTime) {
                                     const timeWindow = range.end - range.start
@@ -359,20 +350,7 @@ export function ScatterPlot(props: Props): null {
                         // update the data
                         liveDataRef.current = seriesRef.current
                         timeRangesRef.current = timesWindows
-                    }).then(() => {
-                        updateTiming()
-                        // if (timeRangesRef.current !== undefined) {
-                        //     // todo, looks like the axis are getting updated to the new dimensions
-                        //     //     on resize and the plot updates them, but not for the series
-                        //     onUpdateTime(timeRangesRef.current)
-                        //     updatePlot(timeRangesRef.current, mainG)
-                        //     // updatePlotRef.current(timeRangesRef.current, mainG)
-                        //     // const xAxesLinear = new Map<string, ContinuousNumericAxis>(
-                        //     //     Array.from(xAxes().entries()).map(([id, axis]) => [id, axis as ContinuousNumericAxis])
-                        //     // )
-                        //     // updatePlot(timeRanges(xAxesLinear), mainG)
-                        // }
-                    })
+                    }).then(() => updateTimingAndPlot())
                 })
 
             // provide the subscription to the caller
@@ -381,21 +359,10 @@ export function ScatterPlot(props: Props): null {
             return subscription
         },
         [
-            axisAssignments, mainG, onSubscribe, onUpdateData,
-            seriesObservable, updatePlot, windowingTime, xAxes, xAxisDefaultName,
-            onUpdateTime
+            seriesObservable, mainG, windowingTime, onSubscribe,
+            xAxes, axisAssignments, xAxisDefaultName, onUpdateData, updateTimingAndPlot
         ]
     )
-
-    // useEffect(
-    //     () => {
-    //         timeRangesRef.current?.forEach((range, id) =>
-    //             (xAxisFor(id) as ContinuousNumericAxis)
-    //                 .update([range.start, range.end], plotDimensions, margin)
-    //         )
-    //     },
-    //     [margin, plotDimensions, xAxisFor]
-    // )
 
     useEffect(
         () => {
@@ -404,7 +371,6 @@ export function ScatterPlot(props: Props): null {
                     Array.from(xAxes().entries()).map(([id, axis]) => [id, axis as ContinuousNumericAxis])
                 )
                 updatePlot(timeRanges(xAxesLinear), mainG)
-                // updatePlot(timeRanges(xAxesLinearRef.current), mainG)
             }
         },
         [chartId, color, container, mainG, plotDimensions, updatePlot, xAxes]
@@ -471,7 +437,6 @@ function selectInTimeRange(series: Series, timeRange: ContinuousAxisRange): Time
  * @param xAxes The map containing the axes and their associated IDs
  * @return a map associating the axis IDs to their time-range
  */
-// function timeRanges(xAxes: Map<string, BaseAxis>): Map<string, ContinuousAxisRange> {
 function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
     return new Map(Array.from(xAxes.entries())
         .map(([id, axis]) => {
