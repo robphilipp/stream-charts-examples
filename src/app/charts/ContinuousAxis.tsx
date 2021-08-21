@@ -180,8 +180,9 @@ export function addContinuousNumericXAxis(
         .text(axisLabel)
 
     const axis: ContinuousNumericAxis = {
-        scale,
+        location,
         selection,
+        scale,
         generator: location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale),
         update: noop
     }
@@ -258,7 +259,7 @@ export function addContinuousNumericYAxis(
         .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
         .text(axisLabel)
 
-    const axis = {scale, selection, generator, update: noop}
+    const axis = {selection, location, scale, generator, update: noop}
     return {
         ...axis,
         update: (domain, plotDimensions, margin) => updateLinearYAxis(

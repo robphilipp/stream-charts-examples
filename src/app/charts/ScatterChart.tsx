@@ -519,6 +519,11 @@ export function ScatterChart(props: Props): JSX.Element {
      * @return The tracker selection if visible; otherwise undefined
      */
     function trackerControl(svg: SvgSelection, visible: boolean): TrackerSelection | undefined {
+        if (axesRef.current === undefined) return
+        const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>([[
+           axesRef.current.xAxis,
+            x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
+        ]])
         if (visible && containerRef.current) {
             return createTrackerControl(
                 chartId.current,
@@ -528,7 +533,8 @@ export function ScatterChart(props: Props): JSX.Element {
                 margin,
                 trackerStyle,
                 axisLabelFont,
-                x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
+                // x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
+                trackerLabels
             )
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)

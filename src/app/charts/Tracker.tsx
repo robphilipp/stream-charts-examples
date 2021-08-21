@@ -37,13 +37,17 @@ export function Tracker(props: Props): null {
     const trackerFont = useMemo(() => ({...defaultTrackerLabelFont, ...font}), [font])
 
     // todo temporary: need to show label for (possibly) both x-axis
-    const xAxisRef = useRef<ContinuousNumericAxis>()
+    // const xAxisRef = useRef<ContinuousNumericAxis>()
+    const xAxisRef = useRef<Map<string, ContinuousNumericAxis>>(new Map())
     useEffect(
         () => {
-            const axes = Array.from(xAxes().values())
-            if (axes.length > 0) {
-                xAxisRef.current = axes[0] as ContinuousNumericAxis
-            }
+            const axes = new Map<string, ContinuousNumericAxis>()
+            xAxes().forEach((axis, id) => axes.set(id, axis as ContinuousNumericAxis))
+            xAxisRef.current = axes
+            // const axes = Array.from(xAxes().values())
+            // if (axes.length > 0) {
+            //     xAxisRef.current = axes[0] as ContinuousNumericAxis
+            // }
         },
         [xAxes]
     )
@@ -57,9 +61,18 @@ export function Tracker(props: Props): null {
          */
         (svg: SvgSelection, visible: boolean): TrackerSelection | undefined => {
             if (visible && container) {
-                const timeFrom = (x: number) => xAxisRef.current !== undefined ?
-                    xAxisRef.current.scale.invert(x - margin.left) :
-                    0
+                // const timeFrom = (x: number) => xAxisRef.current !== undefined ?
+                //     xAxisRef.current.scale.invert(x - margin.left) :
+                //     0
+                // const timeFrom = (x: number, axis: ContinuousNumericAxis) => axis.scale.invert(x - margin.left)
+                // const timesFrom = (x: number): Map<string, number> =>
+                //     new Map(Array.from(xAxisRef.current.entries()).map(([id, axis]) => [id, axis.scale.invert(x - margin.left)]))
+                const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
+                    Array.from(xAxisRef.current.values()).map(axis => [
+                        axis,
+                        x => `${d3.format(",.0f")(axis.scale.invert(x - margin.left))} ms`
+                    ])
+                )
 
                 return createTrackerControl(
                     chartId,
@@ -69,7 +82,8 @@ export function Tracker(props: Props): null {
                     margin,
                     trackerStyle,
                     trackerFont,
-                    x => `${d3.format(",.0f")(timeFrom(x))} ms`
+                    // x => `${d3.format(",.0f")(timeFrom(x))} ms`
+                    trackerLabels
                 )
             }
             // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)

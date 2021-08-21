@@ -40,6 +40,7 @@ export interface Axes<X extends BaseAxis, Y extends BaseAxis> {
 }
 
 export interface BaseAxis {
+    location: AxisLocation
     selection: AxisElementSelection
 }
 
@@ -121,12 +122,12 @@ export function addCategoryAxis(
     switch (location) {
         case AxisLocation.Left:
         case AxisLocation.Right:
-            return addCategoryYAxis(chartId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel)
+            return addCategoryYAxis(chartId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
 
         case AxisLocation.Bottom:
         case AxisLocation.Top:
             //todo should be the x axis
-            return addCategoryYAxis(chartId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel)
+            return addCategoryYAxis(chartId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
     }
 }
 
@@ -138,6 +139,7 @@ function addCategoryYAxis(
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
+    location: AxisLocation,
 ): CategoryAxis {
     const categorySize = (plotDimensions.height - margin.top) / categories.length;
     const scale = d3.scaleBand()
@@ -165,7 +167,7 @@ function addCategoryYAxis(
         .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom)/2}) rotate(-90)`)
         .text(axisLabel)
 
-    const axis = {scale, selection, generator, categorySize, update: () => categorySize}
+    const axis = {selection, location, scale, generator, categorySize, update: () => categorySize}
 
     return {
         ...axis,
