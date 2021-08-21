@@ -236,7 +236,6 @@ export function calculateZoomFor(
     range: ContinuousAxisRange,
 ): ZoomResult {
     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
-    console.log("calc zoom for", time, range, axis)
     return {
         range: range.scale(transform.k, time),
         zoomFactor: transform.k

@@ -112,12 +112,13 @@ export function ScatterPlot(props: Props): null {
                     if (timeRange) {
                         // calculate the change in the time-range based on the pixel change from the drag event
                         const range = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
-                        // // update the time-range for the axis
+                        if (Math.abs(range.start - timeRange.start) < 2) return
+
+                        // update the time-range for the axis
                         ranges.set(axisId, range)
 
                         const {start, end} = range
                         setTimeRangeFor(axisId, [start, end])
-                        console.log("pan", axisId, [start, end], ranges)
 
                         // update the axis' time-range
                         xAxis.update([start, end], plotDimensions, margin)
@@ -156,14 +157,12 @@ export function ScatterPlot(props: Props): null {
                     const xAxis = xAxisFor(axisId) as ContinuousNumericAxis
                     const timeRange = ranges.get(axisId)
                     if (timeRange) {
-                        // console.log("zoom (bc)", axisId, timeRange, ranges)
                         const zoom = calculateZoomFor(transform, x, plotDimensions, xAxis, timeRange)
 
                         // update the axis range
                         ranges.set(axisId, zoom.range)
 
                         setTimeRangeFor(axisId, [zoom.range.start, zoom.range.end])
-                        // console.log("zoom (ac)", axisId, zoom.range, zoom.zoomFactor, ranges)
 
                         // update the axis' time-range
                         xAxis.update([zoom.range.start, zoom.range.end], plotDimensions, margin)
@@ -186,15 +185,11 @@ export function ScatterPlot(props: Props): null {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
 
-                // create a map associating series-names to their time-series, which are represented
-                // as an array of (time, value)-pairs
-                const boundedSeries: Map<string, Array<[number, number]>> = new Map()
-                initialData.forEach(series =>
-                    boundedSeries.set(
-                        series.name,
-                        selectInTimeRange(series, timeRangeFor(series.name, timeRanges, axisAssignments))
-                    )
-                )
+                // create a map associating series-names to their time-series
+                const boundedSeries = new Map(initialData.map(series => [
+                    series.name,
+                    selectInTimeRange(series, timeRangeFor(series.name, timeRanges, axisAssignments))
+                ]))
 
                 // // create/update the magnifier lens if needed
                 // magnifierRef.current = magnifierLens(svg, magnifierStyle.visible)
@@ -247,7 +242,7 @@ export function ScatterPlot(props: Props): null {
 
                 boundedSeries.forEach((data, name) => {
 
-                    if (data.length === 0) return
+                    // if (data.length === 0) return
                     const [xAxisLinear, yAxisLinear] = axesFor(name, axisAssignments, xAxisFor, yAxisFor)
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
                     const {color, lineWidth} = seriesStyles.get(name) || defaultLineStyle
