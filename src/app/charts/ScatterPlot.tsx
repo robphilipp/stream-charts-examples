@@ -69,15 +69,15 @@ export function ScatterPlot(props: Props): null {
         [xAxes]
     )
 
-    // calculates the series IDs that cover all the series in the plot
+    // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
         (): Array<string> => {
             return initialData.map(series => series.name)
                 // grab the x-axis assigned to the series, or use a the default x-axis if not
                 // assignment has been made
                 .map(name => axisAssignments.get(name)?.xAxis || xAxisDefaultName())
-                // de-dup the array of axis IDs so that we don't end up applying the pan transformation
-                // more than once
+                // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
+                //  transformation more than once
                 .reduce((accum: Array<string>, axisId: string) => {
                     if (!accum.find(id => id === axisId)) {
                         accum.push(axisId)
@@ -97,7 +97,8 @@ export function ScatterPlot(props: Props): null {
          * @param ranges A map holding the axis ID and its associated time range
          * @param mainG The main <g> element holding the plot
          */
-        (deltaX: number,
+        (
+            deltaX: number,
             plotDimensions: PlotDimensions,
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
@@ -110,11 +111,11 @@ export function ScatterPlot(props: Props): null {
                     const timeRange = ranges.get(axisId)
                     if (timeRange) {
                         // calculate the change in the time-range based on the pixel change from the drag event
-                        const {start, end} = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
+                        const range = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
+                        // // update the time-range for the axis
+                        ranges.set(axisId, range)
 
-                        // update the time-range for the axis
-                        ranges.set(axisId, continuousAxisRangeFor(start, end))
-
+                        const {start, end} = range
                         setTimeRangeFor(axisId, [start, end])
                         console.log("pan", axisId, [start, end], ranges)
 
