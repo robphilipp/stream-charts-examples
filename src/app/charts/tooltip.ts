@@ -5,7 +5,6 @@ import {Datum} from "./datumSeries";
 import {Dimensions, Margin} from "./margins";
 import {CategoryAxis} from "./axes";
 import {TooltipStyle} from "./TooltipStyle";
-import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 
 export interface TooltipDimensions {
     contentWidth: number,
@@ -28,7 +27,7 @@ export function createTooltip(
     container: SVGSVGElement,
     margin: Margin,
     tooltipStyle: TooltipStyle,
-    plotDimensions: PlotDimensions,
+    plotDimensions: Dimensions,
     tooltipContent: () => TooltipDimensions
 ): void {
 

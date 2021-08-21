@@ -1,11 +1,9 @@
 import {BarMagnifierSelection, GSelection, LineSelection, MagnifierTextSelection, SvgSelection} from "./d3types";
 import * as d3 from "d3";
-import {TooltipStyle} from "./TooltipStyle";
-import {AxesLabelFont, SeriesLineStyle, ContinuousNumericAxis} from "./axes";
-import {Margin} from "./margins";
-import {Datum} from "./datumSeries";
 import {ScaleLinear} from "d3";
-import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
+import {AxesLabelFont, ContinuousNumericAxis} from "./axes";
+import {Dimensions, Margin} from "./margins";
+import {Datum} from "./datumSeries";
 import {textWidthOf} from "./utils";
 import {SpikesStyle} from "./RasterChart";
 
@@ -335,7 +333,7 @@ export function showMagnifierLens(
     margin: Margin,
     mouseCoord: [number, number],
     xAxis: ContinuousNumericAxis,
-    plotDim: PlotDimensions,
+    plotDim: Dimensions,
     zoomFactor: number,
     spikesStyle: SpikesStyle
 ): number {
@@ -398,7 +396,7 @@ export function hideMagnifierLens(
     margin: Margin,
     mouseCoord: [number, number],
     xAxis: ContinuousNumericAxis,
-    plotDim: PlotDimensions,
+    plotDim: Dimensions,
     spikesStyle: SpikesStyle
 ): number {
     const deltaX = magnifier.width / 2;

@@ -6,7 +6,6 @@ import {ScaleContinuousNumeric} from "d3";
 import {SvgSelection} from "./d3types";
 import {Dimensions, Margin} from "./margins";
 import {noop} from "./utils";
-import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 
 interface Props {
@@ -66,7 +65,7 @@ export function ContinuousAxis(props: Props): null {
                 const svg = d3.select<SVGSVGElement, any>(container)
                 const font: AxesLabelFont = {...defaultAxesLabelFont, ...props.font}
 
-                const handleTimeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions): void => {
+                const handleTimeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
                     if (timeUpdateHandlerIdRef.current && axisRef.current) {
                         const range = updates.get(axisId)
                         if (range) {
@@ -188,20 +187,20 @@ export function addContinuousNumericXAxis(
     }
     return {
         ...axis,
-        update: (domain: [start: number, end: number], plotDimensions: PlotDimensions, margin: Margin) => {
+        update: (domain: [start: number, end: number], plotDimensions: Dimensions, margin: Margin) => {
             updateLinearXAxis(chartId, svg, axis, domain, plotDimensions, margin, location)
             setTimeRangeFor(axisId, domain)
         }
     }
 }
 
-function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: PlotDimensions, margin: Margin): number {
+function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ?
         plotDimensions.height + margin.top - margin.bottom :
         margin.top
 }
 
-function labelYTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: PlotDimensions, margin: Margin): number {
+function labelYTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ?
         plotDimensions.height + margin.top + (margin.bottom / 3) :
         margin.top / 3
@@ -268,13 +267,13 @@ export function addContinuousNumericYAxis(
     }
 }
 
-function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: PlotDimensions, margin: Margin): number {
+function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Left ?
         margin.left :
         margin.left + plotDimensions.width
 }
 
-function labelXTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: PlotDimensions, margin: Margin, axesLabelFont: AxesLabelFont): number {
+function labelXTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesLabelFont): number {
     return location === AxisLocation.Left ?
         axesLabelFont.size :
         margin.left + plotDimensions.width + margin.right - axesLabelFont.size

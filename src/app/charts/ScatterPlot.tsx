@@ -7,10 +7,10 @@ import {setClipPath, TimeSeries} from "./plot";
 import {Datum, emptySeries, Series} from "./datumSeries";
 import {BaseAxis, calculatePanFor, calculateZoomFor, ContinuousNumericAxis, defaultLineStyle} from "./axes";
 import {GSelection} from "./d3types";
-import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
 import {noop} from "./utils";
+import {Dimensions} from "./margins";
 
 export interface AxesAssignment {
     xAxis: string
@@ -59,8 +59,6 @@ export function ScatterPlot(props: Props): null {
     const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
-    // const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>()
-    // const zoomFactorsRef = useRef<Map<string, number>>(new Map())
 
     useEffect(
         () => {
@@ -99,7 +97,7 @@ export function ScatterPlot(props: Props): null {
          */
         (
             deltaX: number,
-            plotDimensions: PlotDimensions,
+            plotDimensions: Dimensions,
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
             mainG: GSelection
@@ -146,7 +144,7 @@ export function ScatterPlot(props: Props): null {
         (
             transform: ZoomTransform,
             x: number,
-            plotDimensions: PlotDimensions,
+            plotDimensions: Dimensions,
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
             mainG: GSelection
@@ -223,7 +221,6 @@ export function ScatterPlot(props: Props): null {
                 // set up for zooming
                 const zoom = d3.zoom<SVGSVGElement, Datum>()
                     .scaleExtent([0, 10])
-                    // .translateExtent([[margin.left, margin.top], [plotDimensions.width - margin.right, plotDimensions.height - margin.bottom]])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", () => onZoom(
                             d3.event.transform,
@@ -241,16 +238,16 @@ export function ScatterPlot(props: Props): null {
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
 
                 boundedSeries.forEach((data, name) => {
-
-                    // if (data.length === 0) return
+                    // grab the x and y axes assigned to the series, and if either or both
+                    // axes aren't found, then give up and return
                     const [xAxisLinear, yAxisLinear] = axesFor(name, axisAssignments, xAxisFor, yAxisFor)
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
+
+                    // grab the style for the series
                     const {color, lineWidth} = seriesStyles.get(name) || defaultLineStyle
 
                     // only show the data for which the filter matches
-                    // const plotData = (series.name.match(seriesFilterRef.current)) ? data : []
                     const plotData = (name.match(seriesFilter)) ? data : []
-                    // const plotData = data
 
                     // create the time-series paths
                     mainGElem
@@ -269,8 +266,6 @@ export function ScatterPlot(props: Props): null {
                                 .attr("fill", "none")
                                 .attr("stroke", color)
                                 .attr("stroke-width", lineWidth)
-                                // .attr("stroke", colorsRef.current.get(name) || lineStyle.color)
-                                // .attr("stroke-width", lineStyle.lineWidth)
                                 .attr('transform', `translate(${margin.left}, ${margin.top})`)
                                 .attr("clip-path", `url(#${clipPathId})`),
                             // .attr("clip-path", `url(#clip-series-${chartId.current})`)
@@ -295,9 +290,7 @@ export function ScatterPlot(props: Props): null {
         [
             chartId,
             container, margin, plotDimensions,
-            // setTimeRangeFor,
             initialData, seriesFilter, seriesStyles, axisAssignments,
-            // xAxisDefaultName,
             xAxisFor, yAxisFor,
             onZoom, onPan
         ]
@@ -313,7 +306,6 @@ export function ScatterPlot(props: Props): null {
         },
         [updatePlot]
     )
-
     const onUpdateTimeRef = useRef(onUpdateTime)
     useEffect(
         () => {
@@ -329,10 +321,6 @@ export function ScatterPlot(props: Props): null {
      */
     const updateTimingAndPlot = useCallback(
         (ranges: Map<string, ContinuousAxisRange>) => {
-            // if (timeRangesRef.current !== undefined && mainG !== null) {
-            //     onUpdateTimeRef.current(timeRangesRef.current)
-            //     updatePlotRef.current(timeRangesRef.current, mainG)
-            // }
             if (mainG !== null) {
                 // const ranges = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
                 onUpdateTimeRef.current(ranges)
@@ -406,9 +394,8 @@ export function ScatterPlot(props: Props): null {
 
                         // update the data
                         liveDataRef.current = seriesRef.current
-                        // timeRangesRef.current = timesWindows
                         updateTimingAndPlot(timesWindows)
-                    })//.then(() => updateTimingAndPlot())
+                    })
                 })
 
             // provide the subscription to the caller
@@ -434,17 +421,16 @@ export function ScatterPlot(props: Props): null {
         [chartId, color, container, mainG, plotDimensions, updatePlot, xAxes]
     )
 
+    // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
+    // is changed to `true` and we haven't subscribed yet, then subscribe. when the
+    // `shouldSubscribe` is `false` and we had subscribed, then unsubscribe. otherwise,
+    // do nothing.
     const subscriptionRef = useRef<Subscription>()
-    // called on mount, dismount and when shouldSubscribe changes
     useEffect(
         () => {
             if (shouldSubscribe && subscriptionRef.current === undefined) {
                 subscriptionRef.current = subscribe()
-                // const subscription = subscribe()
-
-                // stop the stream on dismount
-                // return () => subscription?.unsubscribe()
-            } else if (!shouldSubscribe) {
+            } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
                 subscriptionRef.current?.unsubscribe()
                 subscriptionRef.current = undefined
             }

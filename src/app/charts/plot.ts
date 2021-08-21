@@ -1,13 +1,24 @@
 import {Dimensions, Margin} from "./margins";
 import * as d3 from "d3";
 import {GSelection, SvgSelection} from "./d3types";
-import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 
 export type Range = [min: number, max: number]
 export type TimeSeries = Array<[number, number]>
 
-export function createPlotContainer(chartId: number, container: SVGSVGElement, dimensions: Dimensions, color: string): GSelection {
-    const {width, height} = dimensions
+/**
+ * Creates the main SVG for holding the plot.
+ * @param chartId A unique value identifying the chart.
+ * @param container The SVG element interface
+ * @param plotDimensions The dimensions of the plot
+ * @param color The SVG `color` attribute used for the axis
+ */
+export function createPlotContainer(
+    chartId: number,
+    container: SVGSVGElement,
+    plotDimensions: Dimensions,
+    color: string
+): GSelection {
+    const {width, height} = plotDimensions
     return d3.select<SVGSVGElement, any>(container)
         .attr('width', width)
         .attr('height', height)
@@ -16,7 +27,17 @@ export function createPlotContainer(chartId: number, container: SVGSVGElement, d
         .attr('id', `main-container-${chartId}`)
 }
 
-export function setClipPath(chartId: number, svg: SvgSelection, plotDimensions: PlotDimensions, margin: Margin): string {
+/**
+ * Adds a clip area for the chart to the specified SVG element. The clip-area is given
+ * an `id` of `clip-series-<chart_id>`, which because the chart ID should be unique, makes
+ * this unique as well
+ * @param chartId The ID of the chart to which the clip area is to be added
+ * @param svg The SVG element to which the clip area is to be added
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins around the plot
+ * @return The ID of the clip-path
+ */
+export function setClipPath(chartId: number, svg: SvgSelection, plotDimensions: Dimensions, margin: Margin): string {
     const clipPathId = `chart-clip-path-${chartId}`
 
     // remove the old clipping region and add a new one with the updated plot dimensions

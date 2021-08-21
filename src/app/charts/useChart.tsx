@@ -6,7 +6,6 @@ import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {Datum, Series} from "./datumSeries";
 import {noop} from "./utils";
-import {PlotDimensions} from "stream-charts/dist/src/app/charts/margins";
 import {BaseAxis, SeriesLineStyle} from "./axes";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 
@@ -67,12 +66,12 @@ interface UseChartValues {
     // newChart: (chartId: number, mainG: GSelection, container: SVGSVGElement) => void
     // newChart: (chartId: number, mainG: GSelection) => void
     // setMainGSelection: (g: GSelection) => void
-    updateDimensions: (dimensions: PlotDimensions) => void
+    updateDimensions: (dimensions: Dimensions) => void
     // updateWindowingTime: (window: number) => void
     // updateShouldSubscribe: (subscribe: boolean) => void
     subscriptionHandler: (subscribeHandler: (subscription: Subscription) => void) => void
     dataUpdateHandler: (updateDataHandler: (seriesName: string, data: Array<Datum>) => void) => void
-    addTimeUpdateHandler: (handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions) => void) => void
+    addTimeUpdateHandler: (handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void) => void
     removeTimeUpdateHandler: (handlerId: string) => void
 }
 
@@ -156,7 +155,7 @@ export default function ChartProvider(props: Props): JSX.Element {
         windowingTime = defaultUseChartValues.windowingTime || 100,
         shouldSubscribe,
     } = props
-    const [dimensions, setDimensions] = useState<PlotDimensions>(defaultUseChartValues.plotDimensions)
+    const [dimensions, setDimensions] = useState<Dimensions>(defaultUseChartValues.plotDimensions)
 
     const xAxesRef = useRef<Map<string, BaseAxis>>(new Map())
     const yAxesRef = useRef<Map<string, BaseAxis>>(new Map())
@@ -170,7 +169,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const [onSubscribe, setOnSubscribe] = useState<(subscription: Subscription) => void>(noop)
     const [onUpdateData, setOnUpdateData] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
-    const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions) => void>>(new Map())
+    const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
 
     // update the plot dimensions when the container size or margin change
     useEffect(
@@ -180,7 +179,7 @@ export default function ChartProvider(props: Props): JSX.Element {
         [containerDimensions, margin]
     )
 
-    function updateDimensions(plotDimensions: PlotDimensions): void {
+    function updateDimensions(plotDimensions: Dimensions): void {
         setDimensions(plotDimensions)
     }
 
@@ -250,7 +249,7 @@ export default function ChartProvider(props: Props): JSX.Element {
         timeRangesRef.current.set(axisId, timeRange)
     }
 
-    function addTimeUpdateHandler(handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions) => void): void {
+    function addTimeUpdateHandler(handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void): void {
         timeUpdateHandlersRef.current.set(handlerId, handler)
     }
 

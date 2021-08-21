@@ -196,24 +196,9 @@ function updateCategoryYAxis(
     return categorySize
 }
 
-export function addClipArea(
-    chartId: number,
-    svg: SvgSelection,
-    plotDimensions: Dimensions,
-    margin: Margin
-) {
-    // create the clipping region so that the lines are clipped at the y-axis
-    svg
-        .append("defs")
-        .append("clipPath")
-        .attr("id", `clip-series-${chartId}`)
-        .append("rect")
-        .attr("width", plotDimensions.width)
-        .attr("height", plotDimensions.height - margin.top)
-}
-
-
-
+/**
+ * The result of a zoom action
+ */
 export interface ZoomResult {
     range: ContinuousAxisRange
     zoomFactor: number

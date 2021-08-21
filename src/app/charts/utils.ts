@@ -2,10 +2,13 @@ import {Dimensions, Margin} from "./margins"
 import * as d3 from "d3";
 import {Selection, ZoomTransform} from "d3";
 import {calculateZoomFor, ContinuousNumericAxis} from "./axes";
-import {TimeRangeType} from "stream-charts/dist/src/app/charts/timeRange";
-import {TimeSeries} from "./plot";
+import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 
-export const noop = () => {}
+/**
+ * No operation function for use when a default function is needed
+ */
+export const noop = () => {
+}
 
 /**
  * Calculates whether the mouse is in the plot-area
@@ -15,18 +18,25 @@ export const noop = () => {}
  * @param dimensions The the overall dimensions (plot dimensions plus margin)
  * @return `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
  */
-export function mouseInPlotAreaFor(x: number, y: number, margin: Margin, dimensions: Dimensions): boolean {
-    return x > margin.left && x < dimensions.width - margin.right && y > margin.top && y < dimensions.height - margin.bottom
-}
+export const mouseInPlotAreaFor =
+    (x: number, y: number, margin: Margin, dimensions: Dimensions): boolean =>
+        x > margin.left && x < dimensions.width - margin.right && y > margin.top && y < dimensions.height - margin.bottom
 
-export const textWidthOf = (elem: Selection<SVGTextElement, any, HTMLElement, any>) => elem.node()?.getBBox()?.width || 0
+/**
+ * Calculates the width of an SVG text element, based on its bounding box
+ * @param elem The SVG text element
+ * @return The width in pixels, or 0 if SVG text element has not children
+ */
+export const textWidthOf =
+    (elem: Selection<SVGTextElement, any, HTMLElement, any>) =>
+        elem.node()?.getBBox()?.width || 0
 
 /**
  * The object returned by the zoom
  */
 export interface Zoom {
     zoomFactor: number,
-    timeRange: TimeRangeType,
+    timeRange: ContinuousAxisRange,
 }
 
 /**
@@ -48,7 +58,7 @@ export function handleZoom(
     containerWidth: number,
     margin: Margin,
     xAxis: ContinuousNumericAxis,
-    timeRange: TimeRangeType,
+    timeRange: ContinuousAxisRange,
 ): Zoom | undefined {
     if (x > 0 && x < containerWidth - margin.right) {
         const {range, zoomFactor} = calculateZoomFor(transform, x, plotDimensions, xAxis, timeRange)

@@ -27,12 +27,11 @@ export interface Dimensions {
  * from the overall dimensions
  * @see containerDimensionsFrom
  */
-export function plotDimensionsFrom(containerWidth: number, containerHeight: number, plotMargins: Margin): Dimensions {
-    return {
+export const plotDimensionsFrom =
+    (containerWidth: number, containerHeight: number, plotMargins: Margin): Dimensions => ({
         width: containerWidth - plotMargins.left - plotMargins.right,
         height: containerHeight - plotMargins.top - plotMargins.bottom
-    }
-}
+    })
 
 /**
  * Calculates the container's dimensions from the plot dimensions and the plot margin. The container
@@ -42,10 +41,8 @@ export function plotDimensionsFrom(containerWidth: number, containerHeight: numb
  * @return The container dimensions.
  * @see plotDimensionsFrom
  */
-export function containerDimensionsFrom(plotDimensions: Dimensions, plotMargin: Margin): Dimensions {
-    return {
-        width: plotDimensions.width + plotMargin.left + plotMargin.right,
-        height: plotDimensions.height + plotMargin.top + plotMargin.bottom
-    }
-}
+export const containerDimensionsFrom = (plotDimensions: Dimensions, plotMargin: Margin): Dimensions => ({
+    width: plotDimensions.width + plotMargin.left + plotMargin.right,
+    height: plotDimensions.height + plotMargin.top + plotMargin.bottom
+})
 
