@@ -32,7 +32,17 @@ interface UseChartValues {
     yAxes: () => Map<string, BaseAxis>
     yAxisDefaultName: () => string
 
+    /**
+     * Retrieves the time range for the specified axis ID
+     * @param axisId The ID of the axis for which to retrieve the time-range
+     * @return The time-range as a `[t_start, t_end]` tuple if the axis ID is found, `undefined` otherwise
+     */
     timeRangeFor: (axisId: string) => [start: number, end: number] | undefined
+    /**
+     * Sets the time-range for the specified axis ID to the specified range
+     * @param axisId The ID of the axis for which to set the range
+     * @param timeRange The new time range as an `[t_start, t_end]` tuple
+     */
     setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
 
     // initial data
@@ -101,15 +111,9 @@ const defaultUseChartValues: UseChartValues = {
     onUpdateData: noop,
     onUpdateTime: noop,
 
-    // newChart: noop,
-    // setMainGSelection: noop,
     updateDimensions: noop,
-    // updateWindowingTime: noop,
-    // updateShouldSubscribe: noop,
-    // setObservable: noop,
     subscriptionHandler: () => noop,
     dataUpdateHandler: () => noop,
-    // timeUpdateHandler: () => noop,
 
     addTimeUpdateHandler: () => noop,
     removeTimeUpdateHandler: () => noop,
@@ -166,7 +170,6 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const [onSubscribe, setOnSubscribe] = useState<(subscription: Subscription) => void>(noop)
     const [onUpdateData, setOnUpdateData] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
-    // todo making this a state fixes the resize issue, but causes react to break its update depth...
     const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: PlotDimensions) => void>>(new Map())
 
     // update the plot dimensions when the container size or margin change
@@ -229,10 +232,20 @@ export default function ChartProvider(props: Props): JSX.Element {
         return Array.from(yAxesRef.current.keys())[0]
     }
 
+    /**
+     * Retrieves the time range for the specified axis ID
+     * @param axisId The ID of the axis for which to retrieve the time-range
+     * @return The time-range as a `[t_start, t_end]` tuple if the axis ID is found, `undefined` otherwise
+     */
     function timeRangeFor(axisId: string): [start: number, end: number] | undefined {
         return timeRangesRef.current.get(axisId)
     }
 
+    /**
+     * Sets the time-range for the specified axis ID to the specified range
+     * @param axisId The ID of the axis for which to set the range
+     * @param timeRange The new time range as an `[t_start, t_end]` tuple
+     */
     function setTimeRangeFor(axisId: string, timeRange: [start: number, end: number]): void {
         timeRangesRef.current.set(axisId, timeRange)
     }

@@ -189,9 +189,7 @@ export function addContinuousNumericXAxis(
     return {
         ...axis,
         update: (domain: [start: number, end: number], plotDimensions: PlotDimensions, margin: Margin) => {
-            updateLinearXAxis(
-                chartId, svg, axis, domain, plotDimensions, margin, location
-            )
+            updateLinearXAxis(chartId, svg, axis, domain, plotDimensions, margin, location)
             setTimeRangeFor(axisId, domain)
         }
     }

@@ -23,9 +23,9 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
 
     /**
      * Updates the time-range based on the new start and end times
-     * @param {number} start The new start of the time-range
-     * @param {number} end The new end of the time-range
-     * @return {ContinuousAxisRange} The updated time-range type
+     * @param start The new start of the time-range
+     * @param end The new end of the time-range
+     * @return The updated time-range type
      */
     function updateTimeRange(start: number, end: number): ContinuousAxisRange {
 
@@ -34,9 +34,9 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
 
         /**
          * Determines whether the specified (start, end) interval matches the original interval
-         * @param {number} start The start of the interval
-         * @param {number} end The end of the interval
-         * @return {boolean} `true` if the specified interval matches the original interval; `false` otherwise
+         * @param start The start of the interval
+         * @param end The end of the interval
+         * @return `true` if the specified interval matches the original interval; `false` otherwise
          */
         function matchesOriginal(start: number, end: number): boolean {
             return originalStart === start && originalEnd === end
@@ -46,9 +46,11 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
          * Scales the time-range by the specified scale factor from the specified time-location. The equations
          * are written so that the zooming (scaling) occurs at the specified time, and expands/contracts equally
          * from that time.
-         * @param {number} factor The scale factor
-         * @param {number} time The time from which to scale the interval
+         * @param factor The scale factor
+         * @param time The time from which to scale the interval
+         * @return A new continuous-axis range with updated values
          */
+        // todo fix this...this is what causes the jumps in zoom after pan
         function scale(factor: number, time: number): ContinuousAxisRange {
             const oldScale = scaleFactor
             const dts = time - start
@@ -59,8 +61,9 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
         }
 
         /**
-         * Translates the time-range by the sepecified amount
-         * @param {number} x The amount by which to translate the time-range
+         * Translates the time-range by the specified amount
+         * @param x The amount by which to translate the time-range
+         * @return An updated {@link ContinuousAxisRange} that has been translated by the specified amount
          */
         function translate(x: number): ContinuousAxisRange {
             start += x
