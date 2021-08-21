@@ -63,7 +63,7 @@ export function createTrackerControl(
         .attr('id', `stream-chart-tracker-line-${chartId}`)
         .attr('class', 'tracker')
         .attr('y1', margin.top)
-        .attr('y2', plotDimensions.height + margin.top)
+        .attr('y2', plotDimensions.height + margin.top - margin.bottom)
         .attr('stroke', tracker.color)
         .attr('stroke-width', tracker.lineWidth)
         .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
