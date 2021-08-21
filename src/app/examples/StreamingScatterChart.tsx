@@ -21,6 +21,7 @@ import {AxisLocation, defaultLineStyle} from "../charts/axes";
 import {ContinuousAxis} from "../charts/ContinuousAxis";
 import * as d3 from "d3";
 import {assignAxes, ScatterPlot} from "../charts/ScatterPlot";
+import {Tracker} from "../charts/Tracker";
 
 interface Visibility {
     tooltip: boolean;
@@ -197,6 +198,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ContinuousAxis axisId="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
                     <ContinuousAxis axisId="x-axis-2" location={AxisLocation.Top} domain={[100, 1000]} label="x-axis (2)"/>
                     <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>
+                    <Tracker visible={true}/>
                     <ScatterPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],

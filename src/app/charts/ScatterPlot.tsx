@@ -75,7 +75,7 @@ export function ScatterPlot(props: Props): null {
                 // assignment has been made
                 .map(name => axisAssignments.get(name)?.xAxis || xAxisDefaultName())
                 // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
-                //  transformation more than once
+                // transformation more than once
                 .reduce((accum: Array<string>, axisId: string) => {
                     if (!accum.find(id => id === axisId)) {
                         accum.push(axisId)

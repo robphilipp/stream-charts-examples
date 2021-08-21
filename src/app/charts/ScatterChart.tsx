@@ -16,7 +16,7 @@ import {
     showMagnifierLens
 } from "./radialMagnifier"
 import {windowTime} from "rxjs/operators"
-import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker"
+import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./trackerUtils"
 import {initialSvgStyle, SvgStyle} from "./svgStyle"
 import {
     addLinearAxis,

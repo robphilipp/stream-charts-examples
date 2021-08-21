@@ -15,7 +15,7 @@ import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {windowTime} from "rxjs/operators";
-import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./tracker";
+import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./trackerUtils";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {
     addCategoryAxis,

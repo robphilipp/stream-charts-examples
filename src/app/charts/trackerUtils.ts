@@ -2,9 +2,23 @@ import {SvgSelection, TrackerSelection} from "./d3types";
 import {Selection} from "d3";
 import {Datum} from "./datumSeries";
 import {Margin, Dimensions, containerDimensionsFrom} from "./margins";
-import {AxesLabelFont} from "./axes";
 import * as d3 from "d3";
 import {mouseInPlotAreaFor, textWidthOf} from "./utils";
+
+export interface TrackerLabelFont {
+    size: number
+    color: string
+    family: string
+    weight: number
+}
+
+export const defaultTrackerLabelFont: TrackerLabelFont = {
+    size: 12,
+    color: '#d2933f',
+    weight: 300,
+    family: 'sans-serif'
+}
+
 
 export interface TrackerStyle {
     visible: boolean;
@@ -26,7 +40,7 @@ export const defaultTrackerStyle: TrackerStyle = {
  * @param plotDimensions The dimensions of the plot
  * @param margin The margins around the plot
  * @param tracker The tracker style
- * @param axisLabelFont The font used for the axis labels
+ * @param trackerLabelFont The font used for the axis labels
  * @param trackerLabel A function that returns the tracker label string for a given x-value
  * @return The tracker selection
  */
@@ -37,7 +51,7 @@ export function createTrackerControl(
     plotDimensions: Dimensions,
     margin: Margin,
     tracker: TrackerStyle,
-    axisLabelFont: AxesLabelFont,
+    trackerLabelFont: TrackerLabelFont,
     trackerLabel: (x: number) => string,
 ): TrackerSelection {
     const line = svg.select(`#stream-chart-tracker-line-${chartId}`) as Selection<SVGLineElement, Datum, null, undefined>
@@ -49,7 +63,7 @@ export function createTrackerControl(
         .attr('id', `stream-chart-tracker-line-${chartId}`)
         .attr('class', 'tracker')
         .attr('y1', margin.top)
-        .attr('y2', plotDimensions.height)
+        .attr('y2', plotDimensions.height + margin.top)
         .attr('stroke', tracker.color)
         .attr('stroke-width', tracker.lineWidth)
         .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
@@ -60,10 +74,10 @@ export function createTrackerControl(
         .append<SVGTextElement>('text')
         .attr('id', `stream-chart-tracker-label-${chartId}`)
         .attr('y', Math.max(0, margin.top - 3))
-        .attr('fill', axisLabelFont.color)
-        .attr('font-family', axisLabelFont.family)
-        .attr('font-size', axisLabelFont.size)
-        .attr('font-weight', axisLabelFont.weight)
+        .attr('fill', trackerLabelFont.color)
+        .attr('font-family', trackerLabelFont.family)
+        .attr('font-size', trackerLabelFont.size)
+        .attr('font-weight', trackerLabelFont.weight)
         .attr('opacity', 0)
         .text(() => '')
 
