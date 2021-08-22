@@ -2,7 +2,7 @@ import {SvgSelection, TrackerSelection} from "./d3types";
 import * as d3 from "d3";
 import {Selection} from "d3";
 import {Datum} from "./datumSeries";
-import {containerDimensionsFrom, Dimensions, Margin} from "./margins";
+import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {mouseInPlotAreaFor, textWidthOf} from "./utils";
 import {AxisLocation, ContinuousNumericAxis} from "./axes";
 import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelStyle} from "./Tracker";
@@ -143,16 +143,26 @@ function handleShowTracker(
 
             const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-${chartId}-${axis.location}`)
                 .attr('opacity', () => inPlot ? 1 : 0)
-                // .attr('y', y)
                 .text(() => trackerLabel(x))
+
+            // when the label-style is to be with the mouse
             if (labelStyle === TrackerLabelStyle.WithMouse) {
-                label.attr('y', y)
+                // todo the offsets should be based on the font size of the tracker label
+                const topOffset = 30
+                const offset = axis.location === AxisLocation.Top ? topOffset : 10
+                const {height} = plotDimensionsFrom(dimensions.width, dimensions.height, margin)
+                const labelY = Math.min(
+                    Math.max(margin.top + 15 + topOffset - offset, y - offset),
+                    margin.top + height - margin.bottom - offset
+                )
+                label.attr('y', labelY)
             }
 
             // adjust the label position when the tracker is at the right-most edges of the plot so that
             // the label remains visible (i.e. doesn't get clipped)
+            const xOffset = TrackerLabelStyle.WithMouse ? 10 : 0
             const labelWidth = textWidthOf(label)
-            label.attr('x', Math.min(dimensions.width - margin.right - labelWidth, x))
+            label.attr('x', Math.min(dimensions.width - margin.right - labelWidth, x + xOffset))
 
             const trackerInfo: TrackerAxisInfo = {
                 x: axis.scale.invert(x - margin.left),
