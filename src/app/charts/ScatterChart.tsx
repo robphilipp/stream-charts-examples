@@ -16,18 +16,18 @@ import {
     showMagnifierLens
 } from "./radialMagnifier"
 import {windowTime} from "rxjs/operators"
-import {trackerControlInstance, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./trackerUtils"
+import {defaultTrackerStyle, removeTrackerControl, trackerControlInstance, TrackerStyle} from "./trackerUtils"
 import {initialSvgStyle, SvgStyle} from "./svgStyle"
 import {
     addLinearAxis,
     Axes,
     AxesLabelFont,
-    SeriesLineStyle,
     AxisLocation,
     calculatePanFor,
+    ContinuousNumericAxis,
     defaultAxesLabelFont,
     defaultLineStyle,
-    ContinuousNumericAxis
+    SeriesLineStyle
 } from "./axes";
 import {GSelection, RadialMagnifierSelection, SvgSelection, TextSelection, TrackerSelection} from "./d3types";
 import {
@@ -41,6 +41,7 @@ import {
 } from "./utils";
 import {createPlotContainer, setClipPath, TimeSeries} from "./plot";
 import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
+import {TrackerLabelStyle} from "./Tracker";
 
 const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 const defaultAxesStyle = {color: '#d2933f'}
@@ -535,6 +536,7 @@ export function ScatterChart(props: Props): JSX.Element {
                 axisLabelFont,
                 // x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
                 trackerLabels,
+                TrackerLabelStyle.ByAxes,
                 noop
             )
         }

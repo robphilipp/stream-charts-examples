@@ -5,7 +5,7 @@ import {Datum} from "./datumSeries";
 import {containerDimensionsFrom, Dimensions, Margin} from "./margins";
 import {mouseInPlotAreaFor, textWidthOf} from "./utils";
 import {AxisLocation, ContinuousNumericAxis} from "./axes";
-import {TrackerAxisInfo, TrackerAxisUpdate} from "./Tracker";
+import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelStyle} from "./Tracker";
 
 export interface TrackerLabelFont {
     size: number
@@ -41,9 +41,9 @@ export const defaultTrackerStyle: TrackerStyle = {
  * @param svg The SVG selection
  * @param plotDimensions The dimensions of the plot
  * @param margin The margins around the plot
- * @param tracker The tracker style
- * @param trackerLabelFont The font used for the axis labels
- * @param trackerLabel A function that returns the tracker label string for a given x-value
+ * @param style The tracker style
+ * @param labelFont The font used for the axis labels
+ * @param label A function that returns the tracker label string for a given x-value
  * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
  * @return The tracker selection
  */
@@ -53,9 +53,10 @@ export function trackerControlInstance(
     svg: SvgSelection,
     plotDimensions: Dimensions,
     margin: Margin,
-    tracker: TrackerStyle,
-    trackerLabelFont: TrackerLabelFont,
-    trackerLabel: Map<ContinuousNumericAxis, (x: number) => string>,
+    style: TrackerStyle,
+    labelFont: TrackerLabelFont,
+    label: Map<ContinuousNumericAxis, (x: number) => string>,
+    labelStyle: TrackerLabelStyle,
     onTrackerUpdate: (update: TrackerAxisUpdate) => void
 ): TrackerSelection {
     const line = svg.select(`#stream-chart-tracker-line-${chartId}`) as Selection<SVGLineElement, Datum, null, undefined>
@@ -68,25 +69,24 @@ export function trackerControlInstance(
         .attr('class', 'tracker')
         .attr('y1', margin.top)
         .attr('y2', plotDimensions.height + margin.top - margin.bottom)
-        .attr('stroke', tracker.color)
-        .attr('stroke-width', tracker.lineWidth)
+        .attr('stroke', style.color)
+        .attr('stroke-width', style.lineWidth)
         .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
 
 
-    trackerLabel.forEach((labelFn, axis) => {
+    label.forEach((labelFn, axis) => {
         // create the text element holding the tracker time
         const label = axis.location === AxisLocation.Top ?
-            // Math.max(0, margin.top - 3) :
             Math.max(0, margin.top - 20) :
             Math.max(0, plotDimensions.height + margin.top - 3)
         svg
             .append<SVGTextElement>('text')
             .attr('id', `stream-chart-tracker-label-${chartId}-${axis.location}`)
             .attr('y', label)
-            .attr('fill', trackerLabelFont.color)
-            .attr('font-family', trackerLabelFont.family)
-            .attr('font-size', trackerLabelFont.size)
-            .attr('font-weight', trackerLabelFont.weight)
+            .attr('fill', labelFont.color)
+            .attr('font-family', labelFont.family)
+            .attr('font-size', labelFont.size)
+            .attr('font-weight', labelFont.weight)
             .attr('opacity', 0)
             .text(() => '')
     })
@@ -94,7 +94,7 @@ export function trackerControlInstance(
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
         'mousemove',
-        () => handleShowTracker(chartId, container, margin, containerDimensions, trackerLabel, onTrackerUpdate)
+        () => handleShowTracker(chartId, container, margin, containerDimensions, label, labelStyle, onTrackerUpdate)
     )
 
     return trackerLine
@@ -114,7 +114,7 @@ export function removeTrackerControl(svg: SvgSelection) {
  * @param container The svg container
  * @param margin The plot margins
  * @param dimensions The container dimensions (i.e. the plot dimensions plus its margins)
- * @param trackerLabel A function that returns the tracker label string
+ * @param label A function that returns the tracker label string
  * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
  */
 function handleShowTracker(
@@ -122,7 +122,8 @@ function handleShowTracker(
     container: SVGSVGElement,
     margin: Margin,
     dimensions: Dimensions,
-    trackerLabel: Map<ContinuousNumericAxis, (x: number) => string>,
+    label: Map<ContinuousNumericAxis, (x: number) => string>,
+    labelStyle: TrackerLabelStyle,
     onTrackerUpdate: (update: TrackerAxisUpdate) => void
 ): void {
     if (container) {
@@ -131,7 +132,7 @@ function handleShowTracker(
         const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
 
         // trackerLabel.forEach((trackerLabel, axis) => {
-        const updateInfo: Array<[string, TrackerAxisInfo]> = Array.from(trackerLabel.entries()).map(([axis, trackerLabel]) => {
+        const updateInfo: Array<[string, TrackerAxisInfo]> = Array.from(label.entries()).map(([axis, trackerLabel]) => {
             // when the mouse is in the plot area, then set the opacity of the tracker line and label to 1,
             // which means it is fully visible. when the mouse is not in the plot area, set the opacity to 0,
             // which means the tracker line and label are invisible.
@@ -142,7 +143,11 @@ function handleShowTracker(
 
             const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-${chartId}-${axis.location}`)
                 .attr('opacity', () => inPlot ? 1 : 0)
+                // .attr('y', y)
                 .text(() => trackerLabel(x))
+            if (labelStyle === TrackerLabelStyle.WithMouse) {
+                label.attr('y', y)
+            }
 
             // adjust the label position when the tracker is at the right-most edges of the plot so that
             // the label remains visible (i.e. doesn't get clipped)
@@ -157,7 +162,7 @@ function handleShowTracker(
         })
 
         if (inPlot) {
-            Array.from(trackerLabel.keys()).map(axis => ({location: axis.location}))
+            Array.from(label.keys()).map(axis => ({location: axis.location}))
             onTrackerUpdate(new Map(updateInfo))
         }
     }

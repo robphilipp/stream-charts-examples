@@ -29,8 +29,15 @@ export type TrackerAxisUpdate = Map<string, TrackerAxisInfo>
 // map(series_id -> tracker_info)
 // export type TrackerUpdate = Map<string, TrackerSeriesInfo>
 
+export enum TrackerLabelStyle {
+    None,
+    WithMouse,
+    ByAxes
+}
+
 interface Props {
     visible: boolean
+    labelStyle?: TrackerLabelStyle
     style?: Partial<TrackerStyle>,
     font?: Partial<TrackerLabelFont>,
     onTrackerUpdate?: (update: TrackerAxisUpdate) => void
@@ -39,6 +46,7 @@ interface Props {
 export function Tracker(props: Props): null {
     const {
         visible,
+        labelStyle = TrackerLabelStyle.WithMouse,
         style,
         font,
         onTrackerUpdate = noop
@@ -76,7 +84,9 @@ export function Tracker(props: Props): null {
                 const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
                     Array.from(xAxisRef.current.values()).map(axis => [
                         axis,
-                        x => `${d3.format(",.0f")(axis.scale.invert(x - margin.left))} ms`
+                        x => labelStyle === TrackerLabelStyle.None ?
+                            '' :
+                            `${d3.format(",.0f")(axis.scale.invert(x - margin.left))} ms`
                     ])
                 )
 
@@ -89,6 +99,7 @@ export function Tracker(props: Props): null {
                     trackerStyle,
                     trackerFont,
                     trackerLabels,
+                    labelStyle,
                     onTrackerUpdate,
                 )
             }
@@ -98,7 +109,7 @@ export function Tracker(props: Props): null {
                 return undefined
             }
         },
-        [chartId, container, margin, onTrackerUpdate, plotDimensions, trackerFont, trackerStyle]
+        [chartId, container, margin, onTrackerUpdate, plotDimensions, labelStyle, trackerFont, trackerStyle]
     )
 
     const trackerRef = useRef<TrackerSelection>()
