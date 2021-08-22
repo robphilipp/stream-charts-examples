@@ -16,7 +16,7 @@ import {
     showMagnifierLens
 } from "./radialMagnifier"
 import {windowTime} from "rxjs/operators"
-import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./trackerUtils"
+import {trackerControlInstance, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./trackerUtils"
 import {initialSvgStyle, SvgStyle} from "./svgStyle"
 import {
     addLinearAxis,
@@ -268,8 +268,8 @@ export function ScatterChart(props: Props): JSX.Element {
         axesLabelFont: AxesLabelFont,
         margin: Margin,
     ): Axes<ContinuousNumericAxis, ContinuousNumericAxis> {
-        const xAxis = addLinearAxis(1, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
-        const yAxis = addLinearAxis(1, svg, AxisLocation.Left, plotDimensions, [minY, maxY], axesLabelFont, margin, "Weight")
+        const xAxis = addLinearAxis(1,"x-axis", svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
+        const yAxis = addLinearAxis(1, "y-axis", svg, AxisLocation.Left, plotDimensions, [minY, maxY], axesLabelFont, margin, "Weight")
 
         return {xAxis, yAxis}
     }
@@ -525,7 +525,7 @@ export function ScatterChart(props: Props): JSX.Element {
             x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
         ]])
         if (visible && containerRef.current) {
-            return createTrackerControl(
+            return trackerControlInstance(
                 chartId.current,
                 containerRef.current,
                 svg,
@@ -534,7 +534,8 @@ export function ScatterChart(props: Props): JSX.Element {
                 trackerStyle,
                 axisLabelFont,
                 // x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
-                trackerLabels
+                trackerLabels,
+                noop
             )
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)

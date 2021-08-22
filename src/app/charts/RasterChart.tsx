@@ -15,7 +15,7 @@ import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {windowTime} from "rxjs/operators";
-import {createTrackerControl, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./trackerUtils";
+import {trackerControlInstance, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./trackerUtils";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {
     addCategoryAxis,
@@ -516,7 +516,7 @@ export function RasterChart(props: Props): JSX.Element {
      */
     function trackerControl(svg: SvgSelection, visible: boolean): TrackerSelection | undefined {
         if (visible && containerRef.current) {
-            return createTrackerControl(
+            return trackerControlInstance(
                 chartId.current,
                 containerRef.current,
                 svg,

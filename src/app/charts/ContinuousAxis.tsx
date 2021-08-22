@@ -107,6 +107,7 @@ export function ContinuousAxis(props: Props): null {
                         case AxisLocation.Right:
                             axisRef.current = addContinuousNumericYAxis(
                                 chartId,
+                                axisId,
                                 svg,
                                 plotDimensions,
                                 location,
@@ -180,6 +181,7 @@ export function addContinuousNumericXAxis(
         .text(axisLabel)
 
     const axis: ContinuousNumericAxis = {
+        axisId,
         location,
         selection,
         scale,
@@ -229,6 +231,7 @@ function updateLinearXAxis(
 
 export function addContinuousNumericYAxis(
     chartId: number,
+    axisId: string,
     svg: SvgSelection,
     plotDimensions: Dimensions,
     location: AxisLocation.Left | AxisLocation.Right,
@@ -259,7 +262,7 @@ export function addContinuousNumericYAxis(
         .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
         .text(axisLabel)
 
-    const axis = {selection, location, scale, generator, update: noop}
+    const axis = {axisId, selection, location, scale, generator, update: noop}
     return {
         ...axis,
         update: (domain, plotDimensions, margin) => updateLinearYAxis(

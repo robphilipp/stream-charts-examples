@@ -1,29 +1,47 @@
 import {useChart} from "./useChart";
 import {SvgSelection, TrackerSelection} from "./d3types";
 import {
-    createTrackerControl, defaultTrackerLabelFont,
+    defaultTrackerLabelFont,
     defaultTrackerStyle,
     removeTrackerControl,
+    trackerControlInstance,
     TrackerLabelFont,
     TrackerStyle
 } from "./trackerUtils";
 import * as d3 from "d3";
 import {useCallback, useEffect, useMemo, useRef} from "react";
-import {ContinuousNumericAxis} from "./axes";
+import {AxisLocation, ContinuousNumericAxis} from "./axes";
+import {noop} from "./utils";
 
+export interface TrackerAxisInfo {
+    x: number
+    axisLocation: AxisLocation
+}
+
+// export interface TrackerSeriesInfo {
+//     before: Datum
+//     after: Datum
+//     axisInfo: TrackerAxisInfo
+// }
+
+// map(axis_id -> tracker_axis_info)
+export type TrackerAxisUpdate = Map<string, TrackerAxisInfo>
+// map(series_id -> tracker_info)
+// export type TrackerUpdate = Map<string, TrackerSeriesInfo>
 
 interface Props {
     visible: boolean
     style?: Partial<TrackerStyle>,
     font?: Partial<TrackerLabelFont>,
-    onChange?: (time: number) => void
+    onTrackerUpdate?: (update: TrackerAxisUpdate) => void
 }
 
 export function Tracker(props: Props): null {
     const {
         visible,
         style,
-        font
+        font,
+        onTrackerUpdate = noop
     } = props
     const {
         chartId,
@@ -36,18 +54,12 @@ export function Tracker(props: Props): null {
     const trackerStyle = useMemo(() => ({...defaultTrackerStyle, ...style}), [style])
     const trackerFont = useMemo(() => ({...defaultTrackerLabelFont, ...font}), [font])
 
-    // todo temporary: need to show label for (possibly) both x-axis
-    // const xAxisRef = useRef<ContinuousNumericAxis>()
     const xAxisRef = useRef<Map<string, ContinuousNumericAxis>>(new Map())
     useEffect(
         () => {
             const axes = new Map<string, ContinuousNumericAxis>()
             xAxes().forEach((axis, id) => axes.set(id, axis as ContinuousNumericAxis))
             xAxisRef.current = axes
-            // const axes = Array.from(xAxes().values())
-            // if (axes.length > 0) {
-            //     xAxisRef.current = axes[0] as ContinuousNumericAxis
-            // }
         },
         [xAxes]
     )
@@ -61,12 +73,6 @@ export function Tracker(props: Props): null {
          */
         (svg: SvgSelection, visible: boolean): TrackerSelection | undefined => {
             if (visible && container) {
-                // const timeFrom = (x: number) => xAxisRef.current !== undefined ?
-                //     xAxisRef.current.scale.invert(x - margin.left) :
-                //     0
-                // const timeFrom = (x: number, axis: ContinuousNumericAxis) => axis.scale.invert(x - margin.left)
-                // const timesFrom = (x: number): Map<string, number> =>
-                //     new Map(Array.from(xAxisRef.current.entries()).map(([id, axis]) => [id, axis.scale.invert(x - margin.left)]))
                 const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
                     Array.from(xAxisRef.current.values()).map(axis => [
                         axis,
@@ -74,7 +80,7 @@ export function Tracker(props: Props): null {
                     ])
                 )
 
-                return createTrackerControl(
+                return trackerControlInstance(
                     chartId,
                     container,
                     svg,
@@ -82,23 +88,23 @@ export function Tracker(props: Props): null {
                     margin,
                     trackerStyle,
                     trackerFont,
-                    // x => `${d3.format(",.0f")(timeFrom(x))} ms`
-                    trackerLabels
+                    trackerLabels,
+                    onTrackerUpdate,
                 )
             }
             // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
-            else if (!visible && trackerRef.current) {// || tooltipRef.current.visible) {
+            else if (!visible && trackerRef.current) {
                 removeTrackerControl(svg)
                 return undefined
             }
         },
-        [chartId, container, margin, plotDimensions, trackerFont, trackerStyle]
+        [chartId, container, margin, onTrackerUpdate, plotDimensions, trackerFont, trackerStyle]
     )
 
     const trackerRef = useRef<TrackerSelection>()
     useEffect(
         () => {
-            if (container) {
+            if (container && trackerRef.current === undefined) {
                 const svg = d3.select<SVGSVGElement, any>(container)
                 trackerRef.current = trackerControl(svg, visible)
             }
@@ -108,3 +114,7 @@ export function Tracker(props: Props): null {
 
     return null
 }
+
+// function onTrackerAxisUpdate(update: TrackerAxisUpdate): void {
+//     console.dir(update)
+// }

@@ -40,6 +40,7 @@ export interface Axes<X extends BaseAxis, Y extends BaseAxis> {
 }
 
 export interface BaseAxis {
+    axisId: string
     location: AxisLocation
     selection: AxisElementSelection
 }
@@ -66,6 +67,7 @@ export enum AxisLocation {
 
 export function addLinearAxis(
     chartId: number,
+    axisId: string,
     svg: SvgSelection,
     location: AxisLocation,
     plotDimensions: Dimensions,
@@ -80,6 +82,7 @@ export function addLinearAxis(
         case AxisLocation.Right:
             return addContinuousNumericYAxis(
                 chartId,
+                axisId,
                 svg,
                 plotDimensions,
                 location,
@@ -111,6 +114,7 @@ export function addLinearAxis(
 
 export function addCategoryAxis(
     chartId: number,
+    axisId: string,
     svg: SvgSelection,
     location: AxisLocation,
     plotDimensions: Dimensions,
@@ -122,17 +126,18 @@ export function addCategoryAxis(
     switch (location) {
         case AxisLocation.Left:
         case AxisLocation.Right:
-            return addCategoryYAxis(chartId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
+            return addCategoryYAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
 
         case AxisLocation.Bottom:
         case AxisLocation.Top:
             //todo should be the x axis
-            return addCategoryYAxis(chartId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
+            return addCategoryYAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
     }
 }
 
 function addCategoryYAxis(
     chartId: number,
+    axisId: string,
     svg: SvgSelection,
     plotDimensions: Dimensions,
     categories: Array<string>,
@@ -167,7 +172,7 @@ function addCategoryYAxis(
         .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom)/2}) rotate(-90)`)
         .text(axisLabel)
 
-    const axis = {selection, location, scale, generator, categorySize, update: () => categorySize}
+    const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
 
     return {
         ...axis,
