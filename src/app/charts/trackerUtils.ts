@@ -5,7 +5,7 @@ import {Datum} from "./datumSeries";
 import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {mouseInPlotAreaFor, textWidthOf} from "./utils";
 import {AxisLocation, ContinuousNumericAxis} from "./axes";
-import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelStyle} from "./Tracker";
+import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelLocation} from "./Tracker";
 
 export interface TrackerLabelFont {
     size: number
@@ -56,7 +56,7 @@ export function trackerControlInstance(
     style: TrackerStyle,
     labelFont: TrackerLabelFont,
     label: Map<ContinuousNumericAxis, (x: number) => string>,
-    labelStyle: TrackerLabelStyle,
+    labelStyle: TrackerLabelLocation,
     onTrackerUpdate: (update: TrackerAxisUpdate) => void
 ): TrackerSelection {
     const line = svg.select(`#stream-chart-tracker-line-${chartId}`) as Selection<SVGLineElement, Datum, null, undefined>
@@ -115,6 +115,7 @@ export function removeTrackerControl(svg: SvgSelection) {
  * @param margin The plot margins
  * @param dimensions The container dimensions (i.e. the plot dimensions plus its margins)
  * @param label A function that returns the tracker label string
+ * @param labelStyle Where to display the tracker labels (i.e. with-mouse, with-axes, no-where)
  * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
  */
 function handleShowTracker(
@@ -123,7 +124,7 @@ function handleShowTracker(
     margin: Margin,
     dimensions: Dimensions,
     label: Map<ContinuousNumericAxis, (x: number) => string>,
-    labelStyle: TrackerLabelStyle,
+    labelStyle: TrackerLabelLocation,
     onTrackerUpdate: (update: TrackerAxisUpdate) => void
 ): void {
     if (container) {
@@ -146,7 +147,7 @@ function handleShowTracker(
                 .text(() => trackerLabel(x))
 
             // when the label-style is to be with the mouse
-            if (labelStyle === TrackerLabelStyle.WithMouse) {
+            if (labelStyle === TrackerLabelLocation.WithMouse) {
                 // todo the offsets should be based on the font size of the tracker label
                 const topOffset = 30
                 const offset = axis.location === AxisLocation.Top ? topOffset : 10
@@ -160,7 +161,7 @@ function handleShowTracker(
 
             // adjust the label position when the tracker is at the right-most edges of the plot so that
             // the label remains visible (i.e. doesn't get clipped)
-            const xOffset = TrackerLabelStyle.WithMouse ? 10 : 0
+            const xOffset = TrackerLabelLocation.WithMouse ? 10 : 0
             const labelWidth = textWidthOf(label)
             label.attr('x', Math.min(dimensions.width - margin.right - labelWidth, x + xOffset))
 

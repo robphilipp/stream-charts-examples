@@ -29,15 +29,15 @@ export type TrackerAxisUpdate = Map<string, TrackerAxisInfo>
 // map(series_id -> tracker_info)
 // export type TrackerUpdate = Map<string, TrackerSeriesInfo>
 
-export enum TrackerLabelStyle {
-    None,
+export enum TrackerLabelLocation {
+    Nowhere,
     WithMouse,
     ByAxes
 }
 
 interface Props {
     visible: boolean
-    labelStyle?: TrackerLabelStyle
+    labelLocation?: TrackerLabelLocation
     style?: Partial<TrackerStyle>,
     font?: Partial<TrackerLabelFont>,
     onTrackerUpdate?: (update: TrackerAxisUpdate) => void
@@ -46,7 +46,7 @@ interface Props {
 export function Tracker(props: Props): null {
     const {
         visible,
-        labelStyle = TrackerLabelStyle.WithMouse,
+        labelLocation = TrackerLabelLocation.WithMouse,
         style,
         font,
         onTrackerUpdate = noop
@@ -84,7 +84,7 @@ export function Tracker(props: Props): null {
                 const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
                     Array.from(xAxisRef.current.values()).map(axis => [
                         axis,
-                        x => labelStyle === TrackerLabelStyle.None ?
+                        x => labelLocation === TrackerLabelLocation.Nowhere ?
                             '' :
                             `${d3.format(",.0f")(axis.scale.invert(x - margin.left))} ms`
                     ])
@@ -99,7 +99,7 @@ export function Tracker(props: Props): null {
                     trackerStyle,
                     trackerFont,
                     trackerLabels,
-                    labelStyle,
+                    labelLocation,
                     onTrackerUpdate,
                 )
             }
@@ -109,7 +109,7 @@ export function Tracker(props: Props): null {
                 return undefined
             }
         },
-        [chartId, container, margin, onTrackerUpdate, plotDimensions, labelStyle, trackerFont, trackerStyle]
+        [chartId, container, margin, onTrackerUpdate, plotDimensions, labelLocation, trackerFont, trackerStyle]
     )
 
     const trackerRef = useRef<TrackerSelection>()

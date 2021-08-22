@@ -41,7 +41,7 @@ import {
 } from "./utils";
 import {createPlotContainer, setClipPath, TimeSeries} from "./plot";
 import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
-import {TrackerLabelStyle} from "./Tracker";
+import {TrackerLabelLocation} from "./Tracker";
 
 const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 const defaultAxesStyle = {color: '#d2933f'}
@@ -536,7 +536,7 @@ export function ScatterChart(props: Props): JSX.Element {
                 axisLabelFont,
                 // x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
                 trackerLabels,
-                TrackerLabelStyle.ByAxes,
+                TrackerLabelLocation.ByAxes,
                 noop
             )
         }

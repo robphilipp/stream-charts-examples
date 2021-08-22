@@ -24,7 +24,7 @@ import {AxisLocation, defaultLineStyle} from "../charts/axes";
 import {ContinuousAxis} from "../charts/ContinuousAxis";
 import * as d3 from "d3";
 import {assignAxes, ScatterPlot} from "../charts/ScatterPlot";
-import {Tracker, TrackerLabelStyle} from "../charts/Tracker";
+import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
 
 interface Visibility {
     tooltip: boolean;
@@ -203,7 +203,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>
                     <Tracker
                         visible={visibility.tracker}
-                        labelStyle={TrackerLabelStyle.WithMouse}
+                        labelLocation={TrackerLabelLocation.WithMouse}
                         // showAxisTimes={false}
                         // onTrackerUpdate={update => console.dir(update)}
                     />
