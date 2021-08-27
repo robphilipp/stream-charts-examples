@@ -43,6 +43,13 @@ interface Props {
     onTrackerUpdate?: (update: TrackerAxisUpdate) => void
 }
 
+/**
+ * A tracker line that displays or reports the time at the mouse location. The tracker
+ * handles single axes and dual axes.
+ * @param props The tracker control properties
+ * @return null component
+ * @constructor
+ */
 export function Tracker(props: Props): null {
     const {
         visible,
@@ -61,6 +68,7 @@ export function Tracker(props: Props): null {
 
     const trackerStyle = useMemo(() => ({...defaultTrackerStyle, ...style}), [style])
     const trackerFont = useMemo(() => ({...defaultTrackerLabelFont, ...font}), [font])
+    const trackerRef = useRef<TrackerSelection>()
 
     const xAxisRef = useRef<Map<string, ContinuousNumericAxis>>(new Map())
     useEffect(
@@ -103,8 +111,8 @@ export function Tracker(props: Props): null {
                     onTrackerUpdate,
                 )
             }
-            // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
-            else if (!visible && trackerRef.current) {
+            // if the tracker was defined, and is now no longer defined (i.e. props changed, then remove the tracker)
+            else if (!visible && trackerRef.current !== undefined) {
                 removeTrackerControl(svg)
                 return undefined
             }
@@ -112,10 +120,11 @@ export function Tracker(props: Props): null {
         [chartId, container, margin, onTrackerUpdate, plotDimensions, labelLocation, trackerFont, trackerStyle]
     )
 
-    const trackerRef = useRef<TrackerSelection>()
+    // when the container, tracker-control function, or visibility change, then we need to update the
+    // tracker control
     useEffect(
         () => {
-            if (container && trackerRef.current === undefined) {
+            if (container) {
                 const svg = d3.select<SVGSVGElement, any>(container)
                 trackerRef.current = trackerControl(svg, visible)
             }
@@ -125,7 +134,3 @@ export function Tracker(props: Props): null {
 
     return null
 }
-
-// function onTrackerAxisUpdate(update: TrackerAxisUpdate): void {
-//     console.dir(update)
-// }

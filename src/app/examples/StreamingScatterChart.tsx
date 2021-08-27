@@ -143,13 +143,13 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         key={1}
                         checked={visibility.tooltip}
                         label="tooltip"
-                        onChange={() => setVisibility({tooltip: !visibility.tooltip, tracker: false, magnifier: false})}
+                        onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                     />
                     <Checkbox
                         key={2}
                         checked={visibility.tracker}
                         label="tracker"
-                        onChange={() => setVisibility({tooltip: false, tracker: !visibility.tracker, magnifier: false})}
+                        onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
                     <Checkbox
                         key={3}

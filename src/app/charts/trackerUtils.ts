@@ -44,6 +44,7 @@ export const defaultTrackerStyle: TrackerStyle = {
  * @param style The tracker style
  * @param labelFont The font used for the axis labels
  * @param label A function that returns the tracker label string for a given x-value
+ * @param labelStyle The location style for the tracker (i.e. on the axes, next to the mouse, none shown)
  * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
  * @return The tracker selection
  */
@@ -59,10 +60,6 @@ export function trackerControlInstance(
     labelStyle: TrackerLabelLocation,
     onTrackerUpdate: (update: TrackerAxisUpdate) => void
 ): TrackerSelection {
-    const line = svg.select(`#stream-chart-tracker-line-${chartId}`) as Selection<SVGLineElement, Datum, null, undefined>
-    if (!line.empty()) {
-        return line
-    }
     const trackerLine = svg
         .append<SVGLineElement>('line')
         .attr('id', `stream-chart-tracker-line-${chartId}`)
