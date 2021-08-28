@@ -20,7 +20,7 @@ export interface TooltipDimensions {
  * @param plotDimensions The dimensions of the plot
  * @param tooltipContent Function that adds the tooltip content and then returns the width and height of
  * the content. The callback function is handed the datum, svg path element, and the series name and must
- * return a [TooltipDimension] object that holds the width and height of the content.
+ * return a {@link TooltipDimension} object that holds the width and height of the content.
  */
 export function createTooltip(
     tooltipId: string,

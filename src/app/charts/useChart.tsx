@@ -8,6 +8,8 @@ import {Datum, Series} from "./datumSeries";
 import {noop} from "./utils";
 import {BaseAxis, SeriesLineStyle} from "./axes";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {TimeSeries} from "./plot";
+import {TooltipDimensions} from "./tooltipUtils";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 
@@ -73,7 +75,46 @@ interface UseChartValues {
     dataUpdateHandler: (updateDataHandler: (seriesName: string, data: Array<Datum>) => void) => void
     addTimeUpdateHandler: (handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void) => void
     removeTimeUpdateHandler: (handlerId: string) => void
+
+    /**
+     * Adds a mouse-over-series handler with the specified ID and handler function
+     * @param handlerId The handler ID
+     * @param handler The handler function
+     * @return The handler iD
+     */
+    registerMouseOverHandler: (handlerId: string, handler: (seriesName: string, time: number, series: TimeSeries) => void) => string
+    unregisterMouseOverHandler: (handlerId: string) => void
+    mouseOverHandlerFor: (handlerId: string) => ((seriesName: string, time: number, series: TimeSeries) => void) | undefined
+
+    registerTooltipContentProvider: (provider: (seriesName: string, time: number, series: TimeSeries) => TooltipDimensions) => void
+    tooltipContentProvider: () => ((seriesName: string, time: number, series: TimeSeries) => TooltipDimensions) | undefined
 }
+
+/*
+
+    seriesName: string,
+    datum: TimeSeries,
+
+    chartId: number,
+    container: SVGSVGElement,
+    xAxis: ContinuousNumericAxis,
+    margin: Margin,
+    tooltipStyle: TooltipStyle,
+    plotDimensions: Dimensions
+
+
+
+
+    time: number
+    datum: TimeSeries,
+    seriesName: string,
+
+    (in scatter chart, highlights series line) segment: SVGPathElement,
+    (in scatter chart, highlights series line) seriesStyles: Map<string, SeriesLineStyle>,
+    (in tracker) visible: boolean,
+    (in tracker) tooltipStyle: TooltipStyle,
+
+ */
 
 const defaultUseChartValues: UseChartValues = {
     chartId: NaN,
@@ -116,6 +157,13 @@ const defaultUseChartValues: UseChartValues = {
 
     addTimeUpdateHandler: () => noop,
     removeTimeUpdateHandler: () => noop,
+
+    registerMouseOverHandler: () => '',
+    unregisterMouseOverHandler: noop,
+    mouseOverHandlerFor: () => undefined,
+
+    registerTooltipContentProvider: noop,
+    tooltipContentProvider: () => undefined
 }
 
 const ChartContext = createContext<UseChartValues>(defaultUseChartValues)
@@ -170,6 +218,9 @@ export default function ChartProvider(props: Props): JSX.Element {
     const [onSubscribe, setOnSubscribe] = useState<(subscription: Subscription) => void>(noop)
     const [onUpdateData, setOnUpdateData] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
     const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
+
+    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: TimeSeries) => void>>(new Map())
+    const tooltipContentProviderRef = useRef<((seriesName: string, time: number, series: TimeSeries) => TooltipDimensions) | undefined>(undefined)
 
     // update the plot dimensions when the container size or margin change
     useEffect(
@@ -272,6 +323,27 @@ export default function ChartProvider(props: Props): JSX.Element {
         setOnUpdateData(updateDataHandler)
     }
 
+    function addMouseHandler(handlerId: string, handler: (seriesName: string, time: number, series: TimeSeries) => void): string {
+        mouseOverHandlersRef.current.set(handlerId, handler)
+        return handlerId
+    }
+
+    function removeMouseHandler(handlerId: string): void {
+        mouseOverHandlersRef.current.delete(handlerId)
+    }
+
+    function mouseOverHandlerFor(handlerId: string): ((seriesName: string, time: number, series: TimeSeries) => void) | undefined {
+        return mouseOverHandlersRef.current.get(handlerId)
+    }
+
+    function registerTooltipContentProvider(provider: (seriesName: string, time: number, series: TimeSeries) => TooltipDimensions): void {
+        tooltipContentProviderRef.current = provider
+    }
+
+    function tooltipContentProvider(): ((seriesName: string, time: number, series: TimeSeries) => TooltipDimensions) | undefined {
+        return tooltipContentProviderRef.current
+    }
+
     const {children} = props
     return <ChartContext.Provider
         value={{
@@ -303,6 +375,13 @@ export default function ChartProvider(props: Props): JSX.Element {
             dataUpdateHandler,
             addTimeUpdateHandler,
             removeTimeUpdateHandler,
+
+            registerMouseOverHandler: addMouseHandler,
+            unregisterMouseOverHandler: removeMouseHandler,
+            mouseOverHandlerFor,
+
+            registerTooltipContentProvider,
+            tooltipContentProvider,
         }}
     >
         {children}

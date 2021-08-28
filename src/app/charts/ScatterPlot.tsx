@@ -58,6 +58,9 @@ export function ScatterPlot(props: Props): null {
         onSubscribe = noop,
         onUpdateData = noop,
         onUpdateTime = noop,
+
+        registerTooltipContentProvider,
+        mouseOverHandlerFor,
     } = useChart()
 
     const {
@@ -138,7 +141,6 @@ export function ScatterPlot(props: Props): null {
         [axesForSeries, margin, setTimeRangeFor, xAxisFor]
     )
 
-
     const onZoom = useCallback(
         /**
          * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
@@ -180,6 +182,14 @@ export function ScatterPlot(props: Props): null {
         [axesForSeries, margin, setTimeRangeFor, xAxisFor]
     )
 
+    useEffect(
+        () => {
+            if (container) {
+                registerTooltipContentProvider(tooltipContentProvider(chartId, container, margin, defaultTooltipStyle, plotDimensions))
+            }
+        },
+        [chartId, container, margin, plotDimensions, registerTooltipContentProvider]
+    )
 
     const updatePlot = useCallback(
         /**
@@ -276,13 +286,13 @@ export function ScatterPlot(props: Props): null {
                                 .on(
                                     "mouseover",
                                     (datumArray, i, group) =>
-                                        // tooltipRef.current.visible ? handleShowTooltip(datumArray, name, group[i]) : null
-                                        true ? handleShowTooltip(
+                                        handleMouseOverSeries(
                                             chartId, container, xAxisLinear,
                                             true,
                                             name, datumArray, group[i],
-                                            margin, defaultTooltipStyle, seriesStyles, plotDimensions
-                                        ) : null
+                                            margin, defaultTooltipStyle, seriesStyles, plotDimensions,
+                                            mouseOverHandlerFor(`tooltip-${chartId}`)
+                                        )
                                 )
                                 .on(
                                     "mouseleave",
@@ -290,9 +300,8 @@ export function ScatterPlot(props: Props): null {
                                         // tooltipRef.current.visible ?
                                         //     handleRemoveTooltip(name, group[i]) :
                                         //     null
-                                        true ?
-                                            handleRemoveTooltip(seriesStyles, name, group[i]) :
-                                            null
+
+                                        handleRemoveTooltip(seriesStyles, name, group[i])
                                 ),
                             update => update,
                             exit => exit.remove()
@@ -544,13 +553,33 @@ function axesFor(
     return [xAxisLinear, yAxisLinear]
 }
 
+// const handleShowTooltipFn = (
+//     chartId: number,
+//     container: SVGSVGElement,
+//     xAxis: ContinuousNumericAxis,
+//     visible: boolean,
+//     seriesName: string,
+//     datum: TimeSeries,
+//     segment: SVGPathElement,
+//     margin: Margin,
+//     tooltipStyle: TooltipStyle,
+//     seriesStyles: Map<string, SeriesLineStyle>,
+//     plotDimensions: Dimensions,
+// ) => (): void | null => {
+//     if (visible) {
+//         handleMouseOverSeries(chartId, container, xAxis, visible, seriesName, datum, segment, margin, tooltipStyle, seriesStyles, plotDimensions)
+//         return
+//     }
+//     return null
+// }
+
 /**
  * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
  * @param datum The datum
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param segment The SVG line element representing the spike, over which the mouse is hovering.
  */
-function handleShowTooltip(
+function handleMouseOverSeries(
     chartId: number,
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
@@ -562,27 +591,22 @@ function handleShowTooltip(
     tooltipStyle: TooltipStyle,
     seriesStyles: Map<string, SeriesLineStyle>,
     plotDimensions: Dimensions,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: TimeSeries) => void) | undefined,
 ): void {
-    if (visible && container) {
-        // grab the time needed for the tooltip ID
-        const [x,] = d3.mouse(container)
-        const time = Math.round(xAxis.scale.invert(x - margin.left))
+    // grab the time needed for the tooltip ID
+    const [x,] = d3.mouse(container)
+    const time = Math.round(xAxis.scale.invert(x - margin.left))
 
-        const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+    const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle
 
-        // Use d3 to select element, change color and size
-        d3.select<SVGPathElement, Datum>(segment)
-            .attr('stroke', highlightColor)
-            .attr('stroke-width', highlightWidth)
+    // Use d3 to select element, change color and size
+    d3.select<SVGPathElement, Datum>(segment)
+        .attr('stroke', highlightColor)
+        .attr('stroke-width', highlightWidth)
 
-        createTooltip(
-            `r${time}-${seriesName}-${chartId}`,
-            container,
-            margin,
-            tooltipStyle,
-            plotDimensions,
-            () => addTooltipContent(chartId, container, xAxis, seriesName, datum, margin, tooltipStyle, plotDimensions)
-        )
+    if (mouseOverHandlerFor) {
+    // if (visible && mouseOverHandlerFor) {
+        mouseOverHandlerFor(seriesName, time, datum)
     }
 }
 
@@ -605,6 +629,18 @@ function handleRemoveTooltip(
     removeTooltip()
 }
 
+function tooltipContentProvider(
+    chartId: number,
+    container: SVGSVGElement,
+    margin: Margin,
+    tooltipStyle: TooltipStyle,
+    plotDimensions: Dimensions
+): (seriesName: string, time: number, series: TimeSeries) => TooltipDimensions {
+    return (seriesName: string, time: number, series: TimeSeries) => addTooltipContent(
+        chartId, container, time, seriesName, series, margin, tooltipStyle, plotDimensions
+    )
+}
+
 /**
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param datum The spike datum (t ms, s mV)
@@ -614,7 +650,8 @@ function handleRemoveTooltip(
 function addTooltipContent(
     chartId: number,
     container: SVGSVGElement,
-    xAxis: ContinuousNumericAxis,
+    // xAxis: ContinuousNumericAxis,
+    time: number,
     seriesName: string,
     datum: TimeSeries,
     margin: Margin,
@@ -623,7 +660,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     if (container) {
         const [x, y] = d3.mouse(container)
-        const time = Math.round(xAxis.scale.invert(x - margin.left))
+        // const time = Math.round(xAxis.scale.invert(x - margin.left))
         const [lower, upper] = boundingPoints(datum, time)
 
         // todo...finally, these can be exposed as a callback for the user of the <ScatterChart/>

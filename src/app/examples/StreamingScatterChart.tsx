@@ -25,6 +25,7 @@ import {ContinuousAxis} from "../charts/ContinuousAxis";
 import * as d3 from "d3";
 import {assignAxes, ScatterPlot} from "../charts/ScatterPlot";
 import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
+import {Tooltip} from "../charts/Tooltip";
 
 interface Visibility {
     tooltip: boolean;
@@ -204,6 +205,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         labelLocation={TrackerLabelLocation.WithMouse}
                         // onTrackerUpdate={update => console.dir(update)}
                     />
+                    <Tooltip visible={visibility.tooltip}/>
                     <ScatterPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],
