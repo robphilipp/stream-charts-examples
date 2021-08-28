@@ -12,6 +12,40 @@ export interface Props {
     // dimensions: TooltipDimensions
 }
 
+/**
+ * Tooltip component triggered by mouse-over-series events. When mounted, the tooltip component
+ * registers a mouse-over handler with the {@link useChart} hook using the
+ * {@link UseChartValues.registerTooltipContentProvider} function. The handler renders the tooltip
+ * by adding it to the SVG plot container. However, to remain general, this {@link Tooltip} also
+ * uses the {@link useChart}'s {@link UseChartValues.tooltipContentProvider} to render the actual
+ * content of the tooltip. The content provider is given the series' name on which the mouse-over
+ * event occurred, the plot time associated with mouse-over event, and the {@link TimeSeries}
+ * associated with the mouse-over event. The plot (for example {@link ScatterPlot}) is responsible
+ * for rendering the tooltip, and it registers this tooltip-content provider with the {@link useChart}
+ * hook.
+ *
+ * The {@link useChart} hook allows the plots and this tooltip to register methods needed its siblings.
+ *
+ * ## on mount
+ * 1. The plot (for example {@link ScatterPlot}) adds a d3 mouse-enter and mouse-leave event handlers
+ *    to each series. The mouse-enter event handler performs a few tasks and then calls the
+ *    mouse-over event handler registered by the {@link Tooltip} via the {@link useChart} hook.
+ * 2. The plot (for example {@link ScatterPlot}) registers the tooltip-content provider with the {@link useChart}
+ *    hook using the {@link UseChartValues.registerTooltipContentProvider} function.
+ * 3. {@link Tooltip} registers the handler for mouse-over events. The handler accepts the series
+ *    name, plot time, and time-series associated with the mouse-over event, and returns the tooltip
+ *    dimensions. In order to create/render the tooltip, it uses the {@link UseChartValues.tooltipContentProvider}
+ *    function that was registered via the {@link useChart} hook.
+ *
+ * ## on mouse-over event
+ * When the plot's (for example {@link ScatterPlot}) d3 mouse-enter event handler fires, the plot calls this
+ * {@link Tooltip}'s mouse-over handler, which creates the tooltip, and calls the {@link UseChartValues.tooltipContentProvider}
+ * registered by the plot to render the tooltip content, and get the tooltip size.
+ *
+ * @param props The properties of the tooltip (i.e. visibility and style)
+ * @return null
+ * @constructor
+ */
 export function Tooltip(props: Props): null {
     const {
         chartId,
@@ -35,6 +69,9 @@ export function Tooltip(props: Props): null {
             if (visible && container) {
                 const contentProvider = tooltipContentProvider()
                 if (contentProvider) {
+                    // register this tooltip's mouse-over event handler with the useCharts hook
+                    // so that the plots can call it when mouse-enter events are triggered (for
+                    // example, a mouse-over a time-series in the plot).
                     registerMouseOverHandler(
                         `tooltip-${chartId}`,
                         ((seriesName, time, series) => createTooltip(
@@ -43,6 +80,9 @@ export function Tooltip(props: Props): null {
                             margin,
                             tooltipStyle,
                             plotDimensions,
+                            // this is the tooltip content provider registered by the plot,
+                            // and with the given information adds the content to the SVG
+                            // element for the tooltip
                             () => contentProvider(seriesName, time, series)
                         ))
                     )
