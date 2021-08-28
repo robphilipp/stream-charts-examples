@@ -196,15 +196,12 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     windowingTime={10}
                 >
                     <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 5000]} label="x-axis"/>
-                    {/*<ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 20000]} label="x-axis"/>*/}
-                    {/*<ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[0, 100]} label="x-axis"/>*/}
                     <ContinuousAxis axisId="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
                     <ContinuousAxis axisId="x-axis-2" location={AxisLocation.Top} domain={[100, 1000]} label="x-axis (2)"/>
                     <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>
                     <Tracker
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}
-                        // showAxisTimes={false}
                         // onTrackerUpdate={update => console.dir(update)}
                     />
                     <ScatterPlot

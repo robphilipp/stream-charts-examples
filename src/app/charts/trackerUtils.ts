@@ -21,7 +21,6 @@ export const defaultTrackerLabelFont: TrackerLabelFont = {
     family: 'sans-serif'
 }
 
-
 export interface TrackerStyle {
     visible: boolean;
     color: string,
@@ -170,7 +169,7 @@ function handleShowTracker(
         })
 
         if (inPlot) {
-            Array.from(label.keys()).map(axis => ({location: axis.location}))
+            // Array.from(label.keys()).map(axis => ({location: axis.location}))
             onTrackerUpdate(new Map(updateInfo))
         }
     }

@@ -40,7 +40,7 @@ import {
     mouseInPlotAreaFor
 } from "./utils";
 import {createPlotContainer, setClipPath, TimeSeries} from "./plot";
-import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltip";
+import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltipUtils";
 import {TrackerLabelLocation} from "./Tracker";
 
 const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}

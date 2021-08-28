@@ -29,7 +29,7 @@ import {
     ContinuousNumericAxis
 } from "./axes";
 import {BarMagnifierSelection, SvgSelection, TrackerSelection} from "./d3types";
-import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltip";
+import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltipUtils";
 import {handleZoom, mouseInPlotAreaFor, noop} from "./utils";
 import {createPlotContainer, setClipPath} from "./plot";
 

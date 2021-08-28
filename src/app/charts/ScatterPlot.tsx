@@ -5,12 +5,21 @@ import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {setClipPath, TimeSeries} from "./plot";
 import {Datum, emptySeries, Series} from "./datumSeries";
-import {BaseAxis, calculatePanFor, calculateZoomFor, ContinuousNumericAxis, defaultLineStyle} from "./axes";
-import {GSelection} from "./d3types";
+import {
+    BaseAxis,
+    calculatePanFor,
+    calculateZoomFor,
+    ContinuousNumericAxis,
+    defaultLineStyle,
+    SeriesLineStyle
+} from "./axes";
+import {GSelection, TextSelection} from "./d3types";
 import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
-import {noop} from "./utils";
-import {Dimensions} from "./margins";
+import {formatTime, formatTimeChange, formatValue, formatValueChange, noop} from "./utils";
+import {Dimensions, Margin} from "./margins";
+import {boundingPoints, createTooltip, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltipUtils";
+import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
 
 export interface AxesAssignment {
     xAxis: string
@@ -191,9 +200,6 @@ export function ScatterPlot(props: Props): null {
 
                 // // create/update the magnifier lens if needed
                 // magnifierRef.current = magnifierLens(svg, magnifierStyle.visible)
-                //
-                // // create/update the tracker line if needed
-                // trackerRef.current = trackerControl(svg, trackerStyle.visible)
 
                 // set up panning
                 const drag = d3.drag<SVGSVGElement, Datum>()
@@ -258,7 +264,6 @@ export function ScatterPlot(props: Props): null {
                                 .append("path")
                                 .attr("class", 'time-series-lines')
                                 .attr("id", `${name}`)
-                                // .attr("id", `${series.name}`)
                                 .attr("d", d3.line()
                                     .x((d: [number, number]) => xAxisLinear.scale(d[0]))
                                     .y((d: [number, number]) => yAxisLinear.scale(d[1]))
@@ -267,20 +272,28 @@ export function ScatterPlot(props: Props): null {
                                 .attr("stroke", color)
                                 .attr("stroke-width", lineWidth)
                                 .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                                .attr("clip-path", `url(#${clipPathId})`),
-                            // .attr("clip-path", `url(#clip-series-${chartId.current})`)
-                            // .on(
-                            //     "mouseover",
-                            //     (datumArray, i, group) =>
-                            //         tooltipRef.current.visible ? handleShowTooltip(datumArray, name, group[i]) : null
-                            // )
-                            // .on(
-                            //     "mouseleave",
-                            //     (datumArray, i, group) =>
-                            //         tooltipRef.current.visible ?
-                            //             handleRemoveTooltip(name, group[i]) :
-                            //             null
-                            // ),
+                                .attr("clip-path", `url(#${clipPathId})`)
+                                .on(
+                                    "mouseover",
+                                    (datumArray, i, group) =>
+                                        // tooltipRef.current.visible ? handleShowTooltip(datumArray, name, group[i]) : null
+                                        true ? handleShowTooltip(
+                                            chartId, container, xAxisLinear,
+                                            true,
+                                            name, datumArray, group[i],
+                                            margin, defaultTooltipStyle, seriesStyles, plotDimensions
+                                        ) : null
+                                )
+                                .on(
+                                    "mouseleave",
+                                    (datumArray, i, group) =>
+                                        // tooltipRef.current.visible ?
+                                        //     handleRemoveTooltip(name, group[i]) :
+                                        //     null
+                                        true ?
+                                            handleRemoveTooltip(seriesStyles, name, group[i]) :
+                                            null
+                                ),
                             update => update,
                             exit => exit.remove()
                         )
@@ -531,3 +544,170 @@ function axesFor(
     return [xAxisLinear, yAxisLinear]
 }
 
+/**
+ * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
+ * @param datum The datum
+ * @param seriesName The name of the series (i.e. the neuron ID)
+ * @param segment The SVG line element representing the spike, over which the mouse is hovering.
+ */
+function handleShowTooltip(
+    chartId: number,
+    container: SVGSVGElement,
+    xAxis: ContinuousNumericAxis,
+    visible: boolean,
+    seriesName: string,
+    datum: TimeSeries,
+    segment: SVGPathElement,
+    margin: Margin,
+    tooltipStyle: TooltipStyle,
+    seriesStyles: Map<string, SeriesLineStyle>,
+    plotDimensions: Dimensions,
+): void {
+    if (visible && container) {
+        // grab the time needed for the tooltip ID
+        const [x,] = d3.mouse(container)
+        const time = Math.round(xAxis.scale.invert(x - margin.left))
+
+        const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+
+        // Use d3 to select element, change color and size
+        d3.select<SVGPathElement, Datum>(segment)
+            .attr('stroke', highlightColor)
+            .attr('stroke-width', highlightWidth)
+
+        createTooltip(
+            `r${time}-${seriesName}-${chartId}`,
+            container,
+            margin,
+            tooltipStyle,
+            plotDimensions,
+            () => addTooltipContent(chartId, container, xAxis, seriesName, datum, margin, tooltipStyle, plotDimensions)
+        )
+    }
+}
+
+/**
+ * Unselects the time series and removes the tooltip
+ * @param seriesName The name of the series (i.e. the neuron ID)
+ * @param segment The SVG line element representing the spike, over which the mouse is hovering.
+ */
+function handleRemoveTooltip(
+    seriesStyles: Map<string, SeriesLineStyle>,
+    seriesName?: string,
+    segment?: SVGPathElement,
+) {
+    if (segment && seriesName) {
+        const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+        d3.select<SVGPathElement, Datum>(segment)
+            .attr('stroke', color)
+            .attr('stroke-width', lineWidth)
+    }
+    removeTooltip()
+}
+
+/**
+ * Callback function that adds tooltip content and returns the tooltip width and text height
+ * @param datum The spike datum (t ms, s mV)
+ * @param seriesName The name of the series (i.e. the neuron ID)
+ * @return The width and text height of the tooltip content
+ */
+function addTooltipContent(
+    chartId: number,
+    container: SVGSVGElement,
+    xAxis: ContinuousNumericAxis,
+    seriesName: string,
+    datum: TimeSeries,
+    margin: Margin,
+    tooltipStyle: TooltipStyle,
+    plotDimensions: Dimensions
+): TooltipDimensions {
+    if (container) {
+        const [x, y] = d3.mouse(container)
+        const time = Math.round(xAxis.scale.invert(x - margin.left))
+        const [lower, upper] = boundingPoints(datum, time)
+
+        // todo...finally, these can be exposed as a callback for the user of the <ScatterChart/>
+        // display the neuron ID in the tooltip
+        const header = d3.select<SVGSVGElement | null, any>(container)
+            .append<SVGTextElement>("text")
+            .attr('id', `tn${time}-${seriesName}-${chartId}`)
+            .attr('class', 'tooltip')
+            .attr('fill', tooltipStyle.fontColor)
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', tooltipStyle.fontSize)
+            .attr('font-weight', tooltipStyle.fontWeight)
+            .text(() => seriesName)
+
+
+        // create the table that shows the points that come before and after the mouse time, and the
+        // changes in the time and value
+        const table = d3.select<SVGSVGElement | null, any>(container)
+            .append("g")
+            .attr('id', `t${time}-${seriesName}-header-${chartId}`)
+            .attr('class', 'tooltip')
+            .attr('fill', tooltipStyle.fontColor)
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', tooltipStyle.fontSize + 2)
+            .attr('font-weight', tooltipStyle.fontWeight + 150)
+
+
+        const headerRow = table.append('g').attr('font-weight', tooltipStyle.fontWeight + 550)
+        const hrLower = headerRow.append<SVGTextElement>("text").text(() => 'before')
+        const hrUpper = headerRow.append<SVGTextElement>("text").text(() => 'after')
+        const hrDelta = headerRow.append<SVGTextElement>("text").text(() => '∆')
+
+        const trHeader = table.append<SVGTextElement>("text").text(() => 't (ms)')
+        const trLower = table.append<SVGTextElement>("text").text(() => formatTime(lower[0]))
+        const trUpper = table.append<SVGTextElement>("text").text(() => formatTime(upper[0]))
+        const trDelta = table.append<SVGTextElement>("text").text(() => formatTimeChange(lower[0], upper[0]))
+
+        const vrHeader = table.append<SVGTextElement>("text").text(() => 'Weight')
+        const vrLower = table.append<SVGTextElement>("text").text(() => formatValue(lower[1]))
+        const vrUpper = table.append<SVGTextElement>("text").text(() => formatValue(upper[1]))
+        const vrDelta = table.append<SVGTextElement>("text").text(() => formatValueChange(lower[1], upper[1]))
+
+        const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
+        const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0
+        const spacesWidthFor = (spaces: number) => spaces * textWidthOf(hrLower) / 5
+
+        // calculate the max width and height of the text
+        const tooltipWidth = Math.max(textWidthOf(header), spacesWidthFor(33))
+        const headerTextHeight = textHeightOf(header)
+        const headerRowHeight = textHeightOf(hrLower)
+        const timeRowHeight = textHeightOf(trHeader)
+        const valueRowHeight = textHeightOf(vrHeader)
+        const textHeight = headerTextHeight + headerRowHeight + timeRowHeight + valueRowHeight
+
+        // set the header text location
+        const xTooltip = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin) + tooltipStyle.paddingLeft
+        const yTooltip = tooltipY(y, textHeight, plotDimensions, tooltipStyle, margin) + tooltipStyle.paddingTop
+        header
+            .attr('x', () => xTooltip)
+            .attr('y', () => yTooltip - (headerRowHeight + timeRowHeight + valueRowHeight) + textHeight)
+
+
+        const hrRowY = yTooltip + headerTextHeight + headerRowHeight
+        const hrLowerX = spacesWidthFor(14)
+        const hrUpperX = spacesWidthFor(24)
+        const hrDeltaX = spacesWidthFor(32)
+        hrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(hrLower)).attr('y', () => hrRowY)
+        hrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(hrUpper)).attr('y', () => hrRowY)
+        hrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(hrDelta)).attr('y', () => hrRowY)
+
+        const trRowY = hrRowY + timeRowHeight
+        trHeader.attr('x', () => xTooltip).attr('y', () => trRowY)
+        trLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(trLower)).attr('y', () => trRowY)
+        trUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(trUpper)).attr('y', () => trRowY)
+        trDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(trDelta)).attr('y', () => trRowY)
+
+        const vrRowY = trRowY + valueRowHeight
+        vrHeader.attr('x', () => xTooltip).attr('y', () => vrRowY)
+        vrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(vrLower)).attr('y', () => vrRowY)
+        vrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(vrUpper)).attr('y', () => vrRowY)
+        vrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(vrDelta)).attr('y', () => vrRowY)
+
+        return {contentWidth: tooltipWidth, contentHeight: textHeight}
+    } else {
+        return {contentWidth: 0, contentHeight: 0}
+    }
+}
