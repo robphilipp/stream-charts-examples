@@ -251,7 +251,10 @@ export function calculatePanFor(
     const scale = axis.generator.scale<ScaleLinear<number, number>>()
     const currentTime = range.start
     const x = scale(currentTime)
-    const deltaTime = scale.invert(x + deltaX) - currentTime
-    return range.translate(-deltaTime)
+    if (x !== undefined) {
+        const deltaTime = scale.invert(x + deltaX) - currentTime
+        return range.translate(-deltaTime)
+    }
+    return range
 }
 
