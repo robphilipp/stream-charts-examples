@@ -91,6 +91,18 @@ export function Tooltip(props: Props): null {
                                 // call the callback to add the content
                                 const {contentWidth, contentHeight} = contentProvider(seriesName, time, series)
 
+                                // --- testing ---
+                                // const svg = d3.select<SVGSVGElement | null, any>(container)
+                                // const [mx, my] = d3.mouse(container)
+                                // svg.append('foreignObject')
+                                //     .attr('width', 400)
+                                //     .attr('height', 500)
+                                //     .attr('x', mx)
+                                //     .attr('y',my)
+                                //     .append('xhtml:body')
+                                //     .html("<div style='background-color: red'>This is a test</div>")
+                                // ---------------
+
                                 // set the position, width, and height of the tooltip rect based on the text height and width and the padding
                                 const [x, y] = d3.mouse(container)
                                 rect.attr('x', () => tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin))
