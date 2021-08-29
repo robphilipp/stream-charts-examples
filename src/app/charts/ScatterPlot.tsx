@@ -18,8 +18,15 @@ import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
 import {formatTime, formatTimeChange, formatValue, formatValueChange, noop} from "./utils";
 import {Dimensions, Margin} from "./margins";
-import {boundingPoints, removeTooltip, TooltipDimensions, tooltipX, tooltipY} from "./tooltipUtils";
-import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
+import {
+    boundingPoints,
+    removeTooltip,
+    TooltipDimensions,
+    tooltipX,
+    tooltipY,
+    defaultTooltipStyle,
+    TooltipStyle
+} from "./tooltipUtils";
 
 export interface AxesAssignment {
     xAxis: string
@@ -182,14 +189,21 @@ export function ScatterPlot(props: Props): null {
         [axesForSeries, margin, setTimeRangeFor, xAxisFor]
     )
 
-    // register the tooltip content provider
+    // register the tooltip content provider, which when called on mouse-enter-series events
+    // will render the tooltip container and then the tooltip content. recall that that the
+    // tooltip content is generated in this plot (because this is the plot that holds all the
+    // information needed to render it), and the container for the content is rendered by
+    // the <Tooltip>, which this know nothing about.
+    //
+    // the 'tooltipContentProvider' returns a function of the form (seriesName, time, series) => TooltipDimensions.
+    // and that function has a closure on the parameters passed to 'tooltipContentProvider' in
+    // this effect.
     useEffect(
         () => {
             if (container) {
-                // register the tooltip content provider function with the chart hook so that it is visible
-                // to the Tooltip.
+                // register the tooltip content provider function with the chart hook (useChart) so that
+                // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
-                    // adds the content of the tooltip to the tooltip
                     tooltipContentProvider(chartId, container, margin, defaultTooltipStyle, plotDimensions)
                 )
             }
@@ -289,10 +303,18 @@ export function ScatterPlot(props: Props): null {
                                 .on(
                                     "mouseover",
                                     (datumArray, i, group) =>
+                                        // recall that this handler is passed down via the "useChart" hook
                                         handleMouseOverSeries(
-                                            chartId, container, xAxisLinear,
-                                            name, datumArray, group[i],
-                                            margin, defaultTooltipStyle, seriesStyles, plotDimensions,
+                                            chartId,
+                                            container,
+                                            xAxisLinear,
+                                            name,
+                                            datumArray,
+                                            group[i],
+                                            margin,
+                                            defaultTooltipStyle,
+                                            seriesStyles,
+                                            plotDimensions,
                                             mouseOverHandlerFor(`tooltip-${chartId}`)
                                         )
                                 )

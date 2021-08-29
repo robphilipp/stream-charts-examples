@@ -1,6 +1,5 @@
-import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
 import {useEffect, useMemo} from "react";
-import {TooltipDimensions, tooltipX, tooltipY} from "./tooltipUtils";
+import {defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import {Dimensions, Margin} from "./margins";
 import * as d3 from "d3";
 import {Datum} from "./datumSeries";
@@ -9,7 +8,6 @@ import {useChart} from "./useChart";
 export interface Props {
     visible: boolean
     style?: Partial<TooltipStyle>
-    // dimensions: TooltipDimensions
 }
 
 /**
@@ -97,7 +95,6 @@ export function Tooltip(props: Props): null {
         ]
     )
 
-
     return null
 }
 
@@ -142,11 +139,4 @@ function createTooltip(
         .attr('width', contentWidth + tooltipStyle.paddingLeft + tooltipStyle.paddingRight)
         .attr('height', contentHeight + tooltipStyle.paddingTop + tooltipStyle.paddingBottom)
 
-}
-
-/**
- * Removes the tooltip when the mouse has moved away from the spike
- */
-function removeTooltip() {
-    d3.selectAll<SVGPathElement, Datum>('.tooltip').remove()
 }

@@ -4,7 +4,52 @@ import {ScaleBand} from "d3";
 import {Datum} from "./datumSeries";
 import {Dimensions, Margin} from "./margins";
 import {CategoryAxis} from "./axes";
-import {TooltipStyle} from "./TooltipStyle";
+
+/**
+ * Properties for rendering the tooltip. This is the style for the container
+ * of the content.
+ */
+export interface TooltipStyle {
+    visible: boolean;
+
+    fontSize: number;
+    fontColor: string;
+    fontFamily: string;
+    fontWeight: number;
+
+    backgroundColor: string;
+    backgroundOpacity: number;
+
+    borderColor: string;
+    borderWidth: number;
+    borderRadius: number;
+
+    paddingLeft: number;
+    paddingRight: number;
+    paddingTop: number;
+    paddingBottom: number;
+}
+
+export const defaultTooltipStyle: TooltipStyle = {
+    visible: false,
+
+    fontSize: 12,
+    fontColor: '#d2933f',
+    fontFamily: 'sans-serif',
+    fontWeight: 250,
+
+    backgroundColor: '#202020',
+    backgroundOpacity: 0.8,
+
+    borderColor: '#d2933f',
+    borderWidth: 1,
+    borderRadius: 5,
+
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingTop: 5,
+    paddingBottom: 10,
+};
 
 export interface TooltipDimensions {
     contentWidth: number,
@@ -73,7 +118,7 @@ export function removeTooltip() {
  */
 export function tooltipX(x: number, textWidth: number, plotDimensions: Dimensions, tooltipStyle: TooltipStyle, margin: Margin): number {
     if (x + textWidth + tooltipStyle.paddingLeft + 10 > plotDimensions.width + margin.left) {
-        return x - textWidth - tooltipStyle.paddingRight - margin.right
+        return x - textWidth - margin.right + tooltipStyle.paddingRight + tooltipStyle.paddingLeft
     }
     return x + tooltipStyle.paddingLeft
 }
@@ -89,7 +134,10 @@ export function tooltipX(x: number, textWidth: number, plotDimensions: Dimension
  * @return The y-coordinate of the lower-left-hand corner of the tooltip rectangle
  */
 export function tooltipY(y: number, textHeight: number, plotDimensions: Dimensions, tooltipStyle: TooltipStyle, margin: Margin): number {
-    return y + margin.top - tooltipStyle.paddingBottom - textHeight - tooltipStyle.paddingTop
+    return Math.min(
+        y + margin.top - textHeight,
+        plotDimensions.height - margin.top + tooltipStyle.paddingTop + tooltipStyle.paddingBottom
+    )
 }
 
 /**

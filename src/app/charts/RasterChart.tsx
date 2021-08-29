@@ -15,7 +15,7 @@ import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {windowTime} from "rxjs/operators";
-import {trackerControlInstance, defaultTrackerStyle, removeTrackerControl, TrackerStyle} from "./trackerUtils";
+import {defaultTrackerStyle, removeTrackerControl, trackerControlInstance, TrackerStyle} from "./trackerUtils";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {
     addCategoryAxis,
@@ -25,13 +25,14 @@ import {
     AxisLocation,
     calculatePanFor,
     CategoryAxis,
-    defaultAxesLabelFont,
-    ContinuousNumericAxis
+    ContinuousNumericAxis,
+    defaultAxesLabelFont
 } from "./axes";
 import {BarMagnifierSelection, SvgSelection, TrackerSelection} from "./d3types";
 import {categoryTooltipY, createTooltip, removeTooltip, TooltipDimensions, tooltipX} from "./tooltipUtils";
 import {handleZoom, mouseInPlotAreaFor, noop} from "./utils";
 import {createPlotContainer, setClipPath} from "./plot";
+import {TrackerLabelLocation} from "./Tracker";
 
 const defaultMargin = {top: 30, right: 20, bottom: 30, left: 50};
 
@@ -301,8 +302,8 @@ export function RasterChart(props: Props): JSX.Element {
         axesLabelFont: AxesLabelFont,
         margin: Margin,
     ): Axes<ContinuousNumericAxis, CategoryAxis> {
-        const xAxis = addLinearAxis(2, svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
-        const yAxis = addCategoryAxis(2, svg, AxisLocation.Left, plotDimensions, Array.from(categories.keys()), axesLabelFont, margin, "Neuron")
+        const xAxis = addLinearAxis(2, 'x-axis-raster' ,svg, AxisLocation.Bottom, plotDimensions, [timeRange.start, timeRange.end], axesLabelFont, margin, "t (ms)")
+        const yAxis = addCategoryAxis(2, 'y-axis-raster', svg, AxisLocation.Left, plotDimensions, Array.from(categories.keys()), axesLabelFont, margin, "Neuron")
 
         return {xAxis, yAxis}
     }
@@ -524,7 +525,9 @@ export function RasterChart(props: Props): JSX.Element {
                 margin,
                 tracker,
                 axisLabelFont,
-                x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`
+                x => `${d3.format(",.0f")(axesRef.current!.xAxis.scale.invert(x - margin.left))} ms`,
+                TrackerLabelLocation.WithMouse,
+                noop
             )
         }
         // if the magnifier was defined, and is now no longer defined (i.e. props changed, then remove the magnifier)
