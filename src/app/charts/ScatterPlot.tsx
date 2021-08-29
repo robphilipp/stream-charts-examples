@@ -270,7 +270,7 @@ export function ScatterPlot(props: Props): null {
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 
                     // grab the style for the series
-                    const {color, lineWidth} = seriesStyles.get(name) || defaultLineStyle
+                    const {color, lineWidth} = seriesStyles.get(name) || {...defaultLineStyle, highlightColor: defaultLineStyle.color}
 
                     // only show the data for which the filter matches
                     const plotData = (name.match(seriesFilter)) ? data : []

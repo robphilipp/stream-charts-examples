@@ -1,9 +1,9 @@
 import * as React from 'react'
-import {useEffect, useRef} from 'react'
+import {useEffect, useMemo, useRef} from 'react'
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
 import {Datum, Series} from "./datumSeries";
-import {noop, Observable, Subscription} from "rxjs";
+import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {GSelection} from "./d3types";
 import ChartProvider, {defaultMargin} from "./useChart";
@@ -56,9 +56,9 @@ export function Chart(props: Props): JSX.Element {
         seriesObservable,
         windowingTime = 100,
         shouldSubscribe = true,
-        onSubscribe = noop,
-        onUpdateData = noop,
-        onUpdateTime = noop,
+        // onSubscribe = noop,
+        // onUpdateData = noop,
+        // onUpdateTime = noop,
 
         children,
     } = props
@@ -67,7 +67,10 @@ export function Chart(props: Props): JSX.Element {
     const margin = {...defaultMargin, ...props.margin}
     // const axisStyle = {...defaultAxesStyle, ...props.axisStyle}
     // const axisLabelFont: AxesLabelFont = {...defaultAxesLabelFont, ...props.axisLabelFont}
-    const svgStyle: SvgStyle = {...initialSvgStyle, ...props.svgStyle, width: props.width, height: props.height}
+    const svgStyle = useMemo<SvgStyle>(
+        () => ({...initialSvgStyle, ...props.svgStyle, width: props.width, height: props.height}),
+        [props.height, props.svgStyle, props.width]
+    )
 
     // id of the chart to avoid dom conflicts when multiple charts are used in the same app
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))

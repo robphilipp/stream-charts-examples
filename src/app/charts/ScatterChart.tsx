@@ -5,7 +5,7 @@ import {ScaleLinear, Selection, ZoomTransform} from "d3"
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins"
 import {Datum, emptySeries, Series} from "./datumSeries"
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor"
-import {defaultTooltipStyle, TooltipStyle} from "./TooltipStyle"
+import {defaultTooltipStyle, TooltipStyle} from "./tooltipUtils"
 import {noop, Observable, Subscription} from "rxjs"
 import {ChartData} from "./chartData"
 import {
@@ -130,7 +130,7 @@ export function ScatterChart(props: Props): JSX.Element {
     const axisLabelFont: AxesLabelFont = {...defaultAxesLabelFont, ...props.axisLabelFont}
     const tooltipStyle: TooltipStyle = {...defaultTooltipStyle, ...props.tooltip}
     const magnifierStyle = {...defaultRadialMagnifierStyle, ...props.magnifier}
-    const lineStyle = {...defaultLineStyle, ...props.lineStyle}
+    const lineStyle = {...{highlightColor: defaultLineStyle.color}, ...defaultLineStyle, ...props.lineStyle}
     const trackerStyle = {...defaultTrackerStyle, ...props.tracker}
     const svgStyle = props.width ?
         {...initialSvgStyle, ...props.svgStyle, width: props.width} :
@@ -636,8 +636,8 @@ export function ScatterChart(props: Props): JSX.Element {
                             .attr("id", `${name}`)
                             // .attr("id", `${series.name}`)
                             .attr("d", d3.line()
-                                .x((d: [number, number]) => axesRef.current!.xAxis.scale(d[0]))
-                                .y((d: [number, number]) => axesRef.current!.yAxis.scale(d[1]))
+                                .x((d: [number, number]) => axesRef.current!.xAxis.scale(d[0]) || 0)
+                                .y((d: [number, number]) => axesRef.current!.yAxis.scale(d[1]) || 0)
                             )
                             .attr("fill", "none")
                             // .attr("stroke", lineStyle.color)

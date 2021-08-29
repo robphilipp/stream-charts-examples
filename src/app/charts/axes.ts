@@ -30,7 +30,7 @@ export interface SeriesLineStyle {
 export const defaultLineStyle: SeriesLineStyle = {
     color: '#008aad',
     lineWidth: 1,
-    highlightColor: '#d2933f',
+    highlightColor: '#008aad',
     highlightWidth: 3
 }
 

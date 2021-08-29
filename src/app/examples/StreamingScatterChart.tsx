@@ -187,8 +187,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     // svgStyle={{'background-color': 'pink'}}
                     backgroundColor='lightgray'
                     seriesStyles={new Map([
-                        ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1}],
-                        ['test2', {...defaultLineStyle, color: 'blue', lineWidth: 3}],
+                        ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1, highlightColor: 'orange'}],
+                        ['test2', {...defaultLineStyle, color: 'blue', lineWidth: 3, highlightColor: 'blue', highlightWidth: 5}],
+                        // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                     ])}
                     initialData={initialData}
                     seriesFilter={filter}

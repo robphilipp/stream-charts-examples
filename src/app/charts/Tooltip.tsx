@@ -7,6 +7,7 @@ import {useChart} from "./useChart";
 export interface Props {
     visible: boolean
     style?: Partial<TooltipStyle>
+    children?: JSX.Element
 }
 
 /**
@@ -58,7 +59,8 @@ export function Tooltip(props: Props): null {
 
     const {
         visible,
-        style
+        style,
+        children
     } = props
 
     const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
@@ -74,17 +76,41 @@ export function Tooltip(props: Props): null {
                     // example, a mouse-over a time-series in the plot).
                     registerMouseOverHandler(
                         handlerId,
-                        ((seriesName, time, series) => createTooltip(
-                            `r${time}-${seriesName}-${chartId}`,
-                            container,
-                            margin,
-                            tooltipStyle,
-                            plotDimensions,
-                            // this is the tooltip content provider registered by the plot,
-                            // and with the given information adds the content to the SVG
-                            // element for the tooltip
-                            () => contentProvider(seriesName, time, series)
-                        ))
+                        ((seriesName, time, series) => {
+                                // create the rounded rectangle for the tooltip's background
+                                const rect = d3.select<SVGSVGElement | null, any>(container)
+                                    .append<SVGRectElement>('rect')
+                                    .attr('id', `r${time}-${seriesName}-${chartId}`)
+                                    .attr('class', 'tooltip')
+                                    .attr('rx', tooltipStyle.borderRadius)
+                                    .attr('fill', tooltipStyle.backgroundColor)
+                                    .attr('fill-opacity', tooltipStyle.backgroundOpacity)
+                                    .attr('stroke', tooltipStyle.borderColor)
+                                    .attr('stroke-width', tooltipStyle.borderWidth)
+
+                                // call the callback to add the content
+                                const {contentWidth, contentHeight} = contentProvider(seriesName, time, series)
+
+                                // set the position, width, and height of the tooltip rect based on the text height and width and the padding
+                                const [x, y] = d3.mouse(container)
+                                rect.attr('x', () => tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin))
+                                    .attr('y', () => tooltipY(y, contentHeight, plotDimensions, tooltipStyle, margin))
+                                    .attr('width', contentWidth + tooltipStyle.paddingLeft + tooltipStyle.paddingRight)
+                                    .attr('height', contentHeight + tooltipStyle.paddingTop + tooltipStyle.paddingBottom)
+
+                            }
+                        )
+                        // ((seriesName, time, series) => createTooltip(
+                        //     `r${time}-${seriesName}-${chartId}`,
+                        //     container,
+                        //     margin,
+                        //     tooltipStyle,
+                        //     plotDimensions,
+                        //     // this is the tooltip content provider registered by the plot,
+                        //     // and with the given information adds the content to the SVG
+                        //     // element for the tooltip
+                        //     () => contentProvider(seriesName, time, series)
+                        // ))
                     )
 
                     registerMouseLeaveHandler(handlerId, () => removeTooltip())
