@@ -1,8 +1,7 @@
 import {useEffect, useMemo} from "react";
-import {defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
+import {defaultTooltipStyle, removeTooltip, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import {Dimensions, Margin} from "./margins";
 import * as d3 from "d3";
-import {Datum} from "./datumSeries";
 import {useChart} from "./useChart";
 
 export interface Props {
@@ -52,7 +51,9 @@ export function Tooltip(props: Props): null {
         plotDimensions,
         registerMouseOverHandler,
         unregisterMouseOverHandler,
-        tooltipContentProvider
+        tooltipContentProvider,
+        registerMouseLeaveHandler,
+        unregisterMouseLeaveHandler,
     } = useChart()
 
     const {
@@ -64,6 +65,7 @@ export function Tooltip(props: Props): null {
 
     useEffect(
         () => {
+            const handlerId = `tooltip-${chartId}`
             if (visible && container) {
                 const contentProvider = tooltipContentProvider()
                 if (contentProvider) {
@@ -71,7 +73,7 @@ export function Tooltip(props: Props): null {
                     // so that the plots can call it when mouse-enter events are triggered (for
                     // example, a mouse-over a time-series in the plot).
                     registerMouseOverHandler(
-                        `tooltip-${chartId}`,
+                        handlerId,
                         ((seriesName, time, series) => createTooltip(
                             `r${time}-${seriesName}-${chartId}`,
                             container,
@@ -84,14 +86,20 @@ export function Tooltip(props: Props): null {
                             () => contentProvider(seriesName, time, series)
                         ))
                     )
+
+                    registerMouseLeaveHandler(handlerId, () => removeTooltip())
                 }
             }
-            return () => unregisterMouseOverHandler(`tooltip-${chartId}`)
+            return () => {
+                unregisterMouseOverHandler(handlerId)
+                unregisterMouseLeaveHandler(handlerId)
+            }
         },
         [
             chartId, container, margin, plotDimensions,
             registerMouseOverHandler, tooltipContentProvider, tooltipStyle,
-            unregisterMouseOverHandler, visible
+            unregisterMouseOverHandler, visible, registerMouseLeaveHandler,
+            unregisterMouseLeaveHandler
         ]
     )
 
@@ -107,7 +115,7 @@ export function Tooltip(props: Props): null {
  * @param plotDimensions The dimensions of the plot
  * @param tooltipContent Function that adds the tooltip content and then returns the width and height of
  * the content. The callback function is handed the datum, svg path element, and the series name and must
- * return a {@link TooltipDimension} object that holds the width and height of the content.
+ * return a {@link TooltipDimensions} object that holds the width and height of the content.
  */
 function createTooltip(
     tooltipId: string,
