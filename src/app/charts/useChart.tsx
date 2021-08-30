@@ -202,7 +202,10 @@ interface UseChartValues {
      * @param handler The handler function called when a mouse-over-series event occurs
      * @return The handler ID
      */
-    registerMouseOverHandler: (handlerId: string, handler: (seriesName: string, time: number, series: TimeSeries) => void) => string
+    registerMouseOverHandler: (
+        handlerId: string,
+        handler: (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void
+    ) => string
     /**
      * Removes the mouse-over-series handler with the specified ID
      * @param handlerId The ID of the handler to remove
@@ -213,7 +216,7 @@ interface UseChartValues {
      * @param handlerId The ID of the handler
      * @return The mouse-over-series handler for the ID, or `undefined` if not found
      */
-    mouseOverHandlerFor: (handlerId: string) => ((seriesName: string, time: number, series: TimeSeries) => void) | undefined
+    mouseOverHandlerFor: (handlerId: string) => ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined
 
     /**
      * Adds a mouse-leave-series handler with the specified ID and handler function
@@ -238,12 +241,12 @@ interface UseChartValues {
      * Registers the provider of the tooltip content (generally this will be registered by the plot)
      * @param provider The function that provides the content when called.
      */
-    registerTooltipContentProvider: (provider: (seriesName: string, time: number, series: TimeSeries) => TooltipDimensions) => void
+    registerTooltipContentProvider: (provider: (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions) => void
     /**
      * @return The registered function that provides the tooltip content. If no function has been
      * registered, then returns `undefined`.
      */
-    tooltipContentProvider: () => ((seriesName: string, time: number, series: TimeSeries) => TooltipDimensions) | undefined
+    tooltipContentProvider: () => ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions) | undefined
 }
 
 const defaultUseChartValues: UseChartValues = {
@@ -354,9 +357,9 @@ export default function ChartProvider(props: Props): JSX.Element {
     const [onUpdateData, setOnUpdateData] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
     const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
 
-    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: TimeSeries) => void>>(new Map())
+    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void>>(new Map())
     const mouseLeaveHandlersRef = useRef<Map<string, (seriesName: string) => void>>(new Map())
-    const tooltipContentProviderRef = useRef<((seriesName: string, time: number, series: TimeSeries) => TooltipDimensions) | undefined>(undefined)
+    const tooltipContentProviderRef = useRef<((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions) | undefined>(undefined)
 
     // update the plot dimensions when the container size or margin change
     useEffect(

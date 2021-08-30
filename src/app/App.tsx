@@ -1,5 +1,5 @@
 import React from 'react';
-import {Series, seriesFrom} from "stream-charts";
+// import {Series, seriesFrom} from "stream-charts";
 import {
     Grid,
     gridArea,
@@ -18,7 +18,7 @@ import {AxisLocation, defaultLineStyle} from "./charts/axes";
 import {defaultMargin} from "./charts/useChart";
 import {ContinuousAxis} from "./charts/ContinuousAxis";
 import {assignAxes, ScatterPlot} from "./charts/ScatterPlot";
-import {datumOf, seriesFromTuples} from "./charts/datumSeries";
+import {datumOf, Series, seriesFrom, seriesFromTuples} from "./charts/datumSeries";
 import * as d3 from 'd3';
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 

@@ -6,6 +6,7 @@ import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from ".
 import {mouseInPlotAreaFor, textWidthOf} from "./utils";
 import {AxisLocation, ContinuousNumericAxis} from "./axes";
 import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelLocation} from "./Tracker";
+import React from "react";
 
 export interface TrackerLabelFont {
     size: number
@@ -90,7 +91,8 @@ export function trackerControlInstance(
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
         'mousemove',
-        () => handleShowTracker(chartId, container, margin, containerDimensions, label, labelStyle, onTrackerUpdate)
+        // () => handleShowTracker(chartId, container, margin, containerDimensions, label, labelStyle, onTrackerUpdate)
+        (event) => handleShowTracker(chartId, container, event, margin, containerDimensions, label, labelStyle, onTrackerUpdate)
     )
 
     return trackerLine
@@ -108,6 +110,7 @@ export function removeTrackerControl(svg: SvgSelection) {
  * Callback when the mouse tracker is to be shown
  * @param chartId The ID number of the chart
  * @param container The svg container
+ * @param event The mouse-over series event
  * @param margin The plot margins
  * @param dimensions The container dimensions (i.e. the plot dimensions plus its margins)
  * @param label A function that returns the tracker label string
@@ -117,15 +120,17 @@ export function removeTrackerControl(svg: SvgSelection) {
 function handleShowTracker(
     chartId: number,
     container: SVGSVGElement,
+    // event: MouseEvent,
+    event: React.MouseEvent<SVGSVGElement>,
     margin: Margin,
     dimensions: Dimensions,
     label: Map<ContinuousNumericAxis, (x: number) => string>,
     labelStyle: TrackerLabelLocation,
     onTrackerUpdate: (update: TrackerAxisUpdate) => void
 ): void {
-    if (container) {
         // determine whether the mouse is in the plot area
-        const [x, y] = d3.mouse(container)
+        // const [x, y] = d3.mouse(container)
+        const [x, y] = d3.pointer(event, container)
         const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
 
         // trackerLabel.forEach((trackerLabel, axis) => {
@@ -172,6 +177,5 @@ function handleShowTracker(
             // Array.from(label.keys()).map(axis => ({location: axis.location}))
             onTrackerUpdate(new Map(updateInfo))
         }
-    }
 }
 

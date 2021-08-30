@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef} from 'react'
+import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {useChart} from "./useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
@@ -230,8 +230,9 @@ export function ScatterPlot(props: Props): null {
                         // todo during a pan, we want to hide the tooltip
                         d3.select(container).style("cursor", "move")
                     })
-                    .on("drag", () => onPan(
-                        d3.event.dx,
+                    .on("drag", (event) => onPan(
+                        // d3.event.dx,
+                        event.dx,
                         plotDimensions,
                         Array.from(boundedSeries.keys()),
                         timeRanges,
@@ -248,9 +249,11 @@ export function ScatterPlot(props: Props): null {
                 const zoom = d3.zoom<SVGSVGElement, Datum>()
                     .scaleExtent([0, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", () => onZoom(
-                            d3.event.transform,
-                            d3.event.sourceEvent.offsetX - margin.left,
+                    .on("zoom", (event) => onZoom(
+                            // d3.event.transform,
+                            event.transform,
+                            event.sourceEvent.offsetX - margin.left,
+                            // d3.event.sourceEvent.offsetX - margin.left,
                             plotDimensions,
                             Array.from(boundedSeries.keys()),
                             timeRanges,
@@ -295,7 +298,7 @@ export function ScatterPlot(props: Props): null {
                                 .attr("clip-path", `url(#${clipPathId})`)
                                 .on(
                                     "mouseover",
-                                    (datumArray, i, group) =>
+                                    (event, datumArray) =>
                                         // recall that this handler is passed down via the "useChart" hook
                                         handleMouseOverSeries(
                                             chartId,
@@ -303,18 +306,35 @@ export function ScatterPlot(props: Props): null {
                                             xAxisLinear,
                                             name,
                                             datumArray,
-                                            group[i],
+                                            event,
                                             margin,
                                             defaultTooltipStyle,
                                             seriesStyles,
                                             plotDimensions,
                                             mouseOverHandlerFor(`tooltip-${chartId}`)
                                         )
+                                    // (datumArray, i, group) =>
+                                    //     // recall that this handler is passed down via the "useChart" hook
+                                    //     handleMouseOverSeries(
+                                    //         chartId,
+                                    //         container,
+                                    //         xAxisLinear,
+                                    //         name,
+                                    //         datumArray,
+                                    //         group[i],
+                                    //         margin,
+                                    //         defaultTooltipStyle,
+                                    //         seriesStyles,
+                                    //         plotDimensions,
+                                    //         mouseOverHandlerFor(`tooltip-${chartId}`)
+                                    //     )
                                 )
                                 .on(
                                     "mouseleave",
-                                    (datumArray, i, group) =>
-                                        handleMouseLeaveSeries(name, group[i], seriesStyles, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                                    // (datumArray, i, group) =>
+                                    //     handleMouseLeaveSeries(name, group[i], seriesStyles, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                                    event =>
+                                        handleMouseLeaveSeries(name, event.currentTarget, seriesStyles, mouseLeaveHandlerFor(`tooltip-${chartId}`))
                                 ),
                             update => update,
                             exit => exit.remove()
@@ -577,7 +597,8 @@ function axesFor(
  * @param xAxis The x-axis
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param series The time series
- * @param segment The SVG line element representing the spike, over which the mouse is hovering.
+ // * @param segment The SVG line element representing the spike, over which the mouse is hovering.
+ * @param event The mouse-over series event
  * @param margin The plot margin
  * @param tooltipStyle The tooltip style information
  * @param seriesStyles The series style information (needed for (un)highlighting)
@@ -590,26 +611,29 @@ function handleMouseOverSeries(
     xAxis: ContinuousNumericAxis,
     seriesName: string,
     series: TimeSeries,
-    segment: SVGPathElement,
+    // segment: SVGPathElement,
+    event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
     tooltipStyle: TooltipStyle,
     seriesStyles: Map<string, SeriesLineStyle>,
     plotDimensions: Dimensions,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: TimeSeries) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
-    const [x,] = d3.mouse(container)
+    // const [x,] = d3.mouse(container)
+    const [x, y] = d3.pointer(event, container)
     const time = Math.round(xAxis.scale.invert(x - margin.left))
 
     const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle
 
     // Use d3 to select element, change color and size
-    d3.select<SVGPathElement, Datum>(segment)
+    // d3.select<SVGPathElement, Datum>(segment)
+    d3.select<SVGPathElement, Datum>(event.currentTarget)
         .attr('stroke', highlightColor)
         .attr('stroke-width', highlightWidth)
 
     if (mouseOverHandlerFor) {
-        mouseOverHandlerFor(seriesName, time, series)
+        mouseOverHandlerFor(seriesName, time, series, [x, y])
     }
 }
 
@@ -656,9 +680,9 @@ function tooltipContentProvider(
     margin: Margin,
     tooltipStyle: TooltipStyle,
     plotDimensions: Dimensions
-): (seriesName: string, time: number, series: TimeSeries) => TooltipDimensions {
-    return (seriesName: string, time: number, series: TimeSeries) => addTooltipContent(
-        chartId, container, time, seriesName, series, margin, tooltipStyle, plotDimensions
+): (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions {
+    return (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => addTooltipContent(
+        chartId, container, time, seriesName, series, margin, tooltipStyle, plotDimensions, mouseCoords
     )
 }
 
@@ -682,9 +706,12 @@ function addTooltipContent(
     series: TimeSeries,
     margin: Margin,
     tooltipStyle: TooltipStyle,
-    plotDimensions: Dimensions
+    plotDimensions: Dimensions,
+    mouseCoords: [x: number, y: number]
 ): TooltipDimensions {
-    const [x, y] = d3.mouse(container)
+    // const [x, y] = d3.pointer('mouseover', container)
+    const [x, y] = mouseCoords
+    // const [x, y] = d3.mouse(container)
     const [lower, upper] = boundingPoints(series, time)
 
     // todo...finally, these can be exposed as a callback for the user of the <ScatterChart/>

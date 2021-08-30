@@ -56,6 +56,7 @@ export interface TooltipDimensions {
     contentHeight: number
 }
 
+// todo remove this -- this is only called from the old ScatterChart and RasterChart
 /**
  * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
  * @param tooltipId A unique ID for the tooltip
@@ -73,7 +74,8 @@ export function createTooltip(
     margin: Margin,
     tooltipStyle: TooltipStyle,
     plotDimensions: Dimensions,
-    tooltipContent: () => TooltipDimensions
+    tooltipContent: () => TooltipDimensions,
+    event: any
 ): void {
 
     // create the rounded rectangle for the tooltip's background
@@ -91,7 +93,8 @@ export function createTooltip(
     const {contentWidth, contentHeight} = tooltipContent()
 
     // set the position, width, and height of the tooltip rect based on the text height and width and the padding
-    const [x, y] = d3.mouse(container)
+    const [x, y] = d3.pointer(event, container)
+    // const [x, y] = d3.mouse(container)
     rect.attr('x', () => tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin))
         .attr('y', () => tooltipY(y, contentHeight, plotDimensions, tooltipStyle, margin))
         .attr('width', contentWidth + tooltipStyle.paddingLeft + tooltipStyle.paddingRight)
