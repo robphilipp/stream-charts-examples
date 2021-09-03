@@ -26,6 +26,8 @@ import * as d3 from "d3";
 import {assignAxes, ScatterPlot} from "../charts/ScatterPlot";
 import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
 import {Tooltip} from "../charts/Tooltip";
+import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
+import { formatNumber } from "../charts/utils";
 
 interface Visibility {
     tooltip: boolean;
@@ -206,7 +208,14 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         labelLocation={TrackerLabelLocation.WithMouse}
                         // onTrackerUpdate={update => console.dir(update)}
                     />
-                    <Tooltip visible={visibility.tooltip}/>
+                    <Tooltip visible={visibility.tooltip}>
+                        <ScatterPlotTooltipContent
+                            xLabel="t (ms)"
+                            yLabel="count"
+                            yValueFormatter={value => formatNumber(value, " ,.0f")}
+                            yChangeFormatter={value => formatNumber(value, " ,.0f")}
+                        />
+                    </Tooltip>
                     <ScatterPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],

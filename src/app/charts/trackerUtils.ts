@@ -91,8 +91,9 @@ export function trackerControlInstance(
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
         'mousemove',
-        // () => handleShowTracker(chartId, container, margin, containerDimensions, label, labelStyle, onTrackerUpdate)
-        (event) => handleShowTracker(chartId, container, event, margin, containerDimensions, label, labelStyle, onTrackerUpdate)
+        event => handleShowTracker(
+            chartId, container, event, margin, containerDimensions, label, labelStyle, onTrackerUpdate
+        )
     )
 
     return trackerLine
@@ -128,13 +129,12 @@ function handleShowTracker(
     labelStyle: TrackerLabelLocation,
     onTrackerUpdate: (update: TrackerAxisUpdate) => void
 ): void {
-        // determine whether the mouse is in the plot area
-        // const [x, y] = d3.mouse(container)
-        const [x, y] = d3.pointer(event, container)
-        const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
+    // determine whether the mouse is in the plot area
+    const [x, y] = d3.pointer(event, container)
+    const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
 
-        // trackerLabel.forEach((trackerLabel, axis) => {
-        const updateInfo: Array<[string, TrackerAxisInfo]> = Array.from(label.entries()).map(([axis, trackerLabel]) => {
+    const updateInfo: Array<[string, TrackerAxisInfo]> = Array.from(label.entries())
+        .map(([axis, trackerLabel]) => {
             // when the mouse is in the plot area, then set the opacity of the tracker line and label to 1,
             // which means it is fully visible. when the mouse is not in the plot area, set the opacity to 0,
             // which means the tracker line and label are invisible.
@@ -173,9 +173,8 @@ function handleShowTracker(
             return [axis.axisId, trackerInfo]
         })
 
-        if (inPlot) {
-            // Array.from(label.keys()).map(axis => ({location: axis.location}))
-            onTrackerUpdate(new Map(updateInfo))
-        }
+    if (inPlot) {
+        onTrackerUpdate(new Map(updateInfo))
+    }
 }
 

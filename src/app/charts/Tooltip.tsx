@@ -1,21 +1,12 @@
 import {useEffect, useMemo} from "react";
-import {
-    createTooltip,
-    defaultTooltipStyle,
-    removeTooltip,
-    TooltipDimensions,
-    TooltipStyle,
-    tooltipX,
-    tooltipY
-} from "./tooltipUtils";
-import {Dimensions, Margin} from "./margins";
+import {defaultTooltipStyle, removeTooltip, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import * as d3 from "d3";
 import {useChart} from "./useChart";
 
 export interface Props {
     visible: boolean
     style?: Partial<TooltipStyle>
-    children?: JSX.Element
+    children: JSX.Element
 }
 
 /**
@@ -52,7 +43,7 @@ export interface Props {
  * @return null
  * @constructor
  */
-export function Tooltip(props: Props): null {
+export function Tooltip(props: Props): JSX.Element {
     const {
         chartId,
         container,
@@ -99,7 +90,7 @@ export function Tooltip(props: Props): null {
                                 // call the callback to add the content
                                 const {contentWidth, contentHeight} = contentProvider(seriesName, time, series, mouseCoords)
 
-                                // --- testing ---
+                                // --- testing html in svg---
                                 // const svg = d3.select<SVGSVGElement | null, any>(container)
                                 // const [mx, my] = d3.mouse(container)
                                 // svg.append('foreignObject')
@@ -150,48 +141,5 @@ export function Tooltip(props: Props): null {
         ]
     )
 
-    return null
+    return <>{children}</>
 }
-
-// /**
-//  * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
-//  * @param tooltipId A unique ID for the tooltip
-//  * @param container The container holding the SVG element
-//  * @param margin The margin around the plot
-//  * @param tooltipStyle The tooltip style information
-//  * @param plotDimensions The dimensions of the plot
-//  * @param tooltipContent Function that adds the tooltip content and then returns the width and height of
-//  * the content. The callback function is handed the datum, svg path element, and the series name and must
-//  * return a {@link TooltipDimensions} object that holds the width and height of the content.
-//  */
-// function createTooltip(
-//     tooltipId: string,
-//     container: SVGSVGElement,
-//     margin: Margin,
-//     tooltipStyle: TooltipStyle,
-//     plotDimensions: Dimensions,
-//     tooltipContent: () => TooltipDimensions
-// ): void {
-//
-//     // create the rounded rectangle for the tooltip's background
-//     const rect = d3.select<SVGSVGElement | null, any>(container)
-//         .append<SVGRectElement>('rect')
-//         .attr('id', tooltipId)
-//         .attr('class', 'tooltip')
-//         .attr('rx', tooltipStyle.borderRadius)
-//         .attr('fill', tooltipStyle.backgroundColor)
-//         .attr('fill-opacity', tooltipStyle.backgroundOpacity)
-//         .attr('stroke', tooltipStyle.borderColor)
-//         .attr('stroke-width', tooltipStyle.borderWidth)
-//
-//     // call the callback to add the content
-//     const {contentWidth, contentHeight} = tooltipContent()
-//
-//     // set the position, width, and height of the tooltip rect based on the text height and width and the padding
-//     const [x, y] = d3.mouse(container)
-//     rect.attr('x', () => tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin))
-//         .attr('y', () => tooltipY(y, contentHeight, plotDimensions, tooltipStyle, margin))
-//         .attr('width', contentWidth + tooltipStyle.paddingLeft + tooltipStyle.paddingRight)
-//         .attr('height', contentHeight + tooltipStyle.paddingTop + tooltipStyle.paddingBottom)
-//
-// }
