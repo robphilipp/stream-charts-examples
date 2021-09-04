@@ -24,6 +24,12 @@ interface Props {
     yChangeFormatter?: (value1: number, value2: number) => string,
 }
 
+/**
+ * Registers the tooltip-content provider with the `ChartContext` so that when a user
+ * mouses-over a series, it can
+ * @param props
+ * @constructor
+ */
 export function ScatterPlotTooltipContent(props: Props): null {
     const {
         chartId,
@@ -41,12 +47,6 @@ export function ScatterPlotTooltipContent(props: Props): null {
         yChangeFormatter = formatValueChange
     } = props
 
-    const labels = {x: xLabel, y: yLabel}
-    const formatters = {
-        x: {value: xValueFormatter, change: xChangeFormatter},
-        y: {value: yValueFormatter, change: yChangeFormatter},
-    }
-    const options = {formatters, labels}
 
     // register the tooltip content provider, which when called on mouse-enter-series events
     // will render the tooltip container and then the tooltip content. recall that that the
@@ -60,6 +60,15 @@ export function ScatterPlotTooltipContent(props: Props): null {
     useEffect(
         () => {
             if (container) {
+                // assemble the options for adding the tooltip
+                const options = {
+                    labels: {x: xLabel, y: yLabel},
+                    formatters: {
+                        x: {value: xValueFormatter, change: xChangeFormatter},
+                        y: {value: yValueFormatter, change: yChangeFormatter},
+                    }
+                }
+
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
@@ -70,7 +79,11 @@ export function ScatterPlotTooltipContent(props: Props): null {
                 )
             }
         },
-        [chartId, container, margin, plotDimensions, registerTooltipContentProvider]
+        [
+            chartId, container, margin, plotDimensions, registerTooltipContentProvider,
+            xLabel, xChangeFormatter, xValueFormatter,
+            yLabel, yChangeFormatter, yValueFormatter
+        ]
     )
 
     return null
@@ -86,6 +99,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
  * @param margin The plot margins
  * @param tooltipStyle The style properties for the tooltip
  * @param plotDimensions The dimensions of the plot
+ * @param options The options passed through the the function that adds the tooltip content
  * @return A function of the form `(seriesName, time, series) => TooltipDimensions`, where the
  * {@link TooltipDimensions} hold the width and height required to fit the content. The returned
  * function is the function called by the mouse-over handler.
@@ -109,14 +123,15 @@ function tooltipContentProvider(
 /**
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param time
+ * @param time The time (x-coordinate value) corresponding to the mouse location
  * @param series The spike datum (t ms, s mV)
  * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
- * @param chartId The ID of the chart
- * @param container
- * @param margin
- * @param plotDimensions
- * @param tooltipStyle
+ * @param chartId The ID of this chart
+ * @param container The plot container (SVGSVGElement)
+ * @param margin The plot margins
+ * @param tooltipStyle The style properties for the tooltip
+ * @param plotDimensions The dimensions of the plot
+ * @param options The options passed through the the function that adds the tooltip content
  * @return The width and text height of the tooltip content
  */
 function addTooltipContent(
