@@ -6,7 +6,7 @@ import {Datum, Series} from "./datumSeries";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {GSelection} from "./d3types";
-import ChartProvider, {defaultMargin} from "./useChart";
+import ChartProvider, {defaultMargin} from "./hooks/useChart";
 import * as d3 from "d3";
 import {SeriesLineStyle} from "./axes";
 import {createPlotContainer} from "./plot";

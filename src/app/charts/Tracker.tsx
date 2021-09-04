@@ -1,4 +1,4 @@
-import {useChart} from "./useChart";
+import {useChart} from "./hooks/useChart";
 import {SvgSelection, TrackerSelection} from "./d3types";
 import {
     defaultTrackerLabelFont,
@@ -63,7 +63,7 @@ export function Tracker(props: Props): null {
         container,
         plotDimensions,
         margin,
-        xAxes,
+        xAxesState,
     } = useChart()
 
     const trackerStyle = useMemo(() => ({...defaultTrackerStyle, ...style}), [style])
@@ -74,10 +74,10 @@ export function Tracker(props: Props): null {
     useEffect(
         () => {
             const axes = new Map<string, ContinuousNumericAxis>()
-            xAxes().forEach((axis, id) => axes.set(id, axis as ContinuousNumericAxis))
+            xAxesState.axes.forEach((axis, id) => axes.set(id, axis as ContinuousNumericAxis))
             xAxisRef.current = axes
         },
-        [xAxes]
+        [xAxesState]
     )
 
     const trackerControl = useCallback(

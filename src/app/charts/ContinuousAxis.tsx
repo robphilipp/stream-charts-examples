@@ -1,5 +1,5 @@
 import {AxesLabelFont, AxisLocation, ContinuousNumericAxis, defaultAxesLabelFont} from "./axes";
-import {useChart} from "./useChart";
+import {useChart} from "./hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
 import {ScaleContinuousNumeric} from "d3";
@@ -30,12 +30,13 @@ export function ContinuousAxis(props: Props): null {
         container,
         plotDimensions,
         margin,
+        xAxesState,
+        yAxesState,
         addXAxis,
         addYAxis,
         setTimeRangeFor,
         timeRangeFor,
         addTimeUpdateHandler,
-        // removeTimeUpdateHandler
     } = useChart()
 
     const {
@@ -92,6 +93,7 @@ export function ContinuousAxis(props: Props): null {
                                 setTimeRangeFor,
                             )
                             // add the x-axis to the chart context
+                            // xAxesState.addAxis(axisRef.current, axisId)
                             addXAxis(axisRef.current, axisId)
 
                             // set the time-range for the time-axis
@@ -118,6 +120,7 @@ export function ContinuousAxis(props: Props): null {
                                 label,
                             )
                             // add the x-axis to the chart context
+                            // yAxesState.addAxis(axisRef.current, axisId)
                             addYAxis(axisRef.current, axisId)
                     }
                 } else {
@@ -142,7 +145,7 @@ export function ContinuousAxis(props: Props): null {
             }
         },
         [
-            chartId, axisId, label, location, props.font, addXAxis, addYAxis,
+            chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis,
             domain, scale, container, margin, plotDimensions, setTimeRangeFor, timeRangeFor, addTimeUpdateHandler,
         ]
     )

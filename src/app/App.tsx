@@ -15,7 +15,7 @@ import {
 import {Chart} from "./charts/Chart";
 import {Observable} from "rxjs";
 import {AxisLocation, defaultLineStyle} from "./charts/axes";
-import {defaultMargin} from "./charts/useChart";
+import {defaultMargin} from "./charts/hooks/useChart";
 import {ContinuousAxis} from "./charts/ContinuousAxis";
 import {assignAxes, ScatterPlot} from "./charts/ScatterPlot";
 import {datumOf, Series, seriesFrom, seriesFromTuples} from "./charts/datumSeries";

@@ -1,15 +1,16 @@
 import * as React from 'react';
 import {createContext, useContext, useEffect, useRef, useState} from 'react';
-import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
-import {GSelection} from "./d3types";
+import {Dimensions, Margin, plotDimensionsFrom} from "../margins";
+import {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
-import {ChartData} from "./chartData";
-import {Datum, Series} from "./datumSeries";
-import {noop} from "./utils";
-import {BaseAxis, SeriesLineStyle} from "./axes";
-import {ContinuousAxisRange} from "./continuousAxisRangeFor";
-import {TimeSeries} from "./plot";
-import {TooltipDimensions} from "./tooltipUtils";
+import {ChartData} from "../chartData";
+import {Datum, Series} from "../datumSeries";
+import {noop} from "../utils";
+import {BaseAxis, SeriesLineStyle} from "../axes";
+import {ContinuousAxisRange} from "../continuousAxisRangeFor";
+import {TimeSeries} from "../plot";
+import {TooltipDimensions} from "../tooltipUtils";
+import {addAxisTo, AxesState, createAxesState} from "./AxesState";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 
@@ -46,63 +47,26 @@ interface UseChartValues {
      */
     seriesStyles: Map<string, SeriesLineStyle>
 
-    /*
-     | X-AXIS
-     */
     /**
-     * Callback function for adding an x-axis to the chart
+     * The x-axes state holds the currently set x-axes, manipulation and accessor functions
+     */
+    xAxesState: AxesState
+    /**
+     * Adds an x-axis to the axes and updates the internal state
      * @param axis The axis to add
-     * @param id The unique ID of the axis
+     * @param id The ID of the axis to add
      */
     addXAxis: (axis: BaseAxis, id: string) => void
     /**
-     * Attempts to retrieve the x-axis for the specified ID
-     * @param axisId The unique ID of the axis
-     * @return The axis, or undefined if no axis with the specified ID is found
+     * The y-axes state holds the currently set x-axes, manipulation and accessor functions
      */
-    xAxisFor: (axisId: string) => BaseAxis | undefined
+    yAxesState: AxesState
     /**
-     * @return An array holding all existing the x-axis IDs
-     */
-    xAxisIds: () => Array<string>
-    /**
-     * @return A `map(x_axis_id -> axis)` holding the association of the x-axis
-     * IDs to their axes.
-     */
-    xAxes: () => Map<string, BaseAxis>
-    /**
-     * @return The default name of the x-axis (in case only on default axis was added)
-     */
-    xAxisDefaultName: () => string
-
-    /*
-     | Y-AXIS
-     */
-    /**
-     * Callback function for adding an y-axis to the chart
+     * Adds a y-axis to the axes and updates the internal state
      * @param axis The axis to add
-     * @param id The unique ID of the axis
+     * @param id The ID of the axis to add
      */
     addYAxis: (axis: BaseAxis, id: string) => void
-    /**
-     * Attempts to retrieve the y-axis for the specified ID
-     * @param axisId The unique ID of the axis
-     * @return The axis, or undefined if no axis with the specified ID is found
-     */
-    yAxisFor: (axisId: string) => BaseAxis | undefined
-    /**
-     * @return An array holding all existing the y-axis IDs
-     */
-    yAxisIds: () => Array<string>
-    /**
-     * @return A `map(y_axis_id -> axis)` holding the association of the y-axis
-     * IDs to their axes.
-     */
-    yAxes: () => Map<string, BaseAxis>
-    /**
-     * @return The default name of the y-axis (in case only on default axis was added)
-     */
-    yAxisDefaultName: () => string
 
     /**
      * Retrieves the time range for the specified axis ID
@@ -258,16 +222,20 @@ const defaultUseChartValues: UseChartValues = {
     color: '#d2933f',
     seriesStyles: new Map(),
 
+    // addXAxis: noop,
+    // xAxisFor: () => undefined,
+    // xAxisIds: () => [],
+    // xAxes: () => new Map(),
+    // xAxisDefaultName: () => "",
+    // addYAxis: noop,
+    // yAxisFor: () => undefined,
+    // yAxisIds: () => [],
+    // yAxes: () => new Map(),
+    // yAxisDefaultName: () => "",
+    xAxesState: createAxesState(),
+    yAxesState: createAxesState(),
     addXAxis: noop,
-    xAxisFor: () => undefined,
-    xAxisIds: () => [],
-    xAxes: () => new Map(),
-    xAxisDefaultName: () => "",
     addYAxis: noop,
-    yAxisFor: () => undefined,
-    yAxisIds: () => [],
-    yAxes: () => new Map(),
-    yAxisDefaultName: () => "",
 
     timeRangeFor: () => [NaN, NaN],
     setTimeRangeFor: noop,
@@ -348,8 +316,8 @@ export default function ChartProvider(props: Props): JSX.Element {
     } = props
     const [dimensions, setDimensions] = useState<Dimensions>(defaultUseChartValues.plotDimensions)
 
-    const xAxesRef = useRef<Map<string, BaseAxis>>(new Map())
-    const yAxesRef = useRef<Map<string, BaseAxis>>(new Map())
+    const xAxesRef = useRef<AxesState>(createAxesState())
+    const yAxesRef = useRef<AxesState>(createAxesState())
 
     const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
@@ -368,22 +336,6 @@ export default function ChartProvider(props: Props): JSX.Element {
         },
         [containerDimensions, margin]
     )
-
-    function xAxisFor(id: string): BaseAxis | undefined {
-        const axis = xAxesRef.current.get(id)
-        if (axis === undefined && xAxesRef.current.size >= 1) {
-            return Array.from(xAxesRef.current.values())[0]
-        }
-        return axis
-    }
-
-    function yAxisFor(id: string): BaseAxis | undefined {
-        const axis = yAxesRef.current.get(id)
-        if (axis === undefined && yAxesRef.current.size >= 1) {
-            return Array.from(yAxesRef.current.values())[0]
-        }
-        return axis
-    }
 
     function onUpdateTime(updates: Map<string, ContinuousAxisRange>): void {
         updates.forEach(
@@ -405,17 +357,10 @@ export default function ChartProvider(props: Props): JSX.Element {
 
             mainG, container,
 
-            addXAxis: (axis, id) => xAxesRef.current.set(id, axis),
-            xAxisFor,
-            xAxisIds: () => Array.from(xAxesRef.current.keys()),
-            xAxes: () => new Map(xAxesRef.current),
-            xAxisDefaultName: () => Array.from(xAxesRef.current.keys())[0],
-
-            addYAxis: (axis, id) => yAxesRef.current.set(id, axis),
-            yAxisFor,
-            yAxisIds: () => Array.from(yAxesRef.current.keys()),
-            yAxes: () => new Map(yAxesRef.current),
-            yAxisDefaultName: () => Array.from(yAxesRef.current.keys())[0],
+            xAxesState: xAxesRef.current,
+            yAxesState: yAxesRef.current,
+            addXAxis: (axis, id) => xAxesRef.current = addAxisTo(xAxesRef.current, axis, id),
+            addYAxis: (axis, id) => yAxesRef.current = addAxisTo(yAxesRef.current, axis, id),
 
             timeRangeFor: axisId => timeRangesRef.current.get(axisId),
             setTimeRangeFor: ((axisId, timeRange) => timeRangesRef.current.set(axisId, timeRange)),

@@ -1,7 +1,7 @@
 import {useEffect, useMemo} from "react";
 import {defaultTooltipStyle, removeTooltip, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import * as d3 from "d3";
-import {useChart} from "./useChart";
+import {useChart} from "./hooks/useChart";
 
 export interface Props {
     visible: boolean

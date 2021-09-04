@@ -19,7 +19,7 @@ import {Series} from "../charts/datumSeries";
 import {ChartData} from "../charts/chartData";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
-import {defaultMargin} from "../charts/useChart";
+import {defaultMargin} from "../charts/hooks/useChart";
 import {AxisLocation, defaultLineStyle} from "../charts/axes";
 import {ContinuousAxis} from "../charts/ContinuousAxis";
 import * as d3 from "d3";

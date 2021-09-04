@@ -5,7 +5,7 @@ import * as d3 from "d3";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "./utils";
 import {TextSelection} from "./d3types";
 import {useEffect} from "react";
-import {useChart} from "./useChart";
+import {useChart} from "./hooks/useChart";
 
 interface LegendOptions {
     labels: {x: string, y: string}
