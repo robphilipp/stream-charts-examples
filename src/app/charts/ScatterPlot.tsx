@@ -331,15 +331,16 @@ export function ScatterPlot(props: Props): null {
         [onUpdateTime]
     )
 
-    /**
-     * Updates the timing using the onUpdateTime and updatePlot references. This and the references
-     * defined above allow the axes' times to be update properly by avoid stale reference to these
-     * functions.
-     */
+    // updates the timing using the onUpdateTime and updatePlot references. This and the references
+    // defined above allow the axes' times to be update properly by avoid stale reference to these
+    // functions.
     const updateTimingAndPlot = useCallback(
-        (ranges: Map<string, ContinuousAxisRange>) => {
+        /**
+         * Updates the time and plot with the new time-ranges
+         * @param ranges The new time-ranges
+         */
+        (ranges: Map<string, ContinuousAxisRange>): void => {
             if (mainG !== null) {
-                // const ranges = timeRanges(xAxes() as Map<string, ContinuousNumericAxis>)
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
             }

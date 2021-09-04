@@ -47,6 +47,9 @@ interface UseChartValues {
      */
     seriesStyles: Map<string, SeriesLineStyle>
 
+    /*
+     | AXES
+     */
     /**
      * The x-axes state holds the currently set x-axes, manipulation and accessor functions
      */
@@ -68,6 +71,9 @@ interface UseChartValues {
      */
     addYAxis: (axis: BaseAxis, id: string) => void
 
+    /*
+     | TIMING
+     */
     /**
      * Retrieves the time range for the specified axis ID
      * @param axisId The ID of the axis for which to retrieve the time-range
