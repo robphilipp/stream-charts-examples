@@ -67,8 +67,9 @@ This pattern allows you to supplement that `useChart` mouse-over callback with i
  * Options for displaying the tooltip content. These options are specific to this
  * particular implementation of a tooltip content.
  */
-interface LegendOptions {
+interface TooltipOptions {
     labels: { x: string, y: string }
+    headers: {before: string, after: string, delta: string}
     formatters: {
         x: { value: (value: number) => string, change: (value1: number, value2: number) => string },
         y: { value: (value: number) => string, change: (value1: number, value2: number) => string },
@@ -79,6 +80,9 @@ interface Props {
     // label for the x-values (x-value row header)
     xLabel: string
     yLabel: string
+    beforeHeader?: string
+    afterHeader?: string
+    deltaHeader?: string
     xValueFormatter?: (value: number) => string
     yValueFormatter?: (value: number) => string
     xChangeFormatter?: (value1: number, value2: number) => string,
@@ -116,6 +120,9 @@ export function ScatterPlotTooltipContent(props: Props): null {
     const {
         xLabel,
         yLabel,
+        beforeHeader = 'before',
+        afterHeader = 'after',
+        deltaHeader = '∆',
         xValueFormatter = formatTime,
         yValueFormatter = formatValue,
         xChangeFormatter = formatTimeChange,
@@ -136,8 +143,9 @@ export function ScatterPlotTooltipContent(props: Props): null {
         () => {
             if (container) {
                 // assemble the options for adding the tooltip
-                const options = {
+                const options: TooltipOptions = {
                     labels: {x: xLabel, y: yLabel},
+                    headers: {before: beforeHeader, after: afterHeader, delta: deltaHeader},
                     formatters: {
                         x: {value: xValueFormatter, change: xChangeFormatter},
                         y: {value: yValueFormatter, change: yChangeFormatter},
@@ -159,7 +167,8 @@ export function ScatterPlotTooltipContent(props: Props): null {
         [
             chartId, container, margin, plotDimensions, registerTooltipContentProvider,
             xLabel, xChangeFormatter, xValueFormatter,
-            yLabel, yChangeFormatter, yValueFormatter
+            yLabel, yChangeFormatter, yValueFormatter,
+            beforeHeader, afterHeader, deltaHeader
         ]
     )
 
@@ -190,7 +199,7 @@ function addTooltipContent(
     margin: Margin,
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
-    options: LegendOptions
+    options: TooltipOptions
 ): TooltipDimensions {
     const {labels, formatters} = options
     const [x, y] = mouseCoords
@@ -221,9 +230,9 @@ function addTooltipContent(
 
 
     const headerRow = table.append('g').attr('font-weight', tooltipStyle.fontWeight + 550)
-    const hrLower = headerRow.append<SVGTextElement>("text").text(() => 'before')
-    const hrUpper = headerRow.append<SVGTextElement>("text").text(() => 'after')
-    const hrDelta = headerRow.append<SVGTextElement>("text").text(() => '∆')
+    const hrLower = headerRow.append<SVGTextElement>("text").text(() => options.headers.before)
+    const hrUpper = headerRow.append<SVGTextElement>("text").text(() => options.headers.after)
+    const hrDelta = headerRow.append<SVGTextElement>("text").text(() => options.headers.delta)
 
     const trHeader = table.append<SVGTextElement>("text").text(() => labels.x)
     const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower[0]))
