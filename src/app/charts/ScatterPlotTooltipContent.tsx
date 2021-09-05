@@ -7,7 +7,7 @@ import {TextSelection} from "./d3types";
 import {useEffect} from "react";
 import {useChart} from "./hooks/useChart";
 
-/*
+/**
 # Want to write your own tooltip-content component?
 
 Here's how to write your own tooltip-content component.
@@ -37,13 +37,13 @@ function that allowing a closure on content/chart-specific data. Specifically, y
 Your function to add that actual content will be what this function calls whenever d3 fires a mouse-over
 event on one you the time-series in the chart.
 
-The code snippet below is from the `useEffect` call in the [ScatterPlotTooltipContent](ScatterPlotTooltipContent).
-Note that the first four arguments to the `addTooltipContent` function are those provided by the `useChart` hook
+The code snippet below is from the `useEffect` call in the {@link ScatterPlotTooltipContent}.
+Note that the first four arguments to the {@link addTooltipContent} function are those provided by the {@link useChart} hook
 when a d3 mouse-over event occurs on one of your series. The additional six arguments are from the closure formed
 on the variables in your component. The `chartId`, `container`, `margin`, and `plotDimensions` are from the
-`useChart` hook called by the [ScatterPlotTooltipContent](ScatterPlotTooltipContent) component. The last two
-arguments, `defaultTooltipStyle` and `options` are specific to the [ScatterPlotTooltipContent](ScatterPlotTooltipContent).
-For example, the `options` property is set by the caller of the [ScatterPlotTooltipContent](ScatterPlotTooltipContent)
+ {@link useChart} hook called by the {@link ScatterPlotTooltipContent} component. The last two
+arguments, `defaultTooltipStyle` and `options` are specific to the {@link ScatterPlotTooltipContent}.
+For example, the `options` property is set by the caller of the {@link ScatterPlotTooltipContent}
 component.
 
 ```ts
@@ -65,7 +65,14 @@ This pattern allows you to supplement that `useChart` mouse-over callback with i
 
 /**
  * Options for displaying the tooltip content. These options are specific to this
- * particular implementation of a tooltip content.
+ * particular implementation of a tooltip content. The options effect are applied
+ * as shown below.
+ * ```
+ * series name
+ *            headers.before       headers.after         headers.delta
+ * labels.x   formatters.x.value   formatters.x.value    formatters.x.change
+ * labels.y   formatters.y.value   formatters.y.value    formatters.y.change
+ * ```
  */
 interface TooltipOptions {
     labels: { x: string, y: string }
@@ -76,6 +83,16 @@ interface TooltipOptions {
     }
 }
 
+/**
+ * Properties for rendering the tooltip content. The properties are applied as
+ * shown below.
+ * ```
+ * series name
+ *          beforeHeader      afterHeader        deltaHeader
+ * xLabel   xValueFormatter   xValueFormatter    xChangeFormatter
+ * yLabel   yValueFormatter   yValueFormatter    yChangeFormatter
+ * ```
+ */
 interface Props {
     // label for the x-values (x-value row header)
     xLabel: string
