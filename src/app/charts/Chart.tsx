@@ -111,7 +111,7 @@ export function Chart(props: Props): JSX.Element {
                 d3.select<SVGSVGElement, any>(containerRef.current)
                     .attr('width', width)
                     .attr('height', height)
-                    .attr('style', style + background)
+                    .attr('style', style + background + ` color: ${color}`)
             }
         },
         [color, backgroundColor, height, svgStyle, width]

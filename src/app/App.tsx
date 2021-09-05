@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 // import {Series, seriesFrom} from "stream-charts";
 import {
     Grid,
@@ -6,21 +6,15 @@ import {
     GridItem,
     gridTemplateAreasBuilder,
     gridTrackTemplateBuilder,
-    useGridCellHeight,
-    useGridCellWidth,
+    useGridCell,
     useWindowDimensions,
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {Chart} from "./charts/Chart";
-import {Observable} from "rxjs";
-import {AxisLocation, defaultLineStyle} from "./charts/axes";
-import {defaultMargin} from "./charts/hooks/useChart";
-import {ContinuousAxis} from "./charts/ContinuousAxis";
-import {assignAxes, ScatterPlot} from "./charts/ScatterPlot";
-import {datumOf, Series, seriesFrom, seriesFromTuples} from "./charts/datumSeries";
-import * as d3 from 'd3';
+import {Series, seriesFrom, seriesFromTuples} from "./charts/datumSeries";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
+import {Toggle, ToggleStatus} from "./examples/Toggle";
+import {darkTheme, lightTheme, Theme} from "./examples/Themes";
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
 const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
@@ -43,6 +37,16 @@ const initialData = [
 ]
 
 const App: React.FC = () => {
+    const [theme, setTheme] = useState<Theme>(lightTheme)
+
+    function handleThemeChange(status: ToggleStatus): void {
+        if (status === ToggleStatus.OFF) {
+            setTheme(lightTheme)
+        } else {
+            setTheme(darkTheme)
+        }
+    }
+
     return (
         <Grid
             dimensionsSupplier={useWindowDimensions}
@@ -52,23 +56,49 @@ const App: React.FC = () => {
                 .addTrack(withPixels(40))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
+                .addTrack(withPixels(30))
                 .addTrack(withPixels(50))
                 .addTrack(withFraction(2))
                 .addTrack(withPixels(50))
                 .addTrack(withFraction(1))
                 .build()}
             gridTemplateAreas={gridTemplateAreasBuilder()
-                .addArea("left-side", gridArea(1, 1, 4))
-                .addArea("scatter-header", gridArea(1, 2))
-                .addArea("scatter-chart", gridArea(2, 2))
-                .addArea("raster-header", gridArea(3, 2))
-                .addArea("raster-chart", gridArea(4, 2))
-                .addArea("left-side", gridArea(1, 3, 4))
+                .addArea("left-side", gridArea(2, 1, 5))
+                .addArea("app-header", gridArea(1, 1, 1, 3))
+                .addArea("scatter-header", gridArea(2, 2))
+                .addArea("scatter-chart", gridArea(3, 2))
+                .addArea("raster-header", gridArea(4, 2))
+                .addArea("raster-chart", gridArea(5, 2))
+                .addArea("left-side", gridArea(1, 3, 5))
                 .build()}
-            styles={{backgroundColor: '#202020'}}
+            styles={{backgroundColor: theme.backgroundColor}}
         >
+            <GridItem gridAreaName="app-header">
+                <Grid
+                    dimensionsSupplier={useGridCell}
+                    gridTemplateColumns={gridTrackTemplateBuilder()
+                        .addTrack(withFraction(1))
+                        .addTrack(withPixels(170))
+                        .build()}
+                    gridTemplateRows={gridTrackTemplateBuilder()
+                        .addTrack(withFraction(1))
+                        .build()}
+                >
+                    <GridItem row={1} column={2}>
+                        <Toggle
+                            onToggle={handleThemeChange}
+                            toggleOffColor={lightTheme.color}
+                            toggleOffBackgroundColor={lightTheme.backgroundColor}
+                            toggleOnColor={darkTheme.color}
+                            toggleOnBackgroundColor={darkTheme.backgroundColor}
+                            toggleBorderColor={theme.color}
+                            labelFontColor={theme.color}
+                        />
+                    </GridItem>
+                </Grid>
+            </GridItem>
             <GridItem gridAreaName="scatter-header">
-                <h3 style={{color: '#d2933f'}}>Streaming Scatter Chart</h3>
+                <h3 style={{color: theme.color}}>Streaming Scatter Chart</h3>
             </GridItem>
             <GridItem gridAreaName="scatter-chart">
                 {/*<StreamingScatterChart*/}
@@ -108,13 +138,14 @@ const App: React.FC = () => {
                 {/*    />*/}
                 {/*</Chart>*/}
                 <StreamingScatterChart
+                    theme={theme}
                     timeWindow={1000}
                     initialData={initialData}
                     // seriesList={Array.from(initialData.values())}
                 />
             </GridItem>
             <GridItem gridAreaName="raster-header">
-                <h3 style={{color: '#d2933f'}}>Streaming Raster Chart</h3>
+                <h3 style={{color: theme.color}}>Streaming Raster Chart</h3>
             </GridItem>
             {/*<GridItem gridAreaName="raster-chart">*/}
             {/*    <StreamingRasterChart*/}

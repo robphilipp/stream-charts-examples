@@ -28,6 +28,7 @@ import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
 import {Tooltip} from "../charts/Tooltip";
 import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
 import { formatNumber } from "../charts/utils";
+import {lightTheme, Theme} from "./Themes";
 
 interface Visibility {
     tooltip: boolean;
@@ -41,56 +42,66 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
-const inputStyle = {
-    backgroundColor: '#202020',
-    outlineStyle: 'none',
-    borderColor: '#d2933f',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 3,
-    color: '#d2933f',
-    fontSize: 12,
-    padding: 4,
-    margin: 6,
-    marginRight: 20
-};
-
-const buttonStyle = {
-    backgroundColor: '#202020',
-    outlineStyle: 'none',
-    borderColor: '#d2933f',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 3,
-    color: '#d2933f',
-    fontSize: 12,
-    width: 50,
-    padding: 4,
-    margin: 6,
-    marginRight: 20
-}
-
 /**
  * The properties
  */
 interface Props {
-    timeWindow?: number;
+    theme?: Theme
+    timeWindow?: number
     initialData: Array<Series>
-    plotHeight?: number;
-    plotWidth?: number;
+    plotHeight?: number
+    plotWidth?: number
 }
 
 export function StreamingScatterChart(props: Props): JSX.Element {
     const {
+        theme = lightTheme,
         initialData,
-    } = props;
+    } = props
+
+
+    const inputStyle = {
+        backgroundColor: theme.backgroundColor,
+        outlineStyle: 'none',
+        borderColor: theme.color,
+        borderStyle: 'solid',
+        borderWidth: 1,
+        borderRadius: 3,
+        color: theme.color,
+        fontSize: 12,
+        padding: 4,
+        margin: 6,
+        marginRight: 20
+    }
+
+    const buttonStyle = {
+        backgroundColor: theme.backgroundColor,
+        outlineStyle: 'none',
+        borderColor: theme.color,
+        borderStyle: 'solid',
+        borderWidth: 1,
+        borderRadius: 3,
+        color: theme.color,
+        fontSize: 12,
+        width: 50,
+        padding: 4,
+        margin: 6,
+        marginRight: 20,
+        cursor: 'pointer',
+    }
+
+    const checkboxStyle = {
+        backgroundColor: theme.backgroundColor,
+        borderColor: theme.color,
+        borderCheckedColor: theme.color
+    }
 
     const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(
         initialData,
         25,
         25,
         10, 1000
-    ));
+    ))
     // const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(initialData.map(series => series.name), 0.1));
     // const subscriptionRef = useRef<Subscription>();
     const [running, setRunning] = useState<boolean>(false)
@@ -130,7 +141,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         >
             <GridItem gridAreaName="chart-controls">
                 <div>
-                    <label>regex filter <input
+                    <label style={{color: theme.color}}>regex filter <input
                         type="text"
                         value={filterValue}
                         onChange={event => handleUpdateRegex(event.currentTarget.value)}
@@ -146,18 +157,30 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         key={1}
                         checked={visibility.tooltip}
                         label="tooltip"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                     />
                     <Checkbox
                         key={2}
                         checked={visibility.tracker}
                         label="tracker"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
                     <Checkbox
                         key={3}
                         checked={visibility.magnifier}
                         label="magnifier"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
                         onChange={() => setVisibility({
                             tooltip: false,
                             tracker: false,
@@ -165,7 +188,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         })}
                     />
                     {visibility.magnifier ?
-                        (<label><input
+                        (<label style={{color: theme.color}}><input
                             type="range"
                             value={magnification}
                             min={1}
@@ -187,7 +210,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         right: 60
                     }}
                     // svgStyle={{'background-color': 'pink'}}
-                    backgroundColor='lightgray'
+                    // backgroundColor='lightgray'
+                    color={theme.color}
+                    backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
                         ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1, highlightColor: 'orange'}],
                         ['test2', {...defaultLineStyle, color: 'blue', lineWidth: 3, highlightColor: 'blue', highlightWidth: 5}],
@@ -199,10 +224,32 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     shouldSubscribe={running}
                     windowingTime={10}
                 >
-                    <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 5000]} label="x-axis"/>
-                    <ContinuousAxis axisId="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>
-                    <ContinuousAxis axisId="x-axis-2" location={AxisLocation.Top} domain={[100, 1000]} label="x-axis (2)"/>
-                    <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>
+                    <ContinuousAxis
+                        axisId="x-axis-1"
+                        location={AxisLocation.Bottom}
+                        domain={[10, 5000]}
+                        label="x-axis"
+                        // font={{color: theme.color}}
+                    />
+                    <ContinuousAxis
+                        axisId="y-axis-1"
+                        location={AxisLocation.Left}
+                        domain={[0, 1000]}
+                        label="y-axis"
+                    />
+                    <ContinuousAxis
+                        axisId="x-axis-2"
+                        location={AxisLocation.Top}
+                        domain={[100, 1000]}
+                        label="x-axis (2)"
+                    />
+                    <ContinuousAxis
+                        axisId="y-axis-2"
+                        location={AxisLocation.Right}
+                        scale={d3.scaleLog()}
+                        domain={[100, 1200]}
+                        label="y-axis (2)"
+                    />
                     <Tracker
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}

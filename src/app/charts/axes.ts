@@ -107,7 +107,7 @@ export function addLinearAxis(
                 margin,
                 axisLabel,
                 "",
-                noop
+                noop,
             )
     }
 }

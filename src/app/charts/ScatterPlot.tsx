@@ -309,7 +309,7 @@ export function ScatterPlot(props: Props): null {
             seriesStyles,
             seriesFilter,
             mouseOverHandlerFor,
-            mouseLeaveHandlerFor
+            mouseLeaveHandlerFor,
         ]
     )
 

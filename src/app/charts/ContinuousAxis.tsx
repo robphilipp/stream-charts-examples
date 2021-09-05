@@ -37,6 +37,7 @@ export function ContinuousAxis(props: Props): null {
         setTimeRangeFor,
         timeRangeFor,
         addTimeUpdateHandler,
+        color
     } = useChart()
 
     const {
@@ -44,7 +45,7 @@ export function ContinuousAxis(props: Props): null {
         location,
         scale = d3.scaleLinear(),
         domain,
-        label
+        label,
     } = props
 
     const axisRef = useRef<ContinuousNumericAxis>()
@@ -64,7 +65,7 @@ export function ContinuousAxis(props: Props): null {
         () => {
             if (container) {
                 const svg = d3.select<SVGSVGElement, any>(container)
-                const font: AxesLabelFont = {...defaultAxesLabelFont, ...props.font}
+                const font: AxesLabelFont = {...defaultAxesLabelFont, color, ...props.font}
 
                 const handleTimeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
                     if (timeUpdateHandlerIdRef.current && axisRef.current) {
@@ -93,7 +94,6 @@ export function ContinuousAxis(props: Props): null {
                                 setTimeRangeFor,
                             )
                             // add the x-axis to the chart context
-                            // xAxesState.addAxis(axisRef.current, axisId)
                             addXAxis(axisRef.current, axisId)
 
                             // set the time-range for the time-axis
@@ -120,7 +120,6 @@ export function ContinuousAxis(props: Props): null {
                                 label,
                             )
                             // add the x-axis to the chart context
-                            // yAxesState.addAxis(axisRef.current, axisId)
                             addYAxis(axisRef.current, axisId)
                     }
                 } else {
@@ -141,16 +140,29 @@ export function ContinuousAxis(props: Props): null {
                             //      zoom...do something similar to what I did for the time-range
                             axisRef.current.update(domain, plotDimensions, margin)
                     }
+                    svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
             }
         },
         [
             chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis,
             domain, scale, container, margin, plotDimensions, setTimeRangeFor, timeRangeFor, addTimeUpdateHandler,
+            color
         ]
     )
 
     return null
+}
+
+function labelIdFor(chartId: number, location: AxisLocation): string {
+    switch (location) {
+        case AxisLocation.Bottom:
+        case AxisLocation.Top:
+            return `stream-chart-x-axis-${location}-label-${chartId}`
+        case AxisLocation.Left:
+        case AxisLocation.Right:
+            return `stream-chart-y-axis-${location}-label-${chartId}`
+    }
 }
 
 export function addContinuousNumericXAxis(
@@ -164,7 +176,7 @@ export function addContinuousNumericXAxis(
     margin: Margin,
     axisLabel: string,
     axisId: string,
-    setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
+    setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([0, plotDimensions.width])
 
@@ -174,7 +186,7 @@ export function addContinuousNumericXAxis(
 
     svg
         .append<SVGTextElement>('text')
-        .attr('id', `stream-chart-x-axis-${location}-label-${chartId}`)
+        .attr('id', labelIdFor(chartId, location))
         .attr('text-anchor', 'middle')
         .attr('font-size', axesLabelFont.size)
         .attr('fill', axesLabelFont.color)
@@ -227,7 +239,7 @@ function updateLinearXAxis(
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .call(axis.generator)
     svg
-        .select(`#stream-chart-x-axis-${location}-label-${chartId}`)
+        .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${labelYTranslation(location, plotDimensions, margin)})`)
 }
 
@@ -256,7 +268,7 @@ export function addContinuousNumericYAxis(
 
     svg
         .append<SVGTextElement>('text')
-        .attr('id', `stream-chart-y-axis-${location}-label-${chartId}`)
+        .attr('id', labelIdFor(chartId, location))
         .attr('text-anchor', 'start')
         .attr('font-size', axesLabelFont.size)
         .attr('fill', axesLabelFont.color)
@@ -302,6 +314,6 @@ function updateLinearYAxis(
         .call(axis.generator)
 
     svg
-        .select(`#stream-chart-y-axis-${location}-label-${chartId}`)
+        .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
 }

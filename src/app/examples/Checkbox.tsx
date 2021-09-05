@@ -1,7 +1,8 @@
 import React from 'react';
 
 interface Props {
-    label: string;
+    label: string
+    labelColor?: string
     checked?: boolean;
     onChange: (checked: boolean) => void;
     width?: number;
@@ -27,6 +28,7 @@ export default function Checkbox(props: Props): JSX.Element {
 
     const {
         label,
+        labelColor = '#d2933f',
         onChange,
         checked = false,
         width = 12,
@@ -75,9 +77,10 @@ export default function Checkbox(props: Props): JSX.Element {
                 top: -5,
                 left: 1,
                 fontSize: width,
-                fontWeight: 800
+                fontWeight: 800,
+                color: borderColor,
             }}>&#10003;</span> : <span/>}</span>
-            <span style={{marginLeft: textSpacing}}>{label}</span>
+            <span style={{marginLeft: textSpacing, color: labelColor}}>{label}</span>
         </span>
     );
 }
