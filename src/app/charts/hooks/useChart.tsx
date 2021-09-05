@@ -87,13 +87,8 @@ interface UseChartValues {
      */
     setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
 
-    /**
-     * A regular expression uses against the series names to determine which series to show in the chart
-     */
-    seriesFilter: RegExp
-
     /*
-     | DATA
+     | DATA and DATA PROCESSING
      */
     /**
      * An array of time-series representing the initial data for the chart (i.e. static data
@@ -119,6 +114,14 @@ interface UseChartValues {
     windowingTime?: number
 
     /**
+     * A regular expression uses against the series names to determine which series to show in the chart
+     */
+    seriesFilter: RegExp
+
+    /*
+     | USER CALLBACK FUNCTIONS
+     */
+    /**
      * Callback function that is called when the chart subscribes to the observable
      * @param subscription The subscription resulting form the subscribe action
      */
@@ -138,6 +141,9 @@ interface UseChartValues {
      */
     onUpdateTime: (times: Map<string, ContinuousAxisRange>) => void
 
+    /*
+     | INTERNAL CHART EVENT HANDLERS
+     */
     /**
      * Update the plot dimensions (for example, on a window resize)
      * @param dimensions the new dimensions of the plot
@@ -166,6 +172,9 @@ interface UseChartValues {
      */
     removeTimeUpdateHandler: (handlerId: string) => void
 
+    /*
+     | INTERNAL INTERACTION EVENT HANDLERS
+     */
     /**
      * Adds a mouse-over-series handler with the specified ID and handler function
      * @param handlerId The handler ID
@@ -186,8 +195,8 @@ interface UseChartValues {
      * @param handlerId The ID of the handler
      * @return The mouse-over-series handler for the ID, or `undefined` if not found
      */
-    mouseOverHandlerFor: (handlerId: string) => ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined
-
+    mouseOverHandlerFor: (handlerId: string) =>
+        ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined
     /**
      * Adds a mouse-leave-series handler with the specified ID and handler function
      * @param handlerId The handler ID
@@ -211,12 +220,20 @@ interface UseChartValues {
      * Registers the provider of the tooltip content (generally this will be registered by the plot)
      * @param provider The function that provides the content when called.
      */
-    registerTooltipContentProvider: (provider: (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions) => void
+    registerTooltipContentProvider: (
+        provider: (
+            seriesName: string,
+            time: number,
+            series: TimeSeries,
+            mouseCoords: [x: number, y: number]
+        ) => TooltipDimensions) => void
     /**
      * @return The registered function that provides the tooltip content. If no function has been
      * registered, then returns `undefined`.
      */
-    tooltipContentProvider: () => ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions) | undefined
+    tooltipContentProvider: () =>
+        ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions) |
+        undefined
 }
 
 const defaultUseChartValues: UseChartValues = {
@@ -228,47 +245,38 @@ const defaultUseChartValues: UseChartValues = {
     color: '#d2933f',
     seriesStyles: new Map(),
 
-    // addXAxis: noop,
-    // xAxisFor: () => undefined,
-    // xAxisIds: () => [],
-    // xAxes: () => new Map(),
-    // xAxisDefaultName: () => "",
-    // addYAxis: noop,
-    // yAxisFor: () => undefined,
-    // yAxisIds: () => [],
-    // yAxes: () => new Map(),
-    // yAxisDefaultName: () => "",
+    // axes
     xAxesState: createAxesState(),
     yAxesState: createAxesState(),
     addXAxis: noop,
     addYAxis: noop,
 
+    // timing
     timeRangeFor: () => [NaN, NaN],
     setTimeRangeFor: noop,
 
+    // data
     initialData: [],
-
     seriesFilter: /./,
-
-    //
     windowingTime: NaN,
     shouldSubscribe: false,
 
+    // user callbacks
     onSubscribe: noop,
     onUpdateData: noop,
     onUpdateTime: noop,
 
+    // internal event handlers
     updateDimensions: noop,
     subscriptionHandler: () => noop,
     dataUpdateHandler: () => noop,
-
     addTimeUpdateHandler: () => noop,
     removeTimeUpdateHandler: () => noop,
 
+    // internal chart-interaction event handlers
     registerMouseOverHandler: () => '',
     unregisterMouseOverHandler: noop,
     mouseOverHandlerFor: () => undefined,
-
     registerMouseLeaveHandler: () => '',
     unregisterMouseLeaveHandler: noop,
     mouseLeaveHandlerFor: () => undefined,
@@ -343,14 +351,20 @@ export default function ChartProvider(props: Props): JSX.Element {
         [containerDimensions, margin]
     )
 
+    /**
+     * Called when the time is updated on one or more of the chart's axes (generally x-axes). In turn,
+     * dispatches the update to all the internal time update handlers.
+     * @param updates A map holding the axis ID to the updated axis time-range
+     */
     function onUpdateTime(updates: Map<string, ContinuousAxisRange>): void {
-        updates.forEach(
-            (range, id) => timeRangesRef.current.set(id, [range.start, range.end])
+        // update the current time-ranges reference
+        updates.forEach((range, id) =>
+            timeRangesRef.current.set(id, [range.start, range.end])
         )
+        // dispatch the updates to all the registered handlers
         timeUpdateHandlersRef.current.forEach((handler, ) => handler(updates, dimensions))
     }
 
-    const {children} = props
     return <ChartContext.Provider
         value={{
             chartId,
@@ -404,7 +418,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             tooltipContentProvider: () => tooltipContentProviderRef.current,
         }}
     >
-        {children}
+        {props.children}
     </ChartContext.Provider>
 }
 
