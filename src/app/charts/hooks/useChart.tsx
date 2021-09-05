@@ -217,7 +217,9 @@ interface UseChartValues {
     mouseLeaveHandlerFor: (handlerId: string) => ((seriesName: string) => void) | undefined
 
     /**
-     * Registers the provider of the tooltip content (generally this will be registered by the plot)
+     * Registers the provider of the tooltip content (generally this will be registered by the plot).
+     * When this function is called again, overwrites the previously registered provider with the
+     * one specified. This function can be called repeatedly.
      * @param provider The function that provides the content when called.
      */
     registerTooltipContentProvider: (

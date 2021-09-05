@@ -7,15 +7,76 @@ import {TextSelection} from "./d3types";
 import {useEffect} from "react";
 import {useChart} from "./hooks/useChart";
 
+/*
+# Want to write your own tooltip-content component?
+
+Here's how to write your own tooltip-content component.
+
+To create your own tooltip content `<MyTooltipContent/>` you must do the following:
+1. Create a react component for your tooltip content (see for example, {@link ScatterPlotTooltipContent}
+   as a reference.
+2. Use the {@link useChart} hook to get the {@link registerTooltipContentProvider} registration function.
+3. When your tooltip content component (`<MyTooltipContent/>`) mounts, use the {@link registerTooltipContentProvider}
+   function to register your tooltip content provider.
+4. When the chart dimensions, margin, container, etc, change, register your tooltip content provider
+   again (you can register as many times as you like because it only uses the last content provider
+   registered).
+
+That's it! A bit more details below.
+
+The {@link registerTooltipContentProvider} function from the {@link useChart} hook allows you to register
+one tooltip content provider. A second call to this function will cause the {@link useChart} hook to drop
+the first one in favor of the second one.
+
+The {@link registerTooltipContentProvider} function from the {@link useChart} hook accepts a higher-order
+function that allowing a closure on content/chart-specific data. Specifically, you must hand the
+{@link registerTooltipContentProvider} a function of the form:
+
+`(seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions`
+
+Your function to add that actual content will be what this function calls whenever d3 fires a mouse-over
+event on one you the time-series in the chart.
+
+The code snippet below is from the `useEffect` call in the [ScatterPlotTooltipContent](ScatterPlotTooltipContent).
+Note that the first four arguments to the `addTooltipContent` function are those provided by the `useChart` hook
+when a d3 mouse-over event occurs on one of your series. The additional six arguments are from the closure formed
+on the variables in your component. The `chartId`, `container`, `margin`, and `plotDimensions` are from the
+`useChart` hook called by the [ScatterPlotTooltipContent](ScatterPlotTooltipContent) component. The last two
+arguments, `defaultTooltipStyle` and `options` are specific to the [ScatterPlotTooltipContent](ScatterPlotTooltipContent).
+For example, the `options` property is set by the caller of the [ScatterPlotTooltipContent](ScatterPlotTooltipContent)
+component.
+
+```ts
+// register the tooltip content provider function with the chart hook (useChart) so that
+// it is visible to all children of the Chart (i.e. the <Tooltip>).
+registerTooltipContentProvider(
+    (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
+        addTooltipContent(
+            seriesName, time, series, mouseCoords,
+            chartId, container, margin, plotDimensions,
+            defaultTooltipStyle, options
+        )
+)
+```
+
+This pattern allows you to supplement that `useChart` mouse-over callback with information specific to you component.
+
+ */
+
+/**
+ * Options for displaying the tooltip content. These options are specific to this
+ * particular implementation of a tooltip content.
+ */
 interface LegendOptions {
-    labels: {x: string, y: string}
+    labels: { x: string, y: string }
     formatters: {
-        x: {value: (value: number) => string, change: (value1: number, value2: number) => string},
-        y: {value: (value: number) => string, change: (value1: number, value2: number) => string},
+        x: { value: (value: number) => string, change: (value1: number, value2: number) => string },
+        y: { value: (value: number) => string, change: (value1: number, value2: number) => string },
     }
 }
 
 interface Props {
+    // label for the x-values (x-value row header)
     xLabel: string
     yLabel: string
     xValueFormatter?: (value: number) => string
@@ -25,9 +86,23 @@ interface Props {
 }
 
 /**
- * Registers the tooltip-content provider with the `ChartContext` so that when a user
- * mouses-over a series, it can
- * @param props
+ * Adds tooltip content as a table. The columns of the table are the "label", the value before
+ * the mouse cursor, then value after the mouse cursor, and the difference between the two values.
+ * The rows of the table are x-values for the first row, and the y-values for the second row.
+ * The table has the following form.
+ * ```
+ * series name
+ *            before     after         ∆
+ * x-label     x_tb      x_ta       x_ta - x_tb
+ * y-label     y_tb      y_ta       y_ta - y_tb
+ * ```
+ *
+ * Registers the tooltip-content provider with the `ChartContext` so that when d3 fires a mouse-over
+ * event on a series. The content provider is returns the {@link addTooltipContent} function
+ * when called. And when called the {@link addTooltipContent} function adds the actual tooltip
+ * content to the SVG element.
+ * @param props The properties describing the tooltip content
+ * @return null
  * @constructor
  */
 export function ScatterPlotTooltipContent(props: Props): null {
@@ -54,9 +129,9 @@ export function ScatterPlotTooltipContent(props: Props): null {
     // information needed to render it), and the container for the content is rendered by
     // the <Tooltip>, which this know nothing about.
     //
-    // the 'tooltipContentProvider' returns a function of the form (seriesName, time, series) => TooltipDimensions.
-    // and that function has a closure on the parameters passed to 'tooltipContentProvider' in
-    // this effect.
+    // the 'registration function accepts a function of the form (seriesName, time, series) => TooltipDimensions.
+    // and that function has a closure on the content-specific information needed to add the
+    // actual content
     useEffect(
         () => {
             if (container) {
@@ -72,10 +147,12 @@ export function ScatterPlotTooltipContent(props: Props): null {
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
-                    tooltipContentProvider(
-                        chartId, container, margin, defaultTooltipStyle, plotDimensions,
-                        options
-                    )
+                    (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
+                        addTooltipContent(
+                            seriesName, time, series, mouseCoords,
+                            chartId, container, margin, plotDimensions, defaultTooltipStyle,
+                            options
+                        )
                 )
             }
         },
@@ -87,37 +164,6 @@ export function ScatterPlotTooltipContent(props: Props): null {
     )
 
     return null
-}
-
-/**
- * Higher-order function that returns a function called when a mouse-over event occurs on a series.
- * The returned function accepts the series name, plot time, and time-series, renders the tooltip,
- * and returns the tooltip dimensions. Additionally, the returned function has a closure over the
- * parameters passed to this higher-order function.
- * @param chartId The ID of this chart
- * @param container The plot container (SVGSVGElement)
- * @param margin The plot margins
- * @param tooltipStyle The style properties for the tooltip
- * @param plotDimensions The dimensions of the plot
- * @param options The options passed through the the function that adds the tooltip content
- * @return A function of the form `(seriesName, time, series) => TooltipDimensions`, where the
- * {@link TooltipDimensions} hold the width and height required to fit the content. The returned
- * function is the function called by the mouse-over handler.
- */
-function tooltipContentProvider(
-    chartId: number,
-    container: SVGSVGElement,
-    margin: Margin,
-    tooltipStyle: TooltipStyle,
-    plotDimensions: Dimensions,
-    options: LegendOptions
-): (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions {
-    return (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
-        addTooltipContent(
-            seriesName, time, series, mouseCoords,
-            chartId, container, margin, plotDimensions, tooltipStyle,
-            options
-        )
 }
 
 /**
@@ -150,7 +196,6 @@ function addTooltipContent(
     const [x, y] = mouseCoords
     const [lower, upper] = boundingPoints(series, time)
 
-    // todo...finally, these can be exposed as a callback for the user of the <ScatterChart/>
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
