@@ -72,7 +72,6 @@ export function ScatterPlot(props: Props): null {
         () => {
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
         },
-        // [xAxes]
         [xAxesState]
     )
 

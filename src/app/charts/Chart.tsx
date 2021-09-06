@@ -56,17 +56,12 @@ export function Chart(props: Props): JSX.Element {
         seriesObservable,
         windowingTime = 100,
         shouldSubscribe = true,
-        // onSubscribe = noop,
-        // onUpdateData = noop,
-        // onUpdateTime = noop,
 
         children,
     } = props
 
     // override the defaults with the parent's properties, leaving any unset values as the default value
     const margin = {...defaultMargin, ...props.margin}
-    // const axisStyle = {...defaultAxesStyle, ...props.axisStyle}
-    // const axisLabelFont: AxesLabelFont = {...defaultAxesLabelFont, ...props.axisLabelFont}
     const svgStyle = useMemo<SvgStyle>(
         () => ({...initialSvgStyle, ...props.svgStyle, width: props.width, height: props.height}),
         [props.height, props.svgStyle, props.width]
@@ -81,8 +76,6 @@ export function Chart(props: Props): JSX.Element {
     // the container that holds the d3 svg element
     const mainGRef = useRef<GSelection | null>(null)
     const containerRef = useRef<SVGSVGElement>(null)
-
-    // const [dimensions, setDimensions] = useState<Dimensions>({width, height})
 
     // creates the main <g> element for the chart if it doesn't already exist, otherwise
     // updates the svg element with the updated dimensions or style properties
