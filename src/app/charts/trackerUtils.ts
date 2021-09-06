@@ -92,7 +92,7 @@ export function trackerControlInstance(
     svg.on(
         'mousemove',
         event => handleShowTracker(
-            chartId, container, event, margin, containerDimensions, label, labelStyle, onTrackerUpdate
+            chartId, container, event, margin, containerDimensions, style, labelFont, label, labelStyle, onTrackerUpdate
         )
     )
 
@@ -114,6 +114,8 @@ export function removeTrackerControl(svg: SvgSelection) {
  * @param event The mouse-over series event
  * @param margin The plot margins
  * @param dimensions The container dimensions (i.e. the plot dimensions plus its margins)
+ * @param trackerStyle The style settings for the tracker line
+ * @param labelFont The style settings for the tracker font
  * @param label A function that returns the tracker label string
  * @param labelStyle Where to display the tracker labels (i.e. with-mouse, with-axes, no-where)
  * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
@@ -125,6 +127,8 @@ function handleShowTracker(
     event: React.MouseEvent<SVGSVGElement>,
     margin: Margin,
     dimensions: Dimensions,
+    trackerStyle: TrackerStyle,
+    labelFont: TrackerLabelFont,
     label: Map<ContinuousNumericAxis, (x: number) => string>,
     labelStyle: TrackerLabelLocation,
     onTrackerUpdate: (update: TrackerAxisUpdate) => void
@@ -141,9 +145,15 @@ function handleShowTracker(
             d3.select<SVGLineElement, Datum>(`#stream-chart-tracker-line-${chartId}`)
                 .attr('x1', x)
                 .attr('x2', x)
+                .attr('stroke', trackerStyle.color)
+                .attr('stroke-width', trackerStyle.lineWidth)
                 .attr('opacity', () => inPlot ? 1 : 0)
 
             const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-${chartId}-${axis.location}`)
+                .attr('fill', labelFont.color)
+                .attr('font-family', labelFont.family)
+                .attr('font-size', labelFont.size)
+                .attr('font-weight', labelFont.weight)
                 .attr('opacity', () => inPlot ? 1 : 0)
                 .text(() => trackerLabel(x))
 

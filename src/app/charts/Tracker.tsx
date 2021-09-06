@@ -80,45 +80,45 @@ export function Tracker(props: Props): null {
         [xAxesState]
     )
 
-    const trackerControl = useCallback(
-        /**
-         * Creates the SVG elements for displaying a tracker line
-         * @param svg The SVG selection
-         * @param visible `true` if the tracker is visible; `false` otherwise
-         * @return The tracker selection if visible; otherwise undefined
-         */
-        (svg: SvgSelection, visible: boolean): TrackerSelection | undefined => {
-            if (visible && container) {
-                const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
-                    Array.from(xAxisRef.current.values()).map(axis => [
-                        axis,
-                        x => labelLocation === TrackerLabelLocation.Nowhere ?
-                            '' :
-                            `${d3.format(",.0f")(axis.scale.invert(x - margin.left))} ms`
-                    ])
-                )
-
-                return trackerControlInstance(
-                    chartId,
-                    container,
-                    svg,
-                    plotDimensions,
-                    margin,
-                    trackerStyle,
-                    trackerFont,
-                    trackerLabels,
-                    labelLocation,
-                    onTrackerUpdate,
-                )
-            }
-            // if the tracker was defined, and is now no longer defined (i.e. props changed, then remove the tracker)
-            else if (!visible && trackerRef.current !== undefined) {
-                removeTrackerControl(svg)
-                return undefined
-            }
-        },
-        [chartId, container, margin, onTrackerUpdate, plotDimensions, labelLocation, trackerFont, trackerStyle]
-    )
+    // const trackerControl = useCallback(
+    //     /**
+    //      * Creates the SVG elements for displaying a tracker line
+    //      * @param svg The SVG selection
+    //      * @param visible `true` if the tracker is visible; `false` otherwise
+    //      * @return The tracker selection if visible; otherwise undefined
+    //      */
+    //     (svg: SvgSelection, visible: boolean): TrackerSelection | undefined => {
+    //         if (visible && container) {
+    //             const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
+    //                 Array.from(xAxisRef.current.values()).map(axis => [
+    //                     axis,
+    //                     x => labelLocation === TrackerLabelLocation.Nowhere ?
+    //                         '' :
+    //                         `${d3.format(",.0f")(axis.scale.invert(x - margin.left))} ms`
+    //                 ])
+    //             )
+    //
+    //             return trackerControlInstance(
+    //                 chartId,
+    //                 container,
+    //                 svg,
+    //                 plotDimensions,
+    //                 margin,
+    //                 trackerStyle,
+    //                 trackerFont,
+    //                 trackerLabels,
+    //                 labelLocation,
+    //                 onTrackerUpdate,
+    //             )
+    //         }
+    //         // if the tracker was defined, and is now no longer defined (i.e. props changed, then remove the tracker)
+    //         else if (!visible && trackerRef.current !== undefined) {
+    //             removeTrackerControl(svg)
+    //             return undefined
+    //         }
+    //     },
+    //     [chartId, container, margin, onTrackerUpdate, plotDimensions, labelLocation, trackerFont, trackerStyle]
+    // )
 
     // when the container, tracker-control function, or visibility change, then we need to update the
     // tracker control
@@ -126,10 +126,39 @@ export function Tracker(props: Props): null {
         () => {
             if (container) {
                 const svg = d3.select<SVGSVGElement, any>(container)
-                trackerRef.current = trackerControl(svg, visible)
+                // trackerRef.current = trackerControl(svg, visible)
+                if (visible && container) {
+                    const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
+                        Array.from(xAxisRef.current.values()).map(axis => [
+                            axis,
+                            x => labelLocation === TrackerLabelLocation.Nowhere ?
+                                '' :
+                                `${d3.format(",.0f")(axis.scale.invert(x - margin.left))} ms`
+                        ])
+                    )
+
+                    trackerRef.current = trackerControlInstance(
+                        chartId,
+                        container,
+                        svg,
+                        plotDimensions,
+                        margin,
+                        trackerStyle,
+                        trackerFont,
+                        trackerLabels,
+                        labelLocation,
+                        onTrackerUpdate,
+                    )
+                }
+                // if the tracker was defined, and is now no longer defined (i.e. props changed, then remove the tracker)
+                else if (!visible && trackerRef.current !== undefined) {
+                    removeTrackerControl(svg)
+                    trackerRef.current = undefined
+                }
             }
         },
-        [container, trackerControl, visible]
+        [chartId, container, labelLocation, margin, onTrackerUpdate, plotDimensions, trackerFont, trackerStyle, visible]
+        // [container, trackerControl, visible]
     )
 
     return null

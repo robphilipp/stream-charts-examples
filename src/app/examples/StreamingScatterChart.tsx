@@ -280,6 +280,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <Tracker
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}
+                        style={{color: theme.color}}
+                        font={{color: theme.color}}
                         // onTrackerUpdate={update => console.dir(update)}
                     />
                     <Tooltip
