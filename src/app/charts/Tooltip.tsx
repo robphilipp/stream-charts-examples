@@ -1,4 +1,4 @@
-import {useEffect, useMemo} from "react";
+import {cloneElement, useEffect, useMemo} from "react";
 import {defaultTooltipStyle, removeTooltip, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import * as d3 from "d3";
 import {useChart} from "./hooks/useChart";
@@ -141,5 +141,5 @@ export function Tooltip(props: Props): JSX.Element {
         ]
     )
 
-    return <>{children}</>
+    return <>{cloneElement(children, props)}</>
 }

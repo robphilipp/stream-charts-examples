@@ -282,7 +282,15 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         labelLocation={TrackerLabelLocation.WithMouse}
                         // onTrackerUpdate={update => console.dir(update)}
                     />
-                    <Tooltip visible={visibility.tooltip}>
+                    <Tooltip
+                        visible={visibility.tooltip}
+                        style={{
+                            fontColor: theme.color,
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            backgroundOpacity: 0.9,
+                        }}
+                    >
                         <ScatterPlotTooltipContent
                             xLabel="t (ms)"
                             yLabel="count"

@@ -4,7 +4,7 @@ import {boundingPoints, defaultTooltipStyle, TooltipDimensions, TooltipStyle, to
 import * as d3 from "d3";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "./utils";
 import {TextSelection} from "./d3types";
-import {useEffect} from "react";
+import {useEffect, useMemo} from "react";
 import {useChart} from "./hooks/useChart";
 
 /**
@@ -104,6 +104,7 @@ interface Props {
     yValueFormatter?: (value: number) => string
     xChangeFormatter?: (value1: number, value2: number) => string,
     yChangeFormatter?: (value1: number, value2: number) => string,
+    style?: Partial<TooltipStyle>
 }
 
 /**
@@ -143,9 +144,11 @@ export function ScatterPlotTooltipContent(props: Props): null {
         xValueFormatter = formatTime,
         yValueFormatter = formatValue,
         xChangeFormatter = formatTimeChange,
-        yChangeFormatter = formatValueChange
+        yChangeFormatter = formatValueChange,
+        style,
     } = props
 
+    const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
 
     // register the tooltip content provider, which when called on mouse-enter-series events
     // will render the tooltip container and then the tooltip content. recall that that the
@@ -175,7 +178,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
                     (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
                         addTooltipContent(
                             seriesName, time, series, mouseCoords,
-                            chartId, container, margin, plotDimensions, defaultTooltipStyle,
+                            chartId, container, margin, plotDimensions, tooltipStyle,
                             options
                         )
                 )
@@ -185,7 +188,8 @@ export function ScatterPlotTooltipContent(props: Props): null {
             chartId, container, margin, plotDimensions, registerTooltipContentProvider,
             xLabel, xChangeFormatter, xValueFormatter,
             yLabel, yChangeFormatter, yValueFormatter,
-            beforeHeader, afterHeader, deltaHeader
+            beforeHeader, afterHeader, deltaHeader,
+            tooltipStyle
         ]
     )
 
