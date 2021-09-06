@@ -39,6 +39,11 @@ interface Props {
      * {@link https://github.com/d3/d3-shape#curves} for information on available interpolations
      */
     interpolation?: d3.CurveFactory
+    /**
+     * The number of milliseconds of data to hold in memory before dropping it. Defaults to
+     * infinity (i.e. no data is dropped)
+     */
+    dropDataAfter?: number
 }
 
 /**
@@ -76,7 +81,8 @@ export function ScatterPlot(props: Props): null {
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
-        interpolation = d3.curveLinear
+        interpolation = d3.curveLinear,
+        dropDataAfter = Infinity,
     } = props
 
     const liveDataRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
@@ -411,7 +417,7 @@ export function ScatterPlot(props: Props): null {
                             if (currentAxisTime !== undefined) {
                                 // drop data that is older than the max time-window
                                 // todo replace the infinity
-                                while (currentAxisTime - series.data[0].time > Infinity) {
+                                while (currentAxisTime - series.data[0].time > dropDataAfter) {
                                     series.data.shift()
                                 }
 
