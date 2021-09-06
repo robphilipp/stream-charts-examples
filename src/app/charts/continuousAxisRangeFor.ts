@@ -8,6 +8,7 @@ export interface ContinuousAxisRange {
     matchesOriginal: (start: number, end: number) => boolean
     scale: (factor: number, time: number) => ContinuousAxisRange
     translate: (x: number) => ContinuousAxisRange
+    update: (start: number, end: number) => ContinuousAxisRange
 }
 
 /**
@@ -77,7 +78,8 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
             matchesOriginal,
             scaleFactor,
             scale,
-            translate
+            translate,
+            update: updateTimeRange
         }
     }
 

@@ -118,7 +118,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     /**
      * Called when the user changes the regular expression filter
-     * @param {string} updatedFilter The updated the filter
+     * @param updatedFilter The updated the filter
      */
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter);
@@ -126,7 +126,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     }
 
     function handleInterpolationChange(selectedInterp: string): void {
-        const [name, factory] = INTERPOLATIONS.get(selectedInterp) || ['Linear', d3.curveLinear]
+        const [, factory] = INTERPOLATIONS.get(selectedInterp) || ['Linear', d3.curveLinear]
         setInterpolation(() => factory)
         setSelectedInterpolationName(selectedInterp)
     }
@@ -196,7 +196,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         onChange={event => handleInterpolationChange(event.currentTarget.value)}
                         value={selectedInterpolationName}
                     >
-                        {Array.from(INTERPOLATIONS.entries()).map(([value, [name, factory]]) => (
+                        {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
                             <option key={value} value={value}>{name}</option>
                         ))}
                     </select>
@@ -237,7 +237,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         right: 60
                     }}
                     // svgStyle={{'background-color': 'pink'}}
-                    // backgroundColor='lightgray'
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
@@ -307,7 +306,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             ['test2', assignAxes("x-axis-2", "y-axis-2")],
                             // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         ])}
-                        dropDataAfter={10000}
+                        // dropDataAfter={10000}
                     />
                 </Chart>
             </GridItem>

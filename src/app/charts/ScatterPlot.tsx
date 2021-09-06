@@ -207,6 +207,7 @@ export function ScatterPlot(props: Props): null {
          * @param mainGElem The main <g> element selection for that holds the plot
          */
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
+            console.log(Array.from(timeRanges.entries()).map(([id, range]) => `[${id}, ${range.start}, ${range.end}, ${range.scaleFactor}]`).join("; "))
             if (container) {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
@@ -214,7 +215,8 @@ export function ScatterPlot(props: Props): null {
                 // create a map associating series-names to their time-series
                 const boundedSeries = new Map(initialData.map(series => [
                     series.name,
-                    selectInTimeRange(series, timeRangeFor(series.name, timeRanges, axisAssignments))
+                    // selectInTimeRange(series, timeRangeFor(series.name, timeRanges, axisAssignments))
+                    series.data.map(datum => [datum.time, datum.value]) as TimeSeries
                 ]))
 
                 // // create/update the magnifier lens if needed
@@ -315,8 +317,12 @@ export function ScatterPlot(props: Props): null {
                                 )
                                 .on(
                                     "mouseleave",
-                                    event =>
-                                        handleMouseLeaveSeries(name, event.currentTarget, seriesStyles, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                                    event => handleMouseLeaveSeries(
+                                        name,
+                                        event.currentTarget,
+                                        seriesStyles,
+                                        mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                                    )
                                 ),
                             update => update,
                             exit => exit.remove()
@@ -334,6 +340,7 @@ export function ScatterPlot(props: Props): null {
             seriesFilter,
             mouseOverHandlerFor,
             mouseLeaveHandlerFor,
+            interpolation
         ]
     )
 
@@ -416,7 +423,6 @@ export function ScatterPlot(props: Props): null {
                                 ) || data.maxTime
                             if (currentAxisTime !== undefined) {
                                 // drop data that is older than the max time-window
-                                // todo replace the infinity
                                 while (currentAxisTime - series.data[0].time > dropDataAfter) {
                                     series.data.shift()
                                 }
@@ -446,18 +452,42 @@ export function ScatterPlot(props: Props): null {
             return subscription
         },
         [
-            seriesObservable, mainG, windowingTime, onSubscribe,
-            xAxesState, onUpdateData, updateTimingAndPlot, axisAssignments
+            seriesObservable, mainG, windowingTime, onSubscribe, xAxesState, updateTimingAndPlot,
+            axisAssignments, onUpdateData, dropDataAfter
         ]
     )
 
+    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
     useEffect(
         () => {
             if (container && mainG) {
-                const xAxesLinear = new Map<string, ContinuousNumericAxis>(
-                    Array.from(xAxesState.axes.entries()).map(([id, axis]) => [id, axis as ContinuousNumericAxis])
-                )
-                updatePlot(timeRanges(xAxesLinear), mainG)
+                // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
+                // change. for example, as data is streamed in, the times change, and then we need to update the
+                // time-range. however, we want to keep the time-ranges to reflect their original scale so that
+                // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
+                // interpolation changes, then the update plot changes, and the time-ranges must maintain their
+                // original scale as well.
+                const ranges = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                if (timeRangesRef.current.size === 0) {
+                    // when no time-ranges have yet been created, then create them and hold on to a mutable
+                    // reference to them
+                    timeRangesRef.current = ranges
+                } else {
+                    // when the time-ranges already exist, then we want to update the time-ranges for each
+                    // existing time-range in a way that maintains the original scale.
+                    timeRangesRef.current
+                        .forEach((range, id, rangesMap) => {
+                            const origRange = ranges.get(id)
+                            if (origRange) {
+                                rangesMap.set(id, range.update(origRange.start, origRange.end))
+                            }
+                        })
+                }
+                updatePlot(timeRangesRef.current, mainG)
+                // const xAxesLinear = new Map<string, ContinuousNumericAxis>(
+                //     Array.from(xAxesState.axes.entries()).map(([id, axis]) => [id, axis as ContinuousNumericAxis])
+                // )
+                // updatePlot(timeRanges(xAxesLinear), mainG)
             }
         },
         [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
@@ -483,40 +513,40 @@ export function ScatterPlot(props: Props): null {
     return null
 }
 
-/**
- * Determines whether the line segment is in the time-range
- * @param datum The current datum
- * @param index The index of the current datum
- * @param array The array of datum
- * @param timeRange The time-range against which to check the line segment
- * @return `true` if the line segment is in the time-range, or if the line-segment
- * that ends after the time-range end or that starts before the time-range start is
- * in the time-range (i.e. intersects the time-range boundary). In other words, return
- * `true` if the line segment is in the time-range or intersects the time-range boundary.
- * Returns `false` otherwise.
- */
-function inTimeRange(datum: Datum, index: number, array: Datum[], timeRange: ContinuousAxisRange): boolean {
-    // also want to include the point whose previous or next value are in the time range
-    const prevDatum = array[Math.max(0, index - 1)]
-    const nextDatum = array[Math.min(index + 1, array.length - 1)]
-    return (datum.time >= timeRange.start && datum.time <= timeRange.end) ||
-        (datum.time < timeRange.start && nextDatum.time >= timeRange.start) ||
-        (prevDatum.time <= timeRange.end && datum.time > timeRange.end)
-}
+// /**
+//  * Determines whether the line segment is in the time-range
+//  * @param datum The current datum
+//  * @param index The index of the current datum
+//  * @param array The array of datum
+//  * @param timeRange The time-range against which to check the line segment
+//  * @return `true` if the line segment is in the time-range, or if the line-segment
+//  * that ends after the time-range end or that starts before the time-range start is
+//  * in the time-range (i.e. intersects the time-range boundary). In other words, return
+//  * `true` if the line segment is in the time-range or intersects the time-range boundary.
+//  * Returns `false` otherwise.
+//  */
+// function inTimeRange(datum: Datum, index: number, array: Datum[], timeRange: ContinuousAxisRange): boolean {
+//     // also want to include the point whose previous or next value are in the time range
+//     const prevDatum = array[Math.max(0, index - 1)]
+//     const nextDatum = array[Math.min(index + 1, array.length - 1)]
+//     return (datum.time >= timeRange.start && datum.time <= timeRange.end) ||
+//         (datum.time < timeRange.start && nextDatum.time >= timeRange.start) ||
+//         (prevDatum.time <= timeRange.end && datum.time > timeRange.end)
+// }
 
-/**
- * Returns the data in the time-range and the datum that comes just before the start of the time range.
- * The point before the time range is so that the line draws up to the y-axis, where it is clipped.
- * @param series The series
- * @param timeRange The time-range against which to check the line segment
- * @return An array of (time, value) points that fit within the time range,
- * and the point just before the time range.
- */
-function selectInTimeRange(series: Series, timeRange: ContinuousAxisRange): TimeSeries {
-    return series.data
-        .filter((datum: Datum, index: number, array: Datum[]) => inTimeRange(datum, index, array, timeRange))
-        .map(datum => [datum.time, datum.value])
-}
+// /**
+//  * Returns the data in the time-range and the datum that comes just before the start of the time range.
+//  * The point before the time range is so that the line draws up to the y-axis, where it is clipped.
+//  * @param series The series
+//  * @param timeRange The time-range against which to check the line segment
+//  * @return An array of (time, value) points that fit within the time range,
+//  * and the point just before the time range.
+//  */
+// function selectInTimeRange(series: Series, timeRange: ContinuousAxisRange): TimeSeries {
+//     return series.data
+//         .filter((datum: Datum, index: number, array: Datum[]) => inTimeRange(datum, index, array, timeRange))
+//         .map(datum => [datum.time, datum.value])
+// }
 
 /**
  * Calculates the time-ranges for each of the axes in the map
@@ -531,17 +561,17 @@ function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, Cont
         }))
 }
 
-function timeRangeFor(
-    seriesName: string,
-    timeRanges: Map<string, ContinuousAxisRange>,
-    axisAssignments: Map<string, AxesAssignment>
-): ContinuousAxisRange {
-    const axisName = axisAssignments.get(seriesName)?.xAxis
-    if (axisName && axisName.length > 0) {
-        return timeRanges.get(axisName) || continuousAxisRangeFor(-100, 100)
-    }
-    return Array.from(timeRanges.values())[0]
-}
+// function timeRangeFor(
+//     seriesName: string,
+//     timeRanges: Map<string, ContinuousAxisRange>,
+//     axisAssignments: Map<string, AxesAssignment>
+// ): ContinuousAxisRange {
+//     const axisName = axisAssignments.get(seriesName)?.xAxis
+//     if (axisName && axisName.length > 0) {
+//         return timeRanges.get(axisName) || continuousAxisRangeFor(-100, 100)
+//     }
+//     return Array.from(timeRanges.values())[0]
+// }
 
 /**
  * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
