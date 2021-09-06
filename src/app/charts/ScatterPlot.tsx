@@ -207,7 +207,7 @@ export function ScatterPlot(props: Props): null {
          * @param mainGElem The main <g> element selection for that holds the plot
          */
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
-            console.log(Array.from(timeRanges.entries()).map(([id, range]) => `[${id}, ${range.start}, ${range.end}, ${range.scaleFactor}]`).join("; "))
+            // console.log(Array.from(timeRanges.entries()).map(([id, range]) => `[${id}, ${range.start}, ${range.end}, ${range.scaleFactor}]`).join("; "))
             if (container) {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
@@ -467,19 +467,22 @@ export function ScatterPlot(props: Props): null {
                 // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
                 // interpolation changes, then the update plot changes, and the time-ranges must maintain their
                 // original scale as well.
-                const ranges = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                // const ranges = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 if (timeRangesRef.current.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    timeRangesRef.current = ranges
+                    timeRangesRef.current = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
+                    const intervals = timeIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                     timeRangesRef.current
                         .forEach((range, id, rangesMap) => {
-                            const origRange = ranges.get(id)
-                            if (origRange) {
-                                rangesMap.set(id, range.update(origRange.start, origRange.end))
+                            const [start, end] = intervals.get(id) || [NaN, NaN]
+                            if (!isNaN(start) && !isNaN(end)) {
+                                // update the reference map with the new (start, end) portion of the range,
+                                // while keeping the original scale intact
+                                rangesMap.set(id, range.update(start, end))
                             }
                         })
                 }
@@ -559,6 +562,16 @@ function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, Cont
             const [start, end] = axis.scale.domain()
             return [id, continuousAxisRangeFor(start, end)]
         }))
+}
+
+/**
+ * Calculates the time-intervals (start, end) for each of the x-axis
+ * @param xAxes The x-axes representing the time
+ * @return A map associating each x-axis with a (start, end) interval
+ */
+function timeIntervals(xAxes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
+    return new Map(Array.from(xAxes.entries())
+        .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
 }
 
 // function timeRangeFor(
