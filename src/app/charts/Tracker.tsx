@@ -1,5 +1,5 @@
 import {useChart} from "./hooks/useChart";
-import {SvgSelection, TrackerSelection} from "./d3types";
+import {TrackerSelection} from "./d3types";
 import {
     defaultTrackerLabelFont,
     defaultTrackerStyle,
@@ -9,7 +9,7 @@ import {
     TrackerStyle
 } from "./trackerUtils";
 import * as d3 from "d3";
-import {useCallback, useEffect, useMemo, useRef} from "react";
+import {useEffect, useMemo, useRef} from "react";
 import {AxisLocation, ContinuousNumericAxis} from "./axes";
 import {noop} from "./utils";
 
@@ -18,16 +18,8 @@ export interface TrackerAxisInfo {
     axisLocation: AxisLocation
 }
 
-// export interface TrackerSeriesInfo {
-//     before: Datum
-//     after: Datum
-//     axisInfo: TrackerAxisInfo
-// }
-
 // map(axis_id -> tracker_axis_info)
 export type TrackerAxisUpdate = Map<string, TrackerAxisInfo>
-// map(series_id -> tracker_info)
-// export type TrackerUpdate = Map<string, TrackerSeriesInfo>
 
 export enum TrackerLabelLocation {
     Nowhere,
@@ -86,7 +78,6 @@ export function Tracker(props: Props): null {
         () => {
             if (container) {
                 const svg = d3.select<SVGSVGElement, any>(container)
-                // trackerRef.current = trackerControl(svg, visible)
                 if (visible && container) {
                     const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
                         Array.from(xAxisRef.current.values()).map(axis => [
