@@ -207,7 +207,6 @@ export function ScatterPlot(props: Props): null {
          * @param mainGElem The main <g> element selection for that holds the plot
          */
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
-            // console.log(Array.from(timeRanges.entries()).map(([id, range]) => `[${id}, ${range.start}, ${range.end}, ${range.scaleFactor}]`).join("; "))
             if (container) {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
@@ -487,10 +486,6 @@ export function ScatterPlot(props: Props): null {
                         })
                 }
                 updatePlot(timeRangesRef.current, mainG)
-                // const xAxesLinear = new Map<string, ContinuousNumericAxis>(
-                //     Array.from(xAxesState.axes.entries()).map(([id, axis]) => [id, axis as ContinuousNumericAxis])
-                // )
-                // updatePlot(timeRanges(xAxesLinear), mainG)
             }
         },
         [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]

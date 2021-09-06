@@ -51,7 +51,6 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
          * @param time The time from which to scale the interval
          * @return A new continuous-axis range with updated values
          */
-        // todo fix this...this is what causes the jumps in zoom after pan
         function scale(factor: number, time: number): ContinuousAxisRange {
             const oldScale = scaleFactor
             const dts = time - start

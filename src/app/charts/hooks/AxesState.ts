@@ -44,6 +44,12 @@ export function addAxisTo(axesState: AxesState, axis: BaseAxis, id: string): Axe
     return axesStateFrom(updatedAxes)
 }
 
+/**
+ * Calculates the axes-state from the specified map. The map associates the axis ID
+ * to the each axis
+ * @param axes The map associating the axes IDs to their respective axes
+ * @return An {@link AxesState}
+ */
 function axesStateFrom(axes: Map<string, BaseAxis>): AxesState {
     return {
         axisFor: id => {
