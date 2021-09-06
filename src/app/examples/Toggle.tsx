@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {CSSProperties, useState} from "react";
 import {noop} from "../charts/utils";
 
 export enum ToggleStatus {

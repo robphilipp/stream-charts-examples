@@ -28,10 +28,25 @@ export interface AxesAssignment {
 export const assignAxes = (xAxis: string, yAxis: string): AxesAssignment => ({xAxis, yAxis})
 
 interface Props {
+    /**
+     * Holds the mapping between a series and the axis it uses (is assigned). The
+     * map's key holds the series name, and the value is an {@link AxesAssignment}
+     * object holding the ID of the assigned x-axis and y-axis.
+     */
     axisAssignments?: Map<string, AxesAssignment>
-    colors?: Map<string, string>
+    /**
+     * The line interpolation curve factory. See the d3 documentation for curves at
+     * {@link https://github.com/d3/d3-shape#curves} for information on available interpolations
+     */
+    interpolation?: d3.CurveFactory
 }
 
+/**
+ * Renders a streaming scatter plot for the series in the initial data and those streamed in
+ * by the observable.
+ * @param props
+ * @constructor
+ */
 export function ScatterPlot(props: Props): null {
     const {
         chartId,
@@ -61,6 +76,7 @@ export function ScatterPlot(props: Props): null {
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
+        interpolation = d3.curveLinear
     } = props
 
     const liveDataRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
@@ -261,9 +277,12 @@ export function ScatterPlot(props: Props): null {
                                 .append("path")
                                 .attr("class", 'time-series-lines')
                                 .attr("id", `${name}`)
-                                .attr("d", d3.line()
-                                    .x((d: [number, number]) => xAxisLinear.scale(d[0]) || 0)
-                                    .y((d: [number, number]) => yAxisLinear.scale(d[1]) || 0)
+                                .attr(
+                                    "d",
+                                    d3.line()
+                                        .x((d: [number, number]) => xAxisLinear.scale(d[0]) || 0)
+                                        .y((d: [number, number]) => yAxisLinear.scale(d[1]) || 0)
+                                        .curve(interpolation)
                                 )
                                 .attr("fill", "none")
                                 .attr("stroke", color)

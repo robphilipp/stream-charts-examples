@@ -30,6 +30,16 @@ import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
 import { formatNumber } from "../charts/utils";
 import {lightTheme, Theme} from "./Themes";
 
+const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
+    ['curveLinear', ['Linear', d3.curveLinear]],
+    ['curveNatural', ['Natural', d3.curveNatural]],
+    ['curveMonotoneX', ['Monotone', d3.curveMonotoneX]],
+    ['curveStep', ['Step', d3.curveStep]],
+    ['curveStepAfter', ['Step After', d3.curveStepAfter]],
+    ['curveStepBefore', ['Step Before', d3.curveStepBefore]],
+    ['curveBumpX', ['Bump', d3.curveBumpX]],
+])
+
 interface Visibility {
     tooltip: boolean;
     tracker: boolean;
@@ -90,27 +100,21 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         cursor: 'pointer',
     }
 
-    const checkboxStyle = {
-        backgroundColor: theme.backgroundColor,
-        borderColor: theme.color,
-        borderCheckedColor: theme.color
-    }
-
     const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(
         initialData,
         25,
         25,
         10, 1000
     ))
-    // const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(initialData.map(series => series.name), 0.1));
-    // const subscriptionRef = useRef<Subscription>();
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
-    const [magnification, setMagnification] = useState(5);
+    // const [magnification, setMagnification] = useState(5);
+    const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
+    const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
 
     /**
      * Called when the user changes the regular expression filter
@@ -119,6 +123,12 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter);
         regexFilter(updatedFilter).ifSome((regex: RegExp) => setFilter(regex));
+    }
+
+    function handleInterpolationChange(selectedInterp: string): void {
+        const [name, factory] = INTERPOLATIONS.get(selectedInterp) || ['Linear', d3.curveLinear]
+        setInterpolation(() => factory)
+        setSelectedInterpolationName(selectedInterp)
     }
 
     return (
@@ -173,31 +183,48 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
-                    <Checkbox
-                        key={3}
-                        checked={visibility.magnifier}
-                        label="magnifier"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({
-                            tooltip: false,
-                            tracker: false,
-                            magnifier: !visibility.magnifier
-                        })}
-                    />
-                    {visibility.magnifier ?
-                        (<label style={{color: theme.color}}><input
-                            type="range"
-                            value={magnification}
-                            min={1}
-                            max={10}
-                            step={1}
-                            onChange={event => setMagnification(parseInt(event.target.value))}
-                        /> ({magnification})</label>) :
-                        (<span/>)
-                    }
+                    <select
+                        name="interpolations"
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            color: theme.color,
+                            borderColor: theme.color,
+                            padding: 5,
+                            borderRadius: 3,
+                            outlineStyle: 'none'
+                        }}
+                        onChange={event => handleInterpolationChange(event.currentTarget.value)}
+                        value={selectedInterpolationName}
+                    >
+                        {Array.from(INTERPOLATIONS.entries()).map(([value, [name, factory]]) => (
+                            <option key={value} value={value}>{name}</option>
+                        ))}
+                    </select>
+                    {/*<Checkbox*/}
+                    {/*    key={3}*/}
+                    {/*    checked={visibility.magnifier}*/}
+                    {/*    label="magnifier"*/}
+                    {/*    backgroundColor={theme.backgroundColor}*/}
+                    {/*    borderColor={theme.color}*/}
+                    {/*    backgroundColorChecked={theme.backgroundColor}*/}
+                    {/*    labelColor={theme.color}*/}
+                    {/*    onChange={() => setVisibility({*/}
+                    {/*        tooltip: false,*/}
+                    {/*        tracker: false,*/}
+                    {/*        magnifier: !visibility.magnifier*/}
+                    {/*    })}*/}
+                    {/*/>*/}
+                    {/*{visibility.magnifier ?*/}
+                    {/*    (<label style={{color: theme.color}}><input*/}
+                    {/*        type="range"*/}
+                    {/*        value={magnification}*/}
+                    {/*        min={1}*/}
+                    {/*        max={10}*/}
+                    {/*        step={1}*/}
+                    {/*        onChange={event => setMagnification(parseInt(event.target.value))}*/}
+                    {/*    /> ({magnification})</label>) :*/}
+                    {/*    (<span/>)*/}
+                    {/*}*/}
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -264,6 +291,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         />
                     </Tooltip>
                     <ScatterPlot
+                        interpolation={interpolation}
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],
                             ['test2', assignAxes("x-axis-2", "y-axis-2")],

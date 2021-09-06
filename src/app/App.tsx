@@ -56,7 +56,7 @@ const App: React.FC = () => {
                 .addTrack(withPixels(40))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
-                .addTrack(withPixels(30))
+                .addTrack(withPixels(25))
                 .addTrack(withPixels(50))
                 .addTrack(withFraction(2))
                 .addTrack(withPixels(50))
@@ -78,13 +78,14 @@ const App: React.FC = () => {
                     dimensionsSupplier={useGridCell}
                     gridTemplateColumns={gridTrackTemplateBuilder()
                         .addTrack(withFraction(1))
-                        .addTrack(withPixels(170))
+                        .addTrack(withPixels(125))
                         .build()}
                     gridTemplateRows={gridTrackTemplateBuilder()
                         .addTrack(withFraction(1))
                         .build()}
                 >
                     <GridItem row={1} column={2}>
+                        <div style={{marginTop: 3}}>
                         <Toggle
                             onToggle={handleThemeChange}
                             toggleOffColor={lightTheme.color}
@@ -94,6 +95,7 @@ const App: React.FC = () => {
                             toggleBorderColor={theme.color}
                             labelFontColor={theme.color}
                         />
+                        </div>
                     </GridItem>
                 </Grid>
             </GridItem>
