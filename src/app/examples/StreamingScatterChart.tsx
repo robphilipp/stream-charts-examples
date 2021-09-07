@@ -125,10 +125,15 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         regexFilter(updatedFilter).ifSome((regex: RegExp) => setFilter(regex));
     }
 
-    function handleInterpolationChange(selectedInterp: string): void {
-        const [, factory] = INTERPOLATIONS.get(selectedInterp) || ['Linear', d3.curveLinear]
+    /**
+     * Called when the interpolation is change for the chart. Converts the selected
+     * interpolation name into the d3 curve-factory.
+     * @param selectedInterpolation The name of the selected interpolation
+     */
+    function handleInterpolationChange(selectedInterpolation: string): void {
+        const [, factory] = INTERPOLATIONS.get(selectedInterpolation) || ['Linear', d3.curveLinear]
         setInterpolation(() => factory)
-        setSelectedInterpolationName(selectedInterp)
+        setSelectedInterpolationName(selectedInterpolation)
     }
 
     return (
