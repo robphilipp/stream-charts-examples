@@ -11,7 +11,7 @@ import * as d3 from "d3";
 import {SeriesLineStyle} from "./axes";
 import {createPlotContainer} from "./plot";
 
-const defaultAxesStyle = {color: '#d2933f'}
+// const defaultAxesStyle = {color: '#d2933f'}
 const defaultBackground = '#202020';
 
 interface Props {
