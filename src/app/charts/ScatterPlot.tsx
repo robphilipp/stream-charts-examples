@@ -3,7 +3,7 @@ import {useChart} from "./hooks/useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {setClipPath, TimeSeries} from "./plot";
+import {AxesAssignment, setClipPath, TimeSeries} from "./plot";
 import {Datum, emptySeries, Series} from "./datumSeries";
 import {
     BaseAxis,
@@ -19,13 +19,6 @@ import {windowTime} from "rxjs/operators";
 import {noop} from "./utils";
 import {Dimensions, Margin} from "./margins";
 import {defaultTooltipStyle, TooltipStyle} from "./tooltipUtils";
-
-export interface AxesAssignment {
-    xAxis: string
-    yAxis: string
-}
-
-export const assignAxes = (xAxis: string, yAxis: string): AxesAssignment => ({xAxis, yAxis})
 
 interface Props {
     /**
@@ -85,7 +78,13 @@ export function ScatterPlot(props: Props): null {
         dropDataAfter = Infinity,
     } = props
 
-    const liveDataRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
+    // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
+    // are by reference, so the seriesRef, also holds on to the same Series. When the Series in seriesRef
+    // get appended with new data, it's updating the underlying series, and so the dataRef sees those
+    // changes as well. The dataRef is used for performance, so that in the updatePlot function we don't
+    // need to create a temporary array to holds the series data, rather, we can just use the one held in
+    // the dataRef.
+    const dataRef = useRef<Array<Series>>(initialData.slice())
     const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
@@ -211,10 +210,16 @@ export function ScatterPlot(props: Props): null {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
 
-                // create a map associating series-names to their time-series
-                const boundedSeries = new Map(initialData.map(series => [
+                // create a map associating series-names to their time-series.
+                //
+                // performance-related confusion: wondering where the dataRef is updated? well it isn't
+                // directly. The dataRef holds on to an array of references to the Series. And so does the
+                // seriesRef, though is uses a map(series_name -> series). The seriesRef is use to append
+                // data to the underlying Series, and the dataRef is used so that we can just use
+                // dataRef.current and don't have to do Array.from(seriesRef.current.values()) which
+                // creates a temporary array
+                const boundedSeries = new Map(dataRef.current.map(series => [
                     series.name,
-                    // selectInTimeRange(series, timeRangeFor(series.name, timeRanges, axisAssignments))
                     series.data.map(datum => [datum.time, datum.value]) as TimeSeries
                 ]))
 
@@ -330,7 +335,7 @@ export function ScatterPlot(props: Props): null {
             }
         },
         [
-            container, initialData,
+            container, dataRef,
             margin, plotDimensions,
             chartId, axisAssignments,
             onPan, onZoom,
@@ -440,7 +445,6 @@ export function ScatterPlot(props: Props): null {
                         })
 
                         // update the data
-                        liveDataRef.current = seriesRef.current
                         updateTimingAndPlot(timesWindows)
                     })
                 })
@@ -511,41 +515,6 @@ export function ScatterPlot(props: Props): null {
     return null
 }
 
-// /**
-//  * Determines whether the line segment is in the time-range
-//  * @param datum The current datum
-//  * @param index The index of the current datum
-//  * @param array The array of datum
-//  * @param timeRange The time-range against which to check the line segment
-//  * @return `true` if the line segment is in the time-range, or if the line-segment
-//  * that ends after the time-range end or that starts before the time-range start is
-//  * in the time-range (i.e. intersects the time-range boundary). In other words, return
-//  * `true` if the line segment is in the time-range or intersects the time-range boundary.
-//  * Returns `false` otherwise.
-//  */
-// function inTimeRange(datum: Datum, index: number, array: Datum[], timeRange: ContinuousAxisRange): boolean {
-//     // also want to include the point whose previous or next value are in the time range
-//     const prevDatum = array[Math.max(0, index - 1)]
-//     const nextDatum = array[Math.min(index + 1, array.length - 1)]
-//     return (datum.time >= timeRange.start && datum.time <= timeRange.end) ||
-//         (datum.time < timeRange.start && nextDatum.time >= timeRange.start) ||
-//         (prevDatum.time <= timeRange.end && datum.time > timeRange.end)
-// }
-
-// /**
-//  * Returns the data in the time-range and the datum that comes just before the start of the time range.
-//  * The point before the time range is so that the line draws up to the y-axis, where it is clipped.
-//  * @param series The series
-//  * @param timeRange The time-range against which to check the line segment
-//  * @return An array of (time, value) points that fit within the time range,
-//  * and the point just before the time range.
-//  */
-// function selectInTimeRange(series: Series, timeRange: ContinuousAxisRange): TimeSeries {
-//     return series.data
-//         .filter((datum: Datum, index: number, array: Datum[]) => inTimeRange(datum, index, array, timeRange))
-//         .map(datum => [datum.time, datum.value])
-// }
-
 /**
  * Calculates the time-ranges for each of the axes in the map
  * @param xAxes The map containing the axes and their associated IDs
@@ -568,18 +537,6 @@ function timeIntervals(xAxes: Map<string, ContinuousNumericAxis>): Map<string, [
     return new Map(Array.from(xAxes.entries())
         .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
 }
-
-// function timeRangeFor(
-//     seriesName: string,
-//     timeRanges: Map<string, ContinuousAxisRange>,
-//     axisAssignments: Map<string, AxesAssignment>
-// ): ContinuousAxisRange {
-//     const axisName = axisAssignments.get(seriesName)?.xAxis
-//     if (axisName && axisName.length > 0) {
-//         return timeRanges.get(axisName) || continuousAxisRangeFor(-100, 100)
-//     }
-//     return Array.from(timeRanges.values())[0]
-// }
 
 /**
  * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the

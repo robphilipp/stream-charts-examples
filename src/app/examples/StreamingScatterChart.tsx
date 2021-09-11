@@ -22,12 +22,13 @@ import {defaultMargin} from "../charts/hooks/useChart";
 import {AxisLocation, defaultLineStyle} from "../charts/axes";
 import {ContinuousAxis} from "../charts/ContinuousAxis";
 import * as d3 from "d3";
-import {assignAxes, ScatterPlot} from "../charts/ScatterPlot";
+import {ScatterPlot} from "../charts/ScatterPlot";
 import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
 import {Tooltip} from "../charts/Tooltip";
 import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
 import {formatNumber} from "../charts/utils";
 import {lightTheme, Theme} from "./Themes";
+import {assignAxes} from "../charts/plot";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],

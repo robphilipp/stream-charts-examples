@@ -22,26 +22,27 @@ interface Props {
     label: string
 }
 
+/**
+ * Category axis, which for the moment is only available as a y-axis. The category axis requires
+ * a set of categories that will form the y-axis. Generally, these categories should be the name
+ * of the series used to represent each category.
+ * @param props The properties for the component
+ * @return null
+ * @constructor
+ */
 export function CategoryAxis(props: Props): null {
     const {
         chartId,
         container,
         plotDimensions,
         margin,
-        xAxesState,
-        yAxesState,
-        addXAxis,
         addYAxis,
-        setTimeRangeFor,
-        timeRangeFor,
-        addTimeUpdateHandler,
         color
     } = useChart()
 
     const {
         axisId,
         location,
-        scale = d3.scaleBand(),
         categories,
         label,
     } = props
@@ -55,7 +56,7 @@ export function CategoryAxis(props: Props): null {
             axisIdRef.current = axisId
             marginRef.current = margin
         },
-        [axisId, plotDimensions, marginRef]
+        [axisId, margin]
     )
 
     useEffect(
@@ -109,7 +110,6 @@ function addCategoryYAxis(
     axisLabel: string,
     location: AxisLocation.Left | AxisLocation.Right,
 ): axes.CategoryAxis {
-    // const categorySize = (plotDimensions.height - margin.top) / categories.length;
     const categorySize = categorySizeFor(plotDimensions, margin, categories.length)
     const scale = d3.scaleBand()
         .domain(categories)
@@ -145,27 +145,6 @@ function addCategoryYAxis(
     }
 }
 
-function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
-    return location === AxisLocation.Left ?
-        margin.left :
-        margin.left + plotDimensions.width
-}
-
-function labelXTranslation(
-    location: AxisLocation.Left | AxisLocation.Right,
-    plotDimensions: Dimensions,
-    margin: Margin,
-    axesLabelFont: AxesLabelFont
-): number {
-    return location === AxisLocation.Left ?
-        axesLabelFont.size :
-        margin.left + plotDimensions.width + margin.right - axesLabelFont.size
-}
-
-function labelYTranslation(plotDimensions: Dimensions, margin: Margin): number {
-    return (margin.top + margin.bottom + plotDimensions.height) / 2
-}
-
 function updateCategoryYAxis(
     chartId: number,
     svg: SvgSelection,
@@ -191,3 +170,26 @@ function updateCategoryYAxis(
 
     return categorySize
 }
+
+
+function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
+    return location === AxisLocation.Left ?
+        margin.left :
+        margin.left + plotDimensions.width
+}
+
+function labelXTranslation(
+    location: AxisLocation.Left | AxisLocation.Right,
+    plotDimensions: Dimensions,
+    margin: Margin,
+    axesLabelFont: AxesLabelFont,
+): number {
+    return location === AxisLocation.Left ?
+        axesLabelFont.size :
+        margin.left + plotDimensions.width + margin.right - axesLabelFont.size
+}
+
+function labelYTranslation(plotDimensions: Dimensions, margin: Margin): number {
+    return (margin.top + margin.bottom + plotDimensions.height) / 2
+}
+

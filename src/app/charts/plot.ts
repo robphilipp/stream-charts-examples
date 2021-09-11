@@ -52,3 +52,22 @@ export function setClipPath(chartId: number, svg: SvgSelection, plotDimensions: 
 
     return clipPathId
 }
+
+/**
+ * Represents the assignment of an x-axis and y-axis to a series. This is used
+ * by the plots (see, for example, {@link ScatterPlot} and {@link RasterPlot})
+ * to manage the assignment of axes to series
+ */
+export interface AxesAssignment {
+    xAxis: string
+    yAxis: string
+}
+
+/**
+ * Factory function for the assignment of axes to series
+ * @param xAxis The ID of the x-axis
+ * @param yAxis The ID of the y-axis
+ * @return An {@link AxesAssignment}
+ */
+export const assignAxes = (xAxis: string, yAxis: string): AxesAssignment => ({xAxis, yAxis})
+
