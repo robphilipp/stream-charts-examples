@@ -119,7 +119,7 @@ export function ContinuousAxis(props: Props): null {
                                 margin,
                                 label,
                             )
-                            // add the x-axis to the chart context
+                            // add the y-axis to the chart context
                             addYAxis(axisRef.current, axisId)
                     }
                 } else {

@@ -1,5 +1,4 @@
 import {default as React, useRef, useState} from "react";
-// import {Series, ScatterChart, ChartData, regexFilter} from "stream-charts";
 import {randomWeightDataObservable} from "./randomData";
 import {Observable} from "rxjs";
 import Checkbox from "./Checkbox";
@@ -27,7 +26,7 @@ import {assignAxes, ScatterPlot} from "../charts/ScatterPlot";
 import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
 import {Tooltip} from "../charts/Tooltip";
 import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
-import { formatNumber } from "../charts/utils";
+import {formatNumber} from "../charts/utils";
 import {lightTheme, Theme} from "./Themes";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([

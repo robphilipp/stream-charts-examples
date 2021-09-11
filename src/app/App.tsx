@@ -15,6 +15,7 @@ import {Series, seriesFrom, seriesFromTuples} from "./charts/datumSeries";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {Toggle, ToggleStatus} from "./examples/Toggle";
 import {darkTheme, lightTheme, Theme} from "./examples/Themes";
+import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 
 const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
 const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
@@ -103,60 +104,24 @@ const App: React.FC = () => {
                 <h3 style={{color: theme.color}}>Streaming Scatter Chart</h3>
             </GridItem>
             <GridItem gridAreaName="scatter-chart">
-                {/*<StreamingScatterChart*/}
-                {/*    timeWindow={1000}*/}
-                {/*    seriesList={weights}*/}
-                {/*    plotHeight={500}*/}
-                {/*    plotWidth={900}*/}
-                {/*/>*/}
-                {/*<Chart*/}
-                {/*    width={useGridCellWidth()}*/}
-                {/*    height={useGridCellHeight()}*/}
-                {/*    margin={{*/}
-                {/*        ...defaultMargin,*/}
-                {/*        top: 60,*/}
-                {/*        right: 60*/}
-                {/*    }}*/}
-                {/*    // svgStyle={{'background-color': 'pink'}}*/}
-                {/*    backgroundColor='lightgray'*/}
-                {/*    seriesStyles={new Map([*/}
-                {/*        ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1}],*/}
-                {/*        ['test2', {...defaultLineStyle, color: 'blue', lineWidth: 3}],*/}
-                {/*    ])}*/}
-                {/*    initialData={initialData}*/}
-                {/*    // seriesFilter={/test*!/*/}
-                {/*    seriesObservable={new Observable()}*/}
-                {/*>*/}
-                {/*    <ContinuousAxis axisId="x-axis-1" location={AxisLocation.Bottom} domain={[10, 100]} label="x-axis"/>*/}
-                {/*    <ContinuousAxis axisId="y-axis-1" location={AxisLocation.Left} domain={[0, 1000]} label="y-axis"/>*/}
-                {/*    <ContinuousAxis axisId="x-axis-2" location={AxisLocation.Top} domain={[100, 1000]} label="x-axis (2)"/>*/}
-                {/*    <ContinuousAxis axisId="y-axis-2" location={AxisLocation.Right} scale={d3.scaleLog()} domain={[100, 1200]} label="y-axis (2)"/>*/}
-                {/*    <ScatterPlot*/}
-                {/*        axisAssignments={new Map([*/}
-                {/*            // ['test', assignedAxes("x-axis-1", "y-axis-1")],*/}
-                {/*            ['test2', assignedAxes("x-axis-2", "y-axis-2")],*/}
-                {/*            // ['test3', assignedAxes("x-axis-1", "y-axis-1")],*/}
-                {/*        ])}*/}
-                {/*    />*/}
-                {/*</Chart>*/}
                 <StreamingScatterChart
                     theme={theme}
                     timeWindow={1000}
                     initialData={initialData}
-                    // seriesList={Array.from(initialData.values())}
                 />
             </GridItem>
             <GridItem gridAreaName="raster-header">
                 <h3 style={{color: theme.color}}>Streaming Raster Chart</h3>
             </GridItem>
-            {/*<GridItem gridAreaName="raster-chart">*/}
-            {/*    <StreamingRasterChart*/}
-            {/*        timeWindow={1000}*/}
-            {/*        seriesList={spikes}*/}
-            {/*        seriesHeight={20}*/}
-            {/*        plotWidth={900}*/}
-            {/*    />*/}
-            {/*</GridItem>*/}
+            <GridItem gridAreaName="raster-chart">
+                <StreamingRasterChart
+                    theme={theme}
+                    timeWindow={1000}
+                    initialData={initialData}
+                    seriesHeight={20}
+                    plotWidth={900}
+                />
+            </GridItem>
         </Grid>
     );
 };
