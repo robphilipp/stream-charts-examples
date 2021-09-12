@@ -68,14 +68,24 @@ export function RasterPlot(props: Props): null {
         [xAxesState]
     )
 
-    const yCoords = (categorySize: number, lineWidth: number, margin: number): {y1: (y: number) => number, y2: (y: number) => number} => {
+    /**
+     * Calculates the upper and lower y-coordinate for the spike line
+     * @param categorySize The size of the category (i.e. plot_height / num_series)
+     * @param lineWidth The width of the series line
+     * @param margin The margin applied to the top and bottom of the spike line (vertical spacing)
+     * @return An object with two functions, that when handed a y-coordinate, return the location
+     * for the start (yUpper) or end (yLower) of the spikes line.
+     */
+    function yCoordsFn(categorySize: number, lineWidth: number, margin: number):
+        {yUpper: (y: number) => number, yLower: (y: number) => number}
+    {
         if (categorySize <= margin) return {
-            y1: y => y,
-            y2: y => y + lineWidth
+            yUpper: y => y,
+            yLower: y => y + lineWidth
         }
         return {
-            y1: y => y + margin,
-            y2: y => y + categorySize - margin
+            yUpper: y => y + margin,
+            yLower: y => y + categorySize - margin
         }
     }
 
@@ -112,18 +122,13 @@ export function RasterPlot(props: Props): null {
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
 
                 boundedSeries.forEach(series => {
-
                     const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
-                    // grab the style for the series
-                    // const {color, lineWidth, margin} = {
-                    //     margin: 5,
-                    //     ...seriesStyles.get(series.name) || {...defaultLineStyle, highlightColor: defaultLineStyle.color},
-                    // }
+
+                    // grab the series styles, or the defaults if none exist
                     const {color, lineWidth, margin = 5} = seriesStyles.get(series.name) || {
                         ...defaultLineStyle,
                         highlightColor: defaultLineStyle.color
                     }
-
 
                     // only show the data for which the filter matches
                     const plotData = (series.name.match(seriesFilter)) ? series.data : []
@@ -136,7 +141,7 @@ export function RasterPlot(props: Props): null {
 
                     //
                     // enter new elements
-                    const {y1, y2} = yCoords(yAxis.categorySize, lineWidth, margin)
+                    const {yUpper, yLower} = yCoordsFn(yAxis.categorySize, lineWidth, margin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const y = yAxis.scale(series.name) || 0
@@ -149,8 +154,8 @@ export function RasterPlot(props: Props): null {
                         .attr('class', 'spikes-lines')
                         .attr('x1', datum => datum.x)
                         .attr('x2', datum => datum.x)
-                        .attr('y1', _ => y1(y))
-                        .attr('y2', _ => y2(y))
+                        .attr('y1', _ => yUpper(y))
+                        .attr('y2', _ => yLower(y))
                         // .attr('y1', _ => y + margin)
                         // .attr('y2', _ => y + Math.max(lineWidth, yAxis.categorySize - margin))
                         .attr('stroke', color)
@@ -170,8 +175,8 @@ export function RasterPlot(props: Props): null {
                         })
                         .attr('x1', datum => datum.x)
                         .attr('x2', datum => datum.x)
-                        .attr('y1', _ => y1(y))
-                        .attr('y2', _ => y2(y))
+                        .attr('y1', _ => yUpper(y))
+                        .attr('y2', _ => yLower(y))
                         // .attr('y1', _ => y + margin)
                         // .attr('y2', _ => y + Math.max(lineWidth, yAxis.categorySize - margin))
                         .attr('stroke', color)
