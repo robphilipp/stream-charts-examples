@@ -28,6 +28,8 @@ import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
 import {formatNumber} from "../charts/utils";
 import {lightTheme, Theme} from "./Themes";
 import {CategoryAxis} from "../charts/CategoryAxis";
+import {RasterPlot} from "../charts/RasterPlot";
+import {assignAxes} from "../charts/plot";
 
 interface Visibility {
     tooltip: boolean;
@@ -284,15 +286,14 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             yChangeFormatter={value => formatNumber(value, " ,.0f")}
                         />
                     </Tooltip>
-                    {/*<ScatterPlot*/}
-                    {/*    interpolation={interpolation}*/}
-                    {/*    axisAssignments={new Map([*/}
-                    {/*        // ['test', assignAxes("x-axis-1", "y-axis-1")],*/}
-                    {/*        ['test2', assignAxes("x-axis-2", "y-axis-2")],*/}
-                    {/*        // ['test3', assignAxes("x-axis-1", "y-axis-1")],*/}
-                    {/*    ])}*/}
-                    {/*    // dropDataAfter={10000}*/}
-                    {/*/>*/}
+                    <RasterPlot
+                        axisAssignments={new Map([
+                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                            // ['test2', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                        ])}
+                        // dropDataAfter={10000}
+                    />
                 </Chart>
                 {/*<RasterChart*/}
                 {/*    // when the `width` property is specified, then the width of the chart will be that number*/}

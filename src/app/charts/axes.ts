@@ -25,13 +25,15 @@ export interface SeriesLineStyle {
     lineWidth: number
     highlightColor: string
     highlightWidth: number
+    margin?: number
 }
 
 export const defaultLineStyle: SeriesLineStyle = {
     color: '#008aad',
     lineWidth: 1,
     highlightColor: '#008aad',
-    highlightWidth: 3
+    highlightWidth: 3,
+    // margin: 0
 }
 
 export interface Axes<X extends BaseAxis, Y extends BaseAxis> {

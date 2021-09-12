@@ -3,7 +3,7 @@ import * as d3 from "d3";
 import {noop} from "./utils";
 import {useChart} from "./hooks/useChart";
 import {useCallback, useEffect, useRef} from "react";
-import {datumOf, Series, seriesFrom} from "./datumSeries";
+import {datumOf, PixelDatum, Series, seriesFrom} from "./datumSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {GSelection} from "./d3types";
 import {BaseAxis, CategoryAxis, ContinuousNumericAxis, defaultLineStyle} from "./axes";
@@ -68,6 +68,17 @@ export function RasterPlot(props: Props): null {
         [xAxesState]
     )
 
+    const yCoords = (categorySize: number, lineWidth: number, margin: number): {y1: (y: number) => number, y2: (y: number) => number} => {
+        if (categorySize <= margin) return {
+            y1: y => y,
+            y2: y => y + lineWidth
+        }
+        return {
+            y1: y => y + margin,
+            y2: y => y + categorySize - margin
+        }
+    }
+
     const updatePlot = useCallback(
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
             if (container) {
@@ -100,6 +111,77 @@ export function RasterPlot(props: Props): null {
                 // define the clip-path so that the series lines don't go beyond the plot area
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
 
+                boundedSeries.forEach(series => {
+
+                    const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
+                    // grab the style for the series
+                    // const {color, lineWidth, margin} = {
+                    //     margin: 5,
+                    //     ...seriesStyles.get(series.name) || {...defaultLineStyle, highlightColor: defaultLineStyle.color},
+                    // }
+                    const {color, lineWidth, margin = 5} = seriesStyles.get(series.name) || {
+                        ...defaultLineStyle,
+                        highlightColor: defaultLineStyle.color
+                    }
+
+
+                    // only show the data for which the filter matches
+                    const plotData = (series.name.match(seriesFilter)) ? series.data : []
+
+                    const seriesContainer = svg
+                        .select<SVGGElement>(`#${series.name}-${chartId}`)
+                        .selectAll<SVGLineElement, PixelDatum>('line')
+                        .data(plotData as PixelDatum[])
+                    // .data(series.data.filter(datum => datum.time >= timeRangeRef.current.start && datum.time <= timeRangeRef.current.end) as PixelDatum[])
+
+                    //
+                    // enter new elements
+                    const {y1, y2} = yCoords(yAxis.categorySize, lineWidth, margin)
+
+                    // grab the value (index) associated with the series name (this is a category axis)
+                    const y = yAxis.scale(series.name) || 0
+                    seriesContainer
+                        .enter()
+                        .append<SVGLineElement>('line')
+                        .each(datum => {
+                            datum.x = xAxis.scale(datum.time)
+                        })
+                        .attr('class', 'spikes-lines')
+                        .attr('x1', datum => datum.x)
+                        .attr('x2', datum => datum.x)
+                        .attr('y1', _ => y1(y))
+                        .attr('y2', _ => y2(y))
+                        // .attr('y1', _ => y + margin)
+                        // .attr('y2', _ => y + Math.max(lineWidth, yAxis.categorySize - margin))
+                        .attr('stroke', color)
+                        .attr('stroke-width', lineWidth)
+                        .attr('stroke-linecap', "round")
+                        .attr("clip-path", `url(#${clipPathId})`)
+                    // .attr("clip-path", `url(#clip-spikes-${chartId.current})`)
+                    // even though the tooltip may not be set to show up on the mouseover, we want to attach the handler
+                    // so that when the use enables tooltips the handlers will show the the tooltip
+                    // .on("mouseover", (datum, i, group) => handleShowTooltip(datum, series.name, group[i]))
+                    // .on("mouseleave", (datum, i, group) => handleHideTooltip(datum, series.name, group[i]))
+
+                    seriesContainer
+                        // .filter(datum => datum.time >= timeRangeRef.current.start)
+                        .each(datum => {
+                            datum.x = xAxis.scale(datum.time)
+                        })
+                        .attr('x1', datum => datum.x)
+                        .attr('x2', datum => datum.x)
+                        .attr('y1', _ => y1(y))
+                        .attr('y2', _ => y2(y))
+                        // .attr('y1', _ => y + margin)
+                        // .attr('y2', _ => y + Math.max(lineWidth, yAxis.categorySize - margin))
+                        .attr('stroke', color)
+                    // .on("mouseover", (datum, i, group) => handleShowTooltip(datum, series.name, group[i]))
+                    // .on("mouseleave", (datum, i, group) => handleHideTooltip(datum, series.name, group[i]))
+
+
+                    // exit old elements
+                    seriesContainer.exit().remove()
+                })
                 // liveDataRef.current.forEach((data, name) => {
                 //     // grab the x and y axes assigned to the series, and if either of both axes
                 //     // aren't found, then give up and return
@@ -116,7 +198,7 @@ export function RasterPlot(props: Props): null {
                 //  })
             }
         },
-        []
+        [axisAssignments, chartId, container, margin, plotDimensions, seriesFilter, seriesStyles, xAxesState.axisFor, yAxesState.axisFor]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -153,6 +235,23 @@ export function RasterPlot(props: Props): null {
         },
         [mainG]
     )
+
+    // useEffect(
+    //     () => {
+    //         yAxesState.axes.forEach((axis, id) => {
+    //             (axis as CategoryAxis).update(
+    //                 dataRef.current.map(series => series.name),
+    //                 initialData.length,
+    //                 plotDimensions,
+    //                 margin
+    //             )
+    //         })
+    //         if (mainG !== null) {
+    //             updatePlotRef.current(timeRangesRef.current, mainG)
+    //         }
+    //     },
+    //     [initialData.length, mainG, margin, plotDimensions, yAxesState.axes]
+    // )
 
     const subscribe = useCallback(
         () => {

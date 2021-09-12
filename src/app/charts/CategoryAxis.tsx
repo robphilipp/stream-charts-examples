@@ -37,7 +37,7 @@ export function CategoryAxis(props: Props): null {
         plotDimensions,
         margin,
         addYAxis,
-        color
+        color,
     } = useChart()
 
     const {
@@ -80,7 +80,8 @@ export function CategoryAxis(props: Props): null {
                     // add the y-axis to the chart context
                     addYAxis(axisRef.current, axisId)
                 } else {
-                    axisRef.current.update(categories, categories.length, plotDimensions, margin)
+                    // update the category size in case the plot dimensions changed
+                    axisRef.current.categorySize = axisRef.current.update(categories, categories.length, plotDimensions, margin)
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
             }
@@ -95,8 +96,8 @@ function labelIdFor(chartId: number, location: AxisLocation.Left | AxisLocation.
     return `stream-chart-x-axis-${location}-label-${chartId}`
 }
 
-function categorySizeFor(plotDimensions: Dimensions, margin: Margin, numCategories: number): number {
-    return (plotDimensions.height - margin.bottom) / numCategories
+function categorySizeFor(dimensions: Dimensions, margin: Margin, numCategories: number): number {
+    return Math.max(margin.bottom, dimensions.height - margin.bottom) / numCategories
 }
 
 function addCategoryYAxis(
@@ -140,8 +141,8 @@ function addCategoryYAxis(
 
     return {
         ...axis,
-        update: (categoryNames, unfilteredSize, plotDimensions) =>
-            updateCategoryYAxis(chartId, svg, axis, plotDimensions, unfilteredSize, categoryNames, axesLabelFont, margin, location)
+        update: (categoryNames, unfilteredSize, dimensions) =>
+            updateCategoryYAxis(chartId, svg, axis, dimensions, unfilteredSize, categoryNames, axesLabelFont, margin, location)
     }
 }
 

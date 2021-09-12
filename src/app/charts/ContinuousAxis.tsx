@@ -214,13 +214,13 @@ export function addContinuousNumericXAxis(
 
 function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ?
-        plotDimensions.height + margin.top - margin.bottom :
+        Math.max(margin.bottom + margin.top, plotDimensions.height + margin.top - margin.bottom) :
         margin.top
 }
 
 function labelYTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ?
-        plotDimensions.height + margin.top + (margin.bottom / 3) :
+        plotDimensions.height + margin.top + margin.bottom / 3 :
         margin.top / 3
 }
 
@@ -258,7 +258,7 @@ export function addContinuousNumericYAxis(
 ): ContinuousNumericAxis {
     const scale = scaleGenerator
         .domain(domain)
-        .range([plotDimensions.height - margin.bottom, 0])
+        .range([Math.max(margin.bottom, plotDimensions.height - margin.bottom), 0])
 
     const generator = location === AxisLocation.Left ? d3.axisLeft(scale) : d3.axisRight(scale)
     const selection = svg
@@ -308,7 +308,7 @@ function updateLinearYAxis(
     axesLabelFont: AxesLabelFont,
     location: AxisLocation.Left | AxisLocation.Right,
 ): void {
-    axis.scale.domain(domain).range([plotDimensions.height - margin.bottom, 0])
+    axis.scale.domain(domain).range([Math.max(margin.bottom, plotDimensions.height - margin.bottom), 0])
     axis.selection
         .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
         .call(axis.generator)
