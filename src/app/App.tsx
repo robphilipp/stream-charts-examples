@@ -36,6 +36,7 @@ const initialData = [
         [90, 100], [100, 120], [110, 100], [120, -250], [130, 120], [150, 180], [170, 280],
     ]),
 ]
+const initialData2 = initialData.map(series => seriesFrom(series.name, series.data.slice()))
 
 const App: React.FC = () => {
     const [theme, setTheme] = useState<Theme>(lightTheme)

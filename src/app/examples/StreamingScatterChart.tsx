@@ -14,7 +14,7 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {Series} from "../charts/datumSeries";
+import {Series, seriesFrom} from "../charts/datumSeries";
 import {ChartData} from "../charts/chartData";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
@@ -66,7 +66,7 @@ interface Props {
 export function StreamingScatterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        initialData,
+        // initialData,
     } = props
 
 
@@ -100,8 +100,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         cursor: 'pointer',
     }
 
+    const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(
-        initialData,
+        initialDataRef.current,
         25,
         25,
         10, 1000
@@ -245,7 +246,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         ['test2', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
                         // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                     ])}
-                    initialData={initialData}
+                    initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}

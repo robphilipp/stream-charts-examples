@@ -282,13 +282,13 @@ export function ScatterPlot(props: Props): null {
 
                     // create the time-series paths
                     mainGElem
-                        .selectAll(`#${name}`)
+                        .selectAll(`#${name}-${chartId}-scatter`)
                         .data([[], plotData], () => `${name}`)
                         .join(
                             enter => enter
                                 .append("path")
                                 .attr("class", 'time-series-lines')
-                                .attr("id", `${name}`)
+                                .attr("id", `${name}-${chartId}-scatter`)
                                 .attr(
                                     "d",
                                     d3.line()

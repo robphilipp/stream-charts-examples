@@ -3,7 +3,7 @@ import {useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "./Checkbox";
 import {randomSpikeDataObservable} from "./randomData";
-import {Datum, Series} from "../charts/datumSeries";
+import {Datum, Series, seriesFrom} from "../charts/datumSeries";
 import {ChartData} from "../charts/chartData";
 import {regexFilter} from "../charts/regexFilter";
 import {
@@ -76,13 +76,15 @@ export interface SpikesChartData {
 export function StreamingRasterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        initialData,
+        // initialData,
         timeWindow = 100,
         seriesHeight = 20,
         // plotWidth = 500
     } = props;
 
-    const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialData.map(series => series.name)));
+    const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
+    // const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialData.map(series => series.name)));
+    const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.map(series => series.name)));
     const [running, setRunning] = useState<boolean>(false)
     // const subscriptionRef = useRef<Subscription>();
 
@@ -219,7 +221,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         ['test2', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
                         // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                     ])}
-                    initialData={initialData}
+                    initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
@@ -254,13 +256,13 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <CategoryAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
-                        categories={initialData.map(series => series.name)}
+                        categories={initialDataRef.current.map(series => series.name)}
                         label="y-axis"
                     />
                     <CategoryAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
-                        categories={initialData.map(series => series.name)}
+                        categories={initialDataRef.current.map(series => series.name)}
                         label="y-axis"
                     />
                     <Tracker
