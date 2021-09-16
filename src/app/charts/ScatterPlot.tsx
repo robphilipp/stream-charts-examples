@@ -389,8 +389,8 @@ export function ScatterPlot(props: Props): null {
 
             const subscription = seriesObservable
                 .pipe(windowTime(windowingTime))
-                .subscribe(dataList => {
-                    dataList.forEach(data => {
+                .subscribe(async dataList => {
+                    await dataList.forEach(data => {
                         // grab the time-windows for the x-axes
                         const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
@@ -422,7 +422,7 @@ export function ScatterPlot(props: Props): null {
                             const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName()
                             const currentAxisTime = axesSeries.get(axisId)
                                 ?.reduce(
-                                    (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime),
+                                    (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
                                     -Infinity
                                 ) || data.maxTime
                             if (currentAxisTime !== undefined) {

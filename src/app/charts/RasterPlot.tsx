@@ -232,74 +232,69 @@ export function RasterPlot(props: Props): null {
     const subscribe = useCallback(
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
+
             const subscription = seriesObservable
                 .pipe(windowTime(windowingTime))
-                .subscribe(dataList => {
-                    dataList
-                        .forEach(data => {
-                            // grab the time-windes for the x-axes
-                            const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                .subscribe(async dataList => {
+                    await dataList.forEach(data => {
+                        // grab the time-winds for the x-axes
+                        const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
-                            // calculate the max times for each x-axis, which is the max time over all the
-                            // series assigned to an x-axis
-                            const axesSeries = Array.from(data.maxTimes.entries())
-                                .reduce(
-                                    (assignedSeries, [seriesName,]) => {
-                                        const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
-                                        const as = assignedSeries.get(id) || []
-                                        as.push(seriesName)
-                                        assignedSeries.set(id, as)
-                                        return assignedSeries
-                                    },
-                                    new Map<string, Array<string>>()
-                                )
+                        // calculate the max times for each x-axis, which is the max time over all the
+                        // series assigned to an x-axis
+                        const axesSeries = Array.from(data.maxTimes.entries())
+                            .reduce(
+                                (assignedSeries, [seriesName,]) => {
+                                    const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
+                                    const as = assignedSeries.get(id) || []
+                                    as.push(seriesName)
+                                    assignedSeries.set(id, as)
+                                    return assignedSeries
+                                },
+                                new Map<string, Array<string>>()
+                            )
 
-                            // // updated the current time to be the max of the new data
-                            // currentTimeRef.current = data.maxTime;
+                        // add each new point to it's corresponding series, the new points
+                        // is a map(series_name -> new_point[])
+                        data.newPoints.forEach((newData, name) => {
+                            // grab the current series associated with the new data
+                            const series = seriesRef.current.get(name) || emptySeries(name);
 
-                            // add each new point to it's corresponding series
-                            data.newPoints.forEach((newData, name) => {
-                                // grab the current series associated with the new data
-                                const series = seriesRef.current.get(name) || emptySeries(name);
+                            // update the handler with the new data point
+                            onUpdateData(name, newData);
 
-                                // update the handler with the new data point
-                                onUpdateData(name, newData);
+                            // add the new data to the series
+                            series.data.push(...newData);
 
-                                // add the new data to the series
-                                series.data.push(...newData);
-
+                            const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName()
+                            const currentAxisTime = axesSeries.get(axisId)
+                                ?.reduce(
+                                    (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
+                                    -Infinity
+                                ) || data.maxTime
+                            if (currentAxisTime !== undefined) {
                                 // drop data that is older than the max time-window
-                                // while (currentTimeRef.current - series.data[0].time > dropDataAfter) {
-                                //     series.data.shift();
-                                // }
-                                const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName()
-                                const currentAxisTime = axesSeries.get(axisId)
-                                    ?.reduce(
-                                        (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime),
-                                        -Infinity
-                                    ) || data.maxTime
-                                if (currentAxisTime !== undefined) {
-                                    // drop data that is older than the max time-window
-                                    while (currentAxisTime - series.data[0].time > dropDataAfter) {
-                                        series.data.shift()
-                                    }
-
-                                    const range = timesWindows.get(axisId)
-                                    if (range !== undefined && range.end < currentAxisTime) {
-                                        const timeWindow = range.end - range.start
-                                        const timeRange = continuousAxisRangeFor(
-                                            Math.max(0, currentAxisTime - timeWindow),
-                                            Math.max(currentAxisTime, timeWindow)
-                                        )
-                                        timesWindows.set(axisId, timeRange)
-                                        currentTimeRef.current.set(axisId, timeRange.end)
-                                    }
+                                while (currentAxisTime - series.data[0].time > dropDataAfter) {
+                                    series.data.shift()
                                 }
-                            })
 
-                            updateTimingAndPlot(timesWindows)
+                                const range = timesWindows.get(axisId)
+                                if (range !== undefined && range.end < currentAxisTime) {
+                                    const timeWindow = range.end - range.start
+                                    const timeRange = continuousAxisRangeFor(
+                                        Math.max(0, currentAxisTime - timeWindow),
+                                        Math.max(currentAxisTime, timeWindow)
+                                    )
+                                    timesWindows.set(axisId, timeRange)
+                                    currentTimeRef.current.set(axisId, timeRange.end)
+                                }
+                            }
                         })
-                });
+
+                        // update the data
+                        updateTimingAndPlot(timesWindows)
+                    })
+                })
 
             // provide the subscription to the caller
             onSubscribe(subscription)

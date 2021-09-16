@@ -84,7 +84,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
     // const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialData.map(series => series.name)));
-    const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.map(series => series.name)));
+    const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.slice()));
+    // const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.map(series => series.name)));
     const [running, setRunning] = useState<boolean>(false)
     // const subscriptionRef = useRef<Subscription>();
 
@@ -289,11 +290,11 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         />
                     </Tooltip>
                     <RasterPlot
-                        axisAssignments={new Map([
-                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            // ['test2', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
-                        ])}
+                        // axisAssignments={new Map([
+                        //     ['test', assignAxes("x-axis-1", "y-axis-1")],
+                        //     ['test2', assignAxes("x-axis-1", "y-axis-1")],
+                        //     ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                        // ])}
                         // dropDataAfter={10000}
                     />
                 </Chart>

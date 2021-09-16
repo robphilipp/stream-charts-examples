@@ -7,24 +7,35 @@ const UPDATE_PERIOD_MS = 25;
 
 /**
  * Creates a random spike for each series and within (time - update_period, time)
- * @param {number} time The current time
- * @param {Array<string>} series The list of series names (identifiers) to update
- * @param {number} updatePeriod The update period (ms)
- * @return {ChartData} A random chart data
+ * @param sequenceTime The current time
+ * @param series The list of series (identifiers) to update
+ * @param seriesMaxTimes A map holding the series name and its associated max time
+ * @param updatePeriod The update period (ms)
+ * @return A random chart data
  */
-function randomSpikeData(time: number, series: Array<string>, updatePeriod: number): ChartData {
+function randomSpikeData(
+    sequenceTime: number,
+    series: Array<string>,
+    seriesMaxTimes: Map<string, number>,
+    updatePeriod: number
+): ChartData {
+    const maxTimes = new Map(
+        Array.from(seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
+    )
     return {
-        maxTime: time,
-        maxTimes: new Map(series.map(name => [name, time])),
+        maxTime: sequenceTime,
+        maxTimes,
         newPoints: new Map(series
             .filter(_ => Math.random() > 0.5)
-            .map(name => [
+            .map(name => {
+                const maxTime = seriesMaxTimes.get(name) || 0
+                return [
                 name,
                 [{
-                    time: time - Math.ceil(Math.random() * updatePeriod),
+                    time: sequenceTime + maxTime - Math.ceil(Math.random() * updatePeriod),
                     value: Math.random()
                 }]
-            ]))
+            ]}))
     };
 }
 
@@ -34,12 +45,14 @@ function randomSpikeData(time: number, series: Array<string>, updatePeriod: numb
  * @param {number} [updatePeriod=25] The time-interval between the generation of subsequent data points
  * @return {Observable<SpikesChartData>} An observable that produces data.
  */
-export function randomSpikeDataObservable(series: Array<string>, updatePeriod: number = UPDATE_PERIOD_MS): Observable<ChartData> {
+export function randomSpikeDataObservable(series: Array<Series>, updatePeriod: number = UPDATE_PERIOD_MS): Observable<ChartData> {
+    const seriesNames = series.map(series => series.name)
+    const initialData = initialChartData(series)
     return interval(updatePeriod).pipe(
         // convert the number sequence to a time
-        map(sequence => sequence * updatePeriod),
+        map(sequence => (sequence + 1) * updatePeriod),
         // create a random spike for each series
-        map((time) => randomSpikeData(time, series, updatePeriod))
+        map((time) => randomSpikeData(time, seriesNames, initialData.maxTimes, updatePeriod))
     );
 }
 
@@ -59,14 +72,11 @@ function randomWeightData(
     updatePeriod: number,
     delta: number,
 ): ChartData {
-    // seriesMaxTimes.forEach((maxTime, series, map) => map.set(series, maxTime + sequenceTime))
     const maxTimes = new Map(Array.from(
         seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
     )
     return {
         maxTime: sequenceTime,
-        // maxTime: Array.from(seriesMaxTimes.values()).reduce((tMax, t) => Math.max(tMax, t), -Infinity),
-        // maxTimes: seriesMaxTimes,
         maxTimes,
         newPoints: new Map(series.map(name => {
             const maxTime = seriesMaxTimes.get(name) || 0
@@ -80,32 +90,7 @@ function randomWeightData(
         }))
     };
 }
-// /**
-//  * Creates random weight data
-//  * @param {number} time The current time
-//  * @param {Array<string>} series The list of series names (identifiers) to update
-//  * @param {number} updatePeriod The update period (ms)
-//  * @param {number} delta The largest change in weight
-//  * @return {ChartData} The random chart data
-//  */
-// function randomWeightData(
-//     time: number,
-//     series: Array<string>,
-//     updatePeriod: number,
-//     delta: number,
-// ): ChartData {
-//     return {
-//         maxTime: time,
-//         maxTimes: new Map(series.map(name => [name, time])),
-//         newPoints: new Map(series.map(name => [
-//             name,
-//             [{
-//                 time: time - Math.ceil(Math.random() * updatePeriod),
-//                 value: (Math.random() - 0.5) * 2 * delta
-//             }]
-//         ]))
-//     };
-// }
+
 
 /**
  * Adds the accumulated chart data to the current random one
@@ -149,25 +134,6 @@ function mergeSeries(
     return accum;
 }
 
-// /**
-//  * Creates random set of time-series data, essential creating a random walk for each series
-//  * @param {Array<string>} series The number of time-series for which to generate data (i.e. one for each neuron)
-//  * @param {number} delta The max change in weight
-//  * @param {number} [updatePeriod=25] The time-interval between the generation of subsequent data points
-//  * @return {Observable<ChartData>} An observable that produces data.
-//  */
-// export function randomWeightDataObservable(series: Array<string>, delta: number, updatePeriod: number = 25): Observable<ChartData> {
-//     return interval(updatePeriod).pipe(
-//         // convert the number sequence to a time
-//         map(sequence => (sequence + 1) * updatePeriod),
-//
-//         // create a new (time, value) for each series
-//         map((time, index) => randomWeightData(time, series, updatePeriod, delta)),
-//
-//         // add the random value to the previous random value in succession to create a random walk for each series
-//         scan((acc, value) => accumulateChartData(acc, value), emptyChartData(series))
-//     );
-// }
 
 /**
  * Creates random set of time-series data, essentially creating a random walk for each series
