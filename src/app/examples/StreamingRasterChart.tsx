@@ -296,6 +296,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         //     ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         // ])}
                         // dropDataAfter={10000}
+                        panEnabled={true}
+                        zoomEnabled={true}
                     />
                 </Chart>
                 {/*<RasterChart*/}

@@ -38,6 +38,19 @@ interface Props {
      * infinity (i.e. no data is dropped)
      */
     dropDataAfter?: number
+    /**
+     * Enables panning (default is false)
+     */
+    panEnabled?: boolean
+    /**
+     * Enables zooming (default is false)
+     */
+    zoomEnabled?: boolean
+    /**
+     * When true, requires that the shift or control key be pressed while scrolling
+     * in order to activate the zoom
+     */
+    zoomKeyModifiersRequired?: boolean
 }
 
 /**
@@ -77,6 +90,9 @@ export function ScatterPlot(props: Props): null {
         axisAssignments = new Map<string, AxesAssignment>(),
         interpolation = d3.curveLinear,
         dropDataAfter = Infinity,
+        panEnabled = false,
+        zoomEnabled = false,
+        zoomKeyModifiersRequired = true
     } = props
 
     // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
@@ -167,44 +183,49 @@ export function ScatterPlot(props: Props): null {
                 // magnifierRef.current = magnifierLens(svg, magnifierStyle.visible)
 
                 // set up panning
-                const drag = d3.drag<SVGSVGElement, Datum>()
-                    .on("start", () => {
-                        // todo during a pan, we want to hide the tooltip
-                        d3.select(container).style("cursor", "move")
-                    })
-                    .on("drag", (event) => {
-                        onPan(
-                            event.dx,
-                            plotDimensions,
-                            Array.from(boundedSeries.keys()),
-                            timeRanges,
-                        )
-                        updatePlotRef.current(timeRanges, mainGElem)
-                    })
-                    .on("end", () => {
-                        // todo if the tooltip was originally visible, then allow it to be seen again
-                        d3.select(container).style("cursor", "auto")
-                    })
-
-                svg.call(drag)
-
-                // set up for zooming
-                const zoom = d3.zoom<SVGSVGElement, Datum>()
-                    .scaleExtent([0, 10])
-                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", event => {
-                            onZoom(
-                                event.transform,
-                                event.sourceEvent.offsetX - margin.left,
+                if (panEnabled) {
+                    const drag = d3.drag<SVGSVGElement, Datum>()
+                        .on("start", () => {
+                            // todo during a pan, we want to hide the tooltip
+                            d3.select(container).style("cursor", "move")
+                        })
+                        .on("drag", (event) => {
+                            onPan(
+                                event.dx,
                                 plotDimensions,
                                 Array.from(boundedSeries.keys()),
                                 timeRanges,
                             )
                             updatePlotRef.current(timeRanges, mainGElem)
-                        }
-                    )
+                        })
+                        .on("end", () => {
+                            // todo if the tooltip was originally visible, then allow it to be seen again
+                            d3.select(container).style("cursor", "auto")
+                        })
 
-                svg.call(zoom)
+                    svg.call(drag)
+                }
+
+                // set up for zooming
+                if (zoomEnabled) {
+                    const zoom = d3.zoom<SVGSVGElement, Datum>()
+                        .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                        .scaleExtent([0, 10])
+                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                        .on("zoom", event => {
+                                onZoom(
+                                    event.transform,
+                                    event.sourceEvent.offsetX - margin.left,
+                                    plotDimensions,
+                                    Array.from(boundedSeries.keys()),
+                                    timeRanges,
+                                )
+                                updatePlotRef.current(timeRanges, mainGElem)
+                            }
+                        )
+
+                    svg.call(zoom)
+                }
 
                 // define the clip-path so that the series lines don't go beyond the plot area
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
