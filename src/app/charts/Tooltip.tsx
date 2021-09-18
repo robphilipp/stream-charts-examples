@@ -88,41 +88,16 @@ export function Tooltip(props: Props): JSX.Element {
                                     .attr('stroke-width', tooltipStyle.borderWidth)
 
                                 // call the callback to add the content
-                                const {contentWidth, contentHeight} = contentProvider(seriesName, time, series, mouseCoords)
-
-                                // --- testing html in svg---
-                                // const svg = d3.select<SVGSVGElement | null, any>(container)
-                                // const [mx, my] = d3.mouse(container)
-                                // svg.append('foreignObject')
-                                //     .attr('width', 400)
-                                //     .attr('height', 500)
-                                //     .attr('x', mx)
-                                //     .attr('y',my)
-                                //     .append('xhtml:body')
-                                //     .html("<div style='background-color: red'>This is a test</div>")
-                                // ---------------
+                                const {x, y, contentWidth, contentHeight} = contentProvider(seriesName, time, series, mouseCoords)
 
                                 // set the position, width, and height of the tooltip rect based on the text height and width and the padding
-                                // const [x, y] = d3.mouse(container)
-                                const [x, y] = mouseCoords
-                                rect.attr('x', () => tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin))
-                                    .attr('y', () => tooltipY(y, contentHeight, plotDimensions, tooltipStyle, margin))
+                                rect.attr('x', () => x)
+                                    .attr('y', () => y)
                                     .attr('width', contentWidth + tooltipStyle.paddingLeft + tooltipStyle.paddingRight)
                                     .attr('height', contentHeight + tooltipStyle.paddingTop + tooltipStyle.paddingBottom)
 
                             }
                         )
-                        // ((seriesName, time, series) => createTooltip(
-                        //     `r${time}-${seriesName}-${chartId}`,
-                        //     container,
-                        //     margin,
-                        //     tooltipStyle,
-                        //     plotDimensions,
-                        //     // this is the tooltip content provider registered by the plot,
-                        //     // and with the given information adds the content to the SVG
-                        //     // element for the tooltip
-                        //     () => contentProvider(seriesName, time, series)
-                        // ))
                     )
 
                     registerMouseLeaveHandler(handlerId, () => removeTooltip())

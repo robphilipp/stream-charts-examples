@@ -1,20 +1,10 @@
 import {TimeSeries} from "./plot";
 import {Dimensions, Margin} from "./margins";
-import {
-    boundingPoints,
-    categoryTooltipY,
-    defaultTooltipStyle,
-    TooltipDimensions,
-    TooltipStyle,
-    tooltipX,
-    tooltipY
-} from "./tooltipUtils";
+import {categoryTooltipY, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX} from "./tooltipUtils";
 import * as d3 from "d3";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "./utils";
-import {TextSelection} from "./d3types";
 import {useEffect, useMemo} from "react";
 import {useChart} from "./hooks/useChart";
-import {Datum, seriesFrom} from "./datumSeries";
 import {CategoryAxis} from "./axes";
 
 /**
@@ -86,7 +76,7 @@ import {CategoryAxis} from "./axes";
  */
 interface TooltipOptions {
     labels: { x: string, y: string }
-    headers: { before: string, after: string, delta: string }
+    // headers: { before: string, after: string, delta: string }
     formatters: {
         x: { value: (value: number) => string, change: (value1: number, value2: number) => string },
         y: { value: (value: number) => string, change: (value1: number, value2: number) => string },
@@ -150,9 +140,9 @@ export function RasterPlotTooltipContent(props: Props): null {
     const {
         xLabel,
         yLabel,
-        beforeHeader = 'before',
-        afterHeader = 'after',
-        deltaHeader = '∆',
+        // beforeHeader = 'before',
+        // afterHeader = 'after',
+        // deltaHeader = '∆',
         xValueFormatter = formatTime,
         yValueFormatter = formatValue,
         xChangeFormatter = formatTimeChange,
@@ -177,7 +167,7 @@ export function RasterPlotTooltipContent(props: Props): null {
                 // assemble the options for adding the tooltip
                 const options: TooltipOptions = {
                     labels: {x: xLabel, y: yLabel},
-                    headers: {before: beforeHeader, after: afterHeader, delta: deltaHeader},
+                    // headers: {before: beforeHeader, after: afterHeader, delta: deltaHeader},
                     formatters: {
                         x: {value: xValueFormatter, change: xChangeFormatter},
                         y: {value: yValueFormatter, change: yChangeFormatter},
@@ -203,7 +193,7 @@ export function RasterPlotTooltipContent(props: Props): null {
             chartId, container, margin, plotDimensions, registerTooltipContentProvider,
             xLabel, xChangeFormatter, xValueFormatter,
             yLabel, yChangeFormatter, yValueFormatter,
-            beforeHeader, afterHeader, deltaHeader,
+            // beforeHeader, afterHeader, deltaHeader,
             tooltipStyle,
             yAxesState, axisAssignmentsFor
         ]
@@ -240,7 +230,7 @@ function addTooltipContent(
     options: TooltipOptions
 ): TooltipDimensions {
     const {labels, formatters} = options
-    const [x, y] = mouseCoords
+    const [x, ] = mouseCoords
     // const [lower, upper] = boundingPoints(series, time)
     const [spikeTime, value] = series[0]
 
@@ -274,8 +264,10 @@ function addTooltipContent(
 
     // set the header text location
     // const spikeHeight = plotDimensions.height / liveDataRef.current.size
-    const xTooltip = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin) + tooltipStyle.paddingLeft
-    const yTooltip = categoryTooltipY(seriesName, textHeight, axis, tooltipStyle, margin, axis.categorySize) + tooltipStyle.paddingTop
+    const xCoord = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin)
+    const yCoord = categoryTooltipY(seriesName, textHeight, axis, tooltipStyle, margin, axis.categorySize)
+    const xTooltip = xCoord + tooltipStyle.paddingLeft
+    const yTooltip = yCoord + tooltipStyle.paddingTop
     header
         .attr('x', () => xTooltip)
         .attr('y', () => yTooltip - idHeight + textHeight)
@@ -285,5 +277,5 @@ function addTooltipContent(
         .attr('x', () => xTooltip)
         .attr('y', () => yTooltip + textHeight)
 
-    return {contentWidth: tooltipWidth, contentHeight: textHeight}
+    return {x: xCoord, y: yCoord, contentWidth: tooltipWidth, contentHeight: textHeight}
 }

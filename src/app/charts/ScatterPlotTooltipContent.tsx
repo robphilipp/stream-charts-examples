@@ -278,8 +278,10 @@ function addTooltipContent(
     const textHeight = headerTextHeight + headerRowHeight + timeRowHeight + valueRowHeight
 
     // set the header text location
-    const xTooltip = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin) + tooltipStyle.paddingLeft
-    const yTooltip = tooltipY(y, textHeight, plotDimensions, tooltipStyle, margin) + tooltipStyle.paddingTop
+    const xCoord = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin)
+    const yCoord = tooltipY(y, textHeight, plotDimensions, tooltipStyle, margin)
+    const xTooltip = xCoord + tooltipStyle.paddingLeft
+    const yTooltip = yCoord + tooltipStyle.paddingTop
     header
         .attr('x', () => xTooltip)
         .attr('y', () => yTooltip - (headerRowHeight + timeRowHeight + valueRowHeight) + textHeight)
@@ -305,5 +307,5 @@ function addTooltipContent(
     vrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(vrUpper)).attr('y', () => vrRowY)
     vrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(vrDelta)).attr('y', () => vrRowY)
 
-    return {contentWidth: tooltipWidth, contentHeight: textHeight}
+    return {x: xCoord, y: yCoord, contentWidth: tooltipWidth, contentHeight: textHeight}
 }

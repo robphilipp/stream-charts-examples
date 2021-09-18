@@ -52,6 +52,8 @@ export const defaultTooltipStyle: TooltipStyle = {
 };
 
 export interface TooltipDimensions {
+    x: number,
+    y: number,
     contentWidth: number,
     contentHeight: number
 }
@@ -162,8 +164,7 @@ export function categoryTooltipY(
     margin: Margin,
     categoryHeight: number
 ): number {
-    const scale = axis.generator.scale<ScaleBand<string>>();
-    const y = (scale(seriesName) || 0) + margin.top - tooltipStyle.paddingBottom
+    const y = (axis.scale(seriesName) || 0) + margin.top - tooltipStyle.paddingBottom
     return y > 0 ? y : y + tooltipStyle.paddingBottom + textHeight + tooltipStyle.paddingTop + categoryHeight
 }
 
