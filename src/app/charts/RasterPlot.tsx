@@ -1,24 +1,24 @@
-import {AxesAssignment, setClipPath, TimeSeries} from "./plot";
+import {AxesAssignment, setClipPath} from "./plot";
 import * as d3 from "d3";
+import {ZoomTransform} from "d3";
 import {noop} from "./utils";
 import {useChart} from "./hooks/useChart";
 import {useCallback, useEffect, useMemo, useRef} from "react";
-import {Datum, datumOf, emptySeries, PixelDatum, Series, seriesFrom} from "./datumSeries";
+import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {GSelection} from "./d3types";
 import {
     axesForSeriesGen,
     BaseAxis,
-    calculatePanFor,
-    calculateZoomFor,
     CategoryAxis,
     ContinuousNumericAxis,
-    defaultLineStyle, panHandler, zoomHandler
+    defaultLineStyle,
+    panHandler,
+    zoomHandler
 } from "./axes";
 import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
 import {Dimensions} from "./margins";
-import {ZoomTransform} from "d3";
 
 interface Props {
     /**
@@ -111,15 +111,13 @@ export function RasterPlot(props: Props): null {
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
-     * @param mainG The main <g> element holding the plot
      */
     const onPan = useCallback(
         (x: number,
          plotDimensions: Dimensions,
          series: Array<string>,
-         ranges: Map<string, ContinuousAxisRange>,
-         mainG: GSelection
-        ) => panHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(x, plotDimensions, series, ranges, mainG),
+         ranges: Map<string, ContinuousAxisRange>
+        ) => panHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(x, plotDimensions, series, ranges),
         [axesForSeries, margin, setTimeRangeFor, xAxesState]
     )
 
@@ -131,7 +129,6 @@ export function RasterPlot(props: Props): null {
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time-range
-     * @param mainG The main <g> element holding the plot
      */
     const onZoom = useCallback(
         (
@@ -140,8 +137,7 @@ export function RasterPlot(props: Props): null {
             plotDimensions: Dimensions,
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
-            mainG: GSelection
-        ) => zoomHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(transform, x, plotDimensions, series, ranges, mainG),
+        ) => zoomHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(transform, x, plotDimensions, series, ranges),
         [axesForSeries, margin, setTimeRangeFor, xAxesState]
     )
 
@@ -175,7 +171,7 @@ export function RasterPlot(props: Props): null {
                     })
                     .on("drag", event => {
                         const names = boundedSeries.map(series => series.name)
-                        onPan(event.dx, plotDimensions, names, timeRanges, mainGElem)
+                        onPan(event.dx, plotDimensions, names, timeRanges)
                         // need to update the plot with the new time-ranges
                         updatePlotRef.current(timeRanges, mainGElem)
                     })
@@ -197,7 +193,6 @@ export function RasterPlot(props: Props): null {
                                 plotDimensions,
                                 boundedSeries.map(series => series.name),
                                 timeRanges,
-                                mainGElem
                             )
                             updatePlotRef.current(timeRanges, mainGElem)
                         }

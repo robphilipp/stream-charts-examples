@@ -2,7 +2,7 @@ import {Dimensions, Margin} from "./margins";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
-import {AxisElementSelection, GSelection, SvgSelection} from "./d3types";
+import {AxisElementSelection, SvgSelection} from "./d3types";
 import {addContinuousNumericXAxis, addContinuousNumericYAxis} from "./ContinuousAxis";
 import {noop} from "./utils";
 import {AxesState} from "./hooks/AxesState";
@@ -315,7 +315,7 @@ export function panHandler(
     plotDimensions: Dimensions,
     series: Array<string>,
     ranges: Map<string, ContinuousAxisRange>,
-    mainG: GSelection
+    // mainG: GSelection
 ) => void {
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
@@ -323,9 +323,8 @@ export function panHandler(
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
-     * @param mainG The main <g> element holding the plot
      */
-    return (deltaX, plotDimensions, series, ranges, mainG) => {
+    return (deltaX, plotDimensions, series, ranges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         axesForSeries
             .forEach(axisId => {
@@ -346,8 +345,7 @@ export function panHandler(
                     xAxis.update([start, end], plotDimensions, margin)
                 }
             })
-        // hey, don't forget to update the plot with the new time-ranges in the
-        // code calling this... :)
+        // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }
 }
 
@@ -374,7 +372,6 @@ export function zoomHandler(
     plotDimensions: Dimensions,
     series: Array<string>,
     ranges: Map<string, ContinuousAxisRange>,
-    mainG: GSelection
 ) => void {
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
@@ -384,9 +381,8 @@ export function zoomHandler(
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time-range
-     * @param mainG The main <g> element holding the plot
      */
-    return (transform, x, plotDimensions, series, ranges, mainG) => {
+    return (transform, x, plotDimensions, series, ranges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         axesForSeries
             .forEach(axisId => {
@@ -404,7 +400,6 @@ export function zoomHandler(
                     xAxis.update([zoom.range.start, zoom.range.end], plotDimensions, margin)
                 }
             })
-        // hey, don't forget to update the plot with the new time-ranges in the
-        // code calling this... :)
+        // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }
 }

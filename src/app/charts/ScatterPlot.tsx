@@ -109,15 +109,13 @@ export function ScatterPlot(props: Props): null {
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
-     * @param mainG The main <g> element holding the plot
      */
     const onPan = useCallback(
         (x: number,
          plotDimensions: Dimensions,
          series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>,
-         mainG: GSelection
-        ) => panHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(x, plotDimensions, series, ranges, mainG),
+        ) => panHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(x, plotDimensions, series, ranges),
         [axesForSeries, margin, setTimeRangeFor, xAxesState]
     )
 
@@ -129,7 +127,6 @@ export function ScatterPlot(props: Props): null {
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time-range
-     * @param mainG The main <g> element holding the plot
      */
     const onZoom = useCallback(
         (
@@ -138,8 +135,7 @@ export function ScatterPlot(props: Props): null {
             plotDimensions: Dimensions,
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
-            mainG: GSelection
-        ) => zoomHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(transform, x, plotDimensions, series, ranges, mainG),
+        ) => zoomHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(transform, x, plotDimensions, series, ranges),
         [axesForSeries, margin, setTimeRangeFor, xAxesState]
     )
 
@@ -182,7 +178,6 @@ export function ScatterPlot(props: Props): null {
                             plotDimensions,
                             Array.from(boundedSeries.keys()),
                             timeRanges,
-                            mainGElem
                         )
                         updatePlotRef.current(timeRanges, mainGElem)
                     })
@@ -204,7 +199,6 @@ export function ScatterPlot(props: Props): null {
                                 plotDimensions,
                                 Array.from(boundedSeries.keys()),
                                 timeRanges,
-                                mainGElem
                             )
                             updatePlotRef.current(timeRanges, mainGElem)
                         }
