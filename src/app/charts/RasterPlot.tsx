@@ -6,10 +6,19 @@ import {useCallback, useEffect, useMemo, useRef} from "react";
 import {Datum, datumOf, emptySeries, PixelDatum, Series, seriesFrom} from "./datumSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {GSelection} from "./d3types";
-import {BaseAxis, calculatePanFor, CategoryAxis, ContinuousNumericAxis, defaultLineStyle} from "./axes";
+import {
+    axesForSeriesGen,
+    BaseAxis,
+    calculatePanFor,
+    calculateZoomFor,
+    CategoryAxis,
+    ContinuousNumericAxis,
+    defaultLineStyle, panHandler, zoomHandler
+} from "./axes";
 import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
 import {Dimensions} from "./margins";
+import {ZoomTransform} from "d3";
 
 interface Props {
     /**
@@ -72,20 +81,7 @@ export function RasterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => {
-            return initialData.map(series => series.name)
-                // grab the x-axis assigned to the series, or use a the default x-axis if not
-                // assignment has been made
-                .map(name => axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName())
-                // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
-                // transformation more than once
-                .reduce((accum: Array<string>, axisId: string) => {
-                    if (!accum.find(id => id === axisId)) {
-                        accum.push(axisId)
-                    }
-                    return accum
-                }, [])
-        },
+        (): Array<string> => axesForSeriesGen(initialData, axisAssignments, xAxesState)(),
         [initialData, axisAssignments, xAxesState]
     )
 
@@ -109,49 +105,50 @@ export function RasterPlot(props: Props): null {
         }
     }
 
+    /**
+     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+     * @param deltaX The amount that the plot is dragged
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time range
+     * @param mainG The main <g> element holding the plot
+     */
     const onPan = useCallback(
-        /**
-         * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-         * @param deltaX The amount that the plot is dragged
-         * @param plotDimensions The dimensions of the plot
-         * @param series An array of series names
-         * @param ranges A map holding the axis ID and its associated time range
-         * @param mainG The main <g> element holding the plot
-         */
+        (x: number,
+         plotDimensions: Dimensions,
+         series: Array<string>,
+         ranges: Map<string, ContinuousAxisRange>,
+         mainG: GSelection
+        ) => panHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(x, plotDimensions, series, ranges, mainG),
+        [axesForSeries, margin, setTimeRangeFor, xAxesState]
+    )
+
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time-range
+     * @param mainG The main <g> element holding the plot
+     */
+    const onZoom = useCallback(
         (
-            deltaX: number,
+            transform: ZoomTransform,
+            x: number,
             plotDimensions: Dimensions,
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
             mainG: GSelection
-        ): void => {
-            // run through the axis IDs, adjust their domain, and update the time-range set for that axis
-            axesForSeries
-                .forEach(axisId => {
-                    const xAxis = xAxesState.axisFor(axisId) as ContinuousNumericAxis
-                    const timeRange = ranges.get(axisId)
-                    if (timeRange) {
-                        // calculate the change in the time-range based on the pixel change from the drag event
-                        const range = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
-                        if (Math.abs(range.start - timeRange.start) < 2) return
-
-                        // update the time-range for the axis
-                        ranges.set(axisId, range)
-
-                        const {start, end} = range
-                        setTimeRangeFor(axisId, [start, end])
-
-                        // update the axis' time-range
-                        xAxis.update([start, end], plotDimensions, margin)
-                    }
-                })
-
-            // need to update the plot with the new time-ranges
-            updatePlotRef.current(ranges, mainG)
-        },
+        ) => zoomHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(transform, x, plotDimensions, series, ranges, mainG),
         [axesForSeries, margin, setTimeRangeFor, xAxesState]
     )
 
+    /**
+     * @param timeRanges
+     * @param mainGElem
+     */
     const updatePlot = useCallback(
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
             if (container) {
@@ -159,11 +156,6 @@ export function RasterPlot(props: Props): null {
                 const svg = d3.select<SVGSVGElement, any>(container)
 
                 // create a map associating series-names to their time-series
-                // const boundedSeries = new Map(initialData.map(series => [
-                //     series.name,
-                //     // selectInTimeRange(series, timeRangeFor(series.name, timeRanges, axisAssignments))
-                //     series.data.map(datum => [datum.time, datum.value]) as TimeSeries
-                // ]))
                 const boundedSeries = dataRef.current.filter(series => series.name.match(seriesFilter))
 
                 mainGElem
@@ -181,13 +173,12 @@ export function RasterPlot(props: Props): null {
                         // todo during a pan, we want to hide the tooltip
                         d3.select(container).style("cursor", "move")
                     })
-                    .on("drag", (event) => onPan(
-                        event.dx,
-                        plotDimensions,
-                        boundedSeries.map(series => series.name),
-                        timeRanges,
-                        mainGElem
-                    ))
+                    .on("drag", event => {
+                        const names = boundedSeries.map(series => series.name)
+                        onPan(event.dx, plotDimensions, names, timeRanges, mainGElem)
+                        // need to update the plot with the new time-ranges
+                        updatePlotRef.current(timeRanges, mainGElem)
+                    })
                     .on("end", () => {
                         // todo if the tooltip was originally visible, then allow it to be seen again
                         d3.select(container).style("cursor", "auto")
@@ -195,8 +186,24 @@ export function RasterPlot(props: Props): null {
 
                 svg.call(drag)
 
-                // set up zoom
-                // todo set up zoom
+                // set up for zooming
+                const zoom = d3.zoom<SVGSVGElement, Datum>()
+                    .scaleExtent([0, 10])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", event => {
+                            onZoom(
+                                event.transform,
+                                event.sourceEvent.offsetX - margin.left,
+                                plotDimensions,
+                                boundedSeries.map(series => series.name),
+                                timeRanges,
+                                mainGElem
+                            )
+                            updatePlotRef.current(timeRanges, mainGElem)
+                        }
+                    )
+
+                svg.call(zoom)
 
                 // define the clip-path so that the series lines don't go beyond the plot area
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)

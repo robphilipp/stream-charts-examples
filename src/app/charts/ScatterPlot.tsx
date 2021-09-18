@@ -6,12 +6,13 @@ import {ZoomTransform} from "d3";
 import {AxesAssignment, setClipPath, TimeSeries} from "./plot";
 import {Datum, emptySeries, Series} from "./datumSeries";
 import {
+    axesForSeriesGen,
     BaseAxis,
     calculatePanFor,
     calculateZoomFor,
     ContinuousNumericAxis,
-    defaultLineStyle,
-    SeriesLineStyle
+    defaultLineStyle, panHandler,
+    SeriesLineStyle, zoomHandler
 } from "./axes";
 import {GSelection} from "./d3types";
 import {Subscription} from "rxjs";
@@ -98,77 +99,39 @@ export function ScatterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => {
-            return initialData.map(series => series.name)
-                // grab the x-axis assigned to the series, or use a the default x-axis if not
-                // assignment has been made
-                .map(name => axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName())
-                // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
-                // transformation more than once
-                .reduce((accum: Array<string>, axisId: string) => {
-                    if (!accum.find(id => id === axisId)) {
-                        accum.push(axisId)
-                    }
-                    return accum
-                }, [])
-        },
+        (): Array<string> => axesForSeriesGen(initialData, axisAssignments, xAxesState)(),
         [initialData, axisAssignments, xAxesState]
     )
 
+    /**
+     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+     * @param deltaX The amount that the plot is dragged
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time range
+     * @param mainG The main <g> element holding the plot
+     */
     const onPan = useCallback(
-        /**
-         * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-         * @param deltaX The amount that the plot is dragged
-         * @param plotDimensions The dimensions of the plot
-         * @param series An array of series names
-         * @param ranges A map holding the axis ID and its associated time range
-         * @param mainG The main <g> element holding the plot
-         */
-        (
-            deltaX: number,
-            plotDimensions: Dimensions,
-            series: Array<string>,
-            ranges: Map<string, ContinuousAxisRange>,
-            mainG: GSelection
-        ): void => {
-            // run through the axis IDs, adjust their domain, and update the time-range set for that axis
-            axesForSeries
-                .forEach(axisId => {
-                    const xAxis = xAxesState.axisFor(axisId) as ContinuousNumericAxis
-                    const timeRange = ranges.get(axisId)
-                    if (timeRange) {
-                        // calculate the change in the time-range based on the pixel change from the drag event
-                        const range = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
-                        if (Math.abs(range.start - timeRange.start) < 2) return
-
-                        // update the time-range for the axis
-                        ranges.set(axisId, range)
-
-                        const {start, end} = range
-                        setTimeRangeFor(axisId, [start, end])
-
-                        // update the axis' time-range
-                        xAxis.update([start, end], plotDimensions, margin)
-                    }
-                })
-
-            // need to update the plot with the new time-ranges
-            updatePlotRef.current(ranges, mainG)
-        },
+        (x: number,
+         plotDimensions: Dimensions,
+         series: Array<string>,
+         ranges: Map<string, ContinuousAxisRange>,
+         mainG: GSelection
+        ) => panHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(x, plotDimensions, series, ranges, mainG),
         [axesForSeries, margin, setTimeRangeFor, xAxesState]
     )
 
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time-range
+     * @param mainG The main <g> element holding the plot
+     */
     const onZoom = useCallback(
-        /**
-         * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-         * at the location of the mouse when the scroll wheel or gesture was applied.
-         * @param transform The d3 zoom transformation information
-         * @param x The x-position of the mouse when the scroll wheel or gesture is used
-         * @param plotDimensions The dimensions of the plot
-         * @param series An array of series names
-         * @param ranges A map holding the axis ID and its associated time-range
-         * @param mainG The main <g> element holding the plot
-         */
         (
             transform: ZoomTransform,
             x: number,
@@ -176,26 +139,7 @@ export function ScatterPlot(props: Props): null {
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
             mainG: GSelection
-        ): void => {
-            // run through the axis IDs, adjust their domain, and update the time-range set for that axis
-            axesForSeries
-                .forEach(axisId => {
-                    const xAxis = xAxesState.axisFor(axisId) as ContinuousNumericAxis
-                    const timeRange = ranges.get(axisId)
-                    if (timeRange) {
-                        const zoom = calculateZoomFor(transform, x, plotDimensions, xAxis, timeRange)
-
-                        // update the axis range
-                        ranges.set(axisId, zoom.range)
-
-                        setTimeRangeFor(axisId, [zoom.range.start, zoom.range.end])
-
-                        // update the axis' time-range
-                        xAxis.update([zoom.range.start, zoom.range.end], plotDimensions, margin)
-                    }
-                })
-            updatePlotRef.current(ranges, mainG)
-        },
+        ) => zoomHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(transform, x, plotDimensions, series, ranges, mainG),
         [axesForSeries, margin, setTimeRangeFor, xAxesState]
     )
 
@@ -232,13 +176,16 @@ export function ScatterPlot(props: Props): null {
                         // todo during a pan, we want to hide the tooltip
                         d3.select(container).style("cursor", "move")
                     })
-                    .on("drag", (event) => onPan(
-                        event.dx,
-                        plotDimensions,
-                        Array.from(boundedSeries.keys()),
-                        timeRanges,
-                        mainGElem
-                    ))
+                    .on("drag", (event) => {
+                        onPan(
+                            event.dx,
+                            plotDimensions,
+                            Array.from(boundedSeries.keys()),
+                            timeRanges,
+                            mainGElem
+                        )
+                        updatePlotRef.current(timeRanges, mainGElem)
+                    })
                     .on("end", () => {
                         // todo if the tooltip was originally visible, then allow it to be seen again
                         d3.select(container).style("cursor", "auto")
@@ -250,14 +197,17 @@ export function ScatterPlot(props: Props): null {
                 const zoom = d3.zoom<SVGSVGElement, Datum>()
                     .scaleExtent([0, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", event => onZoom(
-                            event.transform,
-                            event.sourceEvent.offsetX - margin.left,
-                            plotDimensions,
-                            Array.from(boundedSeries.keys()),
-                            timeRanges,
-                            mainGElem
-                        )
+                    .on("zoom", event => {
+                            onZoom(
+                                event.transform,
+                                event.sourceEvent.offsetX - margin.left,
+                                plotDimensions,
+                                Array.from(boundedSeries.keys()),
+                                timeRanges,
+                                mainGElem
+                            )
+                            updatePlotRef.current(timeRanges, mainGElem)
+                        }
                     )
 
                 svg.call(zoom)

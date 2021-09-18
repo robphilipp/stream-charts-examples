@@ -2,9 +2,12 @@ import {Dimensions, Margin} from "./margins";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
-import {AxisElementSelection, SvgSelection} from "./d3types";
+import {AxisElementSelection, GSelection, SvgSelection} from "./d3types";
 import {addContinuousNumericXAxis, addContinuousNumericYAxis} from "./ContinuousAxis";
 import {noop} from "./utils";
+import {AxesState} from "./hooks/AxesState";
+import {Series} from "./datumSeries";
+import {AxesAssignment} from "./plot";
 
 export interface AxesLabelFont {
     size: number
@@ -61,7 +64,7 @@ export interface CategoryAxis extends BaseAxis {
 }
 
 export enum AxisLocation {
-    Left ,
+    Left,
     Right,
     Bottom,
     Top
@@ -171,7 +174,7 @@ function addCategoryYAxis(
         .attr('fill', axesLabelFont.color)
         .attr('font-family', axesLabelFont.family)
         .attr('font-weight', axesLabelFont.weight)
-        .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom)/2}) rotate(-90)`)
+        .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom) / 2}) rotate(-90)`)
         .text(axisLabel)
 
     const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
@@ -200,7 +203,7 @@ function updateCategoryYAxis(
 
     svg
         .select(`#stream-chart-y-axis-label-${chartId}`)
-        .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom)/2}) rotate(-90)`)
+        .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom) / 2}) rotate(-90)`)
 
     return categorySize
 }
@@ -212,6 +215,7 @@ export interface ZoomResult {
     range: ContinuousAxisRange
     zoomFactor: number
 }
+
 /**
  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
  * at the location of the mouse when the scroll wheel or gesture was applied.
@@ -233,7 +237,7 @@ export function calculateZoomFor(
     return {
         range: range.scale(transform.k, time),
         zoomFactor: transform.k
-    } ;
+    };
 }
 
 /**
@@ -260,3 +264,147 @@ export function calculatePanFor(
     return range
 }
 
+/**
+ * Higher-order function that accepts the series, the assignment of the series to axes, and the current
+ * x-axes state, and returns a function that returns calculates the distinct axis IDs that cover all
+ * the series in the plot.
+ * @param series The array of series
+ * @param axisAssignments A map association a series name with its axis assignments
+ * @param xAxesState The current axis state
+ * @return a function that returns an array of the distinct axes that cover all the series in the plot
+ */
+export function axesForSeriesGen(
+    series: Array<Series>,
+    axisAssignments: Map<string, AxesAssignment>,
+    xAxesState: AxesState
+): () => Array<string> {
+    return () => series.map(srs => srs.name)
+        // grab the x-axis assigned to the series, or use a the default x-axis if not
+        // assignment has been made
+        .map(name => axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName())
+        // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
+        // transformation more than once
+        .reduce((accum: Array<string>, axisId: string) => {
+            if (!accum.find(id => id === axisId)) {
+                accum.push(axisId)
+            }
+            return accum
+        }, [])
+}
+
+/**
+ * Higher-order function that generates a handler for pan events, given the distinct series IDs that cover all
+ * the axes in the chart, the margin, time-range update function, and the current state of the x-axes. This
+ * function returns a handler function. And this handler function adjusts the time-range when the plot is dragged
+ * to the left or right. After calling the handler function, the plot needs to be updated as well, and this is
+ * left for the caller.
+ *
+ * @param axesForSeries The distinct axes that cover all the series
+ * @param margin The plot margin
+ * @param setTimeRangeFor Function for setting the new time-range for a specific axis
+ * @param xAxesState The current state of the x-axes
+ * @return A handler function for pan events
+ */
+export function panHandler(
+    axesForSeries: Array<string>,
+    margin: Margin,
+    setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
+    xAxesState: AxesState
+): (
+    x: number,
+    plotDimensions: Dimensions,
+    series: Array<string>,
+    ranges: Map<string, ContinuousAxisRange>,
+    mainG: GSelection
+) => void {
+    /**
+     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+     * @param deltaX The amount that the plot is dragged
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time range
+     * @param mainG The main <g> element holding the plot
+     */
+    return (deltaX, plotDimensions, series, ranges, mainG) => {
+        // run through the axis IDs, adjust their domain, and update the time-range set for that axis
+        axesForSeries
+            .forEach(axisId => {
+                const xAxis = xAxesState.axisFor(axisId) as ContinuousNumericAxis
+                const timeRange = ranges.get(axisId)
+                if (timeRange) {
+                    // calculate the change in the time-range based on the pixel change from the drag event
+                    const range = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
+                    if (Math.abs(range.start - timeRange.start) < 2) return
+
+                    // update the time-range for the axis
+                    ranges.set(axisId, range)
+
+                    const {start, end} = range
+                    setTimeRangeFor(axisId, [start, end])
+
+                    // update the axis' time-range
+                    xAxis.update([start, end], plotDimensions, margin)
+                }
+            })
+        // hey, don't forget to update the plot with the new time-ranges in the
+        // code calling this... :)
+    }
+}
+
+/**
+ * Higher-order function that generates a handler for zoom events, given the distinct series IDs that cover all
+ * the axes in the chart, the margin, time-range update function, and the current state of the x-axes. This
+ * function returns a handler function. And this handler function adjusts the time-range when the plot is zoomed.
+ * After calling the handler function, the plot needs to be updated as well, and this is left for the caller.
+ *
+ * @param axesForSeries The distinct axes that cover all the series
+ * @param margin The plot margin
+ * @param setTimeRangeFor Function for setting the new time-range for a specific axis
+ * @param xAxesState The current state of the x-axes
+ * @return A handler function for pan events
+ */
+export function zoomHandler(
+    axesForSeries: Array<string>,
+    margin: Margin,
+    setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
+    xAxesState: AxesState
+): (
+    transform: ZoomTransform,
+    x: number,
+    plotDimensions: Dimensions,
+    series: Array<string>,
+    ranges: Map<string, ContinuousAxisRange>,
+    mainG: GSelection
+) => void {
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time-range
+     * @param mainG The main <g> element holding the plot
+     */
+    return (transform, x, plotDimensions, series, ranges, mainG) => {
+        // run through the axis IDs, adjust their domain, and update the time-range set for that axis
+        axesForSeries
+            .forEach(axisId => {
+                const xAxis = xAxesState.axisFor(axisId) as ContinuousNumericAxis
+                const timeRange = ranges.get(axisId)
+                if (timeRange) {
+                    const zoom = calculateZoomFor(transform, x, plotDimensions, xAxis, timeRange)
+
+                    // update the axis range
+                    ranges.set(axisId, zoom.range)
+
+                    setTimeRangeFor(axisId, [zoom.range.start, zoom.range.end])
+
+                    // update the axis' time-range
+                    xAxis.update([zoom.range.start, zoom.range.end], plotDimensions, margin)
+                }
+            })
+        // hey, don't forget to update the plot with the new time-ranges in the
+        // code calling this... :)
+    }
+}
