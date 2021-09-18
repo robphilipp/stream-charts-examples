@@ -8,11 +8,11 @@ import {Datum, emptySeries, Series} from "./datumSeries";
 import {
     axesForSeriesGen,
     BaseAxis,
-    calculatePanFor,
-    calculateZoomFor,
     ContinuousNumericAxis,
-    defaultLineStyle, panHandler,
-    SeriesLineStyle, zoomHandler
+    defaultLineStyle,
+    panHandler,
+    SeriesLineStyle,
+    zoomHandler
 } from "./axes";
 import {GSelection} from "./d3types";
 import {Subscription} from "rxjs";
@@ -300,16 +300,10 @@ export function ScatterPlot(props: Props): null {
             }
         },
         [
-            container, dataRef,
-            margin, plotDimensions,
-            chartId, axisAssignments,
-            onPan, onZoom,
-            xAxesState, yAxesState,
-            seriesStyles,
-            seriesFilter,
-            mouseOverHandlerFor,
-            mouseLeaveHandlerFor,
-            interpolation
+            container, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
+            zoomKeyModifiersRequired, onZoom, axisAssignments, xAxesState.axisFor,
+            yAxesState.axisFor, seriesStyles, seriesFilter, interpolation,
+            mouseOverHandlerFor, mouseLeaveHandlerFor
         ]
     )
 
@@ -540,7 +534,6 @@ function axesFor(
  * @param xAxis The x-axis
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param series The time series
- // * @param segment The SVG line element representing the spike, over which the mouse is hovering.
  * @param event The mouse-over series event
  * @param margin The plot margin
  * @param tooltipStyle The tooltip style information

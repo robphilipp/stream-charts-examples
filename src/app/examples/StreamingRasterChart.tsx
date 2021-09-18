@@ -30,6 +30,7 @@ import {lightTheme, Theme} from "./Themes";
 import {CategoryAxis} from "../charts/CategoryAxis";
 import {RasterPlot} from "../charts/RasterPlot";
 import {assignAxes} from "../charts/plot";
+import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
 
 interface Visibility {
     tooltip: boolean;
@@ -282,7 +283,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             backgroundOpacity: 0.9,
                         }}
                     >
-                        <ScatterPlotTooltipContent
+                        <RasterPlotTooltipContent
                             xLabel="t (ms)"
                             yLabel="count"
                             yValueFormatter={value => formatNumber(value, " ,.0f")}
@@ -298,6 +299,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         // dropDataAfter={10000}
                         panEnabled={true}
                         zoomEnabled={true}
+                        zoomKeyModifiersRequired={true}
                     />
                 </Chart>
                 {/*<RasterChart*/}

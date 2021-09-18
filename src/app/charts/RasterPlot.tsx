@@ -1,9 +1,9 @@
-import {AxesAssignment, setClipPath} from "./plot";
+import {AxesAssignment, setClipPath, TimeSeries} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {noop} from "./utils";
 import {useChart} from "./hooks/useChart";
-import {useCallback, useEffect, useMemo, useRef} from "react";
+import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {GSelection} from "./d3types";
@@ -13,12 +13,13 @@ import {
     CategoryAxis,
     ContinuousNumericAxis,
     defaultLineStyle,
-    panHandler,
+    panHandler, SeriesLineStyle,
     zoomHandler
 } from "./axes";
 import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
-import {Dimensions} from "./margins";
+import {Dimensions, Margin} from "./margins";
+import {defaultTooltipStyle, TooltipStyle} from "./tooltipUtils";
 
 interface Props {
     /**
@@ -62,6 +63,8 @@ export function RasterPlot(props: Props): null {
         initialData,
         seriesFilter,
 
+        setAxisAssignments,
+
         seriesObservable,
         windowingTime = 100,
         shouldSubscribe,
@@ -93,6 +96,14 @@ export function RasterPlot(props: Props): null {
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
         },
         [xAxesState]
+    )
+
+    // set the axis assignments needed if a tooltip is being used
+    useEffect(
+        () => {
+            setAxisAssignments(axisAssignments)
+        },
+        [axisAssignments, setAxisAssignments]
     )
 
     // calculates the distinct series IDs that cover all the series in the plot
@@ -229,28 +240,32 @@ export function RasterPlot(props: Props): null {
                     const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
 
                     // grab the series styles, or the defaults if none exist
-                    const {color, lineWidth, margin = 5} = seriesStyles.get(series.name) || {
+                    const {color, lineWidth, margin: spikeMargin = 5} = seriesStyles.get(series.name) || {
                         ...defaultLineStyle,
                         highlightColor: defaultLineStyle.color
                     }
 
                     // only show the data for which the filter matches
-                    const plotData = (series.name.match(seriesFilter)) ? series.data : []
+                    const plotData = (series.name.match(seriesFilter)) ?
+                        series.data.filter(datum => {
+                            const range = timeRanges.get(xAxis.axisId)
+                            return range === undefined ? true : datum.time >= range.start && datum.time <= range.end
+                        }) :
+                        []
 
                     // const seriesContainer = mainGElem
                     const seriesContainer = svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-raster`)
                         .selectAll<SVGLineElement, PixelDatum>('line')
-                        // .data(plotData as PixelDatum[])
-                        .data(plotData.filter(datum => {
-                            const range = timeRanges.get(xAxis.axisId)
-                            return range === undefined ? true : datum.time >= range.start && datum.time <= range.end
-                        }) as PixelDatum[])
-                    // .data(series.data.filter(datum => datum.time >= timeRangeRef.current.start && datum.time <= timeRangeRef.current.end) as PixelDatum[])
+                        .data(plotData as PixelDatum[])
+                        // .data(plotData.filter(datum => {
+                        //     const range = timeRanges.get(xAxis.axisId)
+                        //     return range === undefined ? true : datum.time >= range.start && datum.time <= range.end
+                        // }) as PixelDatum[])
 
                     //
                     // enter new elements
-                    const {yUpper, yLower} = yCoordsFn(yAxis.categorySize, lineWidth, margin)
+                    const {yUpper, yLower} = yCoordsFn(yAxis.categorySize, lineWidth, spikeMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const y = yAxis.scale(series.name) || 0
@@ -286,8 +301,35 @@ export function RasterPlot(props: Props): null {
                         .attr('y1', _ => yUpper(y))
                         .attr('y2', _ => yLower(y))
                         .attr('stroke', color)
-                    // // .on("mouseover", (datum, i, group) => handleShowTooltip(datum, series.name, group[i]))
-                    // // .on("mouseleave", (datum, i, group) => handleHideTooltip(datum, series.name, group[i]))
+                        // // .on("mouseover", (datum, i, group) => handleShowTooltip(datum, series.name, group[i]))
+                        // // .on("mouseleave", (datum, i, group) => handleHideTooltip(datum, series.name, group[i]))
+                        .on(
+                            "mouseover",
+                            (event, datumArray) =>
+                                handleMouseOverSeries(
+                                    chartId,
+                                    container,
+                                    xAxis,
+                                    series.name,
+                                    // plotData.map(datum => [datum.time, datum.value]),
+                                    [[datumArray.time, datumArray.value]],
+                                    event,
+                                    margin,
+                                    defaultTooltipStyle,
+                                    seriesStyles,
+                                    plotDimensions,
+                                    mouseOverHandlerFor(`tooltip-${chartId}`)
+                                )
+                        )
+                        .on(
+                            "mouseleave",
+                            event => handleMouseLeaveSeries(
+                                series.name,
+                                event.currentTarget,
+                                seriesStyles,
+                                mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                            )
+                        )
 
 
                     // exit old elements
@@ -295,7 +337,7 @@ export function RasterPlot(props: Props): null {
                 })
             }
         },
-        [axisAssignments, chartId, container, margin, plotDimensions, seriesFilter, seriesStyles, xAxesState.axisFor, yAxesState.axisFor]
+        [axisAssignments, chartId, container, margin, mouseOverHandlerFor, onPan, onZoom, panEnabled, plotDimensions, seriesFilter, seriesStyles, xAxesState.axisFor, yAxesState.axisFor, zoomEnabled, zoomKeyModifiersRequired]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -518,4 +560,70 @@ function axesFor(
         throw Error("Scatter plot requires that y-axis be of type LinearAxis")
     }
     return [xAxisLinear, yAxisCategory]
+}
+
+/**
+ * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
+ * @param chartId The ID of the chart
+ * @param container The chart container
+ * @param xAxis The x-axis
+ * @param seriesName The name of the series (i.e. the neuron ID)
+ * @param series The time series
+ * @param event The mouse-over series event
+ * @param margin The plot margin
+ * @param tooltipStyle The tooltip style information
+ * @param seriesStyles The series style information (needed for (un)highlighting)
+ * @param plotDimensions The dimensions of the plot
+ * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
+ */
+function handleMouseOverSeries(
+    chartId: number,
+    container: SVGSVGElement,
+    xAxis: ContinuousNumericAxis,
+    seriesName: string,
+    series: TimeSeries,
+    event: React.MouseEvent<SVGPathElement>,
+    margin: Margin,
+    tooltipStyle: TooltipStyle,
+    seriesStyles: Map<string, SeriesLineStyle>,
+    plotDimensions: Dimensions,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined,
+): void {
+    // grab the time needed for the tooltip ID
+    const [x, y] = d3.pointer(event, container)
+    const time = Math.round(xAxis.scale.invert(x - margin.left))
+
+    const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+
+    // Use d3 to select element, change color and size
+    d3.select<SVGPathElement, Datum>(event.currentTarget)
+        .attr('stroke', highlightColor)
+        .attr('stroke-width', highlightWidth)
+
+    if (mouseOverHandlerFor) {
+        mouseOverHandlerFor(seriesName, time, series, [x, y])
+    }
+}
+
+/**
+ * Unselects the time series and calls the mouse-leave-series handler registered for this series.
+ * @param seriesName The name of the series (i.e. the neuron ID)
+ * @param segment The SVG line element representing the spike, over which the mouse is hovering.
+ * @param seriesStyles The styles for the series (for (un)highlighting)
+ * @param mouseLeaverHandlerFor Registered handler for the series when the mouse leaves
+ */
+function handleMouseLeaveSeries(
+    seriesName: string,
+    segment: SVGPathElement,
+    seriesStyles: Map<string, SeriesLineStyle>,
+    mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
+): void {
+    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+    d3.select<SVGPathElement, Datum>(segment)
+        .attr('stroke', color)
+        .attr('stroke-width', lineWidth)
+
+    if (mouseLeaverHandlerFor) {
+        mouseLeaverHandlerFor(seriesName)
+    }
 }

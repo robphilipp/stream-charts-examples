@@ -311,6 +311,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         // dropDataAfter={10000}
                         panEnabled={true}
                         zoomEnabled={true}
+                        zoomKeyModifiersRequired={true}
                     />
                 </Chart>
             </GridItem>

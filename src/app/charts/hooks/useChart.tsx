@@ -8,7 +8,7 @@ import {Datum, Series} from "../datumSeries";
 import {noop} from "../utils";
 import {BaseAxis, SeriesLineStyle} from "../axes";
 import {ContinuousAxisRange} from "../continuousAxisRangeFor";
-import {TimeSeries} from "../plot";
+import {AxesAssignment, TimeSeries} from "../plot";
 import {TooltipDimensions} from "../tooltipUtils";
 import {addAxisTo, AxesState, createAxesState} from "./AxesState";
 
@@ -70,6 +70,17 @@ interface UseChartValues {
      * @param id The ID of the axis to add
      */
     addYAxis: (axis: BaseAxis, id: string) => void
+    /**
+     * Sets the axis assigned to each series. This should contain **all** the series used in
+     * the chart.
+     * @param assignments The assignment of the series to their axes
+     */
+    setAxisAssignments: (assignments: Map<string, AxesAssignment>) => void
+    /**
+     * Retrieves the axis assigned to the specified series
+     * @return The axes assigned to the specified series
+     */
+    axisAssignmentsFor: (seriesName: string) => AxesAssignment
 
     /*
      | TIMING
@@ -252,6 +263,8 @@ const defaultUseChartValues: UseChartValues = {
     yAxesState: createAxesState(),
     addXAxis: noop,
     addYAxis: noop,
+    setAxisAssignments: noop,
+    axisAssignmentsFor: seriesName => ({xAxis: "", yAxis: ""}),
 
     // timing
     timeRangeFor: () => [NaN, NaN],
@@ -334,6 +347,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const xAxesRef = useRef<AxesState>(createAxesState())
     const yAxesRef = useRef<AxesState>(createAxesState())
+    const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
 
     const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
@@ -367,6 +381,13 @@ export default function ChartProvider(props: Props): JSX.Element {
         timeUpdateHandlersRef.current.forEach((handler, ) => handler(updates, dimensions))
     }
 
+    function axisAssignmentsFor(seriesName: string): AxesAssignment {
+        return axisAssignmentsRef.current.get(seriesName) || {
+            xAxis: xAxesRef.current.axisDefaultName(),
+            yAxis: yAxesRef.current.axisDefaultName()
+        }
+    }
+
     return <ChartContext.Provider
         value={{
             chartId,
@@ -383,6 +404,8 @@ export default function ChartProvider(props: Props): JSX.Element {
             yAxesState: yAxesRef.current,
             addXAxis: (axis, id) => xAxesRef.current = addAxisTo(xAxesRef.current, axis, id),
             addYAxis: (axis, id) => yAxesRef.current = addAxisTo(yAxesRef.current, axis, id),
+            setAxisAssignments: assignments => axisAssignmentsRef.current = assignments,
+            axisAssignmentsFor: seriesName => axisAssignmentsFor(seriesName),
 
             timeRangeFor: axisId => timeRangesRef.current.get(axisId),
             setTimeRangeFor: ((axisId, timeRange) => timeRangesRef.current.set(axisId, timeRange)),
