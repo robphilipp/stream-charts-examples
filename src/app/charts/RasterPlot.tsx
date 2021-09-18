@@ -2,13 +2,14 @@ import {AxesAssignment, setClipPath, TimeSeries} from "./plot";
 import * as d3 from "d3";
 import {noop} from "./utils";
 import {useChart} from "./hooks/useChart";
-import {useCallback, useEffect, useRef} from "react";
-import {datumOf, emptySeries, PixelDatum, Series, seriesFrom} from "./datumSeries";
+import {useCallback, useEffect, useMemo, useRef} from "react";
+import {Datum, datumOf, emptySeries, PixelDatum, Series, seriesFrom} from "./datumSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {GSelection} from "./d3types";
-import {BaseAxis, CategoryAxis, ContinuousNumericAxis, defaultLineStyle} from "./axes";
+import {BaseAxis, calculatePanFor, CategoryAxis, ContinuousNumericAxis, defaultLineStyle} from "./axes";
 import {Subscription} from "rxjs";
 import {windowTime} from "rxjs/operators";
+import {Dimensions} from "./margins";
 
 interface Props {
     /**
@@ -69,6 +70,25 @@ export function RasterPlot(props: Props): null {
         [xAxesState]
     )
 
+    // calculates the distinct series IDs that cover all the series in the plot
+    const axesForSeries = useMemo(
+        (): Array<string> => {
+            return initialData.map(series => series.name)
+                // grab the x-axis assigned to the series, or use a the default x-axis if not
+                // assignment has been made
+                .map(name => axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName())
+                // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
+                // transformation more than once
+                .reduce((accum: Array<string>, axisId: string) => {
+                    if (!accum.find(id => id === axisId)) {
+                        accum.push(axisId)
+                    }
+                    return accum
+                }, [])
+        },
+        [initialData, axisAssignments, xAxesState]
+    )
+
     /**
      * Calculates the upper and lower y-coordinate for the spike line
      * @param categorySize The size of the category (i.e. plot_height / num_series)
@@ -88,6 +108,49 @@ export function RasterPlot(props: Props): null {
             yLower: y => y + categorySize - margin
         }
     }
+
+    const onPan = useCallback(
+        /**
+         * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+         * @param deltaX The amount that the plot is dragged
+         * @param plotDimensions The dimensions of the plot
+         * @param series An array of series names
+         * @param ranges A map holding the axis ID and its associated time range
+         * @param mainG The main <g> element holding the plot
+         */
+        (
+            deltaX: number,
+            plotDimensions: Dimensions,
+            series: Array<string>,
+            ranges: Map<string, ContinuousAxisRange>,
+            mainG: GSelection
+        ): void => {
+            // run through the axis IDs, adjust their domain, and update the time-range set for that axis
+            axesForSeries
+                .forEach(axisId => {
+                    const xAxis = xAxesState.axisFor(axisId) as ContinuousNumericAxis
+                    const timeRange = ranges.get(axisId)
+                    if (timeRange) {
+                        // calculate the change in the time-range based on the pixel change from the drag event
+                        const range = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
+                        if (Math.abs(range.start - timeRange.start) < 2) return
+
+                        // update the time-range for the axis
+                        ranges.set(axisId, range)
+
+                        const {start, end} = range
+                        setTimeRangeFor(axisId, [start, end])
+
+                        // update the axis' time-range
+                        xAxis.update([start, end], plotDimensions, margin)
+                    }
+                })
+
+            // need to update the plot with the new time-ranges
+            updatePlotRef.current(ranges, mainG)
+        },
+        [axesForSeries, margin, setTimeRangeFor, xAxesState]
+    )
 
     const updatePlot = useCallback(
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
@@ -113,7 +176,24 @@ export function RasterPlot(props: Props): null {
                     .attr('transform', `translate(${margin.left}, ${margin.top})`);
 
                 // set up panning
-                // todo set up panning
+                const drag = d3.drag<SVGSVGElement, Datum>()
+                    .on("start", () => {
+                        // todo during a pan, we want to hide the tooltip
+                        d3.select(container).style("cursor", "move")
+                    })
+                    .on("drag", (event) => onPan(
+                        event.dx,
+                        plotDimensions,
+                        boundedSeries.map(series => series.name),
+                        timeRanges,
+                        mainGElem
+                    ))
+                    .on("end", () => {
+                        // todo if the tooltip was originally visible, then allow it to be seen again
+                        d3.select(container).style("cursor", "auto")
+                    })
+
+                svg.call(drag)
 
                 // set up zoom
                 // todo set up zoom
