@@ -236,25 +236,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         label="x-axis"
                         // font={{color: theme.color}}
                     />
-                    {/*<ContinuousAxis*/}
-                    {/*    axisId="y-axis-1"*/}
-                    {/*    location={AxisLocation.Left}*/}
-                    {/*    domain={[0, 1000]}*/}
-                    {/*    label="y-axis"*/}
-                    {/*/>*/}
-                    {/*<ContinuousAxis*/}
-                    {/*    axisId="x-axis-2"*/}
-                    {/*    location={AxisLocation.Top}*/}
-                    {/*    domain={[10, 1000]}*/}
-                    {/*    label="x-axis (2)"*/}
-                    {/*/>*/}
-                    {/*<ContinuousAxis*/}
-                    {/*    axisId="y-axis-2"*/}
-                    {/*    location={AxisLocation.Right}*/}
-                    {/*    scale={d3.scaleLog()}*/}
-                    {/*    domain={[100, 1200]}*/}
-                    {/*    label="y-axis (2)"*/}
-                    {/*/>*/}
                     <CategoryAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
@@ -284,10 +265,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         }}
                     >
                         <RasterPlotTooltipContent
-                            xLabel="t (ms)"
-                            yLabel="count"
-                            yValueFormatter={value => formatNumber(value, " ,.0f")}
-                            yChangeFormatter={value => formatNumber(value, " ,.0f")}
+                            xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
+                            yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
                         />
                     </Tooltip>
                     <RasterPlot

@@ -2,7 +2,7 @@ import {TimeSeries} from "./plot";
 import {Dimensions, Margin} from "./margins";
 import {categoryTooltipY, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX} from "./tooltipUtils";
 import * as d3 from "d3";
-import {formatTime, formatTimeChange, formatValue, formatValueChange} from "./utils";
+import {formatTime, formatValue} from "./utils";
 import {useEffect, useMemo} from "react";
 import {useChart} from "./hooks/useChart";
 import {CategoryAxis} from "./axes";
@@ -50,12 +50,12 @@ import {CategoryAxis} from "./axes";
  // register the tooltip content provider function with the chart hook (useChart) so that
  // it is visible to all children of the Chart (i.e. the <Tooltip>).
  registerTooltipContentProvider(
- (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
- addTooltipContent(
- seriesName, time, series, mouseCoords,
- chartId, container, margin, plotDimensions,
- defaultTooltipStyle, options
- )
+     (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
+         addTooltipContent(
+         seriesName, time, series, mouseCoords,
+         chartId, container, margin, plotDimensions,
+         defaultTooltipStyle, options
+     )
  )
  ```
 
@@ -69,17 +69,13 @@ import {CategoryAxis} from "./axes";
  * as shown below.
  * ```
  * series name
- *            headers.before       headers.after         headers.delta
- * labels.x   formatters.x.value   formatters.x.value    formatters.x.change
- * labels.y   formatters.y.value   formatters.y.value    formatters.y.change
+ * formatters.x(x), formatters.y(y)
  * ```
  */
 interface TooltipOptions {
-    labels: { x: string, y: string }
-    // headers: { before: string, after: string, delta: string }
     formatters: {
-        x: { value: (value: number) => string, change: (value1: number, value2: number) => string },
-        y: { value: (value: number) => string, change: (value1: number, value2: number) => string },
+        x: (value: number) => string,
+        y: (value: number) => string,
     }
 }
 
@@ -88,35 +84,20 @@ interface TooltipOptions {
  * shown below.
  * ```
  * series name
- *          beforeHeader      afterHeader        deltaHeader
- * xLabel   xValueFormatter   xValueFormatter    xChangeFormatter
- * yLabel   yValueFormatter   yValueFormatter    yChangeFormatter
+ * xFormatter, yFormatter
  * ```
  */
 interface Props {
-    // label for the x-values (x-value row header)
-    xLabel: string
-    yLabel: string
-    beforeHeader?: string
-    afterHeader?: string
-    deltaHeader?: string
-    xValueFormatter?: (value: number) => string
-    yValueFormatter?: (value: number) => string
-    xChangeFormatter?: (value1: number, value2: number) => string,
-    yChangeFormatter?: (value1: number, value2: number) => string,
+    xFormatter?: (value: number) => string
+    yFormatter?: (value: number) => string
     style?: Partial<TooltipStyle>
 }
 
 /**
- * Adds tooltip content as a table. The columns of the table are the "label", the value before
- * the mouse cursor, then value after the mouse cursor, and the difference between the two values.
- * The rows of the table are x-values for the first row, and the y-values for the second row.
- * The table has the following form.
+ * Adds tooltip content that shows the series name and the (time, value) of the selected point.
  * ```
  * series name
- *            before     after         ∆
- * x-label     x_tb      x_ta       x_ta - x_tb
- * y-label     y_tb      y_ta       y_ta - y_tb
+ * time, value
  * ```
  *
  * Registers the tooltip-content provider with the `ChartContext` so that when d3 fires a mouse-over
@@ -138,15 +119,8 @@ export function RasterPlotTooltipContent(props: Props): null {
         axisAssignmentsFor,
     } = useChart()
     const {
-        xLabel,
-        yLabel,
-        // beforeHeader = 'before',
-        // afterHeader = 'after',
-        // deltaHeader = '∆',
-        xValueFormatter = formatTime,
-        yValueFormatter = formatValue,
-        xChangeFormatter = formatTimeChange,
-        yChangeFormatter = formatValueChange,
+        xFormatter = formatTime,
+        yFormatter = formatValue,
         style,
     } = props
 
@@ -166,21 +140,27 @@ export function RasterPlotTooltipContent(props: Props): null {
             if (container) {
                 // assemble the options for adding the tooltip
                 const options: TooltipOptions = {
-                    labels: {x: xLabel, y: yLabel},
-                    // headers: {before: beforeHeader, after: afterHeader, delta: deltaHeader},
                     formatters: {
-                        x: {value: xValueFormatter, change: xChangeFormatter},
-                        y: {value: yValueFormatter, change: yChangeFormatter},
+                        x: xFormatter,
+                        y: yFormatter,
                     }
                 }
 
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
+                    /**
+                     *
+                     * @param seriesName The name of the series
+                     * @param time The mouse time
+                     * @param series One point that has the (time, value) of the selected element
+                     * @param mouseCoords The coordinates of the mouse
+                     * @return The tooltip contents
+                     */
                     (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => {
                         const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
                         return addTooltipContent(
-                            seriesName, time, series, mouseCoords,
+                            seriesName, time, series[0], mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
                             assignedAxis,
                             options
@@ -191,9 +171,8 @@ export function RasterPlotTooltipContent(props: Props): null {
         },
         [
             chartId, container, margin, plotDimensions, registerTooltipContentProvider,
-            xLabel, xChangeFormatter, xValueFormatter,
-            yLabel, yChangeFormatter, yValueFormatter,
-            // beforeHeader, afterHeader, deltaHeader,
+            xFormatter,
+            yFormatter,
             tooltipStyle,
             yAxesState, axisAssignmentsFor
         ]
@@ -206,12 +185,13 @@ export function RasterPlotTooltipContent(props: Props): null {
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param time The time (x-coordinate value) corresponding to the mouse location
- * @param series The spike datum (t ms, s mV)
+ * @param selected The selected datum (time, value)
  * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
  * @param chartId The ID of this chart
  * @param container The plot container (SVGSVGElement)
  * @param margin The plot margins
  * @param tooltipStyle The style properties for the tooltip
+ * @param axis The category axis to which the time-series is associated
  * @param plotDimensions The dimensions of the plot
  * @param options The options passed through the the function that adds the tooltip content
  * @return The width and text height of the tooltip content
@@ -219,7 +199,7 @@ export function RasterPlotTooltipContent(props: Props): null {
 function addTooltipContent(
     seriesName: string,
     time: number,
-    series: TimeSeries,
+    selected: [time: number, value: number],
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -229,10 +209,9 @@ function addTooltipContent(
     axis: CategoryAxis,
     options: TooltipOptions
 ): TooltipDimensions {
-    const {labels, formatters} = options
+    const {formatters} = options
     const [x, ] = mouseCoords
-    // const [lower, upper] = boundingPoints(series, time)
-    const [spikeTime, value] = series[0]
+    const [spikeTime, value] = selected
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
@@ -254,7 +233,8 @@ function addTooltipContent(
         .attr('font-family', 'sans-serif')
         .attr('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
-        .text(() => `${d3.format(",.0f")(spikeTime)} ms, ${d3.format(",.2f")(value)} mV`)
+        .text(() => `${formatters.x(spikeTime)}, ${formatters.y(value)}`)
+        // .text(() => `${d3.format(",.0f")(spikeTime)} ms, ${d3.format(",.2f")(value)} mV`)
 
     // calculate the max width and height of the text
     const tooltipWidth = Math.max(header.node()?.getBBox()?.width || 0, text.node()?.getBBox()?.width || 0);
