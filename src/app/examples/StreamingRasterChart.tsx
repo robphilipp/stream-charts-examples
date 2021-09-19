@@ -275,7 +275,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         //     ['test2', assignAxes("x-axis-1", "y-axis-1")],
                         //     ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         // ])}
-                        // dropDataAfter={10000}
+                        dropDataAfter={10000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

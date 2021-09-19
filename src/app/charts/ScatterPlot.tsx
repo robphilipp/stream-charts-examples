@@ -1,10 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {useChart} from "./hooks/useChart";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {AxesAssignment, setClipPath, TimeSeries} from "./plot";
-import {Datum, emptySeries, Series} from "./datumSeries";
+import {Datum, Series} from "./datumSeries";
 import {
     axesForSeriesGen,
     BaseAxis,
@@ -12,14 +12,16 @@ import {
     defaultLineStyle,
     panHandler,
     SeriesLineStyle,
+    timeIntervals,
+    timeRanges,
     zoomHandler
 } from "./axes";
 import {GSelection} from "./d3types";
 import {Subscription} from "rxjs";
-import {windowTime} from "rxjs/operators";
 import {noop} from "./utils";
 import {Dimensions, Margin} from "./margins";
 import {defaultTooltipStyle, TooltipStyle} from "./tooltipUtils";
+import {subscriptionFor} from "./subscriptions";
 
 interface Props {
     /**
@@ -342,80 +344,26 @@ export function ScatterPlot(props: Props): null {
         [mainG]
     )
 
+    // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
-
-            const subscription = seriesObservable
-                .pipe(windowTime(windowingTime))
-                .subscribe(async dataList => {
-                    await dataList.forEach(data => {
-                        // grab the time-windows for the x-axes
-                        const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-
-                        // calculate the max times for each x-axis, which is the max time over all the
-                        // series assigned to an x-axis
-                        const axesSeries = Array.from(data.maxTimes.entries())
-                            .reduce(
-                                (assignedSeries, [seriesName,]) => {
-                                    const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
-                                    const as = assignedSeries.get(id) || []
-                                    as.push(seriesName)
-                                    assignedSeries.set(id, as)
-                                    return assignedSeries
-                                },
-                                new Map<string, Array<string>>()
-                            )
-
-                        // add each new point to it's corresponding series
-                        data.newPoints.forEach((newData, name) => {
-                            // grab the current series associated with the new data
-                            const series = seriesRef.current.get(name) || emptySeries(name)
-
-                            // update the handler with the new data point
-                            onUpdateData(name, newData)
-
-                            // add the new data to the series
-                            series.data.push(...newData)
-
-                            const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName()
-                            const currentAxisTime = axesSeries.get(axisId)
-                                ?.reduce(
-                                    (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
-                                    -Infinity
-                                ) || data.maxTime
-                            if (currentAxisTime !== undefined) {
-                                // drop data that is older than the max time-window
-                                while (currentAxisTime - series.data[0].time > dropDataAfter) {
-                                    series.data.shift()
-                                }
-
-                                const range = timesWindows.get(axisId)
-                                if (range !== undefined && range.end < currentAxisTime) {
-                                    const timeWindow = range.end - range.start
-                                    const timeRange = continuousAxisRangeFor(
-                                        Math.max(0, currentAxisTime - timeWindow),
-                                        Math.max(currentAxisTime, timeWindow)
-                                    )
-                                    timesWindows.set(axisId, timeRange)
-                                    currentTimeRef.current.set(axisId, timeRange.end)
-                                }
-                            }
-                        })
-
-                        // update the data
-                        updateTimingAndPlot(timesWindows)
-                    })
-                })
-
-            // provide the subscription to the caller
-            onSubscribe(subscription)
-
-            return subscription
+            return subscriptionFor(
+                seriesObservable,
+                onSubscribe,
+                windowingTime,
+                axisAssignments, xAxesState,
+                onUpdateData,
+                dropDataAfter,
+                updateTimingAndPlot,
+                seriesRef.current,
+                (axisId, end) => currentTimeRef.current.set(axisId, end)
+            )
         },
         [
-            seriesObservable, mainG, windowingTime, onSubscribe, xAxesState, updateTimingAndPlot,
-            axisAssignments, onUpdateData, dropDataAfter
+            axisAssignments, dropDataAfter, mainG,
+            onSubscribe, onUpdateData,
+            seriesObservable, updateTimingAndPlot, windowingTime, xAxesState
         ]
     )
 
@@ -429,7 +377,6 @@ export function ScatterPlot(props: Props): null {
                 // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
                 // interpolation changes, then the update plot changes, and the time-ranges must maintain their
                 // original scale as well.
-                // const ranges = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 if (timeRangesRef.current.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
@@ -472,29 +419,6 @@ export function ScatterPlot(props: Props): null {
     )
 
     return null
-}
-
-/**
- * Calculates the time-ranges for each of the axes in the map
- * @param xAxes The map containing the axes and their associated IDs
- * @return a map associating the axis IDs to their time-range
- */
-function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
-    return new Map(Array.from(xAxes.entries())
-        .map(([id, axis]) => {
-            const [start, end] = axis.scale.domain()
-            return [id, continuousAxisRangeFor(start, end)]
-        }))
-}
-
-/**
- * Calculates the time-intervals (start, end) for each of the x-axis
- * @param xAxes The x-axes representing the time
- * @return A map associating each x-axis with a (start, end) interval
- */
-function timeIntervals(xAxes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
-    return new Map(Array.from(xAxes.entries())
-        .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
 }
 
 /**

@@ -4,8 +4,8 @@ import {ZoomTransform} from "d3";
 import {noop} from "./utils";
 import {useChart} from "./hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
-import {Datum, emptySeries, PixelDatum, Series} from "./datumSeries";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {Datum, PixelDatum, Series} from "./datumSeries";
+import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 import {GSelection} from "./d3types";
 import {
     axesForSeriesGen,
@@ -13,13 +13,16 @@ import {
     CategoryAxis,
     ContinuousNumericAxis,
     defaultLineStyle,
-    panHandler, SeriesLineStyle,
+    panHandler,
+    SeriesLineStyle,
+    timeIntervals,
+    timeRanges,
     zoomHandler
 } from "./axes";
 import {Subscription} from "rxjs";
-import {windowTime} from "rxjs/operators";
 import {Dimensions, Margin} from "./margins";
 import {defaultTooltipStyle, TooltipStyle} from "./tooltipUtils";
+import {subscriptionFor} from "./subscriptions";
 
 interface Props {
     /**
@@ -85,7 +88,12 @@ export function RasterPlot(props: Props): null {
         zoomKeyModifiersRequired = true
     } = props
 
-    // const liveDataRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
+    // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
+    // are by reference, so the seriesRef, also holds on to the same Series. When the Series in seriesRef
+    // get appended with new data, it's updating the underlying series, and so the dataRef sees those
+    // changes as well. The dataRef is used for performance, so that in the updatePlot function we don't
+    // need to create a temporary array to holds the series data, rather, we can just use the one held in
+    // the dataRef.
     const dataRef = useRef<Array<Series>>(initialData.slice())
     const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
@@ -253,15 +261,10 @@ export function RasterPlot(props: Props): null {
                         }) :
                         []
 
-                    // const seriesContainer = mainGElem
                     const seriesContainer = svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-raster`)
                         .selectAll<SVGLineElement, PixelDatum>('line')
                         .data(plotData as PixelDatum[])
-                        // .data(plotData.filter(datum => {
-                        //     const range = timeRanges.get(xAxis.axisId)
-                        //     return range === undefined ? true : datum.time >= range.start && datum.time <= range.end
-                        // }) as PixelDatum[])
 
                     //
                     // enter new elements
@@ -273,9 +276,7 @@ export function RasterPlot(props: Props): null {
                     seriesContainer
                         .enter()
                         .append<SVGLineElement>('line')
-                        .each(datum => {
-                            datum.x = xAxis.scale(datum.time)
-                        })
+                        .each(datum => datum.x = xAxis.scale(datum.time))
                         .attr('class', 'spikes-lines')
                         .attr('x1', datum => datum.x)
                         .attr('x2', datum => datum.x)
@@ -285,24 +286,15 @@ export function RasterPlot(props: Props): null {
                         .attr('stroke-width', lineWidth)
                         .attr('stroke-linecap', "round")
                         .attr("clip-path", `url(#${clipPathId})`)
-                    // even though the tooltip may not be set to show up on the mouseover, we want to attach the handler
-                    // so that when the use enables tooltips the handlers will show the the tooltip
-                    // .on("mouseover", (datum, i, group) => handleShowTooltip(datum, series.name, group[i]))
-                    // .on("mouseleave", (datum, i, group) => handleHideTooltip(datum, series.name, group[i]))
 
                     // update
                     seriesContainer
-                        // .filter(datum => datum.time >= timeRangeRef.current.start)
-                        .each(datum => {
-                            datum.x = xAxis.scale(datum.time)
-                        })
+                        .each(datum => datum.x = xAxis.scale(datum.time))
                         .attr('x1', datum => datum.x)
                         .attr('x2', datum => datum.x)
                         .attr('y1', _ => yUpper(y))
                         .attr('y2', _ => yLower(y))
                         .attr('stroke', color)
-                        // // .on("mouseover", (datum, i, group) => handleShowTooltip(datum, series.name, group[i]))
-                        // // .on("mouseleave", (datum, i, group) => handleHideTooltip(datum, series.name, group[i]))
                         .on(
                             "mouseover",
                             (event, datumArray) =>
@@ -311,8 +303,7 @@ export function RasterPlot(props: Props): null {
                                     container,
                                     xAxis,
                                     series.name,
-                                    // plotData.map(datum => [datum.time, datum.value]),
-                                    [[datumArray.time, datumArray.value]],
+                                    [datumArray.time, datumArray.value],
                                     event,
                                     margin,
                                     defaultTooltipStyle,
@@ -337,7 +328,15 @@ export function RasterPlot(props: Props): null {
                 })
             }
         },
-        [axisAssignments, chartId, container, margin, mouseOverHandlerFor, onPan, onZoom, panEnabled, plotDimensions, seriesFilter, seriesStyles, xAxesState.axisFor, yAxesState.axisFor, zoomEnabled, zoomKeyModifiersRequired]
+        [
+            axisAssignments, chartId, container, margin,
+            mouseLeaveHandlerFor, mouseOverHandlerFor, onPan, onZoom,
+            panEnabled,
+            plotDimensions,
+            seriesFilter, seriesStyles,
+            xAxesState.axisFor, yAxesState.axisFor,
+            zoomEnabled, zoomKeyModifiersRequired
+        ]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -375,77 +374,21 @@ export function RasterPlot(props: Props): null {
         [mainG]
     )
 
+    // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
-
-            const subscription = seriesObservable
-                .pipe(windowTime(windowingTime))
-                .subscribe(async dataList => {
-                    await dataList.forEach(data => {
-                        // grab the time-winds for the x-axes
-                        const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-
-                        // calculate the max times for each x-axis, which is the max time over all the
-                        // series assigned to an x-axis
-                        const axesSeries = Array.from(data.maxTimes.entries())
-                            .reduce(
-                                (assignedSeries, [seriesName,]) => {
-                                    const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
-                                    const as = assignedSeries.get(id) || []
-                                    as.push(seriesName)
-                                    assignedSeries.set(id, as)
-                                    return assignedSeries
-                                },
-                                new Map<string, Array<string>>()
-                            )
-
-                        // add each new point to it's corresponding series, the new points
-                        // is a map(series_name -> new_point[])
-                        data.newPoints.forEach((newData, name) => {
-                            // grab the current series associated with the new data
-                            const series = seriesRef.current.get(name) || emptySeries(name);
-
-                            // update the handler with the new data point
-                            onUpdateData(name, newData);
-
-                            // add the new data to the series
-                            series.data.push(...newData);
-
-                            const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName()
-                            const currentAxisTime = axesSeries.get(axisId)
-                                ?.reduce(
-                                    (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
-                                    -Infinity
-                                ) || data.maxTime
-                            if (currentAxisTime !== undefined) {
-                                // drop data that is older than the max time-window
-                                while (currentAxisTime - series.data[0].time > dropDataAfter) {
-                                    series.data.shift()
-                                }
-
-                                const range = timesWindows.get(axisId)
-                                if (range !== undefined && range.end < currentAxisTime) {
-                                    const timeWindow = range.end - range.start
-                                    const timeRange = continuousAxisRangeFor(
-                                        Math.max(0, currentAxisTime - timeWindow),
-                                        Math.max(currentAxisTime, timeWindow)
-                                    )
-                                    timesWindows.set(axisId, timeRange)
-                                    currentTimeRef.current.set(axisId, timeRange.end)
-                                }
-                            }
-                        })
-
-                        // update the data
-                        updateTimingAndPlot(timesWindows)
-                    })
-                })
-
-            // provide the subscription to the caller
-            onSubscribe(subscription)
-
-            return subscription
+            return subscriptionFor(
+                seriesObservable,
+                onSubscribe,
+                windowingTime,
+                axisAssignments, xAxesState,
+                onUpdateData,
+                dropDataAfter,
+                updateTimingAndPlot,
+                seriesRef.current,
+                (axisId, end) => currentTimeRef.current.set(axisId, end)
+            )
         },
         [
             axisAssignments, dropDataAfter, mainG,
@@ -510,37 +453,16 @@ export function RasterPlot(props: Props): null {
 }
 
 /**
- * Calculates the time-ranges for each of the axes in the map
- * @param xAxes The map containing the axes and their associated IDs
- * @return a map associating the axis IDs to their time-range
- */
-function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
-    return new Map(Array.from(xAxes.entries())
-        .map(([id, axis]) => {
-            const [start, end] = axis.scale.domain()
-            return [id, continuousAxisRangeFor(start, end)]
-        }))
-}
-
-/**
- * Calculates the time-intervals (start, end) for each of the x-axis
- * @param xAxes The x-axes representing the time
- * @return A map associating each x-axis with a (start, end) interval
- */
-function timeIntervals(xAxes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
-    return new Map(Array.from(xAxes.entries())
-        .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
-}
-
-/**
  * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
- * series name, then uses the default returned by the useChart() hook
+ * series name, then uses the default returned by the useChart() hook.
  * @param seriesName Name of the series for which to retrieve the axis
  * @param axisAssignments A map holding the series name and the associated x- and y-axes assigned
  * to that series. Note that the series in the axis-assignment map is merely a subset of the set
  * of series names.
  * @param xAxisFor The function that accepts an axis ID and returns the corresponding x-axis
  * @param yAxisFor The function that accepts an axis ID and returns the corresponding y-axis
+ * @return A 2d tuple holding the linear x-axis as its first element and the category y-axis as
+ * the second element.
  */
 function axesFor(
     seriesName: string,
@@ -551,13 +473,13 @@ function axesFor(
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
     const xAxisLinear = xAxis as ContinuousNumericAxis
+    if (xAxis && !xAxisLinear) {
+        throw Error("Raster plot requires that x-axis be of type LinearAxis")
+    }
     const yAxis = yAxisFor(axes?.yAxis || "")
     const yAxisCategory = yAxis as CategoryAxis
-    if (xAxis && !xAxisLinear) {
-        throw Error("Scatter plot requires that x-axis be of type LinearAxis")
-    }
     if (yAxis && !yAxisCategory) {
-        throw Error("Scatter plot requires that y-axis be of type LinearAxis")
+        throw Error("Raster plot requires that y-axis be of type CategoryAxis")
     }
     return [xAxisLinear, yAxisCategory]
 }
@@ -568,7 +490,7 @@ function axesFor(
  * @param container The chart container
  * @param xAxis The x-axis
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param series The time series
+ * @param selectedDatum The selected datum
  * @param event The mouse-over series event
  * @param margin The plot margin
  * @param tooltipStyle The tooltip style information
@@ -581,7 +503,7 @@ function handleMouseOverSeries(
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
-    series: TimeSeries,
+    selectedDatum: [x: number, y: number],
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
     tooltipStyle: TooltipStyle,
@@ -601,7 +523,11 @@ function handleMouseOverSeries(
         .attr('stroke-width', highlightWidth)
 
     if (mouseOverHandlerFor) {
-        mouseOverHandlerFor(seriesName, time, series, [x, y])
+        // the contract for the mouse over handler is for a time-series, but here we only
+        // need one point, the selected datum, and so we convert it into an array of point
+        // (i.e. a time-series). The category tooltip is (and custom ones, must) be
+        // written to expect only the selected point
+        mouseOverHandlerFor(seriesName, time, [selectedDatum], [x, y])
     }
 }
 

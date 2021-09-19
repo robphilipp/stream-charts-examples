@@ -1,5 +1,5 @@
 import {Dimensions, Margin} from "./margins";
-import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
 import {AxisElementSelection, SvgSelection} from "./d3types";
@@ -407,4 +407,27 @@ export function zoomHandler(
             })
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }
+}
+
+/**
+ * Calculates the time-ranges for each of the axes in the map
+ * @param xAxes The map containing the axes and their associated IDs
+ * @return a map associating the axis IDs to their time-range
+ */
+export function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
+    return new Map(Array.from(xAxes.entries())
+        .map(([id, axis]) => {
+            const [start, end] = axis.scale.domain()
+            return [id, continuousAxisRangeFor(start, end)]
+        }))
+}
+
+/**
+ * Calculates the time-intervals (start, end) for each of the x-axis
+ * @param xAxes The x-axes representing the time
+ * @return A map associating each x-axis with a (start, end) interval
+ */
+export function timeIntervals(xAxes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
+    return new Map(Array.from(xAxes.entries())
+        .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
 }
