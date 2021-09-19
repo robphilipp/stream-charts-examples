@@ -250,7 +250,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    windowingTime={10}
+                    windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
@@ -312,6 +312,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
+                        // withCadenceOf={30}
                     />
                 </Chart>
             </GridItem>

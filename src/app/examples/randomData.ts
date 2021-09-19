@@ -32,7 +32,7 @@ function randomSpikeData(
                 return [
                 name,
                 [{
-                    time: sequenceTime + maxTime - Math.ceil(Math.random() * updatePeriod),
+                    time: sequenceTime + maxTime,// - Math.ceil(Math.random() * updatePeriod),
                     value: Math.random()
                 }]
             ]}))

@@ -85,7 +85,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
     // const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialData.map(series => series.name)));
-    const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.slice()));
+    const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.slice(), 25));
     // const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.map(series => series.name)));
     const [running, setRunning] = useState<boolean>(false)
     // const subscriptionRef = useRef<Subscription>();
@@ -227,7 +227,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    windowingTime={10}
+                    windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
@@ -279,6 +279,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
+                        withCadenceOf={30}
                     />
                 </Chart>
                 {/*<RasterChart*/}

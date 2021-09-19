@@ -19,6 +19,7 @@ export interface ChartData {
      * data points for that time-series (`map(series_name -> array(datum))`)
      */
     newPoints: Map<string, Array<Datum>>
+    currentTime?: number
 }
 
 /**

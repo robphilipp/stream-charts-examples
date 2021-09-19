@@ -22,7 +22,7 @@ import {
 import {Subscription} from "rxjs";
 import {Dimensions, Margin} from "./margins";
 import {defaultTooltipStyle, TooltipStyle} from "./tooltipUtils";
-import {subscriptionFor} from "./subscriptions";
+import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
 
 interface Props {
     /**
@@ -49,6 +49,15 @@ interface Props {
      * in order to activate the zoom
      */
     zoomKeyModifiersRequired?: boolean
+    /**
+     * When set, uses a cadence with the specified refresh period (in milliseconds). For plots
+     * where the updates are slow (> 100 ms) using a cadence of 10 to 25 ms smooths out the
+     * updates and makes the plot updates look cleaner. When updates are around 25 ms or less,
+     * then setting the cadence period too small will result in poor update performance. Generally
+     * at high update speeds, the cadence is unnecessary. Finally, using cadence, sets the max time
+     * to the current time.
+     */
+    withCadenceOf?: number
 }
 
 export function RasterPlot(props: Props): null {
@@ -85,7 +94,8 @@ export function RasterPlot(props: Props): null {
         dropDataAfter = Infinity,
         panEnabled = false,
         zoomEnabled = false,
-        zoomKeyModifiersRequired = true
+        zoomKeyModifiersRequired = true,
+        withCadenceOf
     } = props
 
     // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
@@ -378,6 +388,20 @@ export function RasterPlot(props: Props): null {
     const subscribe = useCallback(
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
+            if (withCadenceOf !== undefined) {
+                return subscriptionWithCadenceFor(
+                    seriesObservable,
+                    onSubscribe,
+                    windowingTime,
+                    axisAssignments, xAxesState,
+                    onUpdateData,
+                    dropDataAfter,
+                    updateTimingAndPlot,
+                    seriesRef.current,
+                    (axisId, end) => currentTimeRef.current.set(axisId, end),
+                    withCadenceOf
+                )
+            }
             return subscriptionFor(
                 seriesObservable,
                 onSubscribe,
@@ -407,7 +431,6 @@ export function RasterPlot(props: Props): null {
                 // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
                 // interpolation changes, then the update plot changes, and the time-ranges must maintain their
                 // original scale as well.
-                // const ranges = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 if (timeRangesRef.current.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
