@@ -277,7 +277,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[100, 1000]}
+                        domain={[100, 2500]}
                         label="x-axis (2)"
                     />
                     <ContinuousAxis

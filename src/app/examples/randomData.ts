@@ -19,6 +19,7 @@ function randomSpikeData(
     seriesMaxTimes: Map<string, number>,
     updatePeriod: number
 ): ChartData {
+    const maxTime = Math.max(...Array.from(seriesMaxTimes.values()))
     const maxTimes = new Map(
         Array.from(seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
     )
@@ -28,7 +29,7 @@ function randomSpikeData(
         newPoints: new Map(series
             .filter(_ => Math.random() > 0.5)
             .map(name => {
-                const maxTime = seriesMaxTimes.get(name) || 0
+                // const maxTime = seriesMaxTimes.get(name) || 0
                 return [
                 name,
                 [{
@@ -37,6 +38,24 @@ function randomSpikeData(
                 }]
             ]}))
     };
+    // const maxTimes = new Map(
+    //     Array.from(seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
+    // )
+    // return {
+    //     maxTime: sequenceTime,
+    //     maxTimes,
+    //     newPoints: new Map(series
+    //         .filter(_ => Math.random() > 0.5)
+    //         .map(name => {
+    //             const maxTime = seriesMaxTimes.get(name) || 0
+    //             return [
+    //             name,
+    //             [{
+    //                 time: sequenceTime + maxTime,// - Math.ceil(Math.random() * updatePeriod),
+    //                 value: Math.random()
+    //             }]
+    //         ]}))
+    // };
 }
 
 /**

@@ -150,7 +150,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         >
             <GridItem gridAreaName="chart-controls">
                 <div>
-                    <label>regex filter <input
+                    <label style={{color: theme.color}}>regex filter <input
                         type="text"
                         value={filterValue}
                         onChange={event => handleUpdateRegex(event.currentTarget.value)}
@@ -207,7 +207,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                 <Chart
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 20, right: 60}}
+                    margin={{...defaultMargin, top: 60, right: 60}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
@@ -226,6 +226,13 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
                         domain={[10, 5000]}
+                        label="x-axis"
+                        // font={{color: theme.color}}
+                    />
+                    <ContinuousAxis
+                        axisId="x-axis-2"
+                        location={AxisLocation.Top}
+                        domain={[0, 2500]}
                         label="x-axis"
                         // font={{color: theme.color}}
                     />
@@ -263,11 +270,11 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         />
                     </Tooltip>
                     <RasterPlot
-                        // axisAssignments={new Map([
-                        //     ['test', assignAxes("x-axis-1", "y-axis-1")],
-                        //     ['test2', assignAxes("x-axis-1", "y-axis-1")],
-                        //     ['test3', assignAxes("x-axis-1", "y-axis-1")],
-                        // ])}
+                        axisAssignments={new Map([
+                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                            ['test2', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                        ])}
                         dropDataAfter={10000}
                         panEnabled={true}
                         zoomEnabled={true}
