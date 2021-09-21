@@ -138,14 +138,14 @@ export function subscriptionWithCadenceFor(
 ): Subscription {
     const maxTime = Array.from(seriesMap.entries())
         .reduce(
-            (tMax, [name, series]) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(tMax)),
+            (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(tMax)),
             -Infinity
         )
     const cadence = interval(cadencePeriod)
         .pipe(
             map(value => ({
                 currentTime: value * cadencePeriod,
-                    maxTime: value * cadencePeriod,// + maxTime,
+                    maxTime: value * cadencePeriod,
                     maxTimes: new Map(),
                     newPoints: new Map()
                 } as ChartData)
@@ -157,7 +157,6 @@ export function subscriptionWithCadenceFor(
             mergeWith(cadence),
             windowTime(windowingTime),
             mergeAll(),
-            // mergeWith(cadence)
         )
         .subscribe(data => {
             // grab the time-windows for the x-axes
@@ -167,7 +166,6 @@ export function subscriptionWithCadenceFor(
                 xAxesState.axisIds().forEach(axisId => {
                     const range = timesWindows.get(axisId)
                     if (range !== undefined && data.currentTime !== undefined) {
-                        // const time = data.newPoints.size === 0 ? data.maxTime : range.start + windowingTime
                         const timeWindow = (range.end - range.start)
                         const timeRange = continuousAxisRangeFor(
                             Math.max(0, Math.max(range.end, data.currentTime + maxTime) - timeWindow),
@@ -175,7 +173,6 @@ export function subscriptionWithCadenceFor(
                         )
                         timesWindows.set(axisId, timeRange)
                         setCurrentTime(axisId, data.currentTime + maxTime)
-                        // console.log(axisId, data.maxTime, data.newPoints.size, timeWindow, range)
                     }
                 })
             }
@@ -184,6 +181,19 @@ export function subscriptionWithCadenceFor(
                 updateTimingAndPlot(timesWindows)
                 return
             }
+
+            // determine which series belong to each x-axis
+            const axesSeries = Array.from(data.maxTimes.entries())
+                .reduce(
+                    (assignedSeries, [seriesName,]) => {
+                        const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
+                        const as = assignedSeries.get(id) || []
+                        as.push(seriesName)
+                        assignedSeries.set(id, as)
+                        return assignedSeries
+                    },
+                    new Map<string, Array<string>>()
+                )
 
             // add each new point to it's corresponding series, the new points
             // is a map(series_name -> new_point[])
@@ -196,6 +206,20 @@ export function subscriptionWithCadenceFor(
 
                 // add the new data to the series
                 series.data.push(...newData);
+
+                // drop data when specified
+                const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName()
+                const currentAxisTime = axesSeries.get(axisId)
+                    ?.reduce(
+                        (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
+                        -Infinity
+                    ) || data.maxTime
+                if (currentAxisTime !== undefined) {
+                    // drop data that is older than the max time-window
+                    while (currentAxisTime - series.data[0].time > dropDataAfter) {
+                        series.data.shift()
+                    }
+                }
             })
 
             // update the data

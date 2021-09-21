@@ -1,6 +1,5 @@
 import {TimeSeries} from "./plot";
 import * as d3 from "d3";
-import {ScaleBand} from "d3";
 import {Datum} from "./datumSeries";
 import {Dimensions, Margin} from "./margins";
 import {CategoryAxis} from "./axes";
@@ -56,52 +55,6 @@ export interface TooltipDimensions {
     y: number,
     contentWidth: number,
     contentHeight: number
-}
-
-// todo remove this -- this is only called from the old ScatterChart and RasterChart
-/**
- * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
- * @param tooltipId A unique ID for the tooltip
- * @param container The container holding the SVG element
- * @param margin The margin around the plot
- * @param tooltipStyle The tooltip style information
- * @param plotDimensions The dimensions of the plot
- * @param tooltipContent Function that adds the tooltip content and then returns the width and height of
- * the content. The callback function is handed the datum, svg path element, and the series name and must
- * return a {@link TooltipDimension} object that holds the width and height of the content.
- */
-export function createTooltip(
-    tooltipId: string,
-    container: SVGSVGElement,
-    margin: Margin,
-    tooltipStyle: TooltipStyle,
-    plotDimensions: Dimensions,
-    tooltipContent: () => TooltipDimensions,
-    event: any
-): void {
-
-    // create the rounded rectangle for the tooltip's background
-    const rect = d3.select<SVGSVGElement | null, any>(container)
-        .append<SVGRectElement>('rect')
-        .attr('id', tooltipId)
-        .attr('class', 'tooltip')
-        .attr('rx', tooltipStyle.borderRadius)
-        .attr('fill', tooltipStyle.backgroundColor)
-        .attr('fill-opacity', tooltipStyle.backgroundOpacity)
-        .attr('stroke', tooltipStyle.borderColor)
-        .attr('stroke-width', tooltipStyle.borderWidth)
-
-    // call the callback to add the content
-    const {contentWidth, contentHeight} = tooltipContent()
-
-    // set the position, width, and height of the tooltip rect based on the text height and width and the padding
-    const [x, y] = d3.pointer(event, container)
-    // const [x, y] = d3.mouse(container)
-    rect.attr('x', () => tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin))
-        .attr('y', () => tooltipY(y, contentHeight, plotDimensions, tooltipStyle, margin))
-        .attr('width', contentWidth + tooltipStyle.paddingLeft + tooltipStyle.paddingRight)
-        .attr('height', contentHeight + tooltipStyle.paddingTop + tooltipStyle.paddingBottom)
-
 }
 
 /**

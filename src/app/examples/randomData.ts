@@ -29,33 +29,14 @@ function randomSpikeData(
         newPoints: new Map(series
             .filter(_ => Math.random() > 0.5)
             .map(name => {
-                // const maxTime = seriesMaxTimes.get(name) || 0
                 return [
                 name,
                 [{
-                    time: sequenceTime + maxTime,// - Math.ceil(Math.random() * updatePeriod),
+                    time: sequenceTime + maxTime,
                     value: Math.random()
                 }]
             ]}))
     };
-    // const maxTimes = new Map(
-    //     Array.from(seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
-    // )
-    // return {
-    //     maxTime: sequenceTime,
-    //     maxTimes,
-    //     newPoints: new Map(series
-    //         .filter(_ => Math.random() > 0.5)
-    //         .map(name => {
-    //             const maxTime = seriesMaxTimes.get(name) || 0
-    //             return [
-    //             name,
-    //             [{
-    //                 time: sequenceTime + maxTime,// - Math.ceil(Math.random() * updatePeriod),
-    //                 value: Math.random()
-    //             }]
-    //         ]}))
-    // };
 }
 
 /**

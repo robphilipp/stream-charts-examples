@@ -238,9 +238,6 @@ export function ScatterPlot(props: Props): null {
                     series.data.map(datum => [datum.time, datum.value]) as TimeSeries
                 ]))
 
-                // // create/update the magnifier lens if needed
-                // magnifierRef.current = magnifierLens(svg, magnifierStyle.visible)
-
                 // set up panning
                 if (panEnabled) {
                     const drag = d3.drag<SVGSVGElement, Datum>()
@@ -417,7 +414,8 @@ export function ScatterPlot(props: Props): null {
         [
             axisAssignments, dropDataAfter, mainG,
             onSubscribe, onUpdateData,
-            seriesObservable, updateTimingAndPlot, windowingTime, xAxesState
+            seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
+            withCadenceOf
         ]
     )
 

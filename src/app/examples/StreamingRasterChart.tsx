@@ -186,20 +186,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
-                    {/*<Checkbox*/}
-                    {/*    key={3}*/}
-                    {/*    checked={visibility.magnifier}*/}
-                    {/*    label="magnifier"*/}
-                    {/*    backgroundColor={theme.backgroundColor}*/}
-                    {/*    borderColor={theme.color}*/}
-                    {/*    backgroundColorChecked={theme.backgroundColor}*/}
-                    {/*    labelColor={theme.color}*/}
-                    {/*    onChange={() => setVisibility({*/}
-                    {/*        tooltip: false,*/}
-                    {/*        tracker: false,*/}
-                    {/*        magnifier: !visibility.magnifier*/}
-                    {/*    })}*/}
-                    {/*/>*/}
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -271,14 +257,14 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <RasterPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            ['test2', assignAxes("x-axis-2", "y-axis-2")],
+                            ['test1', assignAxes("x-axis-2", "y-axis-2")],
                             // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         ])}
                         dropDataAfter={10000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
-                        withCadenceOf={25}
+                        withCadenceOf={30}
                     />
                 </Chart>
             </GridItem>

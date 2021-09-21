@@ -1,5 +1,4 @@
 import React, {useState} from 'react';
-// import {Series, seriesFrom} from "stream-charts";
 import {
     Grid,
     gridArea,
@@ -11,18 +10,13 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {Series, seriesFrom, seriesFromTuples} from "./charts/datumSeries";
+import {seriesFromTuples} from "./charts/datumSeries";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {Toggle, ToggleStatus} from "./examples/Toggle";
 import {darkTheme, lightTheme, Theme} from "./examples/Themes";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 
-const inputNeurons: Array<string> = Array.from({length: 5}, (_, i) => `in${i}`);
-const outputNeurons: Array<string> = Array.from({length: 25}, (_, i) => `out${i}`);
-const spikes: Array<Series> = inputNeurons.concat(outputNeurons).map(neuron => seriesFrom(neuron));
-const weights: Array<Series> = inputNeurons.flatMap(input => outputNeurons.map(output => seriesFrom(`${input}-${output}`)));
-
-const initialData = [
+const initialScatterData = [
     seriesFromTuples('test1', [
         [10, 80], [20, 220], [30, 300], [40, 380], [50, 510], [60, 620], [70, 680],
         [80, 1080], [90, 980], [100, 880], [110, 750]
@@ -36,7 +30,21 @@ const initialData = [
         [90, 100], [100, 120], [110, 100], [120, -250], [130, 120], [150, 180], [170, 280],
     ]),
 ]
-const initialData2 = initialData.map(series => seriesFrom(series.name, series.data.slice()))
+
+const initialSpikeData = [
+    seriesFromTuples('test1', [
+        [10, 80], [20, 220], [30, 300], [40, 380], [50, 510], [60, 620], [70, 680],
+        [80, 1080], [90, 980], [100, 880], [110, 750]
+    ]),
+    seriesFromTuples('test2', [
+        [10, 980], [20, 880], [30, 980], [40, 1080], [50, 680], [60, 620], [70, 510],
+        [80, 380], [90, 300], [100, 20], [110, 180], [120, 180], [130, 480],
+    ]),
+    seriesFromTuples('test3', [
+        [10, 100], [20, 103], [30, 110], [40, 100], [50, 90], [60, 88], [70, 160], [80, 130],
+        [90, 100], [100, 120], [110, 100], [120, -250], [130, 120], [150, 180], [170, 280],
+    ]),
+]
 
 const App: React.FC = () => {
     const [theme, setTheme] = useState<Theme>(lightTheme)
@@ -88,15 +96,15 @@ const App: React.FC = () => {
                 >
                     <GridItem row={1} column={2}>
                         <div style={{marginTop: 3}}>
-                        <Toggle
-                            onToggle={handleThemeChange}
-                            toggleOffColor={lightTheme.color}
-                            toggleOffBackgroundColor={lightTheme.backgroundColor}
-                            toggleOnColor={darkTheme.color}
-                            toggleOnBackgroundColor={darkTheme.backgroundColor}
-                            toggleBorderColor={theme.color}
-                            labelFontColor={theme.color}
-                        />
+                            <Toggle
+                                onToggle={handleThemeChange}
+                                toggleOffColor={lightTheme.color}
+                                toggleOffBackgroundColor={lightTheme.backgroundColor}
+                                toggleOnColor={darkTheme.color}
+                                toggleOnBackgroundColor={darkTheme.backgroundColor}
+                                toggleBorderColor={theme.color}
+                                labelFontColor={theme.color}
+                            />
                         </div>
                     </GridItem>
                 </Grid>
@@ -108,7 +116,7 @@ const App: React.FC = () => {
                 <StreamingScatterChart
                     theme={theme}
                     timeWindow={1000}
-                    initialData={initialData}
+                    initialData={initialScatterData}
                 />
             </GridItem>
             <GridItem gridAreaName="raster-header">
@@ -118,7 +126,7 @@ const App: React.FC = () => {
                 <StreamingRasterChart
                     theme={theme}
                     timeWindow={1000}
-                    initialData={initialData}
+                    initialData={initialSpikeData}
                     seriesHeight={20}
                     plotWidth={900}
                 />
