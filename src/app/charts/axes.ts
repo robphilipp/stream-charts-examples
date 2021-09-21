@@ -265,21 +265,20 @@ export function calculatePanFor(
 }
 
 /**
- * Higher-order function that accepts the series, the assignment of the series to axes, and the current
- * x-axes state, and returns a function that returns calculates the distinct axis IDs that cover all
- * the series in the plot.
+ * Accepts the series, the assignment of the series to axes, and the current x-axes state, and
+ * returns a an array of the distinct axis IDs that cover all the series in the plot.
  *
  * @param series The array of series
  * @param axisAssignments A map association a series name with its axis assignments
  * @param xAxesState The current axis state
- * @return a function that returns an array of the distinct axes that cover all the series in the plot
+ * @return an array of the distinct axes that cover all the series in the plot
  */
 export function axesForSeriesGen(
     series: Array<Series>,
     axisAssignments: Map<string, AxesAssignment>,
     xAxesState: AxesState
-): () => Array<string> {
-    return () => series.map(srs => srs.name)
+): Array<string> {
+    return series.map(srs => srs.name)
         // grab the x-axis assigned to the series, or use a the default x-axis if not
         // assignment has been made
         .map(name => axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName())
@@ -318,7 +317,6 @@ export function panHandler(
     plotDimensions: Dimensions,
     series: Array<string>,
     ranges: Map<string, ContinuousAxisRange>,
-    // mainG: GSelection
 ) => void {
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right

@@ -231,7 +231,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[0, 2500]}
+                        domain={[0, 10000]}
                         label="x-axis"
                         // font={{color: theme.color}}
                     />
@@ -278,7 +278,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
-                        withCadenceOf={30}
+                        withCadenceOf={25}
                     />
                 </Chart>
             </GridItem>

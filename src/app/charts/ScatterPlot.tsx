@@ -127,19 +127,14 @@ export function ScatterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen(initialData, axisAssignments, xAxesState)(),
+        (): Array<string> => axesForSeriesGen(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 
     // updates the timing using the onUpdateTime and updatePlot references. This and the references
     // defined above allow the axes' times to be update properly by avoid stale reference to these
     // functions.
-    const updateTimingAndPlot = useCallback(
-        /**
-         * Updates the time and plot with the new time-ranges
-         * @param ranges The new time-ranges
-         */
-        (ranges: Map<string, ContinuousAxisRange>): void => {
+    const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
@@ -148,6 +143,7 @@ export function ScatterPlot(props: Props): null {
         [mainG]
     )
 
+    // todo find better way
     // when the initial data changes, then reset the plot. note that the initial data doesn't change
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
@@ -175,6 +171,7 @@ export function ScatterPlot(props: Props): null {
                 )
             )
         },
+        // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
         // other dependencies are recalculated anyway.
         // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -126,19 +126,14 @@ export function RasterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        () => axesForSeriesGen(initialData, axisAssignments, xAxesState)(),
+        () => axesForSeriesGen(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 
     // updates the timing using the onUpdateTime and updatePlot references. This and the references
     // defined above allow the axes' times to be update properly by avoid stale reference to these
     // functions.
-    const updateTimingAndPlot = useCallback(
-        /**
-         * Updates the time and plot with the new time-ranges
-         * @param ranges The new time-ranges
-         */
-        (ranges: Map<string, ContinuousAxisRange>): void => {
+    const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
@@ -147,6 +142,7 @@ export function RasterPlot(props: Props): null {
         [mainG]
     )
 
+    // todo find better way
     // when the initial data changes, then reset the plot. note that the initial data doesn't change
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
@@ -174,6 +170,7 @@ export function RasterPlot(props: Props): null {
                 )
             )
         },
+        // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
         // other dependencies are recalculated anyway.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,20 +256,14 @@ export function RasterPlot(props: Props): null {
                 if (panEnabled) {
                     const drag = d3.drag<SVGSVGElement, Datum>()
                         // .filter(event => event.shiftKey)
-                        .on("start", () => {
-                            // todo during a pan, we want to hide the tooltip
-                            d3.select(container).style("cursor", "move")
-                        })
+                        .on("start", () => d3.select(container).style("cursor", "move"))
                         .on("drag", event => {
                             const names = dataRef.current.map(series => series.name)
                             onPan(event.dx, plotDimensions, names, timeRanges)
                             // need to update the plot with the new time-ranges
                             updatePlotRef.current(timeRanges, mainGElem)
                         })
-                        .on("end", () => {
-                            // todo if the tooltip was originally visible, then allow it to be seen again
-                            d3.select(container).style("cursor", "auto")
-                        })
+                        .on("end", () => d3.select(container).style("cursor", "auto"))
 
                     svg.call(drag)
                 }
@@ -378,7 +369,6 @@ export function RasterPlot(props: Props): null {
                                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
                             )
                         )
-
 
                     // exit old elements
                     seriesContainer.exit().remove()
