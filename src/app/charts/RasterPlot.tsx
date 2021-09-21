@@ -246,12 +246,9 @@ export function RasterPlot(props: Props): null {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
 
-                // create a map associating series-names to their time-series
-                const boundedSeries = dataRef.current.filter(series => series.name.match(seriesFilter))
-
                 mainGElem
                     .selectAll<SVGGElement, Series>('g')
-                    .data<Series>(boundedSeries)
+                    .data<Series>(dataRef.current)
                     .enter()
                     .append('g')
                     .attr('class', 'spikes-series')
@@ -267,7 +264,7 @@ export function RasterPlot(props: Props): null {
                             d3.select(container).style("cursor", "move")
                         })
                         .on("drag", event => {
-                            const names = boundedSeries.map(series => series.name)
+                            const names = dataRef.current.map(series => series.name)
                             onPan(event.dx, plotDimensions, names, timeRanges)
                             // need to update the plot with the new time-ranges
                             updatePlotRef.current(timeRanges, mainGElem)
@@ -291,7 +288,7 @@ export function RasterPlot(props: Props): null {
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
                                     plotDimensions,
-                                    boundedSeries.map(series => series.name),
+                                    dataRef.current.map(series => series.name),
                                     timeRanges,
                                 )
                                 updatePlotRef.current(timeRanges, mainGElem)
@@ -304,7 +301,7 @@ export function RasterPlot(props: Props): null {
                 // define the clip-path so that the series lines don't go beyond the plot area
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
 
-                boundedSeries.forEach(series => {
+                dataRef.current.forEach(series => {
                     const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
 
                     // grab the series styles, or the defaults if none exist

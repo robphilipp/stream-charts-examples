@@ -113,7 +113,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
-    // const [magnification, setMagnification] = useState(5);
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
 

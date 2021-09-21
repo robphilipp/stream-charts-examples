@@ -24,7 +24,6 @@ import {AxisLocation, defaultLineStyle} from "../charts/axes";
 import {ContinuousAxis} from "../charts/ContinuousAxis";
 import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
 import {Tooltip} from "../charts/Tooltip";
-import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
 import {formatNumber} from "../charts/utils";
 import {lightTheme, Theme} from "./Themes";
 import {CategoryAxis} from "../charts/CategoryAxis";
@@ -64,12 +63,12 @@ export interface SpikesChartData {
 }
 
 /**
- * An example wrapper to the {@link RasterChart} that accepts an rxjs observable. The {@link RasterChart} manages
- * the subscription to the observable, but we can control when the {@link RasterChart} subscribes through the
+ * An example wrapper to a raster chart, that accepts an rxjs observable. The {@link Chart} manages
+ * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
  * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
- * {@link RasterChart} updates itself with the new data without causing React to re-render the component. In this
+ * {@link Chart} updates itself with the new data without causing React to re-render the component. In this
  * example, we delay the subscription to the observable by 1 second.
- * after the {@link RasterChart} has mounted.
+ * after the {@link Chart} has mounted.
  * @param {Props} props The properties passed down from the parent
  * @return {Element} The streaming raster chart
  * @constructor
@@ -95,11 +94,11 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     /**
      * Called when the user changes the regular expression filter
-     * @param {string} updatedFilter The updated the filter
+     * @param updatedFilter The updated the filter
      */
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).ifSome((regex: RegExp) => setFilter(regex));
+        regexFilter(updatedFilter).ifSome(regex => setFilter(regex));
     }
 
     const inputStyle = {
@@ -282,64 +281,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         withCadenceOf={30}
                     />
                 </Chart>
-                {/*<RasterChart*/}
-                {/*    // when the `width` property is specified, then the width of the chart will be that number*/}
-                {/*    // in pixels. alternatively, if the `svgStyle` property has a `width` property with a relative*/}
-                {/*    // width (i.e. percentage), then the chart will resize its width as the window resizes.*/}
-                {/*    // width={plotWidth}*/}
-                {/*    width={useGridCellWidth()}*/}
-
-                {/*    // the `height` property specifies the height of the plot in pixels*/}
-                {/*    // height={seriesList.length * seriesHeight}*/}
-                {/*    height={useGridCellHeight()}*/}
-                {/*    // the `seriesList` is used to determine the list of series ids and initial data*/}
-                {/*    seriesList={seriesList}*/}
-                {/*    // the `seriesObservable` is the rxjs observable that streams `ChartData` to the chart.*/}
-                {/*    seriesObservable={observableRef.current}*/}
-                {/*    // the `onSubscribe` provides a callback that gets handed the subscription when the chart*/}
-                {/*    // subscribes to the rxjs observable. this can be used to hold on to the subscription for*/}
-                {/*    // cancelling, or to perform some other action when the chart subscribes to the observable*/}
-                {/*    onSubscribe={(subscription: Subscription) => subscriptionRef.current = subscription}*/}
-                {/*    // the `shouldSubscribe` property is optional, and true by default, which means that the chart*/}
-                {/*    // will subscribe to the observable when it mounts. however, you can set it to `false`, in which*/}
-                {/*    // case the chart will not subscribe to the observable until it is later set to `true`*/}
-                {/*    shouldSubscribe={shouldSubscribe}*/}
-                {/*    // the `onUpdateTime` is an optional property that when specified will be called when the time*/}
-                {/*    // is updated. in this example, we use it to unsubscribe to the observable after 3 seconds*/}
-                {/*    onUpdateTime={(t: number) => {*/}
-                {/*        if (t > 3000) subscriptionRef.current!.unsubscribe()*/}
-                {/*    }}*/}
-                {/*    // the `onUpdateData` is an optional property that when specified will be called when the data*/}
-                {/*    // is updated. please note that this could get called a lot and so should only perform a short*/}
-                {/*    // task*/}
-                {/*    // onUpdateData={(name: string, data: Array<Datum>) => do something}*/}
-
-                {/*    // the `timeWindow` property defines how much of the data is displayed in the chart's rolling*/}
-                {/*    // time window. for example, 2000 would mean that the most recent 2 seconds are displayed*/}
-                {/*    timeWindow={timeWindow}*/}
-                {/*    // the `windowingTime` is the amount of time that the data is buffered before the chart is updated.*/}
-                {/*    // the shorter this window, the smoother the updates, but the more CPU will be used. the window size*/}
-                {/*    // should be balanced with the amount of data. less data could have short window sizes. more data*/}
-                {/*    // should have longer window sizes*/}
-                {/*    windowingTime={100}*/}
-                {/*    // the `margin` around the plot*/}
-                {/*    margin={{top: 30, right: 20, bottom: 30, left: 75}}*/}
-                {/*    // the `tooltip` style properties that allow you to specify the way the tooltip looks*/}
-                {/*    tooltip={{visible: visibility.tooltip}}*/}
-                {/*    // the `magnifier` style properties*/}
-                {/*    magnifier={{visible: visibility.magnifier, magnification: 5}}*/}
-                {/*    // the `tracker` style properties*/}
-                {/*    tracker={{visible: visibility.tracker}}*/}
-                {/*    // the `filter` property specifies the javascript regex object used to filter the data. all series*/}
-                {/*    // whose name match the regex express will be displayed in the chart.*/}
-                {/*    filter={filter}*/}
-                {/*    // the `svgStyle` property allow you to set the svg container's style. for example, here the svg*/}
-                {/*    // container has a relative width so that the chart width updates when the window is resized*/}
-                {/*    svgStyle={{width: '100%'}}*/}
-                {/*/>*/}
             </GridItem>
         </Grid>
     );
 }
-
-// export default StreamingRasterChart;
