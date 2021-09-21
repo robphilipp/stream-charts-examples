@@ -174,7 +174,10 @@ export function RasterPlot(props: Props): null {
                 )
             )
         },
-        [initialData, updateTimingAndPlot, xAxesState.axes]
+        // only want this effect to run when the initial data is changed, which mean all the
+        // other dependencies are recalculated anyway.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [initialData]
     )
 
     /**
