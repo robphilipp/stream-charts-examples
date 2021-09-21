@@ -5,7 +5,7 @@ import {noop} from "./utils";
 import {useChart} from "./hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {Datum, PixelDatum, Series} from "./datumSeries";
-import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {GSelection} from "./d3types";
 import {
     axesForSeriesGen,
@@ -126,8 +126,55 @@ export function RasterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen(initialData, axisAssignments, xAxesState)(),
+        () => axesForSeriesGen(initialData, axisAssignments, xAxesState)(),
         [initialData, axisAssignments, xAxesState]
+    )
+
+    // updates the timing using the onUpdateTime and updatePlot references. This and the references
+    // defined above allow the axes' times to be update properly by avoid stale reference to these
+    // functions.
+    const updateTimingAndPlot = useCallback(
+        /**
+         * Updates the time and plot with the new time-ranges
+         * @param ranges The new time-ranges
+         */
+        (ranges: Map<string, ContinuousAxisRange>): void => {
+            if (mainG !== null) {
+                onUpdateTimeRef.current(ranges)
+                updatePlotRef.current(ranges, mainG)
+            }
+        },
+        [mainG]
+    )
+
+    // when the initial data changes, then reset the plot. note that the initial data doesn't change
+    // during the normal course of updates from the observable, only when the plot is restarted.
+    useEffect(
+        () => {
+            dataRef.current = initialData.slice()
+            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
+            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+            updateTimingAndPlot(new Map(Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+                    .map(([id, range]) => {
+                        // grab the current range, then calculate the minimum time from the initial data, and
+                        // set that as the start, and then add the range to it for the end time
+                        const [start, end] = range.original
+                        const minTime = initialData
+                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+                            .reduce(
+                                (tMin, series) => Math.min(
+                                    tMin,
+                                    !series.isEmpty() ? series.data[0].time : tMin
+                                ),
+                                Infinity
+                            )
+                        const startTime = minTime === Infinity ? 0 : minTime
+                        return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
+                    })
+                )
+            )
+        },
+        [initialData, updateTimingAndPlot, xAxesState.axes]
     )
 
     /**
@@ -367,23 +414,6 @@ export function RasterPlot(props: Props): null {
         [onUpdateTime]
     )
 
-    // updates the timing using the onUpdateTime and updatePlot references. This and the references
-    // defined above allow the axes' times to be update properly by avoid stale reference to these
-    // functions.
-    const updateTimingAndPlot = useCallback(
-        /**
-         * Updates the time and plot with the new time-ranges
-         * @param ranges The new time-ranges
-         */
-        (ranges: Map<string, ContinuousAxisRange>): void => {
-            if (mainG !== null) {
-                onUpdateTimeRef.current(ranges)
-                updatePlotRef.current(ranges, mainG)
-            }
-        },
-        [mainG]
-    )
-
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
@@ -417,7 +447,8 @@ export function RasterPlot(props: Props): null {
         [
             axisAssignments, dropDataAfter, mainG,
             onSubscribe, onUpdateData,
-            seriesObservable, updateTimingAndPlot, windowingTime, xAxesState
+            seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
+            withCadenceOf
         ]
     )
 

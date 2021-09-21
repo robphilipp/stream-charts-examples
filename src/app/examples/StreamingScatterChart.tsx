@@ -66,7 +66,7 @@ interface Props {
 export function StreamingScatterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        // initialData,
+        initialData,
     } = props
 
 
@@ -117,6 +117,10 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
 
+    function initialDataFrom(data: Array<Series>): Array<Series> {
+        return data.map(series => seriesFrom(series.name, series.data.slice()))
+    }
+
     /**
      * Called when the user changes the regular expression filter
      * @param updatedFilter The updated the filter
@@ -164,7 +168,12 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         style={inputStyle}
                     /></label>
                     <button
-                        onClick={() => setRunning(!running)}
+                        onClick={() => {
+                            if (!running) {
+                                initialDataRef.current = initialDataFrom(initialData)
+                            }
+                            setRunning(!running)
+                        }}
                         style={buttonStyle}
                     >
                         {running ? "Stop" : "Run"}

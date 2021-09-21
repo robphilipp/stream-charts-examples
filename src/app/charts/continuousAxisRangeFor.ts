@@ -4,6 +4,7 @@
 export interface ContinuousAxisRange {
     start: number
     end: number
+    original: [start: number, end: number]
     scaleFactor: number
     matchesOriginal: (start: number, end: number) => boolean
     scale: (factor: number, time: number) => ContinuousAxisRange
@@ -74,6 +75,7 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
         return {
             start: start,
             end: end,
+            original: [originalStart, originalEnd],
             matchesOriginal,
             scaleFactor,
             scale,

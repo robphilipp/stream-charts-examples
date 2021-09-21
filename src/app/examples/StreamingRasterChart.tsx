@@ -77,25 +77,21 @@ export interface SpikesChartData {
 export function StreamingRasterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        // initialData,
-        timeWindow = 100,
-        seriesHeight = 20,
-        // plotWidth = 500
+        initialData,
     } = props;
 
-    const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
-    // const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialData.map(series => series.name)));
+    const initialDataRef = useRef<Array<Series>>(initialDataFrom(initialData))
     const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.slice(), 25));
-    // const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.map(series => series.name)));
     const [running, setRunning] = useState<boolean>(false)
-    // const subscriptionRef = useRef<Subscription>();
 
     const [filterValue, setFilterValue] = useState<string>('');
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
 
-    // const [shouldSubscribe, setShouldSubscribe] = useState<boolean>(false);
+    function initialDataFrom(data: Array<Series>): Array<Series> {
+        return data.map(series => seriesFrom(series.name, series.data.slice()))
+    }
 
     /**
      * Called when the user changes the regular expression filter
@@ -136,14 +132,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         cursor: 'pointer',
     }
 
-    // // demonstrates the use of the 'shouldSubscribe' property
-    // useEffect(
-    //     () => {
-    //         setTimeout(() => setShouldSubscribe(true), 100);
-    //     },
-    //     []
-    // );
-
     return (
         <Grid
             dimensionsSupplier={useGridCell}
@@ -169,7 +157,12 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         style={inputStyle}
                     /></label>
                     <button
-                        onClick={() => setRunning(!running)}
+                        onClick={() => {
+                            if (!running) {
+                                initialDataRef.current = initialDataFrom(initialData)
+                            }
+                            setRunning(!running)
+                        }}
                         style={buttonStyle}
                     >
                         {running ? "Stop" : "Run"}
@@ -214,7 +207,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                 <Chart
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 60, right: 60}}
+                    margin={{...defaultMargin, top: 20, right: 60}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
@@ -227,7 +220,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    windowingTime={25}
+                    windowingTime={35}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
