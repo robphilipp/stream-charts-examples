@@ -1,7 +1,6 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-import {Datum, Series} from "../charts/datumSeries";
-import {ChartData, initialChartData} from "../charts/chartData";
+import {ChartData, Datum, initialChartData, Series, seriesFrom, seriesFromTuples} from "stream-charts";
 
 const UPDATE_PERIOD_MS = 25;
 
@@ -125,7 +124,7 @@ function mergeSeries(
     incoming.forEach((data, name) => {
         const accData = accum.get(name) || [];
         const lastAccum = accData.length > 0 ? accData[accData.length - 1].value : 0;
-        const newData = data.map((datum, index, array) => ({
+        const newData = data.map((datum, index) => ({
             time: datum.time,
             value: index === 0 ? Math.max(min, Math.min(max, lastAccum + datum.value)) : data[index - 1].value + datum.value
         }))
@@ -156,14 +155,34 @@ export function randomWeightDataObservable(
     return interval(updatePeriod).pipe(
         // convert the number sequence to a time
         map(sequence => (sequence + 1) * updatePeriod),
-        // map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime),
 
         // create a new (time, value) for each series
-        // map((time, index) => randomWeightData(time + initialData.maxTime, seriesNames, updatePeriod, delta)),
-        map((time, index) => randomWeightData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
+        map(time => randomWeightData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
 
         // add the random value to the previous random value in succession to create a random walk for each series
         scan((acc, value) => accumulateChartData(acc, value, min, max), initialData)
-        // scan((acc, value) => accumulateChartData(acc, value), emptyChartData(seriesNames))
     );
+}
+
+export function initialRandomWeightData(
+    seriesNames: Array<string>,
+    initialTime: number,
+    initialValue: number,
+    updatePeriod: number,
+    delta: number,
+    numTimes: number
+): Array<Series> {
+    return seriesNames.map(name => {
+        const data: Array<Datum> = []
+        // let prevTime = Math.max(0, initialTime - Math.ceil(Math.random() * updatePeriod))
+        let prevValue = initialValue + (Math.random() - 0.5) * 2 * delta
+        for(let i = 0; i < numTimes; ++i) {
+            const time = initialTime + i * updatePeriod + Math.ceil(Math.random() * updatePeriod)
+            const value = prevValue + (Math.random() - 0.5) * 2 * delta
+            data.push({time: time, value})
+            // prevTime = time
+            prevValue = value
+        }
+        return seriesFrom(name, data)
+    })
 }

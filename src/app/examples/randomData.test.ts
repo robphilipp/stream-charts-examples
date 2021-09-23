@@ -1,6 +1,4 @@
-import {randomWeightDataObservable} from './randomData'
-import {seriesFromTuples} from "../charts/datumSeries";
-import {initialChartData} from "../charts/chartData";
+import {initialChartData, seriesFromTuples} from "stream-charts";
 
 describe('when creating random data from an initial series', () => {
     const initialData = [

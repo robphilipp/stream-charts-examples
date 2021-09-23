@@ -14,21 +14,26 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {Series, seriesFrom} from "../charts/datumSeries";
-import {ChartData} from "../charts/chartData";
-import {regexFilter} from "../charts/regexFilter";
-import {Chart} from "../charts/Chart";
-import {defaultMargin} from "../charts/hooks/useChart";
-import {AxisLocation, defaultLineStyle} from "../charts/axes";
-import {ContinuousAxis} from "../charts/ContinuousAxis";
+import {
+    assignAxes,
+    AxisLocation,
+    Chart,
+    ChartData,
+    ContinuousAxis,
+    defaultLineStyle,
+    defaultMargin,
+    formatNumber,
+    regexFilter,
+    ScatterPlot,
+    ScatterPlotTooltipContent,
+    Series,
+    seriesFrom,
+    Tooltip,
+    Tracker,
+    TrackerLabelLocation
+} from "stream-charts";
 import * as d3 from "d3";
-import {ScatterPlot} from "../charts/ScatterPlot";
-import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
-import {Tooltip} from "../charts/Tooltip";
-import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
-import {formatNumber} from "../charts/utils";
 import {lightTheme, Theme} from "./Themes";
-import {assignAxes} from "../charts/plot";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -50,6 +55,10 @@ const initialVisibility: Visibility = {
     tooltip: false,
     tracker: false,
     magnifier: false
+}
+
+const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<Series>) => Observable<ChartData> => {
+    return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
 }
 
 /**
@@ -100,13 +109,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         cursor: 'pointer',
     }
 
+    const randomDataObservable = randomData(25, 25, 10, 1000)
     const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
-    const observableRef = useRef<Observable<ChartData>>(randomWeightDataObservable(
-        initialDataRef.current,
-        25,
-        25,
-        10, 1000
-    ))
+    const observableRef = useRef<Observable<ChartData>>(randomDataObservable(initialDataRef.current))
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -170,6 +175,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         onClick={() => {
                             if (!running) {
                                 initialDataRef.current = initialDataFrom(initialData)
+                                observableRef.current = randomDataObservable(initialDataRef.current)
                             }
                             setRunning(!running)
                         }}
@@ -258,12 +264,13 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    windowingTime={25}
+                    windowingTime={250}
+                    // windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[10, 5000]}
+                        domain={[10, 10000]}
                         label="x-axis"
                         // font={{color: theme.color}}
                     />

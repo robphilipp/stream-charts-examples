@@ -3,9 +3,6 @@ import {useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "./Checkbox";
 import {randomSpikeDataObservable} from "./randomData";
-import {Datum, Series, seriesFrom} from "../charts/datumSeries";
-import {ChartData} from "../charts/chartData";
-import {regexFilter} from "../charts/regexFilter";
 import {
     Grid,
     gridArea,
@@ -18,19 +15,27 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {Chart} from "../charts/Chart";
-import {defaultMargin} from "../charts/hooks/useChart";
-import {AxisLocation, defaultLineStyle} from "../charts/axes";
-import {ContinuousAxis} from "../charts/ContinuousAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
-import {Tooltip} from "../charts/Tooltip";
-import {formatNumber} from "../charts/utils";
 import {lightTheme, Theme} from "./Themes";
-import {CategoryAxis} from "../charts/CategoryAxis";
-import {RasterPlot} from "../charts/RasterPlot";
-import {assignAxes} from "../charts/plot";
-import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
-
+import {
+    assignAxes,
+    AxisLocation,
+    CategoryAxis,
+    Chart,
+    ChartData,
+    ContinuousAxis,
+    Datum,
+    defaultLineStyle,
+    defaultMargin,
+    formatNumber,
+    RasterPlot,
+    RasterPlotTooltipContent,
+    regexFilter,
+    Series,
+    seriesFrom,
+    Tooltip,
+    Tracker,
+    TrackerLabelLocation
+} from "stream-charts";
 interface Visibility {
     tooltip: boolean;
     tracker: boolean;
@@ -80,7 +85,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     } = props;
 
     const initialDataRef = useRef<Array<Series>>(initialDataFrom(initialData))
-    const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current.slice(), 25));
+    const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -159,6 +164,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         onClick={() => {
                             if (!running) {
                                 initialDataRef.current = initialDataFrom(initialData)
+                                observableRef.current = randomSpikeDataObservable(initialDataRef.current, 25)
                             }
                             setRunning(!running)
                         }}
@@ -210,7 +216,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[10, 5000]}
+                        domain={[0, 5000]}
                         label="x-axis"
                         // font={{color: theme.color}}
                     />
