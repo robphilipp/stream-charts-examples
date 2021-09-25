@@ -10,47 +10,37 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {seriesFromTuples} from "stream-charts";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {Toggle, ToggleStatus} from "./examples/Toggle";
 import {darkTheme, lightTheme, Theme} from "./examples/Themes";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 import {initialRandomWeightData} from "./examples/randomData";
 
-// const initialScatterData = [
-//     seriesFromTuples('test1', [
-//         [10, 80], [20, 220], [30, 300], [40, 380], [50, 510], [60, 620], [70, 680],
-//         [80, 1080], [90, 980], [100, 880], [110, 750]
-//     ]),
-//     seriesFromTuples('test2', [
-//         [100, 980], [200, 880], [300, 980], [400, 1080], [500, 680], [600, 620], [700, 510],
-//         [800, 380], [900, 300], [1000, 20], [1100, 180], [1200, 180], [1300, 480],
-//     ]),
-//     seriesFromTuples('test3', [
-//         [10, 100], [20, 103], [30, 110], [40, 100], [50, 90], [60, 88], [70, 160], [80, 130],
-//         [90, 100], [100, 120], [110, 100], [120, -250], [130, 120], [150, 180], [170, 280],
-//     ]),
-// ]
 const seriesNames: Array<string> = []
 for (let i = 0; i < 15; ++i) {
     seriesNames.push(`test${i}`)
 }
 const initialScatterData = initialRandomWeightData(seriesNames, 10, 500, 25, 20, 10)
 
-const initialSpikeData = [
-    seriesFromTuples('test1', [
-        [10, 80], [20, 220], [30, 300], [40, 380], [50, 510], [60, 620], [70, 680],
-        [80, 1080], [90, 980], [100, 880], [110, 750]
-    ]),
-    seriesFromTuples('test2', [
-        [10, 980], [20, 880], [30, 980], [40, 1080], [50, 680], [60, 620], [70, 510],
-        [80, 380], [90, 300], [100, 20], [110, 180], [120, 180], [130, 480],
-    ]),
-    seriesFromTuples('test3', [
-        [10, 100], [20, 103], [30, 110], [40, 100], [50, 90], [60, 88], [70, 160], [80, 130],
-        [90, 100], [100, 120], [110, 100], [120, -250], [130, 120], [150, 180], [170, 280],
-    ]),
-]
+// const initialSpikeData = [
+//     seriesFromTuples('neuron1', [
+//         [10, 80], [20, 220], [30, 300], [40, 380], [50, 510], [60, 620], [70, 680],
+//         [80, 1080], [90, 980], [100, 880], [110, 750]
+//     ]),
+//     seriesFromTuples('neuron2', [
+//         [10, 980], [20, 880], [30, 980], [40, 1080], [50, 680], [60, 620], [70, 510],
+//         [80, 380], [90, 300], [100, 20], [110, 180], [120, 180], [130, 480],
+//     ]),
+//     seriesFromTuples('neuron3', [
+//         [10, 100], [20, 103], [30, 110], [40, 100], [50, 90], [60, 88], [70, 160], [80, 130],
+//         [90, 100], [100, 120], [110, 100], [120, -250], [130, 120], [150, 180], [170, 280],
+//     ]),
+// ]
+const spikeSeriesNames: Array<string> = []
+for (let i = 0; i < 15; ++i) {
+    spikeSeriesNames.push(`neuron${i+1}`)
+}
+const initialSpikeData = initialRandomWeightData(spikeSeriesNames, 10, 500, 25, 20, 10)
 
 const App: React.FC = () => {
     const [theme, setTheme] = useState<Theme>(lightTheme)

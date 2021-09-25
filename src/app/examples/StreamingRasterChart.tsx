@@ -198,46 +198,46 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                 <Chart
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 60, right: 60}}
+                    margin={{...defaultMargin, top: 60, right: 75, left: 70}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
-                        ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1, highlightColor: 'orange'}],
-                        ['test2', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
+                        ['neuron1', {...defaultLineStyle, color: 'orange', lineWidth: 1, highlightColor: 'orange'}],
+                        ['neuron2', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
                         // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                     ])}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    windowingTime={35}
+                    windowingTime={100}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
                         domain={[0, 5000]}
-                        label="x-axis"
+                        label="t (ms)"
                         // font={{color: theme.color}}
                     />
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[0, 10000]}
-                        label="x-axis"
+                        domain={[0, 2500]}
+                        label="t (ms)"
                         // font={{color: theme.color}}
                     />
                     <CategoryAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         categories={initialDataRef.current.map(series => series.name)}
-                        label="y-axis"
+                        label="neuron"
                     />
                     <CategoryAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
                         categories={initialDataRef.current.map(series => series.name)}
-                        label="y-axis"
+                        label="neuron"
                     />
                     <Tracker
                         visible={visibility.tracker}
@@ -263,14 +263,14 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <RasterPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            ['test1', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
                             // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         ])}
-                        dropDataAfter={10000}
+                        dropDataAfter={5000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
-                        withCadenceOf={30}
+                        withCadenceOf={100}
                     />
                 </Chart>
             </GridItem>
