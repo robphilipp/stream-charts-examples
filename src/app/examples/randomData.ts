@@ -1,6 +1,8 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-import {ChartData, Datum, initialChartData, Series, seriesFrom, seriesFromTuples} from "stream-charts";
+import {ChartData, initialChartData} from "../charts/chartData";
+import {Datum, Series, seriesFrom} from "../charts/datumSeries";
+// import {ChartData, Datum, initialChartData, Series, seriesFrom, seriesFromTuples} from "stream-charts";
 
 const UPDATE_PERIOD_MS = 25;
 
@@ -16,7 +18,8 @@ function randomSpikeData(
     sequenceTime: number,
     series: Array<string>,
     seriesMaxTimes: Map<string, number>,
-    updatePeriod: number
+    updatePeriod: number,
+    spikeProbability: number = 0.5,
 ): ChartData {
     const maxTime = Math.max(...Array.from(seriesMaxTimes.values()))
     const maxTimes = new Map(
@@ -26,7 +29,7 @@ function randomSpikeData(
         maxTime: sequenceTime,
         maxTimes,
         newPoints: new Map(series
-            .filter(_ => Math.random() > 0.5)
+            .filter(_ => Math.random() < spikeProbability)
             .map(name => {
                 return [
                 name,
@@ -40,18 +43,23 @@ function randomSpikeData(
 
 /**
  * Creates random set of time-series data
- * @param {Array<string>} series The list of series names (identifiers) to update
- * @param {number} [updatePeriod=25] The time-interval between the generation of subsequent data points
- * @return {Observable<SpikesChartData>} An observable that produces data.
+ * @param series The list of series names (identifiers) to update
+ * @param [updatePeriod=25] The time-interval between the generation of subsequent data points
+ * @param spikeProbability The probability that a spike occurs in a given time step.
+ * @return An observable that produces data.
  */
-export function randomSpikeDataObservable(series: Array<Series>, updatePeriod: number = UPDATE_PERIOD_MS): Observable<ChartData> {
+export function randomSpikeDataObservable(
+    series: Array<Series>,
+    updatePeriod: number = UPDATE_PERIOD_MS,
+    spikeProbability: number = 0.1
+): Observable<ChartData> {
     const seriesNames = series.map(series => series.name)
     const initialData = initialChartData(series)
     return interval(updatePeriod).pipe(
         // convert the number sequence to a time
         map(sequence => (sequence + 1) * updatePeriod),
         // create a random spike for each series
-        map((time) => randomSpikeData(time, seriesNames, initialData.maxTimes, updatePeriod))
+        map((time) => randomSpikeData(time, seriesNames, initialData.maxTimes, updatePeriod, spikeProbability))
     );
 }
 

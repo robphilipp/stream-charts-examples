@@ -16,26 +16,41 @@ import {
     withPixels
 } from 'react-resizable-grid-layout';
 import {lightTheme, Theme} from "./Themes";
-import {
-    assignAxes,
-    AxisLocation,
-    CategoryAxis,
-    Chart,
-    ChartData,
-    ContinuousAxis,
-    Datum,
-    defaultLineStyle,
-    defaultMargin,
-    formatNumber,
-    RasterPlot,
-    RasterPlotTooltipContent,
-    regexFilter,
-    Series,
-    seriesFrom,
-    Tooltip,
-    Tracker,
-    TrackerLabelLocation
-} from "stream-charts";
+
+import {Datum, Series, seriesFrom} from "../charts/datumSeries";
+import {ChartData} from "../charts/chartData";
+import {regexFilter} from "../charts/regexFilter";
+import {Chart} from "../charts/Chart";
+import { defaultMargin } from '../charts/hooks/useChart';
+import {AxisLocation, defaultLineStyle } from '../charts/axes';
+import {ContinuousAxis} from "../charts/ContinuousAxis";
+import {CategoryAxis} from "../charts/CategoryAxis";
+import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
+import {Tooltip} from "../charts/Tooltip";
+import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
+import {formatNumber, formatTime} from '../charts/utils';
+import {RasterPlot} from "../charts/RasterPlot";
+// import {
+//     assignAxes,
+//     AxisLocation,
+//     CategoryAxis,
+//     Chart,
+//     ChartData,
+//     ContinuousAxis,
+//     Datum,
+//     defaultLineStyle,
+//     defaultMargin,
+//     formatNumber,
+//     RasterPlot,
+//     RasterPlotTooltipContent,
+//     regexFilter,
+//     Series,
+//     seriesFrom,
+//     Tooltip,
+//     Tracker,
+//     TrackerLabelLocation
+// } from "stream-charts"
+
 interface Visibility {
     tooltip: boolean;
     tracker: boolean;
@@ -92,6 +107,11 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
+
+    // elapsed time
+    const startTimeRef = useRef<number>(new Date().valueOf())
+    const intervalRef = useRef<NodeJS.Timer>()
+    const [elapsed, setElapsed] = useState<number>(0)
 
     function initialDataFrom(data: Array<Series>): Array<Series> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
@@ -164,7 +184,13 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         onClick={() => {
                             if (!running) {
                                 initialDataRef.current = initialDataFrom(initialData)
-                                observableRef.current = randomSpikeDataObservable(initialDataRef.current, 25)
+                                observableRef.current = randomSpikeDataObservable(initialDataRef.current, 50, 0.1)
+                                startTimeRef.current = new Date().valueOf()
+                                setElapsed(0)
+                                intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
+                            } else {
+                                if (intervalRef.current) clearInterval(intervalRef.current)
+                                intervalRef.current = undefined
                             }
                             setRunning(!running)
                         }}
@@ -192,6 +218,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
+                    <span style={{color: theme.color, marginLeft: 50}}>elapsed time: {formatTime(elapsed / 1000)} s</span>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -203,15 +230,19 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
-                        ['neuron1', {...defaultLineStyle, color: 'orange', lineWidth: 1, highlightColor: 'orange'}],
-                        ['neuron2', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
+                        ['neuron1', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
+                        ['neuron2', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
+                        ['neuron3', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
+                        ['neuron4', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
+                        ['neuron5', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
+                        ['neuron6', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
                         // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                     ])}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    windowingTime={100}
+                    windowingTime={150}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
@@ -263,14 +294,20 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <RasterPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
                             // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         ])}
+                        spikeMargin={1}
                         dropDataAfter={5000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
-                        withCadenceOf={100}
+                        // withCadenceOf={25}
                     />
                 </Chart>
             </GridItem>
