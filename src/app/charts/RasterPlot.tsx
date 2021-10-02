@@ -87,8 +87,10 @@ export function RasterPlot(props: Props): null {
         shouldSubscribe,
 
         onSubscribe = noop,
-        onUpdateData = noop,
-        onUpdateTime = noop,
+        onUpdateTime,
+
+        updateData = noop,
+        updateTimeRanges = noop,
 
         mouseOverHandlerFor,
         mouseLeaveHandlerFor,
@@ -143,9 +145,16 @@ export function RasterPlot(props: Props): null {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
+                if (onUpdateTime) {
+                    setTimeout(() => {
+                        const times = new Map<string, [number, number]>()
+                        ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
+                        onUpdateTime(times)
+                    }, 0)
+                }
             }
         },
-        [mainG]
+        [mainG, onUpdateTime]
     )
 
     // todo find better way
@@ -402,12 +411,14 @@ export function RasterPlot(props: Props): null {
         [chartId, container, mainG, margin, plotDimensions, updatePlot]
     )
 
-    const onUpdateTimeRef = useRef(onUpdateTime)
+    // grab a reference to the function used to update the time ranges and update that reference
+    // if the function changes (solve for stale closures)
+    const onUpdateTimeRef = useRef(updateTimeRanges)
     useEffect(
         () => {
-            onUpdateTimeRef.current = onUpdateTime
+            onUpdateTimeRef.current = updateTimeRanges
         },
-        [onUpdateTime]
+        [updateTimeRanges]
     )
 
     // memoized function for subscribing to the chart-data observable
@@ -420,7 +431,7 @@ export function RasterPlot(props: Props): null {
                     onSubscribe,
                     windowingTime,
                     axisAssignments, xAxesState,
-                    onUpdateData,
+                    updateData,
                     dropDataAfter,
                     updateTimingAndPlot,
                     seriesRef.current,
@@ -433,7 +444,7 @@ export function RasterPlot(props: Props): null {
                 onSubscribe,
                 windowingTime,
                 axisAssignments, xAxesState,
-                onUpdateData,
+                updateData,
                 dropDataAfter,
                 updateTimingAndPlot,
                 seriesRef.current,
@@ -442,7 +453,7 @@ export function RasterPlot(props: Props): null {
         },
         [
             axisAssignments, dropDataAfter, mainG,
-            onSubscribe, onUpdateData,
+            onSubscribe, updateData,
             seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
             withCadenceOf
         ]

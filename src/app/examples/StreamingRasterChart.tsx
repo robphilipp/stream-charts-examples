@@ -30,6 +30,7 @@ import {Tooltip} from "../charts/Tooltip";
 import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
 import {RasterPlot} from "../charts/RasterPlot";
+import {ContinuousAxisRange} from "../charts/continuousAxisRangeFor";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -113,6 +114,9 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     const intervalRef = useRef<NodeJS.Timer>()
     const [elapsed, setElapsed] = useState<number>(0)
 
+    // chart time
+    const chartTimeRef = useRef<number>(0)
+
     function initialDataFrom(data: Array<Series>): Array<Series> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
     }
@@ -124,6 +128,14 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter);
         regexFilter(updatedFilter).ifSome(regex => setFilter(regex));
+    }
+
+    /**
+     * Updates the time from the chart (the max value of the axes ranges)
+     * @param times A map associating the axis with its time range
+     */
+    function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
+        chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
     }
 
     const inputStyle = {
@@ -218,7 +230,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
-                    <span style={{color: theme.color, marginLeft: 50}}>elapsed time: {formatTime(elapsed / 1000)} s</span>
+                    <span style={{color: theme.color, marginLeft: 25}}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -242,7 +254,9 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
+                    onUpdateTime={handleChartTimeUpdate}
                     windowingTime={150}
+                    // onSubscribe={subscription => console.log("subscribed raster")}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"

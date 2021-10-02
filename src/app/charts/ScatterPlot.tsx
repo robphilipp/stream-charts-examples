@@ -90,8 +90,8 @@ export function ScatterPlot(props: Props): null {
         shouldSubscribe,
 
         onSubscribe = noop,
-        onUpdateData = noop,
-        onUpdateTime = noop,
+        updateData = noop,
+        updateTimeRanges = noop,
 
         mouseOverHandlerFor,
         mouseLeaveHandlerFor,
@@ -373,12 +373,12 @@ export function ScatterPlot(props: Props): null {
         },
         [updatePlot]
     )
-    const onUpdateTimeRef = useRef(onUpdateTime)
+    const onUpdateTimeRef = useRef(updateTimeRanges)
     useEffect(
         () => {
-            onUpdateTimeRef.current = onUpdateTime
+            onUpdateTimeRef.current = updateTimeRanges
         },
-        [onUpdateTime]
+        [updateTimeRanges]
     )
 
     // memoized function for subscribing to the chart-data observable
@@ -391,7 +391,7 @@ export function ScatterPlot(props: Props): null {
                     onSubscribe,
                     windowingTime,
                     axisAssignments, xAxesState,
-                    onUpdateData,
+                    updateData,
                     dropDataAfter,
                     updateTimingAndPlot,
                     seriesRef.current,
@@ -404,7 +404,7 @@ export function ScatterPlot(props: Props): null {
                 onSubscribe,
                 windowingTime,
                 axisAssignments, xAxesState,
-                onUpdateData,
+                updateData,
                 dropDataAfter,
                 updateTimingAndPlot,
                 seriesRef.current,
@@ -413,7 +413,7 @@ export function ScatterPlot(props: Props): null {
         },
         [
             axisAssignments, dropDataAfter, mainG,
-            onSubscribe, onUpdateData,
+            onSubscribe, updateData,
             seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
             withCadenceOf
         ]

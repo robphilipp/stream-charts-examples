@@ -10,6 +10,8 @@ import ChartProvider, {defaultMargin} from "./hooks/useChart";
 import * as d3 from "d3";
 import {SeriesLineStyle} from "./axes";
 import {createPlotContainer} from "./plot";
+import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {noop} from "./utils";
 
 // const defaultAxesStyle = {color: '#d2933f'}
 const defaultBackground = '#202020';
@@ -18,15 +20,12 @@ interface Props {
     width: number
     height: number
     margin?: Partial<Margin>
-    // axisLabelFont?: Partial<AxesLabelFont>
-    // axisStyle?: Partial<CSSProperties>
     color?: string
     backgroundColor?: string
     svgStyle?: Partial<SvgStyle>
     seriesStyles?: Map<string, SeriesLineStyle>
 
     // initial data
-    // initialData: Map<string, Series>
     initialData: Array<Series>
     seriesFilter?: RegExp
 
@@ -35,8 +34,14 @@ interface Props {
     windowingTime?: number
     shouldSubscribe?: boolean
     onSubscribe?: (subscription: Subscription) => void
-    onUpdateData?: (seriesName: string, data: Array<Datum>) => void
-    onUpdateTime?: (time: number) => void
+    // onUpdateData?: (seriesName: string, data: Array<Datum>) => void
+    // onUpdateTime?: (time: number) => void
+    /**
+     * Callback when the time range changes.
+     * @param times The times (start, end) times for each axis in the plot
+     * @return void
+     */
+    onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void
 
     // regex filter used to select which series are displayed
     filter?: RegExp
@@ -56,6 +61,10 @@ export function Chart(props: Props): JSX.Element {
         seriesObservable,
         windowingTime = 100,
         shouldSubscribe = true,
+
+        // onUpdateTime = noop,
+        onSubscribe = noop,
+        onUpdateTime = noop,
 
         children,
     } = props
@@ -127,6 +136,9 @@ export function Chart(props: Props): JSX.Element {
                 seriesObservable={seriesObservable}
                 windowingTime={windowingTime}
                 shouldSubscribe={shouldSubscribe}
+
+                onSubscribe={onSubscribe}
+                onUpdateTime={onUpdateTime}
             >
                 {
                     // the chart elements are the children
