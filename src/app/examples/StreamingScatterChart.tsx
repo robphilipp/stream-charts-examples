@@ -139,6 +139,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const intervalRef = useRef<NodeJS.Timer>()
     const [elapsed, setElapsed] = useState<number>(0)
 
+    // chart time
+    const chartTimeRef = useRef<number>(0)
+
     function initialDataFrom(data: Array<Series>): Array<Series> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
     }
@@ -161,6 +164,14 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         const [, factory] = INTERPOLATIONS.get(selectedInterpolation) || ['Linear', d3.curveLinear]
         setInterpolation(() => factory)
         setSelectedInterpolationName(selectedInterpolation)
+    }
+
+    /**
+     * Updates the time from the chart (the max value of the axes ranges)
+     * @param times A map associating the axis with its time range
+     */
+    function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
+        chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
     }
 
     return (
@@ -244,7 +255,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             <option key={value} value={value}>{name}</option>
                         ))}
                     </select>
-                    <span style={{color: theme.color, marginLeft: 50}}>elapsed time: {formatTime(elapsed / 1000)} s</span>
+                    <span style={{color: theme.color, marginLeft: 25}}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>
                     {/*<Checkbox*/}
                     {/*    key={3}*/}
                     {/*    checked={visibility.magnifier}*/}
@@ -289,6 +300,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
+                    onUpdateTime={handleChartTimeUpdate}
                     windowingTime={75}
                     // windowingTime={25}
                 >

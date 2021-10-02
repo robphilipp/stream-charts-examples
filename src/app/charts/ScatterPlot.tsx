@@ -90,6 +90,8 @@ export function ScatterPlot(props: Props): null {
         shouldSubscribe,
 
         onSubscribe = noop,
+        onUpdateTime,
+
         updateData = noop,
         updateTimeRanges = noop,
 
@@ -138,9 +140,16 @@ export function ScatterPlot(props: Props): null {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
+                if (onUpdateTime) {
+                    setTimeout(() => {
+                        const times = new Map<string, [number, number]>()
+                        ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
+                        onUpdateTime(times)
+                    }, 0)
+                }
             }
         },
-        [mainG]
+        [mainG, onUpdateTime]
     )
 
     // todo find better way
