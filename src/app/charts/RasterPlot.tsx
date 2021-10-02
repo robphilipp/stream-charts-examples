@@ -391,19 +391,23 @@ export function RasterPlot(props: Props): null {
         () => {
             if (mainG !== null && container !== null) {
                 // when the update plot function doesn't yet exist, then create the container holding the plot
+                const svg = d3.select<SVGSVGElement, any>(container)
+                const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
                 if (updatePlotRef.current === noop) {
-                    const svg = d3.select<SVGSVGElement, any>(container)
-                    const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
                     mainG
                         .selectAll<SVGGElement, Series>('g')
+                        .attr("clip-path", `url(#${clipPathId})`)
                         .data<Series>(dataRef.current)
                         .enter()
                         .append('g')
                         .attr('class', 'spikes-series')
                         .attr('id', series => `${series.name}-${chartId}-raster`)
                         .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                        .attr("clip-path", `url(#${clipPathId})`)
 
+                } else {
+                    mainG
+                        .selectAll<SVGGElement, Series>('g')
+                        .attr("clip-path", `url(#${clipPathId})`)
                 }
                 updatePlotRef.current = updatePlot
             }
