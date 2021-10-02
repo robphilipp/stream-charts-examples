@@ -114,12 +114,19 @@ interface Props {
      color={theme.color}
      backgroundColor={theme.backgroundColor}
      seriesStyles={new Map([
-        ['neuron1', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
-        ['neuron2', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
-        ['neuron3', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
-        ['neuron4', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
-        ['neuron5', {...defaultLineStyle, color: 'orange', lineWidth: 2, highlightColor: 'orange'}],
-        ['neuron6', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
+        ['neuron1', {
+             ...defaultLineStyle,
+             color: 'orange',
+             lineWidth: 2,
+             highlightColor: 'orange'
+        }],
+        ['neuron6', {
+            ...defaultLineStyle,
+            color: theme.name === 'light' ? 'blue' : 'gray',
+            lineWidth: 3,
+            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+            highlightWidth: 5
+        }],
      ])}
      initialData={initialDataRef.current}
      seriesFilter={filter}

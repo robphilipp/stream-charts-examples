@@ -65,6 +65,27 @@ interface Props {
     spikeMargin?: number
 }
 
+/**
+ * Renders a streaming neuron raster plot for the series in the initial data and those sourced by the
+ * observable specified as a property in the {@link Chart}. This component uses the {@link useChart}
+ * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
+ * chart ecosystem (axes, tracker, tooltip).
+ *
+ * @param props The properties associated with the raster plot
+ * @constructor
+ * @example
+ <RasterPlot
+     axisAssignments={new Map([
+        ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+        ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+     ])}
+     spikeMargin={1}
+     dropDataAfter={5000}
+     panEnabled={true}
+     zoomEnabled={true}
+     zoomKeyModifiersRequired={true}
+ />
+ */
 export function RasterPlot(props: Props): null {
     const {
         chartId,

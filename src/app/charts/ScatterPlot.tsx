@@ -65,10 +65,24 @@ interface Props {
 }
 
 /**
- * Renders a streaming scatter plot for the series in the initial data and those streamed in
- * by the observable.
- * @param props
+ * Renders a streaming scatter plot for the series in the initial data and those sourced by the
+ * observable specified as a property in the {@link Chart}. This component uses the {@link useChart}
+ * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
+ * chart ecosystem (axes, tracker, tooltip).
+ *
+ * @param props The properties associated with the scatter plot
  * @constructor
+ * @example
+ <ScatterPlot
+     interpolation={interpolation}
+     axisAssignments={new Map([
+        ['test2', assignAxes("x-axis-2", "y-axis-2")],
+     ])}
+     dropDataAfter={10000}
+     panEnabled={true}
+     zoomEnabled={true}
+     zoomKeyModifiersRequired={true}
+ />
  */
 export function ScatterPlot(props: Props): null {
     const {
