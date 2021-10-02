@@ -15,7 +15,7 @@ import {AxesState} from "./hooks/AxesState";
  * @param windowingTime Basically the update time where data is collected and then rendered
  * @param axisAssignments The assignment of the series to their x- and y-axes
  * @param xAxesState The current state of the x-axis
- * @param updateData Callback for when data is updated
+ * @param onUpdateData Callback for when data is updated
  * @param dropDataAfter Limits the amount of data stored. Any data older than this value (ms) will
  * be dropped on the next update
  * @param updateTimingAndPlot The callback function to update the plot and timing
@@ -29,7 +29,7 @@ export function subscriptionFor(
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
     xAxesState: AxesState,
-    updateData: (seriesName: string, data: Array<Datum>) => void,
+    onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
     seriesMap: Map<string, Series>,
@@ -63,7 +63,7 @@ export function subscriptionFor(
                     const series = seriesMap.get(name) || emptySeries(name);
 
                     // update the handler with the new data point
-                    updateData(name, newData);
+                    if (onUpdateData) onUpdateData(name, newData);
 
                     // add the new data to the series
                     series.data.push(...newData);
@@ -114,7 +114,7 @@ export function subscriptionFor(
  * @param windowingTime Basically the update time where data is collected and then rendered
  * @param axisAssignments The assignment of the series to their x- and y-axes
  * @param xAxesState The current state of the x-axis
- * @param updateData Callback for when data is updated
+ * @param onUpdateData Callback for when data is updated
  * @param dropDataAfter Limits the amount of data stored. Any data older than this value (ms) will
  * be dropped on the next update
  * @param updateTimingAndPlot The callback function to update the plot and timing
@@ -129,7 +129,7 @@ export function subscriptionWithCadenceFor(
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
     xAxesState: AxesState,
-    updateData: (seriesName: string, data: Array<Datum>) => void,
+    onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
     seriesMap: Map<string, Series>,
@@ -202,7 +202,7 @@ export function subscriptionWithCadenceFor(
                 const series = seriesMap.get(name) || emptySeries(name);
 
                 // update the handler with the new data point
-                updateData(name, newData);
+                if (onUpdateData) onUpdateData(name, newData);
 
                 // add the new data to the series
                 series.data.push(...newData);

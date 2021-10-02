@@ -255,6 +255,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateTime={handleChartTimeUpdate}
+                    // onUpdateData={(name, data) => console.log(name, data.length)}
                     windowingTime={150}
                     // onSubscribe={subscription => console.log("subscribed raster")}
                 >

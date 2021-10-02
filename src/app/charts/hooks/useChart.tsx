@@ -143,17 +143,17 @@ interface UseChartValues {
      * @return void
      */
     onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void
-
-    /*
-     | INTERNAL CHART EVENT HANDLERS
-     */
     /**
      * Callback function that is called when new data arrives to the chart.
      * @param seriesName The name of the series for which new data arrived
      * @param data The new data that arrived in the windowing tine
      * @see UseChartValues.windowingTime
      */
-    updateData: (seriesName: string, data: Array<Datum>) => void
+    onUpdateData?: (seriesName: string, data: Array<Datum>) => void
+
+    /*
+     | INTERNAL CHART EVENT HANDLERS
+     */
     /**
      * Callback function that is called when the time ranges change. The time ranges could
      * change because of a zoom action, a pan action, or as new data is streamed in.
@@ -167,15 +167,10 @@ interface UseChartValues {
      */
     updateDimensions: (dimensions: Dimensions) => void
     // /**
-    //  * Sets the handler for the current subscription
-    //  * @param subscribeHandler The handler called when the observable is subscribed
+    //  * Sets the handler for when data is updated
+    //  * @param updateDataHandler the handler called when the new data arrives
     //  */
-    // subscriptionHandler: (subscribeHandler: (subscription: Subscription) => void) => void
-    /**
-     * Sets the handler for when data is updated
-     * @param updateDataHandler the handler called when the new data arrives
-     */
-    dataUpdateHandler: (updateDataHandler: (seriesName: string, data: Array<Datum>) => void) => void
+    // dataUpdateHandler: (updateDataHandler: (seriesName: string, data: Array<Datum>) => void) => void
     /**
      * Adds a handler for when the time is updated. The time could change because of a zoom action,
      * a pan action, or as new data is streamed in.
@@ -284,13 +279,13 @@ const defaultUseChartValues: UseChartValues = {
 
     // user callbacks
     onSubscribe: noop,
+    // updateData: noop,
 
     // internal event handlers
-    updateData: noop,
     updateTimeRanges: noop,
     updateDimensions: noop,
     // subscriptionHandler: () => noop,
-    dataUpdateHandler: () => noop,
+    // dataUpdateHandler: () => noop,
     addTimeUpdateHandler: () => noop,
     removeTimeUpdateHandler: () => noop,
 
@@ -338,6 +333,13 @@ interface Props {
      * @return void
      */
     onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void
+    /**
+     * Callback function that is called when new data arrives to the chart.
+     * @param seriesName The name of the series for which new data arrived
+     * @param data The new data that arrived in the windowing tine
+     * @see UseChartValues.windowingTime
+     */
+    onUpdateData?: (seriesName: string, data: Array<Datum>) => void
 
     children: JSX.Element | Array<JSX.Element>
 }
@@ -366,6 +368,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 
         onSubscribe = noop,
         onUpdateTime = noop,
+        onUpdateData = noop,
     } = props
     const [dimensions, setDimensions] = useState<Dimensions>(defaultUseChartValues.plotDimensions)
 
@@ -375,7 +378,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
-    const [updateDataCallback, setUpdateDataCallback] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
+    // const [updateDataCallback, setUpdateDataCallback] = useState<(seriesName: string, data: Array<Datum>) => void>(noop)
     const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
 
     const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void>>(new Map())
@@ -439,12 +442,13 @@ export default function ChartProvider(props: Props): JSX.Element {
 
             onSubscribe,
             onUpdateTime,
+            onUpdateData,
 
             updateTimeRanges,
-            updateData: updateDataCallback,
+            // updateData: updateDataCallback,
             updateDimensions: dimensions => setDimensions(dimensions),
 
-            dataUpdateHandler: handler => setUpdateDataCallback(handler),
+            // dataUpdateHandler: handler => setUpdateDataCallback(handler),
             addTimeUpdateHandler: (handlerId, handler) => timeUpdateHandlersRef.current.set(handlerId, handler),
             removeTimeUpdateHandler: handlerId => timeUpdateHandlersRef.current.delete(handlerId),
 
@@ -476,8 +480,10 @@ export default function ChartProvider(props: Props): JSX.Element {
  */
 export function useChart(): UseChartValues {
     const context = useContext<UseChartValues>(ChartContext)
-    const {chartId, dataUpdateHandler} = context
-    if (isNaN(chartId) || dataUpdateHandler === undefined) {
+    const {chartId} = context
+    // const {chartId, dataUpdateHandler} = context
+    // if (isNaN(chartId) || dataUpdateHandler === undefined) {
+    if (isNaN(chartId)) {
         throw new Error("useChart can only be used when the parent is a <ChartProvider/>")
     }
     return context

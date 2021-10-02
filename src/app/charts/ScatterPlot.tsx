@@ -91,8 +91,8 @@ export function ScatterPlot(props: Props): null {
 
         onSubscribe = noop,
         onUpdateTime,
+        onUpdateData,
 
-        updateData = noop,
         updateTimeRanges = noop,
 
         mouseOverHandlerFor,
@@ -400,7 +400,7 @@ export function ScatterPlot(props: Props): null {
                     onSubscribe,
                     windowingTime,
                     axisAssignments, xAxesState,
-                    updateData,
+                    onUpdateData,
                     dropDataAfter,
                     updateTimingAndPlot,
                     seriesRef.current,
@@ -413,7 +413,7 @@ export function ScatterPlot(props: Props): null {
                 onSubscribe,
                 windowingTime,
                 axisAssignments, xAxesState,
-                updateData,
+                onUpdateData,
                 dropDataAfter,
                 updateTimingAndPlot,
                 seriesRef.current,
@@ -422,7 +422,7 @@ export function ScatterPlot(props: Props): null {
         },
         [
             axisAssignments, dropDataAfter, mainG,
-            onSubscribe, updateData,
+            onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
             withCadenceOf
         ]
