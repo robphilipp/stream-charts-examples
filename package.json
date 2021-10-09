@@ -1,13 +1,12 @@
 {
   "name": "stream-charts-examples",
-  "version": "0.2.2-SNAPSHOT",
+  "version": "1.0.0",
   "types": "./src/app/index.d.ts",
-  "homepage": "https://robphilipp.github.io/stream-charts/",
   "license": "MIT",
   "repository": "github:robphilipp/stream-charts-examples",
   "main": "./src/index.tsx",
   "scripts": {
-    "start": "react-scripts start",
+    "start": "PORT=3001 react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -28,24 +27,25 @@
     ]
   },
   "dependencies": {
-    "d3": "^5.15.0",
-    "prelude-ts": "^0.8.3",
-    "react": "^16.12.0",
-    "react-dom": "^16.12.0",
-    "react-scripts": "3.3.0",
-    "rxjs": "^6.5.4",
-    "stream-charts": "^0.2.1"
+    "d3": "^7.0.3",
+    "prelude-ts": "^1.0.3",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-resizable-grid-layout": "^0.2.1",
+    "react-scripts": "4.0.3",
+    "rxjs": "^7.3.0",
+    "stream-charts": "^1.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.4.0",
     "@testing-library/user-event": "^7.2.1",
-    "@types/d3": "^5.7.2",
-    "@types/jest": "^24.9.1",
-    "@types/node": "^12.12.25",
-    "@types/react": "^16.9.19",
-    "@types/react-dom": "^16.9.5",
-    "typescript": "^3.9.3"
+    "@types/d3": "^7.0.0",
+    "@types/jest": "^27.0.2",
+    "@types/node": "^16.9.5",
+    "@types/react": "^17.0.24",
+    "@types/react-dom": "^17.0.9",
+    "typescript": "^4.4.3"
   },
   "files": [
     "README.md",
