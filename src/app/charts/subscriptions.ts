@@ -63,7 +63,7 @@ export function subscriptionFor(
                     const series = seriesMap.get(name) || emptySeries(name);
 
                     // update the handler with the new data point
-                    if (onUpdateData) onUpdateData(name, newData);
+                    if (onUpdateData) setTimeout(() => onUpdateData(name, newData), 0);
 
                     // add the new data to the series
                     series.data.push(...newData);
@@ -202,7 +202,7 @@ export function subscriptionWithCadenceFor(
                 const series = seriesMap.get(name) || emptySeries(name);
 
                 // update the handler with the new data point
-                if (onUpdateData) onUpdateData(name, newData);
+                if (onUpdateData) setTimeout(() => onUpdateData(name, newData), 0);
 
                 // add the new data to the series
                 series.data.push(...newData);

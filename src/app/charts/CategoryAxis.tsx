@@ -1,24 +1,34 @@
 import * as axes from "./axes"
 import {AxesLabelFont, AxisLocation, defaultAxesLabelFont} from "./axes"
 import * as d3 from "d3";
-import {ScaleBand} from "d3";
 import {useChart} from "./hooks/useChart";
 import {useEffect, useRef} from "react";
 import {Dimensions, Margin} from "./margins";
 import {SvgSelection} from "./d3types";
 
 interface Props {
-    // the unique ID of the axis
+    /**
+     * The unique ID of the axis
+     */
     axisId: string
-    // the location of the axis. for y-axes, this mut be either left or right
+    /**
+     * The location of the axis. Because category axes can only be used to represent the y-axes,
+     * the location must be either {@link AxisLocation.Left} or {@link AxisLocation.Right}
+     */
     location: AxisLocation.Left | AxisLocation.Right
-    // category axes
-    scale?: ScaleBand<string>
-    // the min and max values for the axis
+    /**
+     * The categories for the y-axis. The first element or the array will be displayed as the label for the top (largest)
+     * tick of the y-axis. The second element will be displayed one below. And the last element of the array
+     * will be displayed at the bottom of the axis.
+     */
     categories: Array<string>
-    // the font for drawing the axis ticks and labels
+    /**
+     * The font for drawing the axis ticks and labels.
+     */
     font?: Partial<AxesLabelFont>
-    // the axis label
+    /**
+     * The axis label.
+     */
     label: string
 }
 

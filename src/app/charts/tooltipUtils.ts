@@ -9,24 +9,66 @@ import {CategoryAxis} from "./axes";
  * of the content.
  */
 export interface TooltipStyle {
-    visible: boolean;
+    /**
+     * Visibility of the tooltip when the mouse hovers over a data series or point.
+     */
+    visible: boolean
 
-    fontSize: number;
-    fontColor: string;
-    fontFamily: string;
-    fontWeight: number;
+    /**
+     * The size of the font displayed in the tooltip
+     */
+    fontSize: number
+    /**
+     * The color of the text displayed in the tooltip
+     */
+    fontColor: string
+    /**
+     * The font family for the text displayed in the tooltip
+     */
+    fontFamily: string
+    /**
+     * The font weight for the text displayed in the tooltip
+     */
+    fontWeight: number
 
-    backgroundColor: string;
-    backgroundOpacity: number;
+    /**
+     * The background color
+     */
+    backgroundColor: string
+    /**
+     * The opacity of the background (i.e. how transparent it is)
+     */
+    backgroundOpacity: number
 
-    borderColor: string;
-    borderWidth: number;
-    borderRadius: number;
+    /**
+     * The color of the border surrounding the tooltip content
+     */
+    borderColor: string
+    /**
+     * The width of the border surrounding the tooltip content
+     */
+    borderWidth: number
+    /**
+     * The radius of the border surrounding the tooltip content
+     */
+    borderRadius: number
 
-    paddingLeft: number;
-    paddingRight: number;
-    paddingTop: number;
-    paddingBottom: number;
+    /**
+     * The padding to the left of the tooltip content
+     */
+    paddingLeft: number
+    /**
+     * The padding to the right of the tooltip content
+     */
+    paddingRight: number
+    /**
+     * The padding to the top of the tooltip content
+     */
+    paddingTop: number
+    /**
+     * The padding to the bottom of the tooltip content
+     */
+    paddingBottom: number
 }
 
 export const defaultTooltipStyle: TooltipStyle = {

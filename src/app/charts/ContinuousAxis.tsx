@@ -9,18 +9,42 @@ import {noop} from "./utils";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 
 interface Props {
-    // the unique ID of the axis
+    /**
+     * The unique ID of the axis
+     */
     axisId: string
-    // the location of the axis. for x-axes, this must be either top or bottom. for
-    // y-axes, this mut be either left or right
+    /**
+     * The location of the axis. When representing a y-axis, set the location to {@link AxisLocation.Left} or
+     * {@link AxisLocation.Right}. When representing an x-axis, set the location to {@link AxisLocation.Bottom}
+     * or {@link AxisLocation.Top}. The location of the axis determines whether it represents an x-axis or a
+     * y-axis.
+     */
     location: AxisLocation
-    // linear, log, or power scale that defaults to linear scale when not specified
+    /**
+     * The optional scale (factory) of the axis is like the axis ruler and determines how the points are placed.
+     * For example, a linear scale is like an evenly spaced ruler, and the mapping between screen location and
+     * data value are linear. As another example, the log scale has a logarithmic mapping between the screen location
+     * and the data. The scale can be any one of the `d3` {@link ScaleContinuousNumeric} scales {@link d3.scaleLinear},
+     * {@link d3.scaleLog}, {@link d3.scalePow} etc. When not specified, then defaults to the linear scale
+     * ({@link d3.scaleLinear}).
+     */
     scale?: ScaleContinuousNumeric<number, number>
-    // the min and max values for the axis
+    /**
+     * The domain of the axis (in d3 terminology) is effectively the minimum value of the axis and the maximum
+     * value of the axis when the initial data is displayed. The domain defines the time-window of the displayed
+     * data. For example, if the `domain` for an x-axis is specified as `[1000, 6000]`, then the axis starts
+     * at `1000` and ends at `6000`, and the time-window is `5000`. Once data starts to stream past the axis
+     * end, the plot starts to scroll, maintaining the calculated time-window (in out example, 5000). Of course,
+     * a zooming event will change the domain, and also the time-window.
+     */
     domain: [min: number, max: number]
-    // the font for drawing the axis ticks and labels
+    /**
+     * The font for drawing the axis ticks and labels.
+     */
     font?: Partial<AxesLabelFont>
-    // the axis label
+    /**
+     * The axis label.
+     */
     label: string
 }
 
