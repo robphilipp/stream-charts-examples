@@ -17,40 +17,40 @@ import {
 } from 'react-resizable-grid-layout';
 import {lightTheme, Theme} from "./Themes";
 
-import {Datum, Series, seriesFrom} from "../charts/datumSeries";
-import {ChartData} from "../charts/chartData";
-import {regexFilter} from "../charts/regexFilter";
-import {Chart} from "../charts/Chart";
-import { defaultMargin } from '../charts/hooks/useChart';
-import {AxisLocation, defaultLineStyle } from '../charts/axes';
-import {ContinuousAxis} from "../charts/ContinuousAxis";
-import {CategoryAxis} from "../charts/CategoryAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
-import {Tooltip} from "../charts/Tooltip";
-import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
-import {formatNumber, formatTime} from '../charts/utils';
-import {RasterPlot} from "../charts/RasterPlot";
-import {ContinuousAxisRange} from "../charts/continuousAxisRangeFor";
-// import {
-//     assignAxes,
-//     AxisLocation,
-//     CategoryAxis,
-//     Chart,
-//     ChartData,
-//     ContinuousAxis,
-//     Datum,
-//     defaultLineStyle,
-//     defaultMargin,
-//     formatNumber,
-//     RasterPlot,
-//     RasterPlotTooltipContent,
-//     regexFilter,
-//     Series,
-//     seriesFrom,
-//     Tooltip,
-//     Tracker,
-//     TrackerLabelLocation
-// } from "stream-charts"
+// import {Datum, Series, seriesFrom} from "../charts/datumSeries";
+// import {ChartData} from "../charts/chartData";
+// import {regexFilter} from "../charts/regexFilter";
+// import {Chart} from "../charts/Chart";
+// import { defaultMargin } from '../charts/hooks/useChart';
+// import {AxisLocation, defaultLineStyle } from '../charts/axes';
+// import {ContinuousAxis} from "../charts/ContinuousAxis";
+// import {CategoryAxis} from "../charts/CategoryAxis";
+// import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
+// import {Tooltip} from "../charts/Tooltip";
+// import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
+// import {formatNumber, formatTime} from '../charts/utils';
+// import {RasterPlot} from "../charts/RasterPlot";
+// import {ContinuousAxisRange} from "../charts/continuousAxisRangeFor";
+import {
+    assignAxes,
+    AxisLocation,
+    CategoryAxis,
+    Chart,
+    ChartData,
+    ContinuousAxis,
+    Datum,
+    defaultLineStyle,
+    defaultMargin,
+    formatNumber, formatTime,
+    RasterPlot,
+    RasterPlotTooltipContent,
+    regexFilter,
+    Series,
+    seriesFrom,
+    Tooltip,
+    Tracker,
+    TrackerLabelLocation
+} from "stream-charts"
 
 interface Visibility {
     tooltip: boolean;
