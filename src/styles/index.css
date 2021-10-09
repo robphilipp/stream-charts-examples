@@ -1,5 +1,6 @@
 body {
-  margin: 20px 20px 20px 10%;
+  margin: 0;
+  paddiing: 0;
   background-color: #202020;
   color: #d2933f;
   font-family: 'Avenir Next', 'Segoe UI', 'Roboto', 'Oxygen',
