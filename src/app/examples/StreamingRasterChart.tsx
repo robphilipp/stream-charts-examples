@@ -119,6 +119,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     function initialDataFrom(data: Array<Series>): Array<Series> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
+        // return data.map(series => seriesFrom(series.name))
     }
 
     /**
