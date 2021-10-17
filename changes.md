@@ -1,5 +1,8 @@
 # change history
 
+## version 1.0.1 (updated stream-charts)
+Update stream charts to new version and tooltip clipping issue fix.
+
 ## version 0.2.2 (raster svg height)
 Updated stream-charts to version that fixes the incorrect svg height calculation.
 
