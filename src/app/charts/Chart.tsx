@@ -195,7 +195,6 @@ export function Chart(props: Props): JSX.Element {
         windowingTime = 100,
         shouldSubscribe = true,
 
-        // onUpdateTime = noop,
         onSubscribe = noop,
         onUpdateTime = noop,
         onUpdateData = noop,

@@ -256,31 +256,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         ))}
                     </select>
                     <span style={{color: theme.color, marginLeft: 25}}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>
-                    {/*<Checkbox*/}
-                    {/*    key={3}*/}
-                    {/*    checked={visibility.magnifier}*/}
-                    {/*    label="magnifier"*/}
-                    {/*    backgroundColor={theme.backgroundColor}*/}
-                    {/*    borderColor={theme.color}*/}
-                    {/*    backgroundColorChecked={theme.backgroundColor}*/}
-                    {/*    labelColor={theme.color}*/}
-                    {/*    onChange={() => setVisibility({*/}
-                    {/*        tooltip: false,*/}
-                    {/*        tracker: false,*/}
-                    {/*        magnifier: !visibility.magnifier*/}
-                    {/*    })}*/}
-                    {/*/>*/}
-                    {/*{visibility.magnifier ?*/}
-                    {/*    (<label style={{color: theme.color}}><input*/}
-                    {/*        type="range"*/}
-                    {/*        value={magnification}*/}
-                    {/*        min={1}*/}
-                    {/*        max={10}*/}
-                    {/*        step={1}*/}
-                    {/*        onChange={event => setMagnification(parseInt(event.target.value))}*/}
-                    {/*    /> ({magnification})</label>) :*/}
-                    {/*    (<span/>)*/}
-                    {/*}*/}
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -302,14 +277,12 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     shouldSubscribe={running}
                     onUpdateTime={handleChartTimeUpdate}
                     windowingTime={75}
-                    // windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
                         domain={[10, 10000]}
                         label="x-axis"
-                        // font={{color: theme.color}}
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"

@@ -21,7 +21,6 @@ import {
 } from "./axes";
 import {Subscription} from "rxjs";
 import {Dimensions, Margin} from "./margins";
-import {defaultTooltipStyle, TooltipStyle} from "./tooltipUtils";
 import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
 
 interface Props {
@@ -137,6 +136,8 @@ export function RasterPlot(props: Props): null {
     const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
+
+    const allowTooltipRef = useRef<boolean>(true);
 
     useEffect(
         () => {
@@ -282,14 +283,20 @@ export function RasterPlot(props: Props): null {
                 // set up panning
                 if (panEnabled) {
                     const drag = d3.drag<SVGSVGElement, Datum>()
-                        .on("start", () => d3.select(container).style("cursor", "move"))
+                        .on("start", () => {
+                            d3.select(container).style("cursor", "move")
+                            allowTooltipRef.current = false
+                        })
                         .on("drag", (event: any) => {
                             const names = dataRef.current.map(series => series.name)
                             onPan(event.dx, plotDimensions, names, timeRanges)
                             // need to update the plot with the new time-ranges
                             updatePlotRef.current(timeRanges, mainGElem)
                         })
-                        .on("end", () => d3.select(container).style("cursor", "auto"))
+                        .on("end", () => {
+                            d3.select(container).style("cursor", "auto")
+                            allowTooltipRef.current = true
+                        })
 
                     svg.call(drag)
                 }
@@ -354,16 +361,14 @@ export function RasterPlot(props: Props): null {
                             "mouseover",
                             (event, datumArray) =>
                                 handleMouseOverSeries(
-                                    chartId,
                                     container,
                                     xAxis,
                                     series.name,
                                     [datumArray.time, datumArray.value],
                                     event,
                                     margin,
-                                    defaultTooltipStyle,
                                     seriesStyles,
-                                    plotDimensions,
+                                    allowTooltipRef.current,
                                     mouseOverHandlerFor(`tooltip-${chartId}`)
                                 )
                         )
@@ -572,29 +577,25 @@ function axesFor(
 
 /**
  * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
- * @param chartId The ID of the chart
  * @param container The chart container
  * @param xAxis The x-axis
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param selectedDatum The selected datum
  * @param event The mouse-over series event
  * @param margin The plot margin
- * @param tooltipStyle The tooltip style information
  * @param seriesStyles The series style information (needed for (un)highlighting)
- * @param plotDimensions The dimensions of the plot
+ * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
  */
 function handleMouseOverSeries(
-    chartId: number,
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
     selectedDatum: [x: number, y: number],
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
-    tooltipStyle: TooltipStyle,
     seriesStyles: Map<string, SeriesLineStyle>,
-    plotDimensions: Dimensions,
+    allowTooltip: boolean,
     mouseOverHandlerFor: ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
@@ -608,7 +609,7 @@ function handleMouseOverSeries(
         .attr('stroke', highlightColor)
         .attr('stroke-width', highlightWidth)
 
-    if (mouseOverHandlerFor) {
+    if (mouseOverHandlerFor && allowTooltip) {
         // the contract for the mouse over handler is for a time-series, but here we only
         // need one point, the selected datum, and so we convert it into an array of point
         // (i.e. a time-series). The category tooltip is (and custom ones, must) be

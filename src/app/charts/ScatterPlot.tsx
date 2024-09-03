@@ -20,7 +20,6 @@ import {GSelection} from "./d3types";
 import {Subscription} from "rxjs";
 import {noop} from "./utils";
 import {Dimensions, Margin} from "./margins";
-import {defaultTooltipStyle, TooltipStyle} from "./tooltipUtils";
 import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
 
 interface Props {
@@ -133,6 +132,8 @@ export function ScatterPlot(props: Props): null {
     const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
+
+    const allowTooltip = useRef<boolean>(true);
 
     useEffect(
         () => {
@@ -265,8 +266,10 @@ export function ScatterPlot(props: Props): null {
                 if (panEnabled) {
                     const drag = d3.drag<SVGSVGElement, Datum>()
                         .on("start", () => {
-                            // todo during a pan, we want to hide the tooltip
                             d3.select(container).style("cursor", "move")
+                            // during panning, we need to disable viewing the tooltip to prevent
+                            // tooltips from rendering but not getting removed
+                            allowTooltip.current = false;
                         })
                         .on("drag", (event) => {
                             onPan(
@@ -278,8 +281,11 @@ export function ScatterPlot(props: Props): null {
                             updatePlotRef.current(timeRanges, mainGElem)
                         })
                         .on("end", () => {
-                            // todo if the tooltip was originally visible, then allow it to be seen again
                             d3.select(container).style("cursor", "auto")
+                            // during panning, we disabled viewing the tooltip to prevent
+                            // tooltips from rendering but not getting removed, now that panning
+                            // is over, allow tooltips to render again
+                            allowTooltip.current = true;
                         })
 
                     svg.call(drag)
@@ -350,16 +356,17 @@ export function ScatterPlot(props: Props): null {
                                     (event, datumArray) =>
                                         // recall that this handler is passed down via the "useChart" hook
                                         handleMouseOverSeries(
-                                            chartId,
+                                            // chartId,
                                             container,
                                             xAxisLinear,
                                             name,
                                             datumArray,
                                             event,
                                             margin,
-                                            defaultTooltipStyle,
+                                            // defaultTooltipStyle,
                                             seriesStyles,
-                                            plotDimensions,
+                                            // plotDimensions,
+                                            allowTooltip.current,
                                             mouseOverHandlerFor(`tooltip-${chartId}`)
                                         )
                                 )
@@ -528,29 +535,25 @@ function axesFor(
 
 /**
  * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
- * @param chartId The ID of the chart
  * @param container The chart container
  * @param xAxis The x-axis
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param series The time series
  * @param event The mouse-over series event
  * @param margin The plot margin
- * @param tooltipStyle The tooltip style information
  * @param seriesStyles The series style information (needed for (un)highlighting)
- * @param plotDimensions The dimensions of the plot
+ * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
  */
 function handleMouseOverSeries(
-    chartId: number,
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
     series: TimeSeries,
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
-    tooltipStyle: TooltipStyle,
     seriesStyles: Map<string, SeriesLineStyle>,
-    plotDimensions: Dimensions,
+    allowTooltip: boolean,
     mouseOverHandlerFor: ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
@@ -564,7 +567,7 @@ function handleMouseOverSeries(
         .attr('stroke', highlightColor)
         .attr('stroke-width', highlightWidth)
 
-    if (mouseOverHandlerFor) {
+    if (mouseOverHandlerFor && allowTooltip) {
         mouseOverHandlerFor(seriesName, time, series, [x, y])
     }
 }
