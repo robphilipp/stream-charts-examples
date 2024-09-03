@@ -133,7 +133,10 @@ export function ScatterPlot(props: Props): null {
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
-    const allowTooltip = useRef<boolean>(true);
+    const subscriptionRef = useRef<Subscription>()
+    const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
+
+    const allowTooltip = useRef<boolean>(isSubscriptionClosed())
 
     useEffect(
         () => {
@@ -149,7 +152,7 @@ export function ScatterPlot(props: Props): null {
     )
 
     // updates the timing using the onUpdateTime and updatePlot references. This and the references
-    // defined above allow the axes' times to be update properly by avoid stale reference to these
+    // defined above allow the axes' times to be updated properly by avoid stale reference to these
     // functions.
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
             if (mainG !== null) {
@@ -285,7 +288,7 @@ export function ScatterPlot(props: Props): null {
                             // during panning, we disabled viewing the tooltip to prevent
                             // tooltips from rendering but not getting removed, now that panning
                             // is over, allow tooltips to render again
-                            allowTooltip.current = true;
+                            allowTooltip.current = isSubscriptionClosed();
                         })
 
                     svg.call(drag)
@@ -356,16 +359,13 @@ export function ScatterPlot(props: Props): null {
                                     (event, datumArray) =>
                                         // recall that this handler is passed down via the "useChart" hook
                                         handleMouseOverSeries(
-                                            // chartId,
                                             container,
                                             xAxisLinear,
                                             name,
                                             datumArray,
                                             event,
                                             margin,
-                                            // defaultTooltipStyle,
                                             seriesStyles,
-                                            // plotDimensions,
                                             allowTooltip.current,
                                             mouseOverHandlerFor(`tooltip-${chartId}`)
                                         )
@@ -487,14 +487,15 @@ export function ScatterPlot(props: Props): null {
     // is changed to `true` and we haven't subscribed yet, then subscribe. when the
     // `shouldSubscribe` is `false` and we had subscribed, then unsubscribe. otherwise,
     // do nothing.
-    const subscriptionRef = useRef<Subscription>()
     useEffect(
         () => {
             if (shouldSubscribe && subscriptionRef.current === undefined) {
                 subscriptionRef.current = subscribe()
+                allowTooltip.current = false
             } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
                 subscriptionRef.current?.unsubscribe()
                 subscriptionRef.current = undefined
+                allowTooltip.current = true
             }
         },
         [shouldSubscribe, subscribe]

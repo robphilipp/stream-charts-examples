@@ -1,7 +1,7 @@
 import * as React from 'react';
 import {useRef, useState} from 'react';
 import {Observable} from "rxjs";
-import Checkbox from "./Checkbox";
+import Checkbox from "../ui/Checkbox";
 import {randomSpikeDataObservable} from "./randomData";
 import {
     Grid,
@@ -15,7 +15,7 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, Theme} from "./Themes";
+import {lightTheme, Theme} from "../ui/Themes";
 
 import {Datum, Series, seriesFrom} from "../charts/datumSeries";
 import {ChartData} from "../charts/chartData";

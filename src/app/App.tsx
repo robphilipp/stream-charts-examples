@@ -11,8 +11,8 @@ import {
     withPixels
 } from 'react-resizable-grid-layout';
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
-import {Toggle, ToggleStatus} from "./examples/Toggle";
-import {darkTheme, lightTheme, Theme} from "./examples/Themes";
+import {Toggle, ToggleStatus} from "./ui/Toggle";
+import {darkTheme, lightTheme, Theme} from "./ui/Themes";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 import {initialRandomWeightData} from "./examples/randomData";
 

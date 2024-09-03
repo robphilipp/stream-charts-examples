@@ -1,7 +1,7 @@
 import {default as React, useRef, useState} from "react";
 import {randomWeightDataObservable} from "./randomData";
 import {Observable} from "rxjs";
-import Checkbox from "./Checkbox";
+import Checkbox from "../ui/Checkbox";
 import {
     Grid,
     gridArea,
@@ -46,7 +46,7 @@ import {assignAxes} from "../charts/plot";
 //     TrackerLabelLocation
 // } from "stream-charts";
 import * as d3 from "d3";
-import {lightTheme, Theme} from "./Themes";
+import {lightTheme, Theme} from "../ui/Themes";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -269,7 +269,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     seriesStyles={new Map([
                         ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1, highlightColor: 'orange'}],
                         ['test2', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
-                        // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
+                        ['test3', {...defaultLineStyle, color: theme.name === 'light' ? 'dodgerblue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray', highlightWidth: 5}],
                     ])}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
@@ -329,9 +329,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ScatterPlot
                         interpolation={interpolation}
                         axisAssignments={new Map([
-                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                            // ['test1', assignAxes("x-axis-1", "y-axis-1")],
                             ['test2', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                            ['test3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
                         dropDataAfter={10000}
                         panEnabled={true}

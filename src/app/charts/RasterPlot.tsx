@@ -137,7 +137,11 @@ export function RasterPlot(props: Props): null {
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
-    const allowTooltipRef = useRef<boolean>(true);
+    const subscriptionRef = useRef<Subscription>()
+
+    const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
+
+    const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
 
     useEffect(
         () => {
@@ -295,7 +299,7 @@ export function RasterPlot(props: Props): null {
                         })
                         .on("end", () => {
                             d3.select(container).style("cursor", "auto")
-                            allowTooltipRef.current = true
+                            allowTooltipRef.current = isSubscriptionClosed()
                         })
 
                     svg.call(drag)
@@ -527,14 +531,15 @@ export function RasterPlot(props: Props): null {
     // is changed to `true` and we haven't subscribed yet, then subscribe. when the
     // `shouldSubscribe` is `false` and we had subscribed, then unsubscribe. otherwise,
     // do nothing.
-    const subscriptionRef = useRef<Subscription>()
     useEffect(
         () => {
             if (shouldSubscribe && subscriptionRef.current === undefined) {
                 subscriptionRef.current = subscribe()
+                allowTooltipRef.current = false
             } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
                 subscriptionRef.current?.unsubscribe()
                 subscriptionRef.current = undefined
+                allowTooltipRef.current = true
             }
         },
         [shouldSubscribe, subscribe]
