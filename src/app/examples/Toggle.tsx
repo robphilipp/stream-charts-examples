@@ -1,6 +1,6 @@
 import {useState} from "react";
-// import {noop} from "../charts/utils";
-import {noop} from "stream-charts";
+import {noop} from "../charts/utils";
+// import {noop} from "stream-charts";
 
 export enum ToggleStatus {
     ON, OFF

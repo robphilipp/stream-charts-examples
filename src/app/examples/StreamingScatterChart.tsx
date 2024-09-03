@@ -14,37 +14,37 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-// import {Series, seriesFrom} from "../charts/datumSeries";
-// import {ChartData} from "../charts/chartData";
-// import {regexFilter} from "../charts/regexFilter";
-// import {Chart} from "../charts/Chart";
-// import { defaultMargin } from '../charts/hooks/useChart';
-// import {AxisLocation, defaultLineStyle } from '../charts/axes';
-// import {ContinuousAxis} from "../charts/ContinuousAxis";
-// import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
-// import {Tooltip} from "../charts/Tooltip";
-// import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
-// import {formatNumber, formatTime} from '../charts/utils';
-// import {ScatterPlot} from "../charts/ScatterPlot";
-// import {assignAxes} from "../charts/plot";
-import {
-    assignAxes,
-    AxisLocation,
-    Chart,
-    ChartData,
-    ContinuousAxis,
-    defaultLineStyle,
-    defaultMargin,
-    formatNumber, formatTime,
-    regexFilter,
-    ScatterPlot,
-    ScatterPlotTooltipContent,
-    Series,
-    seriesFrom,
-    Tooltip,
-    Tracker,
-    TrackerLabelLocation
-} from "stream-charts";
+import {Series, seriesFrom} from "../charts/datumSeries";
+import {ChartData} from "../charts/chartData";
+import {regexFilter} from "../charts/regexFilter";
+import {Chart} from "../charts/Chart";
+import {defaultMargin} from '../charts/hooks/useChart';
+import {AxisLocation, defaultLineStyle} from '../charts/axes';
+import {ContinuousAxis} from "../charts/ContinuousAxis";
+import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
+import {Tooltip} from "../charts/Tooltip";
+import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
+import {formatNumber, formatTime} from '../charts/utils';
+import {ScatterPlot} from "../charts/ScatterPlot";
+import {assignAxes} from "../charts/plot";
+// import {
+//     assignAxes,
+//     AxisLocation,
+//     Chart,
+//     ChartData,
+//     ContinuousAxis,
+//     defaultLineStyle,
+//     defaultMargin,
+//     formatNumber, formatTime,
+//     regexFilter,
+//     ScatterPlot,
+//     ScatterPlotTooltipContent,
+//     Series,
+//     seriesFrom,
+//     Tooltip,
+//     Tracker,
+//     TrackerLabelLocation
+// } from "stream-charts";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "./Themes";
 
@@ -136,7 +136,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timer>()
+    const intervalRef = useRef<NodeJS.Timeout>()
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time

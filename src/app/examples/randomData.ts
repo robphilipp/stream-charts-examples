@@ -1,8 +1,8 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-// import {ChartData, initialChartData} from "../charts/chartData";
-// import {Datum, Series, seriesFrom} from "../charts/datumSeries";
-import {ChartData, Datum, initialChartData, Series, seriesFrom, seriesFromTuples} from "stream-charts";
+import {Datum, Series, seriesFrom} from "../charts/datumSeries";
+import {ChartData, initialChartData} from "../charts/chartData";
+// import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
 
 const UPDATE_PERIOD_MS = 25;
 
@@ -11,14 +11,13 @@ const UPDATE_PERIOD_MS = 25;
  * @param sequenceTime The current time
  * @param series The list of series (identifiers) to update
  * @param seriesMaxTimes A map holding the series name and its associated max time
- * @param updatePeriod The update period (ms)
+ * @param spikeProbability The probability threshold for a spike in the tine interval
  * @return A random chart data
  */
 function randomSpikeData(
     sequenceTime: number,
     series: Array<string>,
     seriesMaxTimes: Map<string, number>,
-    updatePeriod: number,
     spikeProbability: number = 0.5,
 ): ChartData {
     const maxTime = Math.max(...Array.from(seriesMaxTimes.values()))
@@ -59,7 +58,7 @@ export function randomSpikeDataObservable(
         // convert the number sequence to a time
         map(sequence => (sequence + 1) * updatePeriod),
         // create a random spike for each series
-        map((time) => randomSpikeData(time, seriesNames, initialData.maxTimes, updatePeriod, spikeProbability))
+        map((time) => randomSpikeData(time, seriesNames, initialData.maxTimes, spikeProbability))
     );
 }
 
