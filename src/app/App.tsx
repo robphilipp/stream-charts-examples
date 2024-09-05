@@ -93,7 +93,7 @@ const App: React.FC = () => {
             </GridItem>
             <GridItem gridAreaName="scatter-chart">
                 <Tabs
-                    tabNames={["Scatter", "Raster", "tab 3"]}
+                    tabNames={["Scatter", "Raster", "Poincare"]}
                     style={{
                         backgroundColor: theme.backgroundColor,
                         color: theme.color,
@@ -122,7 +122,7 @@ const App: React.FC = () => {
                             plotWidth={900}
                         />
                     </>
-                    <div>This is tab 3</div>
+                    <div>Poincare Plot</div>
                 </Tabs>
             </GridItem>
         </Grid>

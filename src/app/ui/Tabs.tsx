@@ -29,6 +29,7 @@ export function Tabs(props: Props): JSX.Element {
     }
 
     return <>
+        <div style={{paddingBottom: 10}}>
         <TabHeader
             names={tabNames}
             activeTab={activeTab}
@@ -36,6 +37,7 @@ export function Tabs(props: Props): JSX.Element {
             style={props.style}
             activeStyle={props.activeStyle}
         />
+        </div>
         {children
             .filter((_, index) => index === activeTab)
             .map((child, index) => cloneElement(child, {key: `child-tab-${tabNames[index]}-${index}`, name: tabNames[index]}))
@@ -60,7 +62,8 @@ const defaultTabStyle = {
     borderBottom: 'unset',
     borderRadius: 0,
     fontColor: '#202020',
-    fontSize: 12,
+    fontSize: 'inherit',
+    fontFamily: 'inherit',
     width: 50,
     padding: 4,
     margin: 6,
@@ -70,7 +73,7 @@ const defaultTabStyle = {
 
 const defaultActiveTabStyle = {
     borderBottom: '3px solid #202020',
-    fontWeight: 1000,
+    fontWeight: 700,
 }
 
 function TabHeader(props: HeaderProps): JSX.Element {

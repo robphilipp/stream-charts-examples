@@ -323,7 +323,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             xLabel="t (ms)"
                             yLabel="count"
                             yValueFormatter={value => formatNumber(value, " ,.0f")}
-                            yChangeFormatter={value => formatNumber(value, " ,.0f")}
+                            yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
                         />
                     </Tooltip>
                     <ScatterPlot
