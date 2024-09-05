@@ -10,11 +10,12 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {Toggle, ToggleStatus} from "./ui/Toggle";
 import {darkTheme, lightTheme, Theme} from "./ui/Themes";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 import {initialRandomWeightData} from "./examples/randomData";
+import {Tabs} from "./ui/Tabs";
+import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 
 const seriesNames: Array<string> = []
 for (let i = 0; i < 30; ++i) {
@@ -51,16 +52,12 @@ const App: React.FC = () => {
                 .addTrack(withPixels(25))
                 .addTrack(withPixels(50))
                 .addTrack(withFraction(1))
-                .addTrack(withPixels(50))
-                .addTrack(withFraction(1))
                 .build()}
             gridTemplateAreas={gridTemplateAreasBuilder()
-                .addArea("left-side", gridArea(2, 1, 5))
                 .addArea("app-header", gridArea(1, 1, 1, 3))
+                .addArea("left-side", gridArea(2, 1, 5))
                 .addArea("scatter-header", gridArea(2, 2))
                 .addArea("scatter-chart", gridArea(3, 2))
-                .addArea("raster-header", gridArea(4, 2))
-                .addArea("raster-chart", gridArea(5, 2))
                 .addArea("left-side", gridArea(1, 3, 5))
                 .build()}
             styles={{backgroundColor: theme.backgroundColor}}
@@ -92,26 +89,41 @@ const App: React.FC = () => {
                 </Grid>
             </GridItem>
             <GridItem gridAreaName="scatter-header">
-                <h3 style={{color: theme.color}}>Streaming Scatter Chart</h3>
+                <h3 style={{color: theme.color}}>Streaming Charts</h3>
             </GridItem>
             <GridItem gridAreaName="scatter-chart">
-                <StreamingScatterChart
-                    theme={theme}
-                    timeWindow={1000}
-                    initialData={initialScatterData}
-                />
-            </GridItem>
-            <GridItem gridAreaName="raster-header">
-                <h3 style={{color: theme.color}}>Streaming Raster Chart</h3>
-            </GridItem>
-            <GridItem gridAreaName="raster-chart">
-                <StreamingRasterChart
-                    theme={theme}
-                    timeWindow={1000}
-                    initialData={initialSpikeData}
-                    seriesHeight={20}
-                    plotWidth={900}
-                />
+                <Tabs
+                    tabNames={["Scatter", "Raster", "tab 3"]}
+                    style={{
+                        backgroundColor: theme.backgroundColor,
+                        color: theme.color,
+                        width: 'auto'
+                    }}
+                    activeStyle={{
+                        backgroundColor: theme.backgroundColor,
+                        borderBottom: `3px dotted ${theme.color}`,
+                        color: theme.color,
+                        width: 'auto'
+                    }}
+                >
+                    <>
+                        <StreamingScatterChart
+                            theme={theme}
+                            timeWindow={1000}
+                            initialData={initialScatterData}
+                        />
+                    </>
+                    <>
+                        <StreamingRasterChart
+                            theme={theme}
+                            timeWindow={1000}
+                            initialData={initialSpikeData}
+                            seriesHeight={20}
+                            plotWidth={900}
+                        />
+                    </>
+                    <div>This is tab 3</div>
+                </Tabs>
             </GridItem>
         </Grid>
     );

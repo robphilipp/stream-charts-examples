@@ -5,7 +5,7 @@ import {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "../chartData";
 import {Datum, Series} from "../datumSeries";
-import {noop} from "../utils";
+// import {noop} from "../utils";
 import {BaseAxis, SeriesLineStyle} from "../axes";
 import {ContinuousAxisRange} from "../continuousAxisRangeFor";
 import {AxesAssignment, TimeSeries} from "../plot";
@@ -13,6 +13,13 @@ import {TooltipDimensions} from "../tooltipUtils";
 import {addAxisTo, AxesState, createAxesState} from "./AxesState";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
+
+/**
+ * No operation function for use when a default function is needed
+ */
+const noop = () => {
+    /* empty on purpose */
+}
 
 /**
  * The values exposed through the {@link useChart} react hook

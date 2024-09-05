@@ -30,6 +30,7 @@ import {Tooltip} from "../charts/Tooltip";
 import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
 import {RasterPlot} from "../charts/RasterPlot";
+import {Button} from "../ui/Button";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -153,22 +154,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         marginRight: 20
     }
 
-    const buttonStyle = {
-        backgroundColor: theme.backgroundColor,
-        outlineStyle: 'none',
-        borderColor: theme.color,
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: theme.color,
-        fontSize: 12,
-        width: 50,
-        padding: 4,
-        margin: 6,
-        marginRight: 20,
-        cursor: 'pointer',
-    }
-
     return (
         <Grid
             dimensionsSupplier={useGridCell}
@@ -193,7 +178,12 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         onChange={event => handleUpdateRegex(event.currentTarget.value)}
                         style={inputStyle}
                     /></label>
-                    <button
+                    <Button
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            color: theme.color
+                        }}
                         onClick={() => {
                             if (!running) {
                                 initialDataRef.current = initialDataFrom(initialData)
@@ -207,10 +197,9 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             }
                             setRunning(!running)
                         }}
-                        style={buttonStyle}
                     >
                         {running ? "Stop" : "Run"}
-                    </button>
+                    </Button>
                     <Checkbox
                         key={1}
                         checked={visibility.tooltip}

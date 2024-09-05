@@ -1,10 +1,9 @@
-import React from 'react';
+import React, {JSX} from 'react';
 
 interface Props {
     label: string
     labelColor?: string
     checked?: boolean;
-    onChange: (checked: boolean) => void;
     width?: number;
     height?: number;
     borderRadius?: number;
@@ -13,6 +12,7 @@ interface Props {
     borderColor?: string;
     textSpacing?: number;
     marginTop?: number;
+    onChange: (checked: boolean) => void;
     marginBottom?: number;
     marginLeft?: number;
     marginRight?: number;

@@ -8,6 +8,7 @@ import {ContinuousAxisRange} from "./continuousAxisRangeFor";
  * No operation function for use when a default function is needed
  */
 export const noop = () => {
+    /* empty on purpose */
 }
 
 /**
