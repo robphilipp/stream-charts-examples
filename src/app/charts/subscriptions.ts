@@ -1,8 +1,8 @@
-import {bufferTime, map, mergeAll, mergeWith, windowTime} from "rxjs/operators";
+import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
 import {ContinuousNumericAxis, timeRanges} from "./axes";
 import {Datum, emptySeries, Series} from "./datumSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
-import {animationFrameScheduler, asyncScheduler, interval, Observable, Subscription} from "rxjs";
+import {interval, Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {AxesAssignment} from "./plot";
 import {AxesState} from "./hooks/AxesState";
@@ -12,7 +12,7 @@ import {AxesState} from "./hooks/AxesState";
  * shared by the plots.
  * @param seriesObservable The series observable holding the stream of chart data
  * @param onSubscribe Callback for when the observable is subscribed to
- * @param windowingTime Basically the update time where data is collected and then rendered
+ * @param windowingTime Basically the update time when data is collected and then rendered
  * @param axisAssignments The assignment of the series to their x- and y-axes
  * @param xAxesState The current state of the x-axis
  * @param onUpdateData Callback for when data is updated
@@ -38,23 +38,13 @@ export function subscriptionFor(
     const subscription = seriesObservable
         .pipe(bufferTime(windowingTime))
         .subscribe(async dataList => {
-            await dataList.forEach(data => {
-                // grab the time-winds for the x-axes
-                const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+            dataList.forEach(data => {
+                // grab the time-windows for the x-axes
+                const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>);
 
                 // calculate the max times for each x-axis, which is the max time over all the
                 // series assigned to an x-axis
-                const axesSeries = Array.from(data.maxTimes.entries())
-                    .reduce(
-                        (assignedSeries, [seriesName,]) => {
-                            const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
-                            const as = assignedSeries.get(id) || []
-                            as.push(seriesName)
-                            assignedSeries.set(id, as)
-                            return assignedSeries
-                        },
-                        new Map<string, Array<string>>()
-                    )
+                const axesSeries = determineAssociatedSeries(data, axisAssignments, xAxesState)
 
                 // add each new point to it's corresponding series, the new points
                 // is a map(series_name -> new_point[])
@@ -68,33 +58,33 @@ export function subscriptionFor(
                     // add the new data to the series
                     series.data.push(...newData);
 
-                    const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName()
+                    const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName();
                     const currentAxisTime = axesSeries.get(axisId)
                         ?.reduce(
                             (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
                             -Infinity
-                        ) || data.maxTime
+                        ) || data.maxTime;
                     if (currentAxisTime !== undefined) {
                         // drop data that is older than the max time-window
                         while (currentAxisTime - series.data[0].time > dropDataAfter) {
-                            series.data.shift()
+                            series.data.shift();
                         }
 
-                        const range = timesWindows.get(axisId)
+                        const range = timesWindows.get(axisId);
                         if (range !== undefined && range.end < currentAxisTime) {
-                            const timeWindow = range.end - range.start
+                            const timeWindow = range.end - range.start;
                             const timeRange = continuousAxisRangeFor(
                                 Math.max(0, currentAxisTime - timeWindow),
                                 Math.max(currentAxisTime, timeWindow)
-                            )
-                            timesWindows.set(axisId, timeRange)
-                            setCurrentTime(axisId, timeRange.end)
+                            );
+                            timesWindows.set(axisId, timeRange);
+                            setCurrentTime(axisId, timeRange.end);
                         }
                     }
-                })
+                });
 
                 // update the data
-                updateTimingAndPlot(timesWindows)
+                updateTimingAndPlot(timesWindows);
             })
         })
 
@@ -105,13 +95,13 @@ export function subscriptionFor(
 }
 
 /**
- * **Function has side-effects on the Series (for performance).**
+ * **Function has side effects on the Series (for performance).**
  *
  * Creates a subscription to the series observable with the data stream. The common code is
  * shared by the plots.
  * @param seriesObservable The series observable holding the stream of chart data
  * @param onSubscribe Callback for when the observable is subscribed to
- * @param windowingTime Basically the update time where data is collected and then rendered
+ * @param windowingTime Basically the update time when data is collected and then rendered
  * @param axisAssignments The assignment of the series to their x- and y-axes
  * @param xAxesState The current state of the x-axis
  * @param onUpdateData Callback for when data is updated
@@ -183,17 +173,7 @@ export function subscriptionWithCadenceFor(
             }
 
             // determine which series belong to each x-axis
-            const axesSeries = Array.from(data.maxTimes.entries())
-                .reduce(
-                    (assignedSeries, [seriesName,]) => {
-                        const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
-                        const as = assignedSeries.get(id) || []
-                        as.push(seriesName)
-                        assignedSeries.set(id, as)
-                        return assignedSeries
-                    },
-                    new Map<string, Array<string>>()
-                )
+            const axesSeries = determineAssociatedSeries(data, axisAssignments, xAxesState)
 
             // add each new point to it's corresponding series, the new points
             // is a map(series_name -> new_point[])
@@ -232,3 +212,25 @@ export function subscriptionWithCadenceFor(
     return subscription
 }
 
+/**
+ * Determines which series are assigned to which x-axes, and returns a map holding the
+ * x-axis names and their associated list of series
+ * @param data The chart data
+ * @param axisAssignments A map holding the  series names and its associated x-axis and y-axis names
+ * @param xAxesState Holds information about the axis and how it is displayed
+ * @return A map holding the x-axis names the names of the series associated with the axis.
+ */
+function determineAssociatedSeries(data: ChartData, axisAssignments: Map<string, AxesAssignment>, xAxesState: AxesState): Map<string, Array<string>> {
+    return Array
+        .from(data.maxTimes.entries())
+        .reduce(
+            (assignedSeries, [seriesName,]) => {
+                const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
+                const as = assignedSeries.get(id) || []
+                as.push(seriesName)
+                assignedSeries.set(id, as)
+                return assignedSeries
+            },
+            new Map<string, Array<string>>()
+        )
+}

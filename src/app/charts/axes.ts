@@ -242,14 +242,12 @@ export function calculateZoomFor(
 /**
  * Adjusts the range and updates the plot when the plot is dragged to the left or right
  * @param deltaX The amount that the plot is dragged
- * @param plotDimensions The dimensions of the plot
  * @param axis The axis being zoomed
  * @param range The current range for the axis being zoomed
  * @return The updated range
  */
 export function calculatePanFor(
     deltaX: number,
-    plotDimensions: Dimensions,
     axis: ContinuousNumericAxis,
     range: ContinuousAxisRange,
 ): ContinuousAxisRange {
@@ -332,7 +330,7 @@ export function panHandler(
                 const timeRange = ranges.get(axisId)
                 if (timeRange) {
                     // calculate the change in the time-range based on the pixel change from the drag event
-                    const range = calculatePanFor(deltaX, plotDimensions, xAxis, timeRange)
+                    const range = calculatePanFor(deltaX, xAxis, timeRange)
                     if (Math.abs(range.start - timeRange.start) < 2) return
 
                     // update the time-range for the axis

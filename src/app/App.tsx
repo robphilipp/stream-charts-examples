@@ -16,6 +16,7 @@ import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 import {initialRandomWeightData} from "./examples/randomData";
 import {Tabs} from "./ui/Tabs";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
+import {StreamingPoincareChart} from "./examples/StreamingPoincareChart";
 
 const seriesNames: Array<string> = []
 for (let i = 0; i < 30; ++i) {
@@ -94,6 +95,7 @@ const App: React.FC = () => {
             <GridItem gridAreaName="scatter-chart">
                 <Tabs
                     tabNames={["Scatter", "Raster", "Poincare"]}
+                    withGrids={true}
                     style={{
                         backgroundColor: theme.backgroundColor,
                         color: theme.color,
@@ -106,23 +108,26 @@ const App: React.FC = () => {
                         width: 'auto'
                     }}
                 >
-                    <>
-                        <StreamingScatterChart
-                            theme={theme}
-                            timeWindow={1000}
-                            initialData={initialScatterData}
-                        />
-                    </>
-                    <>
-                        <StreamingRasterChart
-                            theme={theme}
-                            timeWindow={1000}
-                            initialData={initialSpikeData}
-                            seriesHeight={20}
-                            plotWidth={900}
-                        />
-                    </>
-                    <div>Poincare Plot</div>
+                    {/* tab 1: Scatter */}
+                    <StreamingScatterChart
+                        theme={theme}
+                        timeWindow={1000}
+                        initialData={initialScatterData}
+                    />
+                    {/* tab 2: Raster */}
+                    <StreamingRasterChart
+                        theme={theme}
+                        timeWindow={1000}
+                        initialData={initialSpikeData}
+                        seriesHeight={20}
+                        plotWidth={900}
+                    />
+                    {/* tab 3: Poincare */}
+                    <StreamingPoincareChart
+                        theme={theme}
+                        timeWindow={1000}
+                        initialData={initialScatterData}
+                    />
                 </Tabs>
             </GridItem>
         </Grid>

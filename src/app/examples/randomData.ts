@@ -115,7 +115,9 @@ function accumulateChartData(accum: ChartData, currentData: ChartData, min: numb
 }
 
 /**
- * Calculates the successive differences in the values to create a random walk for simulating neuron weights
+ * *Side effect*
+ * Calculates the successive differences in the values to create a random walk for simulating neuron weights.
+ * Updates the specified `accum` parameter.
  * @param accum The "position" in the random walk
  * @param incoming The changes in position
  * @param min The minimum allowed value

@@ -23,9 +23,9 @@ import {AxisLocation, defaultLineStyle} from '../charts/axes';
 import {ContinuousAxis} from "../charts/ContinuousAxis";
 import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
 import {Tooltip} from "../charts/Tooltip";
-import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
+import {PoincarePlotTooltipContent} from "../charts/PoincarePlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
-import {ScatterPlot} from "../charts/ScatterPlot";
+import {PoincarePlot} from "../charts/PoincarePlot";
 import {assignAxes} from "../charts/plot";
 // import {
 //     assignAxes,
@@ -37,8 +37,8 @@ import {assignAxes} from "../charts/plot";
 //     defaultMargin,
 //     formatNumber, formatTime,
 //     regexFilter,
-//     ScatterPlot,
-//     ScatterPlotTooltipContent,
+//     PoincarePlot,
+//     PoincarePlotTooltipContent,
 //     Series,
 //     seriesFrom,
 //     Tooltip,
@@ -85,7 +85,7 @@ interface Props {
     plotWidth?: number
 }
 
-export function StreamingScatterChart(props: Props): JSX.Element {
+export function StreamingPoincareChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
         initialData,
@@ -319,14 +319,14 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             backgroundOpacity: 0.9,
                         }}
                     >
-                        <ScatterPlotTooltipContent
+                        <PoincarePlotTooltipContent
                             xLabel="t (ms)"
                             yLabel="count"
                             yValueFormatter={value => formatNumber(value, " ,.0f")}
                             yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
                         />
                     </Tooltip>
-                    <ScatterPlot
+                    <PoincarePlot
                         interpolation={interpolation}
                         axisAssignments={new Map([
                             // ['test1', assignAxes("x-axis-1", "y-axis-1")],

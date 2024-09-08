@@ -1,7 +1,7 @@
 import {Datum, Series} from "./datumSeries";
 
 /**
- * The spike-chart data produced by the rxjs observable that is pushed to the `RasterChart`
+ * The spike-chart data produced by the rxjs observable that is pushed to a streaming chart
  */
 export interface ChartData {
     /**
@@ -19,6 +19,10 @@ export interface ChartData {
      * data points for that time-series (`map(series_name -> array(datum))`)
      */
     newPoints: Map<string, Array<Datum>>
+
+    /**
+     * The current time (for example, when used with cadence)
+     */
     currentTime?: number
 }
 

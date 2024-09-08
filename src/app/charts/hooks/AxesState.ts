@@ -1,5 +1,10 @@
 import {BaseAxis} from "../axes";
 
+/**
+ * Holds the information to allow mapping axes names to the underlying axes objects.
+ * These objects hold the axis ID, its location on the chart (i.e. left, right, bottom, upper)
+ * and the underlying D3 selection objects for managing the axes.
+ */
 export interface AxesState {
     /**
      * Attempts to retrieve the x-axis for the specified ID
