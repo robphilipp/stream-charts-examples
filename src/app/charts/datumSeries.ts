@@ -8,9 +8,13 @@ export interface Datum {
     readonly value: number;
 }
 
-export function datumOf(time: number, value: number): Datum {
-    return {time, value}
-}
+/**
+ * Creates a datum from a (time, value) pair
+ * @param time The time
+ * @param value The value
+ * @return A {@link Datum} instance with the specified (time, value)
+ */
+export const datumOf = (time: number, value: number): Datum => ({time, value})
 
 /**
  * A spike series holding an array of spike (time, value) datum, the name and supplemental information
