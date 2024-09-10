@@ -16,6 +16,8 @@ export interface Datum {
  */
 export const datumOf = (time: number, value: number): Datum => ({time, value})
 
+export const emptyDatum = (): Datum => ({time: NaN, value: NaN})
+
 /**
  * A spike series holding an array of spike (time, value) datum, the name and supplemental information
  * needed by the `RasterChart`
