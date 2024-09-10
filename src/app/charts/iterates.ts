@@ -85,7 +85,7 @@ export function iteratesObservable(dataObservable: Observable<ChartData>, n: num
 
                         // we may have multiple new data points for this series, so we may need to
                         // calculate multiple iterates
-                        while (updated.length >= n) {
+                        while (updated.length > n) {
                             // grab the start and end of the n-iterate interval
                             const last = updated[n]
                             const first = updated.shift() || emptyDatum()

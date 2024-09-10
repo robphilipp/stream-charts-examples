@@ -1,5 +1,8 @@
 import {filter, map, scan} from 'rxjs/operators';
 import {Observable, range} from 'rxjs';
+import {IterateChartData, iteratesObservable as iterateObservable} from './iterates'
+import {ChartData} from "./chartData";
+import {datumOf} from "./datumSeries";
 
 
 type Point = {
@@ -182,6 +185,10 @@ function iteratesObservable(n: number = 1, dataObservable: Observable<Point>): O
         )
 }
 
+function tentFn(x: number, mu: number = 1): number {
+    return x < 0.5 ? mu * x : mu * (1 - x)
+}
+
 describe('should be able to calculate iterates', () => {
 
     test('should be able to calc 1-iterates for x^2 where x is in 1..10', done => {
@@ -218,7 +225,6 @@ describe('should be able to calculate iterates', () => {
         ])
     });
 
-    const tentFn = (x: number, mu: number = 1): number => x < 0.5 ? mu * x : mu * (1 - x)
 
     test('tent map should converge to (0, 0) for mu < 1', done => {
         const numPoints = 100000
@@ -226,8 +232,46 @@ describe('should be able to calculate iterates', () => {
 
         iteratesObservable(1, range(0, numPoints).pipe(map(x => pointFrom(x, tentFn(x / numPoints, 0.15)))))
             .subscribe(point => lastPoint = point)
+
         done()
         expect(lastPoint.y).toBeLessThan(1e-5)
         expect(lastPoint.x).toBeLessThan(1e-5)
     })
+})
+
+// function chartDataObservable(valueFn: (x: number) => number, seriesNames: Array<string> = ['test1'], numPoints: number = 10): Observable<ChartData> {
+//     range(0, numPoints).pipe(
+//         map(x => pointFrom(x, tentFn(x / numPoints, 0.15)))
+//     )
+// }
+
+describe('should be able to calculate iterates', () => {
+
+    test('should be able to calc 1-iterates for x^2 where x is in 1..10', done => {
+        const numPoints = 10
+        let results: Array<IterateChartData> = []
+        iterateObservable(
+            range(0, numPoints).pipe(
+                map(x => ({
+                    maxTime: x,
+                    maxTimes: new Map([['test1', x]]),
+                    newPoints: new Map([['test1', [datumOf(x, tentFn(x / numPoints, 0.15))]]])
+                } as ChartData))
+                // map(x => pointFrom(x, tentFn(x / numPoints, 0.15)))
+        )).subscribe(point => results.push(point));
+        // iterateObservable(chartDataObservable(tentFn)).subscribe(point => results.push(point))
+        done()
+        expect(results).toHaveLength(9)
+        expect(results).toEqual([
+            {x: 2, y: 4},
+            {x: 4, y: 6},
+            {x: 6, y: 8},
+            {x: 8, y: 10},
+            {x: 10, y: 12},
+            {x: 12, y: 14},
+            {x: 14, y: 16},
+            {x: 16, y: 18},
+            {x: 18, y: 20}
+        ])
+    });
 })
