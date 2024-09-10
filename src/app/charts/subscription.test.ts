@@ -151,6 +151,7 @@ describe('should be able to calculate successive differences', () => {
  * Observable that converts data points into iterates for poincare plots where one plots x(j+n) vs x(j)
  * @param n The n-th iterate for plotting x(j+n) vs x(j)
  * @param dataObservable The observable with the point data
+ * @return an observable of a stream of {@link Point}s
  */
 function iteratesObservable(n: number = 1, dataObservable: Observable<Point>): Observable<Point> {
     return dataObservable
