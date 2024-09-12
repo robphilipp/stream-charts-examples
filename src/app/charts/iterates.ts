@@ -160,10 +160,13 @@ export function iteratesObservable(dataObservable: Observable<ChartData>, n: num
  * @return the minimum values for the specified iterate and the current minimum
  */
 function minIterateFor(iterate: IterateDatum, minIterate: IterateDatum = emptyIterateDatum): IterateDatum {
+    const minN = isNaN(minIterate.iterateN) ? iterate.iterateN : Math.min(iterate.iterateN, minIterate.iterateN)
+    const minN_1 = isNaN(minIterate.iterateN_1) ? iterate.iterateN_1 : Math.min(iterate.iterateN_1, minIterate.iterateN_1)
+    const minTime = (iterate.iterateN <= minN || iterate.iterateN_1 <= minN_1) ? iterate.time : minIterate.time
     return {
-        time: isNaN(minIterate.time) ? iterate.time : Math.min(iterate.time, minIterate.time),
-        iterateN: isNaN(minIterate.iterateN) ? iterate.iterateN : Math.min(iterate.iterateN, minIterate.iterateN),
-        iterateN_1: isNaN(minIterate.iterateN_1) ? iterate.iterateN_1 : Math.min(iterate.iterateN_1, minIterate.iterateN_1)
+        time: minTime,
+        iterateN: minN,
+        iterateN_1: minN_1
     }
 }
 
@@ -175,10 +178,13 @@ function minIterateFor(iterate: IterateDatum, minIterate: IterateDatum = emptyIt
  * @return the maximum values for the specified iterate and the current maximum
  */
 function maxIterateFor(iterate: IterateDatum, maxIterate: IterateDatum = emptyIterateDatum): IterateDatum {
+    const maxN = isNaN(maxIterate.iterateN) ? iterate.iterateN : Math.max(iterate.iterateN, maxIterate.iterateN)
+    const maxN_1 = isNaN(maxIterate.iterateN_1) ? iterate.iterateN_1 : Math.max(iterate.iterateN_1, maxIterate.iterateN_1)
+    const maxTime = (iterate.iterateN >= maxN || iterate.iterateN_1 >= maxN_1) ? iterate.time : maxIterate.time
     return {
-        time: isNaN(maxIterate.time) ? iterate.time : Math.max(iterate.time, maxIterate.time),
-        iterateN: isNaN(maxIterate.iterateN) ? iterate.iterateN : Math.max(iterate.iterateN, maxIterate.iterateN),
-        iterateN_1: isNaN(maxIterate.iterateN_1) ? iterate.iterateN_1 : Math.max(iterate.iterateN_1, maxIterate.iterateN_1)
+        time: maxTime,
+        iterateN: maxN,
+        iterateN_1: maxN_1
     }
 }
 

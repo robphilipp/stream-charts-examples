@@ -283,23 +283,23 @@ describe('when calculating tent-map iterates with one new data point for each ev
 
         //
         // check the last iterate datum
-        expect(results[8].minIterate.time).toEqual(0)
+        expect(results[8].minIterate.time).toEqual(8)
         expect(results[8].minIterate.iterateN).toEqual(0)
         expect(results[8].minIterate.iterateN_1).toBeCloseTo(0.015, 4)
 
-        expect(results[8].maxIterate.time).toEqual(8)
+        expect(results[8].maxIterate.time).toEqual(5)
         expect(results[8].maxIterate.iterateN).toBeCloseTo(0.075, 4)
         expect(results[8].maxIterate.iterateN_1).toBeCloseTo(0.075, 4)
 
         expect(results[8].minIterates.has("test1")).toBe(true)
         expect(results[8].minIterates.size).toEqual(1)
-        expect(results[8].minIterates.get("test1")!.time).toEqual(0)
+        expect(results[8].minIterates.get("test1")!.time).toEqual(8)
         expect(results[8].minIterates.get("test1")!.iterateN).toEqual(0)
         expect(results[8].minIterates.get("test1")!.iterateN_1).toBeCloseTo(0.015, 4)
 
         expect(results[8].maxIterates.has("test1")).toBe(true)
         expect(results[8].maxIterates.size).toEqual(1)
-        expect(results[8].maxIterates.get("test1")!.time).toEqual(8)
+        expect(results[8].maxIterates.get("test1")!.time).toEqual(5)
         expect(results[8].maxIterates.get("test1")!.iterateN).toBeCloseTo(0.075, 4)
         expect(results[8].maxIterates.get("test1")!.iterateN_1).toBeCloseTo(0.075, 4)
 
@@ -323,12 +323,12 @@ describe('when calculating tent-map 1-iterates with two new data points for each
                     map(x => ({
                         maxTime: 2 * x,
                         maxTimes: new Map([['test1', 2 * x]]),
-                        newPoints: new Map([['test1', [datumOf(2 * x, tentFn(2 * x / (2 * numPoints), 0.15)), datumOf(2 * x + 1, tentFn((2 * x + 1) / (2 * numPoints), 0.15))]]])
+                        newPoints: new Map([
+                            ['test1', [datumOf(2 * x, tentFn(2 * x / (2 * numPoints), 0.15)), datumOf(2 * x + 1, tentFn((2 * x + 1) / (2 * numPoints), 0.15))]],
+                        ])
                     } as ChartData))
                 ))
-            .subscribe(point => {
-                return results.push(point)
-            });
+            .subscribe(result => results.push(result));
         done()
         expect(results).toHaveLength(5)
         expect(results.reduce((count, result) => result.newPoints.get("test1")!.length + count, 0)).toEqual(9)
@@ -361,23 +361,23 @@ describe('when calculating tent-map 1-iterates with two new data points for each
 
         //
         // check the last iterate datum
-        expect(results[4].minIterate.time).toEqual(0)
+        expect(results[4].minIterate.time).toEqual(8)
         expect(results[4].minIterate.iterateN).toEqual(0)
         expect(results[4].minIterate.iterateN_1).toBeCloseTo(0.015, 4)
 
-        expect(results[4].maxIterate.time).toEqual(8)
+        expect(results[4].maxIterate.time).toEqual(5)
         expect(results[4].maxIterate.iterateN).toBeCloseTo(0.075, 4)
         expect(results[4].maxIterate.iterateN_1).toBeCloseTo(0.075, 4)
 
-        expect(results[4].minIterates.has("test1")).toBe(true)
         expect(results[4].minIterates.size).toEqual(1)
-        expect(results[4].minIterates.get("test1")!.time).toEqual(0)
+        expect(results[4].minIterates.has("test1")).toBe(true)
+        expect(results[4].minIterates.get("test1")!.time).toEqual(8)
         expect(results[4].minIterates.get("test1")!.iterateN).toEqual(0)
         expect(results[4].minIterates.get("test1")!.iterateN_1).toBeCloseTo(0.015, 4)
 
-        expect(results[4].maxIterates.has("test1")).toBe(true)
         expect(results[4].maxIterates.size).toEqual(1)
-        expect(results[4].maxIterates.get("test1")!.time).toEqual(8)
+        expect(results[4].maxIterates.has("test1")).toBe(true)
+        expect(results[4].maxIterates.get("test1")!.time).toEqual(5)
         expect(results[4].maxIterates.get("test1")!.iterateN).toBeCloseTo(0.075, 4)
         expect(results[4].maxIterates.get("test1")!.iterateN_1).toBeCloseTo(0.075, 4)
 
@@ -387,5 +387,113 @@ describe('when calculating tent-map 1-iterates with two new data points for each
         expect(results[4].newPoints.get("test1")![1].time).toEqual(8)
         expect(results[4].newPoints.get("test1")![1].iterateN).toBeCloseTo(0.03, 4)
         expect(results[4].newPoints.get("test1")![1].iterateN_1).toBeCloseTo(0.015, 4)
+    });
+
+    test('should be able to calc iterates for tent-map chart data, when 2 points are added at a time, with 2 series', done => {
+        const numPoints = 5
+        let results: Array<IterateChartData> = []
+        iterateObservable(
+            range(0, numPoints)
+                .pipe(
+                    map(x => ({
+                        maxTime: 2 * x,
+                        maxTimes: new Map([['test1', 2 * x]]),
+                        newPoints: new Map([
+                            ['test1', [datumOf(2 * x, tentFn(2 * x / (2 * numPoints), 0.15)), datumOf(2 * x + 1, tentFn((2 * x + 1) / (2 * numPoints), 0.15))]],
+                            ['test2', [datumOf(2 * x, tentFn(2 * x / (2 * numPoints), 0.35)), datumOf(2 * x + 1, tentFn((2 * x + 1) / (2 * numPoints), 0.35))]],
+                        ])
+                    } as ChartData))
+                ))
+            .subscribe(result => results.push(result));
+        done()
+        expect(results).toHaveLength(5)
+        expect(results.reduce((count, result) => result.newPoints.get("test1")!.length + count, 0)).toEqual(9)
+
+        //
+        // check the first iterate datum
+        expect(results[0].minIterate.iterateN).toBeCloseTo(0, 4)
+        expect(results[0].minIterate.iterateN_1).toBeCloseTo(0.015, 4)
+        expect(results[0].maxIterate.iterateN).toBeCloseTo(0, 4)
+        expect(results[0].maxIterate.iterateN_1).toBeCloseTo(0.035, 4)
+
+        expect(results[0].minIterates.size).toEqual(2)
+        expect(results[0].minIterates.has("test1")).toBe(true)
+        expect(results[0].minIterates.get("test1")!.time).toBeCloseTo(0, 4)
+        expect(results[0].minIterates.get("test1")!.iterateN).toBeCloseTo(0, 4)
+        expect(results[0].minIterates.get("test1")!.iterateN_1).toBeCloseTo(0.015, 4)
+
+        expect(results[0].minIterates.has("test2")).toBe(true)
+        expect(results[0].minIterates.get("test2")!.time).toBeCloseTo(0, 4)
+        expect(results[0].minIterates.get("test2")!.iterateN).toBeCloseTo(0, 4)
+        expect(results[0].minIterates.get("test2")!.iterateN_1).toBeCloseTo(0.035, 4)
+
+        expect(results[0].maxIterates.size).toEqual(2)
+        expect(results[0].maxIterates.has("test1")).toBe(true)
+        expect(results[0].maxIterates.get("test1")!.time).toEqual(0)
+        expect(results[0].maxIterates.get("test1")!.iterateN).toBeCloseTo(0, 4)
+        expect(results[0].maxIterates.get("test1")!.iterateN_1).toBeCloseTo(0.015, 4)
+
+        expect(results[0].maxIterates.has("test2")).toBe(true)
+        expect(results[0].maxIterates.get("test2")!.time).toEqual(0)
+        expect(results[0].maxIterates.get("test2")!.iterateN).toBeCloseTo(0, 4)
+        expect(results[0].maxIterates.get("test2")!.iterateN_1).toBeCloseTo(0.035, 4)
+
+        // check that the accumulator "newPoints" holds the previous "newPoints" for the iterate
+        expect(results[0].newPoints.has("test1")).toBe(true)
+        expect(results[0].newPoints.get("test1")).toHaveLength(1)
+        expect(results[0].newPoints.get("test1")![0].time).toEqual(0)
+        expect(results[0].newPoints.get("test1")![0].iterateN).toEqual(0)
+        expect(results[0].newPoints.get("test1")![0].iterateN_1).toBeCloseTo(0.015, 4)
+
+        expect(results[0].newPoints.has("test2")).toBe(true)
+        expect(results[0].newPoints.get("test2")).toHaveLength(1)
+        expect(results[0].newPoints.get("test2")![0].time).toEqual(0)
+        expect(results[0].newPoints.get("test2")![0].iterateN).toEqual(0)
+        expect(results[0].newPoints.get("test2")![0].iterateN_1).toBeCloseTo(0.035, 4)
+
+        //
+        // check the last iterate datums
+        expect(results[4].minIterate.time).toEqual(8)
+        expect(results[4].minIterate.iterateN).toEqual(0)
+        expect(results[4].minIterate.iterateN_1).toBeCloseTo(0.015, 4)
+
+        expect(results[4].maxIterate.time).toEqual(5)
+        expect(results[4].maxIterate.iterateN).toBeCloseTo(0.175, 4)
+        expect(results[4].maxIterate.iterateN_1).toBeCloseTo(0.175, 4)
+
+        expect(results[4].minIterates.size).toEqual(2)
+        expect(results[4].minIterates.has("test1")).toBe(true)
+        expect(results[4].minIterates.get("test1")!.time).toEqual(8)
+        expect(results[4].minIterates.get("test1")!.iterateN).toEqual(0)
+        expect(results[4].minIterates.get("test1")!.iterateN_1).toBeCloseTo(0.015, 4)
+
+        expect(results[4].minIterates.has("test2")).toBe(true)
+        expect(results[4].minIterates.get("test2")!.time).toEqual(8)
+        expect(results[4].minIterates.get("test2")!.iterateN).toEqual(0)
+        expect(results[4].minIterates.get("test2")!.iterateN_1).toBeCloseTo(0.035, 4)
+
+        expect(results[4].maxIterates.size).toEqual(2)
+        expect(results[4].maxIterates.has("test1")).toBe(true)
+        expect(results[4].maxIterates.get("test1")!.time).toEqual(5)
+        expect(results[4].maxIterates.get("test1")!.iterateN).toBeCloseTo(0.075, 4)
+        expect(results[4].maxIterates.get("test1")!.iterateN_1).toBeCloseTo(0.075, 4)
+
+        expect(results[4].maxIterates.has("test2")).toBe(true)
+        expect(results[4].maxIterates.get("test2")!.time).toEqual(5)
+        expect(results[4].maxIterates.get("test2")!.iterateN).toBeCloseTo(0.175, 4)
+        expect(results[4].maxIterates.get("test2")!.iterateN_1).toBeCloseTo(0.175, 4)
+
+        // check that the accumulator "newPoints" holds the previous "newPoints" for the iterate
+        expect(results[4].newPoints.has("test1")).toBe(true)
+        expect(results[4].newPoints.get("test1")).toHaveLength(2)
+        expect(results[4].newPoints.get("test1")![1].time).toEqual(8)
+        expect(results[4].newPoints.get("test1")![1].iterateN).toBeCloseTo(0.03, 4)
+        expect(results[4].newPoints.get("test1")![1].iterateN_1).toBeCloseTo(0.015, 4)
+
+        expect(results[4].newPoints.has("test2")).toBe(true)
+        expect(results[4].newPoints.get("test2")).toHaveLength(2)
+        expect(results[4].newPoints.get("test2")![1].time).toEqual(8)
+        expect(results[4].newPoints.get("test2")![1].iterateN).toBeCloseTo(0.07, 4)
+        expect(results[4].newPoints.get("test2")![1].iterateN_1).toBeCloseTo(0.035, 4)
     });
 })
