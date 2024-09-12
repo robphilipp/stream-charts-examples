@@ -1,4 +1,4 @@
-import * as React from 'react';
+import {JSX} from "react";
 import {createContext, useContext, useEffect, useRef, useState} from 'react';
 import {Dimensions, Margin, plotDimensionsFrom} from "../margins";
 import {GSelection} from "../d3types";

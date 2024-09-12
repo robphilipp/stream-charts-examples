@@ -1,7 +1,11 @@
 /**
- * Iterates
+ * Utilities for plotting function iterates. For example suppose that f[1](x) = f(x), f[2](x) = f(f(x)),
+ * f[3](x) = f(f(f(x))), and f[m](x) = f(f(f....(x))), where the function is applied m times. Given this,
+ * then an iterate (Poincare) plot shows points (f[m](x), f[m+1](x)), which is a 1-iterate. Plots of
+ * points (f[m](x), f[m+n](x)) are n-iterates.
+ *
  * 1. Convert series to chart data observable in the usual way
- * 2. Plot accepts that chart-data observable and converts that observable to an iterates observable
+ * 2. Accepts that chart-data observable and converts that observable to an iterate-chart-data observable
  */
 import {Observable} from "rxjs";
 import {ChartData} from "./chartData";
@@ -80,7 +84,10 @@ const initialAccumulate = (n: number): Accumulator => ({n, previous: new Map(), 
 
 /**
  * Accepts a {@link ChartData} observable and converts it to an observable of {@link IterateChartData}
- * for the specified n-iterate
+ * for the specified n-iterate. suppose that `f[0](x) = x`, `f[1](x) = f(x)`, `f[2](x) = f(f(x))`,
+ * `f[3](x) = f(f(f(x)))`, and `f[m](x) = f(f(f....(x)))`, where the function is applied `m` times. Given this,
+ * then an iterate (Poincare) plot shows points `(f[m](x), f[m+1](x))`, which is a 1-iterate. Plots of
+ * points `(f[m](x), f[m+n](x))` are n-iterates.
  * @param dataObservable The observable over {@link ChartData}
  * @param [n=1] The iterate distance
  * @return An over {@link IterateChartData} holding the n-iterate for the incoming chart data
