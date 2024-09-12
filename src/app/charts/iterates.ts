@@ -5,7 +5,7 @@
  */
 import {Observable} from "rxjs";
 import {ChartData} from "./chartData";
-import {map, scan} from "rxjs/operators";
+import {filter, map, scan} from "rxjs/operators";
 import {Datum, emptyDatum} from "./datumSeries";
 
 export interface IterateDatum {
@@ -14,7 +14,7 @@ export interface IterateDatum {
     readonly iterateN_1: number
 }
 
-const emptyIterateDatum = (): IterateDatum => ({time: NaN, iterateN: NaN, iterateN_1: NaN})
+const emptyIterateDatum: IterateDatum = {time: NaN, iterateN: NaN, iterateN_1: NaN}
 const iterateDatumFrom = (time: number, iterateN: number, iterateN_1: number): IterateDatum => ({
     time,
     iterateN,
@@ -51,11 +51,23 @@ export interface IterateChartData {
 }
 
 const emptyIterateData = (): IterateChartData => ({
-    minIterate: emptyIterateDatum(),
-    maxIterate: emptyIterateDatum(),
+    minIterate: emptyIterateDatum,
+    maxIterate: emptyIterateDatum,
     minIterates: new Map<string, IterateDatum>(),
     maxIterates: new Map<string, IterateDatum>(),
     newPoints: new Map<string, Array<IterateDatum>>()
+})
+
+/**
+ * Makes a deep copy of the iterate chart data
+ * @param data The iterate chart data to copy
+ */
+export const copyIterateDataFrom = (data: IterateChartData): IterateChartData => ({
+    minIterate: data.minIterate,
+    maxIterate: data.maxIterate,
+    minIterates: new Map<string, IterateDatum>(data.minIterates),
+    maxIterates: new Map<string, IterateDatum>(data.maxIterates),
+    newPoints: new Map<string, Array<IterateDatum>>(Array.from(data.newPoints.entries()).map(([name, points]) => [name, points.slice()])),
 })
 
 type Accumulator = {
@@ -66,13 +78,25 @@ type Accumulator = {
 
 const initialAccumulate = (n: number): Accumulator => ({n, previous: new Map(), accumulated: emptyIterateData()})
 
+/**
+ * Accepts a {@link ChartData} observable and converts it to an observable of {@link IterateChartData}
+ * for the specified n-iterate
+ * @param dataObservable The observable over {@link ChartData}
+ * @param [n=1] The iterate distance
+ * @return An over {@link IterateChartData} holding the n-iterate for the incoming chart data
+ */
 export function iteratesObservable(dataObservable: Observable<ChartData>, n: number = 1): Observable<IterateChartData> {
     return dataObservable
         .pipe(
             // calculate the iterates for each series in the chart data
             scan(({n, previous, accumulated}: Accumulator, current: ChartData) => {
+                // make a deep copy of the accumulated data (because the accumulated data object
+                // holds references to maps)
+                const accum = copyIterateDataFrom(accumulated)
+
                 // for each series, add the new points to the accumulated data
-                Array.from(current.newPoints.entries())
+                Array
+                    .from(current.newPoints.entries())
                     .forEach(([name, series]) => {
                         // grab the points from the previous incoming data and add the new
                         // data to its end (when the updated data didn't yet exist, add it
@@ -90,42 +114,52 @@ export function iteratesObservable(dataObservable: Observable<ChartData>, n: num
                             const last = updated[n]
                             const first = updated.shift() || emptyDatum()
 
+                            // set the updated new points for the series for the next
+                            // iteration of the while-loop
                             previous.set(name, updated)
 
                             // create the new iterate
                             const iterate: IterateDatum = iterateDatumFrom(first.time, first.value, last.value);
 
                             // update the min, max values for all the series
-                            accumulated.minIterate = minIterateFor(iterate, accumulated.minIterate)
-                            accumulated.maxIterate = maxIterateFor(iterate, accumulated.maxIterate)
+                            accum.minIterate = minIterateFor(iterate, accum.minIterate)
+                            accum.maxIterate = maxIterateFor(iterate, accum.maxIterate)
 
                             // update the min, max values for the current series
-                            accumulated.minIterates.set(name, minIterateFor(iterate, accumulated.minIterates.get(name)))
-                            accumulated.maxIterates.set(name, maxIterateFor(iterate, accumulated.maxIterates.get(name)))
+                            accum.minIterates.set(name, minIterateFor(iterate, accum.minIterates.get(name)))
+                            accum.maxIterates.set(name, maxIterateFor(iterate, accum.maxIterates.get(name)))
 
                             // add the newly calculated iterate, and then trim from the
                             // head of the array to a size n. For the iterates, we only need
                             // to keep enough to create points (x(j), x(j+n))
-                            const updatedPoints = accumulated.newPoints.get(name) || []
+                            const updatedPoints = accum.newPoints.get(name) || []
                             if (updatedPoints.length === 0) {
-                                accumulated.newPoints.set(name, updatedPoints)
+                                accum.newPoints.set(name, updatedPoints)
                             }
                             updatedPoints.push(iterate)
-                            while (updatedPoints.length > n) {
+                            if (updatedPoints.length > series.length) {
                                 updatedPoints.shift()
                             }
                         }
                     })
-                return {n, previous, accumulated}
+                return {n, previous, accumulated: accum}
             }, initialAccumulate(n)),
+
             // remove new points from the map that are empty
+            filter(accum => !isNaN(accum.accumulated.minIterate.iterateN) && !isNaN(accum.accumulated.minIterate.iterateN_1)),
             map(accum => removeEmptyNewPoints(accum)),
             map(accum => accum.accumulated === undefined ? emptyIterateData() : accum.accumulated)
         )
 }
 
-function minIterateFor(iterate: IterateDatum, minIterateAccumulated?: IterateDatum): IterateDatum {
-    const minIterate = minIterateAccumulated || emptyIterateDatum()
+/**
+ * Calculates and returns the minimum values for the specified iterate and the current minimum
+ * @param iterate The iterate to compare against the minimum
+ * @param minIterate The minimum values for the iterate. Generally, this will be the accumulated
+ * values
+ * @return the minimum values for the specified iterate and the current minimum
+ */
+function minIterateFor(iterate: IterateDatum, minIterate: IterateDatum = emptyIterateDatum): IterateDatum {
     return {
         time: isNaN(minIterate.time) ? iterate.time : Math.min(iterate.time, minIterate.time),
         iterateN: isNaN(minIterate.iterateN) ? iterate.iterateN : Math.min(iterate.iterateN, minIterate.iterateN),
@@ -133,8 +167,14 @@ function minIterateFor(iterate: IterateDatum, minIterateAccumulated?: IterateDat
     }
 }
 
-function maxIterateFor(iterate: IterateDatum, maxIterateAccumulated?: IterateDatum): IterateDatum {
-    const maxIterate = maxIterateAccumulated || emptyIterateDatum()
+/**
+ * Calculates and returns the maximum values for the specified iterate and the current maximum
+ * @param iterate The iterate to compare against the maximum
+ * @param maxIterate The maximum values for the iterate. Generally, this will be the accumulated
+ * values
+ * @return the maximum values for the specified iterate and the current maximum
+ */
+function maxIterateFor(iterate: IterateDatum, maxIterate: IterateDatum = emptyIterateDatum): IterateDatum {
     return {
         time: isNaN(maxIterate.time) ? iterate.time : Math.max(iterate.time, maxIterate.time),
         iterateN: isNaN(maxIterate.iterateN) ? iterate.iterateN : Math.max(iterate.iterateN, maxIterate.iterateN),
