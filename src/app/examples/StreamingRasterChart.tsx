@@ -17,7 +17,7 @@ import {
 } from 'react-resizable-grid-layout';
 import {lightTheme, Theme} from "../ui/Themes";
 
-import {Datum, Series, seriesFrom} from "../charts/datumSeries";
+import {Datum, Series} from "../charts/datumSeries";
 import {ChartData} from "../charts/chartData";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
@@ -31,6 +31,8 @@ import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
 import {RasterPlot} from "../charts/RasterPlot";
 import {Button} from "../ui/Button";
+import {seriesFrom} from "../charts/baseSeries";
+import {assignAxes} from "../charts/plot";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -259,7 +261,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[0, 2500]}
+                        domain={[0, 5000]}
                         label="t (ms)"
                         // font={{color: theme.color}}
                     />
@@ -299,12 +301,12 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <RasterPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            // ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
                             // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         ])}
                         spikeMargin={1}
@@ -312,7 +314,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
-                        // withCadenceOf={25}
+                        withCadenceOf={50}
                     />
                 </Chart>
             </GridItem>

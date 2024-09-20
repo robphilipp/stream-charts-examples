@@ -1,7 +1,8 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-import {Datum, Series, seriesFrom} from "../charts/datumSeries";
+import {Datum, Series} from "../charts/datumSeries";
 import {ChartData, initialChartData} from "../charts/chartData";
+import {seriesFrom} from "../charts/baseSeries";
 // import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
 
 const UPDATE_PERIOD_MS = 25;

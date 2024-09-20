@@ -8,6 +8,7 @@ import {noop} from "./utils";
 import {AxesState} from "./hooks/AxesState";
 import {Series} from "./datumSeries";
 import {AxesAssignment} from "./plot";
+import {IterateSeries} from "./iterateSeries";
 
 export interface AxesLabelFont {
     size: number
@@ -271,12 +272,12 @@ export function calculatePanFor(
  * @return an array of the distinct axes that cover all the series in the plot
  */
 export function axesForSeriesGen(
-    series: Array<Series>,
+    series: Array<Series> | Array<IterateSeries>,
     axisAssignments: Map<string, AxesAssignment>,
     xAxesState: AxesState
 ): Array<string> {
     return series.map(srs => srs.name)
-        // grab the x-axis assigned to the series, or use a the default x-axis if not
+        // grab the x-axis assigned to the series, or use the default x-axis if not
         // assignment has been made
         .map(name => axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName())
         // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
@@ -410,11 +411,12 @@ export function zoomHandler(
  * @return a map associating the axis IDs to their time-range
  */
 export function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
-    return new Map(Array.from(xAxes.entries())
-        .map(([id, axis]) => {
-            const [start, end] = axis.scale.domain()
-            return [id, continuousAxisRangeFor(start, end)]
-        }))
+    // return new Map(Array.from(xAxes.entries())
+    //     .map(([id, axis]) => {
+    //         const [start, end] = axis.scale.domain()
+    //         return [id, continuousAxisRangeFor(start, end)]
+    //     }))
+    return continuousRange(xAxes)
 }
 
 /**
@@ -425,4 +427,17 @@ export function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<strin
 export function timeIntervals(xAxes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
     return new Map(Array.from(xAxes.entries())
         .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
+}
+
+/**
+ * Returns the bounds on the specified continuous numeric axes
+ * @param axes A map associating an axis ID with a {@link ContinuousNumerAxis}
+ * @return A map associating each specified axis ID with the interval covered (bounds) by the axis
+ */
+export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
+    return new Map(Array.from(axes.entries())
+        .map(([id, axis]) => {
+            const [start, end] = axis.scale.domain()
+            return [id, continuousAxisRangeFor(start, end)]
+        }))
 }

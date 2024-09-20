@@ -11,20 +11,8 @@ import {Observable} from "rxjs";
 import {ChartData} from "./chartData";
 import {filter, map, scan} from "rxjs/operators";
 import {Datum, emptyDatum} from "./datumSeries";
+import {emptyIterateDatum, IterateDatum, iterateDatumOf, nonEmptyIterateDatum} from "./iterateSeries";
 
-export interface IterateDatum {
-    readonly time: number;
-    readonly iterateN: number;
-    readonly iterateN_1: number
-}
-
-const emptyIterateDatum: IterateDatum = {time: NaN, iterateN: NaN, iterateN_1: NaN}
-const iterateDatumFrom = (time: number, iterateN: number, iterateN_1: number): IterateDatum => ({
-    time,
-    iterateN,
-    iterateN_1
-})
-const nonEmptyIterateDatum = (datum: IterateDatum): boolean => !isNaN(datum.time) && !isNaN(datum.iterateN) && !isNaN(datum.iterateN_1)
 
 export interface IterateChartData {
     /**
@@ -126,7 +114,7 @@ export function iteratesObservable(dataObservable: Observable<ChartData>, n: num
                             previous.set(name, updated)
 
                             // create the new iterate
-                            const iterate: IterateDatum = iterateDatumFrom(first.time, first.value, last.value);
+                            const iterate: IterateDatum = iterateDatumOf(first.time, first.value, last.value);
 
                             // update the min, max values for all the series
                             accum.minIterate = minIterateFor(iterate, accum.minIterate)

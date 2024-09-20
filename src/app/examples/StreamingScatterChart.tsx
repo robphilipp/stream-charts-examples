@@ -14,7 +14,7 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {Series, seriesFrom} from "../charts/datumSeries";
+import {Series} from "../charts/datumSeries";
 import {ChartData} from "../charts/chartData";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
@@ -47,6 +47,7 @@ import {assignAxes} from "../charts/plot";
 // } from "stream-charts";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
+import {seriesFrom} from "../charts/baseSeries";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -333,7 +334,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             ['test2', assignAxes("x-axis-2", "y-axis-2")],
                             ['test3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
-                        dropDataAfter={10000}
+                        dropDataAfter={20000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

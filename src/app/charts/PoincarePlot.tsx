@@ -17,10 +17,13 @@ import {
     zoomHandler
 } from "./axes";
 import {GSelection} from "./d3types";
-import {Subscription} from "rxjs";
+import {Observable, Subscription} from "rxjs";
 import {noop} from "./utils";
 import {Dimensions, Margin} from "./margins";
-import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
+import {subscriptionIteratesFor} from "./subscriptions";
+import {useDataObservable} from "./hooks/useDataObservable";
+import {IterateChartData} from "./iterates";
+import {IterateSeries} from "./iterateSeries";
 
 interface Props {
     /**
@@ -98,19 +101,22 @@ export function PoincarePlot(props: Props): null {
         initialData,
         seriesFilter,
 
-        seriesObservable,
-        windowingTime = 100,
-        shouldSubscribe,
-
-        onSubscribe = noop,
         onUpdateTime,
-        onUpdateData,
 
         updateTimeRanges = noop,
 
         mouseOverHandlerFor,
         mouseLeaveHandlerFor,
     } = useChart()
+
+    const {
+        seriesObservable,
+        windowingTime = 100,
+        shouldSubscribe,
+
+        onSubscribe = noop,
+        onUpdateData,
+    } = useDataObservable()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
@@ -128,22 +134,22 @@ export function PoincarePlot(props: Props): null {
     // changes as well. The dataRef is used for performance, so that in the updatePlot function we don't
     // need to create a temporary array to holds the series data, rather, we can just use the one held in
     // the dataRef.
-    const dataRef = useRef<Array<Series>>(initialData.slice())
-    const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
+    const dataRef = useRef<Array<IterateSeries>>(initialData.slice() as Array<IterateSeries>)
+    const seriesRef = useRef<Map<string, IterateSeries>>(new Map(initialData.map(series => [series.name, series as IterateSeries])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
-    const currentTimeRef = useRef<Map<string, number>>(new Map())
+    const currentTimeRef = useRef<number>(0)
 
     const subscriptionRef = useRef<Subscription>()
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     const allowTooltip = useRef<boolean>(isSubscriptionClosed())
 
-    useEffect(
-        () => {
-            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
-        },
-        [xAxesState]
-    )
+    // useEffect(
+    //     () => {
+    //         currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+    //     },
+    //     [xAxesState]
+    // )
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
@@ -154,56 +160,59 @@ export function PoincarePlot(props: Props): null {
     // updates the timing using the onUpdateTime and updatePlot references. This and the references
     // defined above allow the axes' times to be updated properly by avoid stale reference to these
     // functions.
-    const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
+    const updateRangesAndPlot = useCallback((xRanges: Map<string, ContinuousAxisRange>, yRanges: Map<string, ContinuousAxisRange>): void => {
+        // todo this needs to be converted from updateTimingAndPlot to updateRangesAndPlot, name has changed,
+        //    code below still needs to be updated
             if (mainG !== null) {
-                onUpdateTimeRef.current(ranges)
-                updatePlotRef.current(ranges, mainG)
-                if (onUpdateTime) {
-                    setTimeout(() => {
-                        const times = new Map<string, [number, number]>()
-                        ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
-                        onUpdateTime(times)
-                    }, 0)
-                }
+                // onUpdateTimeRef.current(ranges)
+                updatePlotRef.current(xRanges, yRanges, mainG)
+                // if (onUpdateTime) {
+                //     setTimeout(() => {
+                //         const times = new Map<string, [number, number]>()
+                //         ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
+                //         onUpdateTime(times)
+                //     }, 0)
+                // }
             }
         },
         [mainG, onUpdateTime]
     )
 
-    // todo find better way
-    // when the initial data changes, then reset the plot. note that the initial data doesn't change
-    // during the normal course of updates from the observable, only when the plot is restarted.
-    useEffect(
-        () => {
-            dataRef.current = initialData.slice()
-            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
-            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot(new Map(Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-                    .map(([id, range]) => {
-                        // grab the current range, then calculate the minimum time from the initial data, and
-                        // set that as the start, and then add the range to it for the end time
-                        const [start, end] = range.original
-                        const minTime = initialData
-                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-                            .reduce(
-                                (tMin, series) => Math.min(
-                                    tMin,
-                                    !series.isEmpty() ? series.data[0].time : tMin
-                                ),
-                                Infinity
-                            )
-                        const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
-                    })
-                )
-            )
-        },
-        // ** not happy about this **
-        // only want this effect to run when the initial data is changed, which mean all the
-        // other dependencies are recalculated anyway.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [initialData]
-    )
+    // // todo find better way
+    // // when the initial data changes, then reset the plot. note that the initial data doesn't change
+    // // during the normal course of updates from the observable, only when the plot is restarted.
+    // useEffect(
+    //     () => {
+    //         dataRef.current = initialData.slice()
+    //         seriesRef.current = new Map(initialData.map(series => [series.name, series]))
+    //         currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+    //         const xRanges = new Map(
+    //             Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+    //             .map(([id, range]) => {
+    //                 // grab the current range, then calculate the minimum time from the initial data, and
+    //                 // set that as the start, and then add the range to it for the end time
+    //                 const [start, end] = range.original
+    //                 const minTime = initialData
+    //                     .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+    //                     .reduce(
+    //                         (tMin, series) => Math.min(
+    //                             tMin,
+    //                             !series.isEmpty() ? series.data[0].time : tMin
+    //                         ),
+    //                         Infinity
+    //                     )
+    //                 const startTime = minTime === Infinity ? 0 : minTime
+    //                 return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
+    //             })
+    //         )
+    //         updateRangesAndPlot(xRanges, xRanges)
+    //     },
+    //     // ** not happy about this **
+    //     // only want this effect to run when the initial data is changed, which means all the
+    //     // other dependencies are recalculated anyway.
+    //     // eslint-disable-next-line react-hooks/exhaustive-deps
+    //     [initialData]
+    // )
 
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
@@ -247,7 +256,7 @@ export function PoincarePlot(props: Props): null {
          * @param timeRanges The current time range
          * @param mainGElem The main <g> element selection for that holds the plot
          */
-        (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
+        (xRanges: Map<string, ContinuousAxisRange>, yRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
@@ -266,64 +275,64 @@ export function PoincarePlot(props: Props): null {
                         if (index < offset) {
                             return [NaN, NaN]
                         }
-                        return [series.data[index - offset].value, datum.value]
+                        return [series.data[index - offset].iterateN_1, datum.iterateN_1]
                     })
                     return [
                         series.name,
                         // series.data.map((datum, index) => [series.data[index - 1].value, datum.value]) as TimeSeries
-                        series.data.filter(datum => !isNaN(datum.time)).map(datum => [datum.time, datum.value]) as TimeSeries
+                        series.data.filter(datum => !isNaN(datum.iterateN)).map(datum => [datum.iterateN, datum.iterateN_1]) as TimeSeries
                     ]
                 }))
 
                 // set up panning
-                if (panEnabled) {
-                    const drag = d3.drag<SVGSVGElement, Datum>()
-                        .on("start", () => {
-                            d3.select(container).style("cursor", "move")
-                            // during panning, we need to disable viewing the tooltip to prevent
-                            // tooltips from rendering but not getting removed
-                            allowTooltip.current = false;
-                        })
-                        .on("drag", (event) => {
-                            onPan(
-                                event.dx,
-                                plotDimensions,
-                                Array.from(boundedSeries.keys()),
-                                timeRanges,
-                            )
-                            updatePlotRef.current(timeRanges, mainGElem)
-                        })
-                        .on("end", () => {
-                            d3.select(container).style("cursor", "auto")
-                            // during panning, we disabled viewing the tooltip to prevent
-                            // tooltips from rendering but not getting removed, now that panning
-                            // is over, allow tooltips to render again
-                            allowTooltip.current = isSubscriptionClosed();
-                        })
-
-                    svg.call(drag)
-                }
+                // if (panEnabled) {
+                //     const drag = d3.drag<SVGSVGElement, Datum>()
+                //         .on("start", () => {
+                //             d3.select(container).style("cursor", "move")
+                //             // during panning, we need to disable viewing the tooltip to prevent
+                //             // tooltips from rendering but not getting removed
+                //             allowTooltip.current = false;
+                //         })
+                //         .on("drag", (event) => {
+                //             onPan(
+                //                 event.dx,
+                //                 plotDimensions,
+                //                 Array.from(boundedSeries.keys()),
+                //                 timeRanges,
+                //             )
+                //             updatePlotRef.current(timeRanges, mainGElem)
+                //         })
+                //         .on("end", () => {
+                //             d3.select(container).style("cursor", "auto")
+                //             // during panning, we disabled viewing the tooltip to prevent
+                //             // tooltips from rendering but not getting removed, now that panning
+                //             // is over, allow tooltips to render again
+                //             allowTooltip.current = isSubscriptionClosed();
+                //         })
+                //
+                //     svg.call(drag)
+                // }
 
                 // set up for zooming
-                if (zoomEnabled) {
-                    const zoom = d3.zoom<SVGSVGElement, Datum>()
-                        .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                        .scaleExtent([0, 10])
-                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", event => {
-                                onZoom(
-                                    event.transform,
-                                    event.sourceEvent.offsetX - margin.left,
-                                    plotDimensions,
-                                    Array.from(boundedSeries.keys()),
-                                    timeRanges,
-                                )
-                                updatePlotRef.current(timeRanges, mainGElem)
-                            }
-                        )
-
-                    svg.call(zoom)
-                }
+                // if (zoomEnabled) {
+                //     const zoom = d3.zoom<SVGSVGElement, Datum>()
+                //         .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                //         .scaleExtent([0, 10])
+                //         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                //         .on("zoom", event => {
+                //                 onZoom(
+                //                     event.transform,
+                //                     event.sourceEvent.offsetX - margin.left,
+                //                     plotDimensions,
+                //                     Array.from(boundedSeries.keys()),
+                //                     timeRanges,
+                //                 )
+                //                 updatePlotRef.current(timeRanges, mainGElem)
+                //             }
+                //         )
+                //
+                //     svg.call(zoom)
+                // }
 
                 // define the clip-path so that the series lines don't go beyond the plot area
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
@@ -413,85 +422,87 @@ export function PoincarePlot(props: Props): null {
         },
         [updatePlot]
     )
-    const onUpdateTimeRef = useRef(updateTimeRanges)
-    useEffect(
-        () => {
-            onUpdateTimeRef.current = updateTimeRanges
-        },
-        [updateTimeRanges]
-    )
+    // const onUpdateTimeRef = useRef(updateTimeRanges)
+    // useEffect(
+    //     () => {
+    //         onUpdateTimeRef.current = updateTimeRanges
+    //     },
+    //     [updateTimeRanges]
+    // )
 
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
-            if (withCadenceOf !== undefined) {
-                return subscriptionWithCadenceFor(
-                    seriesObservable,
-                    onSubscribe,
-                    windowingTime,
-                    axisAssignments, xAxesState,
-                    onUpdateData,
-                    dropDataAfter,
-                    updateTimingAndPlot,
-                    seriesRef.current,
-                    (axisId, end) => currentTimeRef.current.set(axisId, end),
-                    withCadenceOf
-                )
-            }
-            return subscriptionFor(
-                seriesObservable,
+            // if (withCadenceOf !== undefined) {
+            //     return subscriptionWithCadenceFor(
+            //         seriesObservable as Observable<IterateChartData>,
+            //         onSubscribe,
+            //         windowingTime,
+            //         axisAssignments, xAxesState,
+            //         onUpdateData,
+            //         dropDataAfter,
+            //         updateTimingAndPlot,
+            //         seriesRef.current,
+            //         (axisId, end) => currentTimeRef.current.set(axisId, end),
+            //         withCadenceOf
+            //     )
+            // }
+            return subscriptionIteratesFor(
+                seriesObservable  as Observable<IterateChartData>,
                 onSubscribe,
                 windowingTime,
-                axisAssignments, xAxesState,
+                axisAssignments,
+                xAxesState,
+                yAxesState,
                 onUpdateData,
                 dropDataAfter,
-                updateTimingAndPlot,
+                updateRangesAndPlot,
                 seriesRef.current,
-                (axisId, end) => currentTimeRef.current.set(axisId, end)
+                end => currentTimeRef.current = end
             )
         },
         [
             axisAssignments, dropDataAfter, mainG,
             onSubscribe, onUpdateData,
-            seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
+            seriesObservable, updateRangesAndPlot, windowingTime, xAxesState,
             withCadenceOf
         ]
     )
 
-    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
-    useEffect(
-        () => {
-            if (container && mainG) {
-                // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
-                // change. for example, as data is streamed in, the times change, and then we need to update the
-                // time-range. however, we want to keep the time-ranges to reflect their original scale so that
-                // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
-                // interpolation changes, then the update plot changes, and the time-ranges must maintain their
-                // original scale as well.
-                if (timeRangesRef.current.size === 0) {
-                    // when no time-ranges have yet been created, then create them and hold on to a mutable
-                    // reference to them
-                    timeRangesRef.current = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                } else {
-                    // when the time-ranges already exist, then we want to update the time-ranges for each
-                    // existing time-range in a way that maintains the original scale.
-                    const intervals = timeIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                    timeRangesRef.current
-                        .forEach((range, id, rangesMap) => {
-                            const [start, end] = intervals.get(id) || [NaN, NaN]
-                            if (!isNaN(start) && !isNaN(end)) {
-                                // update the reference map with the new (start, end) portion of the range,
-                                // while keeping the original scale intact
-                                rangesMap.set(id, range.update(start, end))
-                            }
-                        })
-                }
-                updatePlot(timeRangesRef.current, mainG)
-            }
-        },
-        [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
-    )
+    // const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
+    // useEffect(
+    //     () => {
+    //         if (container && mainG) {
+    //             // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
+    //             // change. for example, as data is streamed in, the times change, and then we need to update the
+    //             // time-range. however, we want to keep the time-ranges to reflect their original scale so that
+    //             // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
+    //             // interpolation changes, then the update plot changes, and the time-ranges must maintain their
+    //             // original scale as well.
+    //             if (timeRangesRef.current.size === 0) {
+    //                 // when no time-ranges have yet been created, then create them and hold on to a mutable
+    //                 // reference to them
+    //                 timeRangesRef.current = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+    //             } else {
+    //                 // when the time-ranges already exist, then we want to update the time-ranges for each
+    //                 // existing time-range in a way that maintains the original scale.
+    //                 const intervals = timeIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+    //                 timeRangesRef.current
+    //                     .forEach((range, id, rangesMap) => {
+    //                         const [start, end] = intervals.get(id) || [NaN, NaN]
+    //                         if (!isNaN(start) && !isNaN(end)) {
+    //                             // update the reference map with the new (start, end) portion of the range,
+    //                             // while keeping the original scale intact
+    //                             rangesMap.set(id, range.update(start, end))
+    //                         }
+    //                     })
+    //             }
+    //             updatePlot(timeRangesRef.current, mainG)
+    //         }
+    //     },
+    //     [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
+    // )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
     // is changed to `true` and we haven't subscribed yet, then subscribe. when the

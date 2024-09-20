@@ -30,6 +30,16 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
      * @return The updated time-range type
      */
     function updateTimeRange(start: number, end: number): ContinuousAxisRange {
+        return updateRange(start, end)
+    }
+
+    /**
+     * Updates the continuous range based on the new start and end times
+     * @param start The new start of the continuous range
+     * @param end The new end of the continuous range
+     * @return The updated continuous range type
+     */
+    function updateRange(start: number, end: number): ContinuousAxisRange {
 
         // the amount by which the time-range is currently scaled
         const scaleFactor = (end - start) / (originalEnd - originalStart)

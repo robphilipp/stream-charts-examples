@@ -1,4 +1,4 @@
-import {default as React, useRef, useState, JSX} from "react";
+import {default as React, JSX, useRef, useState} from "react";
 import {randomWeightDataObservable} from "./randomData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -14,8 +14,7 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {Series, seriesFrom} from "../charts/datumSeries";
-import {ChartData} from "../charts/chartData";
+import {Series} from "../charts/datumSeries";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/useChart';
@@ -47,6 +46,8 @@ import {assignAxes} from "../charts/plot";
 // } from "stream-charts";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
+import {IterateChartData, iteratesObservable} from "../charts/iterates";
+import {seriesFrom} from "../charts/baseSeries";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -70,8 +71,8 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
-const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<Series>) => Observable<ChartData> => {
-    return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
+const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<Series>) => Observable<IterateChartData> => {
+    return initialData => iteratesObservable(randomWeightDataObservable(initialData, delta, updatePeriod, min, max), 1)
 }
 
 /**
@@ -124,7 +125,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const randomDataObservable = randomData(25, 50, 10, 1000)
     const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
-    const observableRef = useRef<Observable<ChartData>>(randomDataObservable(initialDataRef.current))
+    const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');

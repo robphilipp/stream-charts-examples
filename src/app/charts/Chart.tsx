@@ -1,4 +1,4 @@
-import * as React from 'react'
+import {JSX} from 'react'
 import {useEffect, useMemo, useRef} from 'react'
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
@@ -11,6 +11,9 @@ import * as d3 from "d3";
 import {SeriesLineStyle} from "./axes";
 import {createPlotContainer} from "./plot";
 import {noop} from "./utils";
+import DataObservableProvider from "./hooks/useDataObservable";
+import {IterateChartData} from "./iterates";
+import {IterateDatum} from "./iterateSeries";
 
 const defaultBackground = '#202020';
 
@@ -62,7 +65,7 @@ interface Props {
     /**
      * {@link ChartData} RxJS `Observable` that feeds the chart data to display (i.e. the data stream).
      */
-    seriesObservable?: Observable<ChartData>
+    seriesObservable?: Observable<ChartData> | Observable<IterateChartData>
     /**
      * The time-window (in milliseconds) to buffer the incoming data before updating the chart. This is
      * a lever to reduce the lag between real-time and chart-time when a large amount of data is being
@@ -92,7 +95,7 @@ interface Props {
      * @param data The new data that arrived in the windowing tine
      * @see UseChartValues.windowingTime
      */
-    onUpdateData?: (seriesName: string, data: Array<Datum>) => void
+    onUpdateData?: (seriesName: string, data: Array<Datum> | Array<IterateDatum>) => void
 
     /**
      * The child components of the chart (i.e. the axis, plot, tracker, tooltip)
@@ -108,78 +111,78 @@ interface Props {
  * @example
  *
  <Chart
-     width={useGridCellWidth()}
-     height={useGridCellHeight()}
-     margin={{...defaultMargin, top: 60, right: 75, left: 70}}
-     color={theme.color}
-     backgroundColor={theme.backgroundColor}
-     seriesStyles={new Map([
-        ['neuron1', {
-             ...defaultLineStyle,
-             color: 'orange',
-             lineWidth: 2,
-             highlightColor: 'orange'
-        }],
-        ['neuron6', {
-            ...defaultLineStyle,
-            color: theme.name === 'light' ? 'blue' : 'gray',
-            lineWidth: 3,
-            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-            highlightWidth: 5
-        }],
-     ])}
-     initialData={initialDataRef.current}
-     seriesFilter={filter}
-     seriesObservable={observableRef.current}
-     shouldSubscribe={running}
-     onUpdateTime={handleChartTimeUpdate}
-     windowingTime={150}
+ width={useGridCellWidth()}
+ height={useGridCellHeight()}
+ margin={{...defaultMargin, top: 60, right: 75, left: 70}}
+ color={theme.color}
+ backgroundColor={theme.backgroundColor}
+ seriesStyles={new Map([
+ ['neuron1', {
+ ...defaultLineStyle,
+ color: 'orange',
+ lineWidth: 2,
+ highlightColor: 'orange'
+ }],
+ ['neuron6', {
+ ...defaultLineStyle,
+ color: theme.name === 'light' ? 'blue' : 'gray',
+ lineWidth: 3,
+ highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+ highlightWidth: 5
+ }],
+ ])}
+ initialData={initialDataRef.current}
+ seriesFilter={filter}
+ seriesObservable={observableRef.current}
+ shouldSubscribe={running}
+ onUpdateTime={handleChartTimeUpdate}
+ windowingTime={150}
  >
-     <ContinuousAxis
-         axisId="x-axis-1"
-         location={AxisLocation.Bottom}
-         domain={[0, 5000]}
-         label="t (ms)"
-     />
-     <CategoryAxis
-         axisId="y-axis-1"
-         location={AxisLocation.Left}
-         categories={initialDataRef.current.map(series => series.name)}
-         label="neuron"
-     />
-     <CategoryAxis
-         axisId="y-axis-2"
-         location={AxisLocation.Right}
-         categories={initialDataRef.current.map(series => series.name)}
-         label="neuron"
-     />
-     <Tracker
-         visible={visibility.tracker}
-         labelLocation={TrackerLabelLocation.WithMouse}
-         style={{color: theme.color}}
-         font={{color: theme.color}}
-     />
-     <Tooltip
-         visible={visibility.tooltip}
-         style={{
-            fontColor: theme.color,
-            backgroundColor: theme.backgroundColor,
-            borderColor: theme.color,
-            backgroundOpacity: 0.9,
-         }}
-     >
-         <RasterPlotTooltipContent
-             xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
-             yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
-         />
-     </Tooltip>
-     <RasterPlot
-         spikeMargin={1}
-         dropDataAfter={5000}
-         panEnabled={true}
-         zoomEnabled={true}
-         zoomKeyModifiersRequired={true}
-     />
+ <ContinuousAxis
+ axisId="x-axis-1"
+ location={AxisLocation.Bottom}
+ domain={[0, 5000]}
+ label="t (ms)"
+ />
+ <CategoryAxis
+ axisId="y-axis-1"
+ location={AxisLocation.Left}
+ categories={initialDataRef.current.map(series => series.name)}
+ label="neuron"
+ />
+ <CategoryAxis
+ axisId="y-axis-2"
+ location={AxisLocation.Right}
+ categories={initialDataRef.current.map(series => series.name)}
+ label="neuron"
+ />
+ <Tracker
+ visible={visibility.tracker}
+ labelLocation={TrackerLabelLocation.WithMouse}
+ style={{color: theme.color}}
+ font={{color: theme.color}}
+ />
+ <Tooltip
+ visible={visibility.tooltip}
+ style={{
+ fontColor: theme.color,
+ backgroundColor: theme.backgroundColor,
+ borderColor: theme.color,
+ backgroundOpacity: 0.9,
+ }}
+ >
+ <RasterPlotTooltipContent
+ xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
+ yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
+ />
+ </Tooltip>
+ <RasterPlot
+ spikeMargin={1}
+ dropDataAfter={5000}
+ panEnabled={true}
+ zoomEnabled={true}
+ zoomKeyModifiersRequired={true}
+ />
  </Chart>
  */
 export function Chart(props: Props): JSX.Element {
@@ -266,18 +269,21 @@ export function Chart(props: Props): JSX.Element {
                 initialData={initialData}
                 seriesFilter={seriesFilter}
 
-                seriesObservable={seriesObservable}
-                windowingTime={windowingTime}
-                shouldSubscribe={shouldSubscribe}
-
-                onSubscribe={onSubscribe}
                 onUpdateTime={onUpdateTime}
-                onUpdateData={onUpdateData}
             >
-                {
-                    // the chart elements are the children
-                    children
-                }
+                <DataObservableProvider
+                    seriesObservable={seriesObservable}
+                    windowingTime={windowingTime}
+                    shouldSubscribe={shouldSubscribe}
+
+                    onSubscribe={onSubscribe}
+                    onUpdateData={onUpdateData}
+                >
+                    {
+                        // the chart elements are the children
+                        children
+                    }
+                </DataObservableProvider>
             </ChartProvider>
         </>
     );

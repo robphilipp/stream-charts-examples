@@ -19,9 +19,11 @@ import {
     timeRanges,
     zoomHandler
 } from "./axes";
-import {Subscription} from "rxjs";
+import {Observable, Subscription} from "rxjs";
 import {Dimensions, Margin} from "./margins";
 import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
+import {useDataObservable} from "./hooks/useDataObservable";
+import {ChartData} from "./chartData";
 
 interface Props {
     /**
@@ -102,19 +104,28 @@ export function RasterPlot(props: Props): null {
 
         setAxisAssignments,
 
-        seriesObservable,
-        windowingTime = 100,
-        shouldSubscribe,
-
-        onSubscribe = noop,
+        // seriesObservable,
+        // windowingTime = 100,
+        // shouldSubscribe,
+        //
+        // onSubscribe = noop,
         onUpdateTime,
-        onUpdateData,
+        // onUpdateData,
 
         updateTimeRanges = noop,
 
         mouseOverHandlerFor,
         mouseLeaveHandlerFor,
     } = useChart()
+
+    const {
+        seriesObservable,
+        windowingTime = 100,
+        shouldSubscribe,
+
+        onSubscribe = noop,
+        onUpdateData,
+    } = useDataObservable()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
@@ -132,8 +143,8 @@ export function RasterPlot(props: Props): null {
     // changes as well. The dataRef is used for performance, so that in the updatePlot function we don't
     // need to create a temporary array to holds the series data, rather, we can just use the one held in
     // the dataRef.
-    const dataRef = useRef<Array<Series>>(initialData.slice())
-    const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series])))
+    const dataRef = useRef<Array<Series>>(initialData.slice() as Array<Series>)
+    const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series as Series])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
@@ -188,18 +199,18 @@ export function RasterPlot(props: Props): null {
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
         () => {
-            dataRef.current = initialData.slice()
-            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
+            dataRef.current = initialData.slice() as Array<Series>
+            seriesRef.current = new Map(initialData.map(series => [series.name, series as Series]))
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot(new Map(Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
                         const [start, end] = range.original
-                        const minTime = initialData
+                        const minTime = (initialData as Array<Series>)
                             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
                             .reduce(
-                                (tMin, series) => Math.min(
+                                (tMin: number, series: Series) => Math.min(
                                     tMin,
                                     !series.isEmpty() ? series.data[0].time : tMin
                                 ),
@@ -461,7 +472,7 @@ export function RasterPlot(props: Props): null {
             if (seriesObservable === undefined || mainG === null) return undefined
             if (withCadenceOf !== undefined) {
                 return subscriptionWithCadenceFor(
-                    seriesObservable,
+                    seriesObservable as Observable<ChartData>,
                     onSubscribe,
                     windowingTime,
                     axisAssignments, xAxesState,
@@ -474,7 +485,7 @@ export function RasterPlot(props: Props): null {
                 )
             }
             return subscriptionFor(
-                seriesObservable,
+                seriesObservable as Observable<ChartData>,
                 onSubscribe,
                 windowingTime,
                 axisAssignments, xAxesState,
