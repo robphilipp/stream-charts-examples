@@ -1,9 +1,7 @@
-import {JSX} from "react";
-import {createContext, useContext, useEffect, useRef, useState} from 'react';
+import {createContext, JSX, useContext, useEffect, useRef, useState} from "react";
 import {Dimensions, Margin, plotDimensionsFrom} from "../margins";
 import {GSelection} from "../d3types";
-import {Observable, Subscription} from "rxjs";
-import {ChartData} from "../chartData";
+import {Subscription} from "rxjs";
 import {Datum, Series} from "../datumSeries";
 // import {noop} from "../utils";
 import {BaseAxis, SeriesLineStyle} from "../axes";
@@ -11,7 +9,6 @@ import {ContinuousAxisRange} from "../continuousAxisRangeFor";
 import {AxesAssignment, TimeSeries} from "../plot";
 import {TooltipDimensions} from "../tooltipUtils";
 import {addAxisTo, AxesState, createAxesState} from "./AxesState";
-import {IterateSeries} from "../iterateSeries";
 import {BaseSeries} from "../baseSeries";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
@@ -116,23 +113,6 @@ interface UseChartValues {
      */
     initialData: Array<BaseSeries<any>>
     // initialData: Array<Series> | Array<IterateSeries>
-    // /**
-    //  * An observable source for chart data
-    //  */
-    // seriesObservable?: Observable<ChartData>
-    // /**
-    //  * When `true` the chart will subscribe to the observable, or if already subscribed, will remain
-    //  * subscribed. When `false` the chart will unsubscribe to the observable if subscribed, or will
-    //  * remain unsubscribed if not already subscribed.
-    //  */
-    // shouldSubscribe?: boolean
-    // /**
-    //  * The windowing time for aggregating chart-data events. Defines the update rate of the chart.
-    //  * For example if chart-data events occur every 1 ms, and the windowing time is set to 10 ms,
-    //  * then events will be aggregated for 10 ms, and then the chart will be updated. In this example,
-    //  * the chart would be updated only once per 10 ms.
-    //  */
-    // windowingTime?: number
 
     /**
      * A regular expression uses against the series names to determine which series to show in the chart
@@ -142,24 +122,12 @@ interface UseChartValues {
     /*
      | USER CALLBACK FUNCTIONS
      */
-    // /**
-    //  * Callback function that is called when the chart subscribes to the observable
-    //  * @param subscription The subscription resulting form the subscribe action
-    //  */
-    // onSubscribe: (subscription: Subscription) => void
     /**
      * Callback when the time range changes.
      * @param times The times (start, end) times for each axis in the plot
      * @return void
      */
     onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void
-    // /**
-    //  * Callback function that is called when new data arrives to the chart.
-    //  * @param seriesName The name of the series for which new data arrived
-    //  * @param data The new data that arrived in the windowing tine
-    //  * @see UseChartValues.windowingTime
-    //  */
-    // onUpdateData?: (seriesName: string, data: Array<Datum>) => void
 
     /*
      | INTERNAL CHART EVENT HANDLERS
@@ -279,11 +247,6 @@ const defaultUseChartValues: UseChartValues = {
     // data
     initialData: [],
     seriesFilter: /./,
-    // windowingTime: NaN,
-    // shouldSubscribe: false,
-
-    // user callbacks
-    // onSubscribe: noop,
 
     // internal event handlers
     updateTimeRanges: noop,
@@ -315,11 +278,6 @@ interface Props {
     seriesStyles?: Map<string, SeriesLineStyle>
     initialData: Array<Series>
     seriesFilter?: RegExp
-
-    // live data
-    seriesObservable?: Observable<ChartData>
-    windowingTime?: number
-    shouldSubscribe?: boolean
 
     /*
      | USER CALLBACK FUNCTIONS
@@ -364,13 +322,7 @@ export default function ChartProvider(props: Props): JSX.Element {
         seriesFilter = defaultUseChartValues.seriesFilter,
         seriesStyles = new Map(),
 
-        // seriesObservable,
-        // windowingTime = defaultUseChartValues.windowingTime || 100,
-        // shouldSubscribe,
-
-        // onSubscribe = noop,
         onUpdateTime = noop,
-        // onUpdateData = noop,
     } = props
     const [dimensions, setDimensions] = useState<Dimensions>(defaultUseChartValues.plotDimensions)
 
@@ -443,13 +395,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             timeRangeFor: axisId => timeRangesRef.current.get(axisId),
             setTimeRangeFor: ((axisId, timeRange) => timeRangesRef.current.set(axisId, timeRange)),
 
-            // seriesObservable,
-            // windowingTime,
-            // shouldSubscribe,
-
-            // onSubscribe,
             onUpdateTime,
-            // onUpdateData,
 
             updateTimeRanges,
             updateDimensions: dimensions => setDimensions(dimensions),
