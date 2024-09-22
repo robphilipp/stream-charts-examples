@@ -49,9 +49,11 @@ export function Tooltip(props: Props): JSX.Element {
         container,
         margin,
         plotDimensions,
-        tooltipContentProvider,
+        tooltip,
         mouse
     } = useChart()
+
+    const {tooltipContentProvider} = tooltip
 
     const {
         visible,

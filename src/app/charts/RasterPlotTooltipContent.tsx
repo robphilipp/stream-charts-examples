@@ -114,9 +114,11 @@ export function RasterPlotTooltipContent(props: Props): null {
         container,
         margin,
         plotDimensions,
-        registerTooltipContentProvider,
+        tooltip,
         axes
     } = useChart()
+
+    const {registerTooltipContentProvider} = tooltip
 
     const {
         yAxesState,

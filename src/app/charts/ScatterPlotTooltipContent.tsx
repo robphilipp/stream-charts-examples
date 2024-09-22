@@ -133,8 +133,11 @@ export function ScatterPlotTooltipContent(props: Props): null {
         container,
         margin,
         plotDimensions,
-        registerTooltipContentProvider
+        tooltip
     } = useChart()
+
+    const {registerTooltipContentProvider} = tooltip
+
     const {
         xLabel,
         yLabel,

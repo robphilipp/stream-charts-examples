@@ -6,11 +6,10 @@ import {Datum, TimeSeries} from "../timeSeries";
 // import {noop} from "../utils";
 import {SeriesLineStyle} from "../axes";
 import {ContinuousAxisRange} from "../continuousAxisRangeFor";
-import {Series} from "../plot";
-import {TooltipDimensions} from "../tooltipUtils";
 import {BaseSeries} from "../baseSeries";
 import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
 import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
+import {defaultTooltipValues, useTooltip, UseTooltipValues} from "./useTooltip";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 
@@ -134,27 +133,7 @@ interface UseChartValues {
      | INTERNAL INTERACTION EVENT HANDLERS
      */
     mouse: UseMouseValues
-
-    /**
-     * Registers the provider of the tooltip content (generally this will be registered by the plot).
-     * When this function is called again, overwrites the previously registered provider with the
-     * one specified. This function can be called repeatedly.
-     * @param provider The function that provides the content when called.
-     */
-    registerTooltipContentProvider: (
-        provider: (
-            seriesName: string,
-            time: number,
-            series: Series,
-            mouseCoords: [x: number, y: number]
-        ) => TooltipDimensions) => void
-    /**
-     * @return The registered function that provides the tooltip content. If no function has been
-     * registered, then returns `undefined`.
-     */
-    tooltipContentProvider: () =>
-        ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => TooltipDimensions) |
-        undefined
+    tooltip: UseTooltipValues
 }
 
 const defaultUseChartValues: UseChartValues = {
@@ -185,15 +164,7 @@ const defaultUseChartValues: UseChartValues = {
 
     // internal chart-interaction event handlers
     mouse: defaultMouseValues(),
-    // registerMouseOverHandler: () => '',
-    // unregisterMouseOverHandler: noop,
-    // mouseOverHandlerFor: () => undefined,
-    // registerMouseLeaveHandler: () => '',
-    // unregisterMouseLeaveHandler: noop,
-    // mouseLeaveHandlerFor: () => undefined,
-
-    registerTooltipContentProvider: noop,
-    tooltipContentProvider: () => undefined
+    tooltip: defaultTooltipValues()
 }
 
 const ChartContext = createContext<UseChartValues>(defaultUseChartValues)
@@ -265,7 +236,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const mouse = useMouse()
 
-    const tooltipContentProviderRef = useRef<((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => TooltipDimensions) | undefined>(undefined)
+    const tooltip = useTooltip()
 
     // update the plot dimensions when the container size or margin change
     useEffect(
@@ -316,8 +287,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 
             mouse,
 
-            registerTooltipContentProvider: provider => tooltipContentProviderRef.current = provider,
-            tooltipContentProvider: () => tooltipContentProviderRef.current,
+            tooltip
         }}
     >
         {props.children}

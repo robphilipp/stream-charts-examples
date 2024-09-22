@@ -96,8 +96,8 @@ export default function MouseProvider(props: Props): JSX.Element {
 }
 
 /**
- * React hook that sets up the React context for the chart values.
- * @return The {@link UseChartValues} held in the React context.
+ * React hook that sets up the React context for the mouse values.
+ * @return The {@link UseMouseValues} held in the React context.
  */
 export function useMouse(): UseMouseValues {
     const context = useContext<UseMouseValues>(MouseContext)
