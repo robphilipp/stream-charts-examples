@@ -1,10 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {useChart} from "./hooks/useChart";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {AxesAssignment, setClipPath, Series} from "./plot";
-import {Datum, TimeSeries} from "./timeSeries";
+import {AxesAssignment, Series, setClipPath} from "./plot";
+import {Datum} from "./timeSeries";
 import {
     axesForSeriesGen,
     BaseAxis,
@@ -12,8 +12,6 @@ import {
     defaultLineStyle,
     panHandler,
     SeriesLineStyle,
-    timeIntervals,
-    timeRanges,
     zoomHandler
 } from "./axes";
 import {GSelection} from "./d3types";
@@ -100,7 +98,7 @@ export function PoincarePlot(props: Props): null {
         initialData,
         seriesFilter,
 
-        onUpdateTime,
+        // onUpdateAxesBounds,
 
         // setAxisBoundsFor,
         // updateAxesBounds = noop,
@@ -113,6 +111,7 @@ export function PoincarePlot(props: Props): null {
         yAxesState,
         setAxisBoundsFor,
         updateAxesBounds = noop,
+        onUpdateAxesBounds,
     } = axes
 
     const {
@@ -191,7 +190,7 @@ export function PoincarePlot(props: Props): null {
                 // }
             }
         },
-        [mainG, onUpdateTime]
+        [mainG, onUpdateAxesBounds]
     )
 
     // // todo find better way

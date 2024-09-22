@@ -94,24 +94,10 @@ export function RasterPlot(props: Props): null {
         container,
         mainG,
         axes,
-        // plotDimensions,
-        // margin,
         color,
         seriesStyles,
         initialData,
         seriesFilter,
-
-        // seriesObservable,
-        // windowingTime = 100,
-        // shouldSubscribe,
-        //
-        // onSubscribe = noop,
-        onUpdateTime,
-        // onUpdateData,
-
-        // setAxisBoundsFor,
-        // updateAxesBounds = noop,
-
         mouse
     } = useChart()
 
@@ -121,17 +107,12 @@ export function RasterPlot(props: Props): null {
         setAxisAssignments,
         setAxisBoundsFor,
         updateAxesBounds = noop,
+        onUpdateAxesBounds,
     } = axes
 
-    const {
-        mouseOverHandlerFor,
-        mouseLeaveHandlerFor
-    } = mouse
+    const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
 
-    const {
-        plotDimensions,
-        margin,
-    } = usePlotDimensions()
+    const {plotDimensions, margin} = usePlotDimensions()
 
     const {
         seriesObservable,
@@ -197,16 +178,16 @@ export function RasterPlot(props: Props): null {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
-                if (onUpdateTime) {
+                if (onUpdateAxesBounds) {
                     setTimeout(() => {
                         const times = new Map<string, [number, number]>()
                         ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
-                        onUpdateTime(times)
+                        onUpdateAxesBounds(times)
                     }, 0)
                 }
             }
         },
-        [mainG, onUpdateTime]
+        [mainG, onUpdateAxesBounds]
     )
 
     // todo find better way

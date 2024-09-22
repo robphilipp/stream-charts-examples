@@ -266,11 +266,8 @@ export function Chart(props: Props): JSX.Element {
     return (
         <>
             <svg ref={containerRef}/>
-            <PlotDimensionsProvider
-                containerDimensions={{width, height}}
-                margin={margin}
-            >
-                <AxesProvider>
+            <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
+                <AxesProvider onUpdateAxesBounds={onUpdateTime}>
                     <MouseProvider>
                         <TooltipProvider>
                             <ChartProvider
@@ -282,8 +279,6 @@ export function Chart(props: Props): JSX.Element {
                                 seriesStyles={seriesStyles}
                                 initialData={initialData}
                                 seriesFilter={seriesFilter}
-
-                                onUpdateTime={onUpdateTime}
                             >
                                 <DataObservableProvider
                                     seriesObservable={seriesObservable}

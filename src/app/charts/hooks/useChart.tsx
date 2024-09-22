@@ -2,21 +2,11 @@ import {createContext, JSX, useContext} from "react";
 import {GSelection} from "../d3types";
 import {Subscription} from "rxjs";
 import {Datum, TimeSeries} from "../timeSeries";
-// import {noop} from "../utils";
 import {SeriesLineStyle} from "../axes";
 import {BaseSeries} from "../baseSeries";
 import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
 import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
 import {defaultTooltipValues, useTooltip, UseTooltipValues} from "./useTooltip";
-
-// export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
-
-/**
- * No operation function for use when a default function is needed
- */
-const noop = () => {
-    /* empty on purpose */
-}
 
 /**
  * The values exposed through the {@link useChart} react hook
@@ -64,19 +54,6 @@ interface UseChartValues {
     seriesFilter: RegExp
 
     /*
-     | USER CALLBACK FUNCTIONS
-     */
-    /**
-     * Callback when the time range changes.
-     * @param times The times (start, end) times for each axis in the plot. The times argument is a
-     * map(axis_id -> (start, end)). Where start and end refer to the time-range for the
-     * axis.
-     * @return void
-     */
-    onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void
-
-
-    /*
      | INTERNAL INTERACTION EVENT HANDLERS
      */
     mouse: UseMouseValues
@@ -122,12 +99,6 @@ interface Props {
      */
     onSubscribe?: (subscription: Subscription) => void
     /**
-     * Callback when the time range changes.
-     * @param times The times (start, end) times for each axis in the plot
-     * @return void
-     */
-    onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void
-    /**
      * Callback function that is called when new data arrives to the chart.
      * @param seriesName The name of the series for which new data arrived
      * @param data The new data that arrived in the windowing tine
@@ -153,8 +124,6 @@ export default function ChartProvider(props: Props): JSX.Element {
         initialData,
         seriesFilter = defaultUseChartValues.seriesFilter,
         seriesStyles = new Map(),
-
-        onUpdateTime = noop,
     } = props
 
     const axes = useAxes()
@@ -168,13 +137,10 @@ export default function ChartProvider(props: Props): JSX.Element {
             seriesStyles,
             initialData,
             seriesFilter,
-
-            mainG, container,
+            mainG,
+            container,
 
             axes,
-
-            onUpdateTime,
-
             mouse,
             tooltip,
         }}
