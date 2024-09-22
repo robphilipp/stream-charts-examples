@@ -30,15 +30,19 @@ export function ContinuousAxis(props: Props): null {
         container,
         plotDimensions,
         margin,
-        xAxesState,
-        yAxesState,
-        addXAxis,
-        addYAxis,
+        axes,
         setTimeRangeFor,
         timeRangeFor,
         addTimeUpdateHandler,
         color
     } = useChart()
+
+    const {
+        xAxesState,
+        yAxesState,
+        addXAxis,
+        addYAxis
+    } = axes
 
     const {
         axisId,

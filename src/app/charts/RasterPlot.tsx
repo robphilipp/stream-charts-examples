@@ -92,8 +92,7 @@ export function RasterPlot(props: Props): null {
         chartId,
         container,
         mainG,
-        xAxesState,
-        yAxesState,
+        axes,
         setTimeRangeFor,
         plotDimensions,
         margin,
@@ -101,8 +100,6 @@ export function RasterPlot(props: Props): null {
         seriesStyles,
         initialData,
         seriesFilter,
-
-        setAxisAssignments,
 
         // seriesObservable,
         // windowingTime = 100,
@@ -117,6 +114,12 @@ export function RasterPlot(props: Props): null {
         mouseOverHandlerFor,
         mouseLeaveHandlerFor,
     } = useChart()
+
+    const {
+        xAxesState,
+        yAxesState,
+        setAxisAssignments
+    } = axes
 
     const {
         seriesObservable,

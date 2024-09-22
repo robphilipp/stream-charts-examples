@@ -36,9 +36,12 @@ export function CategoryAxis(props: Props): null {
         container,
         plotDimensions,
         margin,
-        addYAxis,
+        // addYAxis,
+        axes,
         color,
     } = useChart()
+
+    const {addYAxis} = axes
 
     const {
         axisId,

@@ -4,12 +4,12 @@ import {GSelection} from "../d3types";
 import {Subscription} from "rxjs";
 import {Datum, TimeSeries} from "../timeSeries";
 // import {noop} from "../utils";
-import {BaseAxis, SeriesLineStyle} from "../axes";
+import {SeriesLineStyle} from "../axes";
 import {ContinuousAxisRange} from "../continuousAxisRangeFor";
-import {AxesAssignment, Series} from "../plot";
+import {Series} from "../plot";
 import {TooltipDimensions} from "../tooltipUtils";
-import {addAxisTo, AxesState, createAxesState} from "./AxesState";
 import {BaseSeries} from "../baseSeries";
+import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 
@@ -56,37 +56,7 @@ interface UseChartValues {
     /*
      | AXES
      */
-    /**
-     * The x-axes state holds the currently set x-axes, manipulation and accessor functions
-     */
-    xAxesState: AxesState
-    /**
-     * Adds an x-axis to the axes and updates the internal state
-     * @param axis The axis to add
-     * @param id The ID of the axis to add
-     */
-    addXAxis: (axis: BaseAxis, id: string) => void
-    /**
-     * The y-axes state holds the currently set x-axes, manipulation and accessor functions
-     */
-    yAxesState: AxesState
-    /**
-     * Adds a y-axis to the axes and updates the internal state
-     * @param axis The axis to add
-     * @param id The ID of the axis to add
-     */
-    addYAxis: (axis: BaseAxis, id: string) => void
-    /**
-     * Sets the axis assigned to each series. This should contain **all** the series used in
-     * the chart.
-     * @param assignments The assignment of the series to their axes
-     */
-    setAxisAssignments: (assignments: Map<string, AxesAssignment>) => void
-    /**
-     * Retrieves the axis assigned to the specified series
-     * @return The axes assigned to the specified series
-     */
-    axisAssignmentsFor: (seriesName: string) => AxesAssignment
+    axes: UseAxesValues
 
     /*
      | TIMING
@@ -124,7 +94,9 @@ interface UseChartValues {
      */
     /**
      * Callback when the time range changes.
-     * @param times The times (start, end) times for each axis in the plot
+     * @param times The times (start, end) times for each axis in the plot. The times argument is a
+     * map(axis_id -> (start, end)). Where start and end refer to the time-range for the
+     * axis.
      * @return void
      */
     onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void
@@ -163,8 +135,10 @@ interface UseChartValues {
     /**
      * Adds a mouse-over-series handler with the specified ID and handler function
      * @param handlerId The handler ID
-     * @param handler The handler function called when a mouse-over-series event occurs
-     * @return The handler ID
+     * @param handler The handler function called when a mouse-over-series event occurs.
+     * The handler function is handed the series name, the time (x-value), the actual
+     * series, and the mouse coordinates over which the mouse has moved over.
+     * @return The handler ID.
      */
     registerMouseOverHandler: (
         handlerId: string,
@@ -233,12 +207,7 @@ const defaultUseChartValues: UseChartValues = {
     seriesStyles: new Map(),
 
     // axes
-    xAxesState: createAxesState(),
-    yAxesState: createAxesState(),
-    addXAxis: noop,
-    addYAxis: noop,
-    setAxisAssignments: noop,
-    axisAssignmentsFor: () => ({xAxis: "", yAxis: ""}),
+    axes: defaultAxesValues(),
 
     // timing
     timeRangeFor: () => [NaN, NaN],
@@ -305,7 +274,7 @@ interface Props {
 }
 
 /**
- * The react context provider for the {@link UseChartValues}
+ * The React context provider for the {@link UseChartValues}
  * @param props The properties
  * @return The children wrapped in this provider
  * @constructor
@@ -324,11 +293,10 @@ export default function ChartProvider(props: Props): JSX.Element {
 
         onUpdateTime = noop,
     } = props
+
     const [dimensions, setDimensions] = useState<Dimensions>(defaultUseChartValues.plotDimensions)
 
-    const xAxesRef = useRef<AxesState>(createAxesState())
-    const yAxesRef = useRef<AxesState>(createAxesState())
-    const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
+    const axes = useAxes()
 
     const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
@@ -360,19 +328,6 @@ export default function ChartProvider(props: Props): JSX.Element {
         timeUpdateHandlersRef.current.forEach((handler, ) => handler(updates, dimensions))
     }
 
-    /**
-     * Retrieves the x-axis and y-axis assignments for the specified series. If the axes does not have
-     * an assignment, then is assumed to be using the default x- and y-axes.
-     * @param seriesName The name of the series for which to retrieve the axes assignments
-     * @return An {@link AxesAssignment} for the specified axes.
-     */
-    function axisAssignmentsFor(seriesName: string): AxesAssignment {
-        return axisAssignmentsRef.current.get(seriesName) || {
-            xAxis: xAxesRef.current.axisDefaultName(),
-            yAxis: yAxesRef.current.axisDefaultName()
-        }
-    }
-
     return <ChartContext.Provider
         value={{
             chartId,
@@ -385,12 +340,7 @@ export default function ChartProvider(props: Props): JSX.Element {
 
             mainG, container,
 
-            xAxesState: xAxesRef.current,
-            yAxesState: yAxesRef.current,
-            addXAxis: (axis, id) => xAxesRef.current = addAxisTo(xAxesRef.current, axis, id),
-            addYAxis: (axis, id) => yAxesRef.current = addAxisTo(yAxesRef.current, axis, id),
-            setAxisAssignments: assignments => axisAssignmentsRef.current = assignments,
-            axisAssignmentsFor: seriesName => axisAssignmentsFor(seriesName),
+            axes,
 
             timeRangeFor: axisId => timeRangesRef.current.get(axisId),
             setTimeRangeFor: ((axisId, timeRange) => timeRangesRef.current.set(axisId, timeRange)),
@@ -426,8 +376,8 @@ export default function ChartProvider(props: Props): JSX.Element {
 }
 
 /**
- * React hook that sets up the react context for the chart values.
- * @return The {@link UseChartValues} held in the react context.
+ * React hook that sets up the React context for the chart values.
+ * @return The {@link UseChartValues} held in the React context.
  */
 export function useChart(): UseChartValues {
     const context = useContext<UseChartValues>(ChartContext)

@@ -55,8 +55,10 @@ export function Tracker(props: Props): null {
         container,
         plotDimensions,
         margin,
-        xAxesState,
+        axes
     } = useChart()
+
+    const {xAxesState} = axes
 
     const trackerStyle = useMemo(() => ({...defaultTrackerStyle, ...style}), [style])
     const trackerFont = useMemo(() => ({...defaultTrackerLabelFont, ...font}), [font])

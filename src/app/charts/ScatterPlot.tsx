@@ -90,8 +90,7 @@ export function ScatterPlot(props: Props): null {
         chartId,
         container,
         mainG,
-        xAxesState,
-        yAxesState,
+        axes,
         setTimeRangeFor,
         plotDimensions,
         margin,
@@ -107,6 +106,11 @@ export function ScatterPlot(props: Props): null {
         mouseOverHandlerFor,
         mouseLeaveHandlerFor,
     } = useChart()
+
+    const {
+        xAxesState,
+        yAxesState
+    } = axes
 
     const {
         seriesObservable,
