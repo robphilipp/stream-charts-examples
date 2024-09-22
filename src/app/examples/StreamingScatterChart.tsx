@@ -18,7 +18,7 @@ import {TimeSeries} from "../charts/timeSeries";
 import {ChartData} from "../charts/chartData";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
-import {defaultMargin} from '../charts/hooks/useChart';
+import {defaultMargin} from '../charts/hooks/usePlotDimensions';
 import {AxisLocation, defaultLineStyle} from '../charts/axes';
 import {ContinuousAxis} from "../charts/ContinuousAxis";
 import {Tracker, TrackerLabelLocation} from "../charts/Tracker";

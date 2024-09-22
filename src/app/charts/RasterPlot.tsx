@@ -24,6 +24,7 @@ import {Dimensions, Margin} from "./margins";
 import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
 import {useDataObservable} from "./hooks/useDataObservable";
 import {ChartData} from "./chartData";
+import {usePlotDimensions} from "./hooks/usePlotDimensions";
 
 interface Props {
     /**
@@ -93,9 +94,8 @@ export function RasterPlot(props: Props): null {
         container,
         mainG,
         axes,
-        setTimeRangeFor,
-        plotDimensions,
-        margin,
+        // plotDimensions,
+        // margin,
         color,
         seriesStyles,
         initialData,
@@ -109,7 +109,8 @@ export function RasterPlot(props: Props): null {
         onUpdateTime,
         // onUpdateData,
 
-        updateTimeRanges = noop,
+        // setAxisBoundsFor,
+        // updateAxesBounds = noop,
 
         mouse
     } = useChart()
@@ -117,13 +118,20 @@ export function RasterPlot(props: Props): null {
     const {
         xAxesState,
         yAxesState,
-        setAxisAssignments
+        setAxisAssignments,
+        setAxisBoundsFor,
+        updateAxesBounds = noop,
     } = axes
 
     const {
         mouseOverHandlerFor,
         mouseLeaveHandlerFor
     } = mouse
+
+    const {
+        plotDimensions,
+        margin,
+    } = usePlotDimensions()
 
     const {
         seriesObservable,
@@ -268,8 +276,8 @@ export function RasterPlot(props: Props): null {
          plotDimensions: Dimensions,
          series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>
-        ) => panHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setTimeRangeFor, xAxesState]
+        ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
     /**
@@ -288,8 +296,8 @@ export function RasterPlot(props: Props): null {
             plotDimensions: Dimensions,
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => zoomHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(transform, x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setTimeRangeFor, xAxesState]
+        ) => zoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
     /**
@@ -465,12 +473,12 @@ export function RasterPlot(props: Props): null {
 
     // grab a reference to the function used to update the time ranges and update that reference
     // if the function changes (solve for stale closures)
-    const onUpdateTimeRef = useRef(updateTimeRanges)
+    const onUpdateTimeRef = useRef(updateAxesBounds)
     useEffect(
         () => {
-            onUpdateTimeRef.current = updateTimeRanges
+            onUpdateTimeRef.current = updateAxesBounds
         },
-        [updateTimeRanges]
+        [updateAxesBounds]
     )
 
     // memoized function for subscribing to the chart-data observable

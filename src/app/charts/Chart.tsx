@@ -6,7 +6,8 @@ import {Datum, TimeSeries} from "./timeSeries";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {GSelection} from "./d3types";
-import ChartProvider, {defaultMargin} from "./hooks/useChart";
+import ChartProvider from "./hooks/useChart";
+import {defaultMargin} from "./hooks/usePlotDimensions";
 import * as d3 from "d3";
 import {SeriesLineStyle} from "./axes";
 import {createPlotContainer} from "./plot";
@@ -17,6 +18,7 @@ import {IterateDatum} from "./iterateSeries";
 import AxesProvider from "./hooks/useAxes";
 import MouseProvider from "./hooks/useMouse";
 import TooltipProvider from "./hooks/useTooltip";
+import PlotDimensionsProvider from "./hooks/usePlotDimensions";
 
 const defaultBackground = '#202020';
 
@@ -264,35 +266,43 @@ export function Chart(props: Props): JSX.Element {
     return (
         <>
             <svg ref={containerRef}/>
-            <AxesProvider><MouseProvider><TooltipProvider>
-                <ChartProvider
-                    chartId={chartId.current}
-                    container={containerRef.current}
-                    mainG={mainGRef.current}
-                    containerDimensions={{width, height}}
-                    margin={margin}
-                    color={color}
-                    seriesStyles={seriesStyles}
-                    initialData={initialData}
-                    seriesFilter={seriesFilter}
+            <PlotDimensionsProvider
+                containerDimensions={{width, height}}
+                margin={margin}
+            >
+                <AxesProvider>
+                    <MouseProvider>
+                        <TooltipProvider>
+                            <ChartProvider
+                                chartId={chartId.current}
+                                container={containerRef.current}
+                                mainG={mainGRef.current}
 
-                    onUpdateTime={onUpdateTime}
-                >
-                    <DataObservableProvider
-                        seriesObservable={seriesObservable}
-                        windowingTime={windowingTime}
-                        shouldSubscribe={shouldSubscribe}
+                                color={color}
+                                seriesStyles={seriesStyles}
+                                initialData={initialData}
+                                seriesFilter={seriesFilter}
 
-                        onSubscribe={onSubscribe}
-                        onUpdateData={onUpdateData}
-                    >
-                        {
-                            // the chart elements are the children
-                            children
-                        }
-                    </DataObservableProvider>
-                </ChartProvider>
-            </TooltipProvider></MouseProvider></AxesProvider>
+                                onUpdateTime={onUpdateTime}
+                            >
+                                <DataObservableProvider
+                                    seriesObservable={seriesObservable}
+                                    windowingTime={windowingTime}
+                                    shouldSubscribe={shouldSubscribe}
+
+                                    onSubscribe={onSubscribe}
+                                    onUpdateData={onUpdateData}
+                                >
+                                    {
+                                        // the chart elements are the children
+                                        children
+                                    }
+                                </DataObservableProvider>
+                            </ChartProvider>
+                        </TooltipProvider>
+                    </MouseProvider>
+                </AxesProvider>
+            </PlotDimensionsProvider>
         </>
     );
 }

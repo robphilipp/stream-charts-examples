@@ -7,6 +7,7 @@ import {SvgSelection} from "./d3types";
 import {Dimensions, Margin} from "./margins";
 import {noop} from "./utils";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {usePlotDimensions} from "./hooks/usePlotDimensions";
 
 interface Props {
     // the unique ID of the axis
@@ -28,12 +29,12 @@ export function ContinuousAxis(props: Props): null {
     const {
         chartId,
         container,
-        plotDimensions,
-        margin,
+        // plotDimensions,
+        // margin,
         axes,
-        setTimeRangeFor,
-        timeRangeFor,
-        addTimeUpdateHandler,
+        // setAxisBoundsFor,
+        // axisBoundsFor,
+        // addAxesBoundsUpdateHandler,
         color
     } = useChart()
 
@@ -41,8 +42,16 @@ export function ContinuousAxis(props: Props): null {
         xAxesState,
         yAxesState,
         addXAxis,
-        addYAxis
+        addYAxis,
+        setAxisBoundsFor,
+        axisBoundsFor,
+        addAxesBoundsUpdateHandler,
     } = axes
+
+    const {
+        plotDimensions,
+        margin
+    } = usePlotDimensions()
 
     const {
         axisId,
@@ -95,17 +104,17 @@ export function ContinuousAxis(props: Props): null {
                                 margin,
                                 label,
                                 axisId,
-                                setTimeRangeFor,
+                                setAxisBoundsFor,
                             )
                             // add the x-axis to the chart context
                             addXAxis(axisRef.current, axisId)
 
                             // set the time-range for the time-axis
-                            setTimeRangeFor(axisId, domain)
+                            setAxisBoundsFor(axisId, domain)
 
                             // add an update handler
                             timeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
-                            addTimeUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
+                            addAxesBoundsUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
 
                             break
 
@@ -130,12 +139,12 @@ export function ContinuousAxis(props: Props): null {
                     switch (location) {
                         case AxisLocation.Bottom:
                         case AxisLocation.Top:
-                            const timeRange = timeRangeFor(axisId)
+                            const timeRange = axisBoundsFor(axisId)
                             if (timeRange) {
                                 axisRef.current.update(timeRange, plotDimensions, margin)
                             }
                             if (timeUpdateHandlerIdRef.current !== undefined) {
-                                addTimeUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
+                                addAxesBoundsUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
                             }
                             break
                         case AxisLocation.Left:
@@ -150,7 +159,7 @@ export function ContinuousAxis(props: Props): null {
         },
         [
             chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis,
-            domain, scale, container, margin, plotDimensions, setTimeRangeFor, timeRangeFor, addTimeUpdateHandler,
+            domain, scale, container, margin, plotDimensions, setAxisBoundsFor, axisBoundsFor, addAxesBoundsUpdateHandler,
             color
         ]
     )

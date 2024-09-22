@@ -2,6 +2,7 @@ import {cloneElement, useEffect, useMemo} from "react";
 import {defaultTooltipStyle, removeTooltip, TooltipStyle} from "./tooltipUtils";
 import * as d3 from "d3";
 import {useChart} from "./hooks/useChart";
+import {usePlotDimensions} from "./hooks/usePlotDimensions";
 
 export interface Props {
     visible: boolean
@@ -47,13 +48,13 @@ export function Tooltip(props: Props): JSX.Element {
     const {
         chartId,
         container,
-        margin,
-        plotDimensions,
         tooltip,
         mouse
     } = useChart()
 
     const {tooltipContentProvider} = tooltip
+
+    const {margin, plotDimensions} = usePlotDimensions()
 
     const {
         visible,

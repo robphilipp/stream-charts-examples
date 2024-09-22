@@ -1,17 +1,15 @@
-import {createContext, JSX, useContext, useEffect, useRef, useState} from "react";
-import {Dimensions, Margin, plotDimensionsFrom} from "../margins";
+import {createContext, JSX, useContext} from "react";
 import {GSelection} from "../d3types";
 import {Subscription} from "rxjs";
 import {Datum, TimeSeries} from "../timeSeries";
 // import {noop} from "../utils";
 import {SeriesLineStyle} from "../axes";
-import {ContinuousAxisRange} from "../continuousAxisRangeFor";
 import {BaseSeries} from "../baseSeries";
 import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
 import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
 import {defaultTooltipValues, useTooltip, UseTooltipValues} from "./useTooltip";
 
-export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
+// export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 
 /**
  * No operation function for use when a default function is needed
@@ -29,10 +27,6 @@ interface UseChartValues {
      */
     chartId: number
     /**
-     * The width and height (in pixels) of this chart
-     */
-    plotDimensions: Dimensions
-    /**
      * The root <g> element for the chart
      */
     mainG: GSelection | null
@@ -40,10 +34,6 @@ interface UseChartValues {
      * The SVG element which is the container for this chart
      */
     container: SVGSVGElement | null
-    /**
-     * The plot margins for the border of main G
-     */
-    margin: Margin
     /**
      * Base color
      */
@@ -57,22 +47,6 @@ interface UseChartValues {
      | AXES
      */
     axes: UseAxesValues
-
-    /*
-     | TIMING
-     */
-    /**
-     * Retrieves the time range for the specified axis ID
-     * @param axisId The ID of the axis for which to retrieve the time-range
-     * @return The time-range as a `[t_start, t_end]` tuple if the axis ID is found, `undefined` otherwise
-     */
-    timeRangeFor: (axisId: string) => [start: number, end: number] | undefined
-    /**
-     * Sets the time-range for the specified axis ID to the specified range
-     * @param axisId The ID of the axis for which to set the range
-     * @param timeRange The new time range as an `[t_start, t_end]` tuple
-     */
-    setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void
 
     /*
      | DATA and DATA PROCESSING
@@ -101,33 +75,6 @@ interface UseChartValues {
      */
     onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void
 
-    /*
-     | INTERNAL CHART EVENT HANDLERS
-     */
-    /**
-     * Callback function that is called when the time ranges change. The time ranges could
-     * change because of a zoom action, a pan action, or as new data is streamed in.
-     * @param times A `map(axis_id -> time_range)` that associates the axis ID with the
-     * current time range.
-     */
-    updateTimeRanges: (times: Map<string, ContinuousAxisRange>) => void
-    /**
-     * Update the plot dimensions (for example, on a window resize)
-     * @param dimensions the new dimensions of the plot
-     */
-    updateDimensions: (dimensions: Dimensions) => void
-    /**
-     * Adds a handler for when the time is updated. The time could change because of a zoom action,
-     * a pan action, or as new data is streamed in.
-     * @param handlerId The unique ID of the handler to register/add
-     * @param handler The handler function
-     */
-    addTimeUpdateHandler: (handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void) => void
-    /**
-     * Removes the time-update handler with the specified ID
-     * @param handlerId The ID of the handler to remove
-     */
-    removeTimeUpdateHandler: (handlerId: string) => void
 
     /*
      | INTERNAL INTERACTION EVENT HANDLERS
@@ -140,27 +87,15 @@ const defaultUseChartValues: UseChartValues = {
     chartId: NaN,
     container: null,
     mainG: null,
-    plotDimensions: {width: 0, height: 0},
-    margin: defaultMargin,
     color: '#d2933f',
     seriesStyles: new Map(),
 
     // axes
     axes: defaultAxesValues(),
 
-    // timing
-    timeRangeFor: () => [NaN, NaN],
-    setTimeRangeFor: noop,
-
     // data
     initialData: [],
     seriesFilter: /./,
-
-    // internal event handlers
-    updateTimeRanges: noop,
-    updateDimensions: noop,
-    addTimeUpdateHandler: () => noop,
-    removeTimeUpdateHandler: () => noop,
 
     // internal chart-interaction event handlers
     mouse: defaultMouseValues(),
@@ -173,8 +108,6 @@ interface Props {
     chartId: number
     container: SVGSVGElement | null
     mainG: GSelection | null
-    containerDimensions: Dimensions
-    margin: Margin
     color: string
     seriesStyles?: Map<string, SeriesLineStyle>
     initialData: Array<TimeSeries>
@@ -216,8 +149,6 @@ export default function ChartProvider(props: Props): JSX.Element {
         chartId,
         container,
         mainG,
-        containerDimensions,
-        margin,
         color,
         initialData,
         seriesFilter = defaultUseChartValues.seriesFilter,
@@ -226,45 +157,13 @@ export default function ChartProvider(props: Props): JSX.Element {
         onUpdateTime = noop,
     } = props
 
-    const [dimensions, setDimensions] = useState<Dimensions>(defaultUseChartValues.plotDimensions)
-
     const axes = useAxes()
-
-    const timeRangesRef = useRef<Map<string, [start: number, end: number]>>(new Map())
-
-    const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
-
     const mouse = useMouse()
-
     const tooltip = useTooltip()
-
-    // update the plot dimensions when the container size or margin change
-    useEffect(
-        () => {
-            setDimensions(plotDimensionsFrom(containerDimensions.width, containerDimensions.height, margin))
-        },
-        [containerDimensions, margin]
-    )
-
-    /**
-     * Called when the time is updated on one or more of the chart's axes (generally x-axes). In turn,
-     * dispatches the update to all the internal time update handlers.
-     * @param updates A map holding the axis ID to the updated axis time-range
-     */
-    function updateTimeRanges(updates: Map<string, ContinuousAxisRange>): void {
-        // update the current time-ranges reference
-        updates.forEach((range, id) =>
-            timeRangesRef.current.set(id, [range.start, range.end])
-        )
-        // dispatch the updates to all the registered handlers
-        timeUpdateHandlersRef.current.forEach((handler, ) => handler(updates, dimensions))
-    }
 
     return <ChartContext.Provider
         value={{
             chartId,
-            plotDimensions: dimensions,
-            margin,
             color,
             seriesStyles,
             initialData,
@@ -274,20 +173,10 @@ export default function ChartProvider(props: Props): JSX.Element {
 
             axes,
 
-            timeRangeFor: axisId => timeRangesRef.current.get(axisId),
-            setTimeRangeFor: ((axisId, timeRange) => timeRangesRef.current.set(axisId, timeRange)),
-
             onUpdateTime,
 
-            updateTimeRanges,
-            updateDimensions: dimensions => setDimensions(dimensions),
-
-            addTimeUpdateHandler: (handlerId, handler) => timeUpdateHandlersRef.current.set(handlerId, handler),
-            removeTimeUpdateHandler: handlerId => timeUpdateHandlersRef.current.delete(handlerId),
-
             mouse,
-
-            tooltip
+            tooltip,
         }}
     >
         {props.children}

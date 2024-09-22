@@ -24,6 +24,7 @@ import {subscriptionIteratesFor} from "./subscriptions";
 import {useDataObservable} from "./hooks/useDataObservable";
 import {IterateChartData} from "./iterates";
 import {IterateSeries} from "./iterateSeries";
+import {usePlotDimensions} from "./hooks/usePlotDimensions";
 
 interface Props {
     /**
@@ -92,9 +93,8 @@ export function PoincarePlot(props: Props): null {
         container,
         mainG,
         axes,
-        setTimeRangeFor,
-        plotDimensions,
-        margin,
+        // plotDimensions,
+        // margin,
         color,
         seriesStyles,
         initialData,
@@ -102,20 +102,28 @@ export function PoincarePlot(props: Props): null {
 
         onUpdateTime,
 
-        updateTimeRanges = noop,
+        // setAxisBoundsFor,
+        // updateAxesBounds = noop,
 
         mouse
     } = useChart()
 
     const {
         xAxesState,
-        yAxesState
+        yAxesState,
+        setAxisBoundsFor,
+        updateAxesBounds = noop,
     } = axes
 
     const {
         mouseOverHandlerFor,
         mouseLeaveHandlerFor
     } = mouse
+
+    const {
+        plotDimensions,
+        margin,
+    } = usePlotDimensions()
 
     const {
         seriesObservable,
@@ -234,8 +242,8 @@ export function PoincarePlot(props: Props): null {
          plotDimensions: Dimensions,
          series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>,
-        ) => panHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setTimeRangeFor, xAxesState]
+        ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
     /**
@@ -254,8 +262,8 @@ export function PoincarePlot(props: Props): null {
             plotDimensions: Dimensions,
             series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => zoomHandler(axesForSeries, margin, setTimeRangeFor, xAxesState)(transform, x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setTimeRangeFor, xAxesState]
+        ) => zoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
     const updatePlot = useCallback(

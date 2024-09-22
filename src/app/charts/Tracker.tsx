@@ -12,6 +12,7 @@ import {
 import * as d3 from "d3";
 import {useEffect, useMemo, useRef} from "react";
 import {AxisLocation, ContinuousNumericAxis} from "./axes";
+import {usePlotDimensions} from "./hooks/usePlotDimensions";
 
 export interface TrackerAxisInfo {
     x: number
@@ -53,12 +54,12 @@ export function Tracker(props: Props): null {
     const {
         chartId,
         container,
-        plotDimensions,
-        margin,
         axes
     } = useChart()
 
     const {xAxesState} = axes
+
+    const {plotDimensions, margin} = usePlotDimensions()
 
     const trackerStyle = useMemo(() => ({...defaultTrackerStyle, ...style}), [style])
     const trackerFont = useMemo(() => ({...defaultTrackerLabelFont, ...font}), [font])

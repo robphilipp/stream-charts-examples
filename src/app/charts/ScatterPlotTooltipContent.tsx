@@ -6,6 +6,7 @@ import {formatTime, formatTimeChange, formatValue, formatValueChange} from "./ut
 import {TextSelection} from "./d3types";
 import {useEffect, useMemo} from "react";
 import {useChart} from "./hooks/useChart";
+import {usePlotDimensions} from "./hooks/usePlotDimensions";
 
 /**
 # Want to write your own tooltip-content component?
@@ -131,12 +132,12 @@ export function ScatterPlotTooltipContent(props: Props): null {
     const {
         chartId,
         container,
-        margin,
-        plotDimensions,
         tooltip
     } = useChart()
 
     const {registerTooltipContentProvider} = tooltip
+
+    const {margin, plotDimensions} = usePlotDimensions()
 
     const {
         xLabel,

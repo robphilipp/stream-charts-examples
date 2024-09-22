@@ -6,6 +6,7 @@ import {useChart} from "./hooks/useChart";
 import {useEffect, useRef} from "react";
 import {Dimensions, Margin} from "./margins";
 import {SvgSelection} from "./d3types";
+import {usePlotDimensions} from "./hooks/usePlotDimensions";
 
 interface Props {
     // the unique ID of the axis
@@ -34,14 +35,19 @@ export function CategoryAxis(props: Props): null {
     const {
         chartId,
         container,
-        plotDimensions,
-        margin,
+        // plotDimensions,
+        // margin,
         // addYAxis,
         axes,
         color,
     } = useChart()
 
     const {addYAxis} = axes
+
+    const {
+        plotDimensions,
+        margin
+    } = usePlotDimensions()
 
     const {
         axisId,

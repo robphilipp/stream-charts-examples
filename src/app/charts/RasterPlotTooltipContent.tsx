@@ -6,6 +6,7 @@ import {formatTime, formatValue} from "./utils";
 import {useEffect, useMemo} from "react";
 import {useChart} from "./hooks/useChart";
 import {CategoryAxis} from "./axes";
+import {usePlotDimensions} from "./hooks/usePlotDimensions";
 
 /**
  # Want to write your own tooltip-content component?
@@ -112,8 +113,6 @@ export function RasterPlotTooltipContent(props: Props): null {
     const {
         chartId,
         container,
-        margin,
-        plotDimensions,
         tooltip,
         axes
     } = useChart()
@@ -124,6 +123,8 @@ export function RasterPlotTooltipContent(props: Props): null {
         yAxesState,
         axisAssignmentsFor
     } = axes
+
+    const {margin, plotDimensions} = usePlotDimensions()
 
     const {
         xFormatter = formatTime,
