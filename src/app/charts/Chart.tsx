@@ -15,6 +15,7 @@ import DataObservableProvider from "./hooks/useDataObservable";
 import {IterateChartData} from "./iterates";
 import {IterateDatum} from "./iterateSeries";
 import AxesProvider from "./hooks/useAxes";
+import MouseProvider from "./hooks/useMouse";
 
 const defaultBackground = '#202020';
 
@@ -262,7 +263,7 @@ export function Chart(props: Props): JSX.Element {
     return (
         <>
             <svg ref={containerRef}/>
-            <AxesProvider>
+            <AxesProvider><MouseProvider>
                 <ChartProvider
                     chartId={chartId.current}
                     container={containerRef.current}
@@ -290,7 +291,7 @@ export function Chart(props: Props): JSX.Element {
                         }
                     </DataObservableProvider>
                 </ChartProvider>
-            </AxesProvider>
+            </MouseProvider></AxesProvider>
         </>
     );
 }

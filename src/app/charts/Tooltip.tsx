@@ -49,11 +49,8 @@ export function Tooltip(props: Props): JSX.Element {
         container,
         margin,
         plotDimensions,
-        registerMouseOverHandler,
-        unregisterMouseOverHandler,
         tooltipContentProvider,
-        registerMouseLeaveHandler,
-        unregisterMouseLeaveHandler,
+        mouse
     } = useChart()
 
     const {
@@ -61,6 +58,13 @@ export function Tooltip(props: Props): JSX.Element {
         style,
         children
     } = props
+
+    const {
+        registerMouseOverHandler,
+        unregisterMouseOverHandler,
+        registerMouseLeaveHandler,
+        unregisterMouseLeaveHandler
+    } = mouse
 
     const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
 

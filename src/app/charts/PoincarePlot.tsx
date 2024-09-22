@@ -104,14 +104,18 @@ export function PoincarePlot(props: Props): null {
 
         updateTimeRanges = noop,
 
-        mouseOverHandlerFor,
-        mouseLeaveHandlerFor,
+        mouse
     } = useChart()
 
     const {
         xAxesState,
         yAxesState
     } = axes
+
+    const {
+        mouseOverHandlerFor,
+        mouseLeaveHandlerFor
+    } = mouse
 
     const {
         seriesObservable,

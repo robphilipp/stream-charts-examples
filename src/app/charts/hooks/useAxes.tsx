@@ -108,7 +108,7 @@ export function useAxes(): UseAxesValues {
     const context = useContext<UseAxesValues>(AxesContext)
     const {xAxesState} = context
     if (xAxesState === undefined || xAxesState === null) {
-        throw new Error("useChart can only be used when the parent is a <AxesProvider/>")
+        throw new Error("useAxes can only be used when the parent is a <AxesProvider/>")
     }
     return context
 }

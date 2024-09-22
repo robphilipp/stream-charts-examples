@@ -10,6 +10,7 @@ import {Series} from "../plot";
 import {TooltipDimensions} from "../tooltipUtils";
 import {BaseSeries} from "../baseSeries";
 import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
+import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
 
 export const defaultMargin: Margin = {top: 30, right: 20, bottom: 30, left: 50}
 
@@ -132,48 +133,49 @@ interface UseChartValues {
     /*
      | INTERNAL INTERACTION EVENT HANDLERS
      */
-    /**
-     * Adds a mouse-over-series handler with the specified ID and handler function
-     * @param handlerId The handler ID
-     * @param handler The handler function called when a mouse-over-series event occurs.
-     * The handler function is handed the series name, the time (x-value), the actual
-     * series, and the mouse coordinates over which the mouse has moved over.
-     * @return The handler ID.
-     */
-    registerMouseOverHandler: (
-        handlerId: string,
-        handler: (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void
-    ) => string
-    /**
-     * Removes the mouse-over-series handler with the specified ID
-     * @param handlerId The ID of the handler to remove
-     */
-    unregisterMouseOverHandler: (handlerId: string) => void
-    /**
-     * Attempts to retrieve the mouse-over-series handler for the specified ID
-     * @param handlerId The ID of the handler
-     * @return The mouse-over-series handler for the ID, or `undefined` if not found
-     */
-    mouseOverHandlerFor: (handlerId: string) =>
-        ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined
-    /**
-     * Adds a mouse-leave-series handler with the specified ID and handler function
-     * @param handlerId The handler ID
-     * @param handler The handler function called when a mouse-leave-series event occurs
-     * @return The handler ID
-     */
-    registerMouseLeaveHandler: (handlerId: string, handler: (seriesName: string) => void) => string
-    /**
-     * Removes the mouse-leave-series handler with the specified ID
-     * @param handlerId The ID of the handler to remove
-     */
-    unregisterMouseLeaveHandler: (handlerId: string) => void
-    /**
-     * Attempts to retrieve the mouse-leave-series handler for the specified ID
-     * @param handlerId The ID of the handler
-     * @return The mouse-leave-series handler for the ID, or `undefined` if not found
-     */
-    mouseLeaveHandlerFor: (handlerId: string) => ((seriesName: string) => void) | undefined
+    mouse: UseMouseValues
+    // /**
+    //  * Adds a mouse-over-series handler with the specified ID and handler function
+    //  * @param handlerId The handler ID
+    //  * @param handler The handler function called when a mouse-over-series event occurs.
+    //  * The handler function is handed the series name, the time (x-value), the actual
+    //  * series, and the mouse coordinates over which the mouse has moved over.
+    //  * @return The handler ID.
+    //  */
+    // registerMouseOverHandler: (
+    //     handlerId: string,
+    //     handler: (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void
+    // ) => string
+    // /**
+    //  * Removes the mouse-over-series handler with the specified ID
+    //  * @param handlerId The ID of the handler to remove
+    //  */
+    // unregisterMouseOverHandler: (handlerId: string) => void
+    // /**
+    //  * Attempts to retrieve the mouse-over-series handler for the specified ID
+    //  * @param handlerId The ID of the handler
+    //  * @return The mouse-over-series handler for the ID, or `undefined` if not found
+    //  */
+    // mouseOverHandlerFor: (handlerId: string) =>
+    //     ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined
+    // /**
+    //  * Adds a mouse-leave-series handler with the specified ID and handler function
+    //  * @param handlerId The handler ID
+    //  * @param handler The handler function called when a mouse-leave-series event occurs
+    //  * @return The handler ID
+    //  */
+    // registerMouseLeaveHandler: (handlerId: string, handler: (seriesName: string) => void) => string
+    // /**
+    //  * Removes the mouse-leave-series handler with the specified ID
+    //  * @param handlerId The ID of the handler to remove
+    //  */
+    // unregisterMouseLeaveHandler: (handlerId: string) => void
+    // /**
+    //  * Attempts to retrieve the mouse-leave-series handler for the specified ID
+    //  * @param handlerId The ID of the handler
+    //  * @return The mouse-leave-series handler for the ID, or `undefined` if not found
+    //  */
+    // mouseLeaveHandlerFor: (handlerId: string) => ((seriesName: string) => void) | undefined
 
     /**
      * Registers the provider of the tooltip content (generally this will be registered by the plot).
@@ -224,12 +226,13 @@ const defaultUseChartValues: UseChartValues = {
     removeTimeUpdateHandler: () => noop,
 
     // internal chart-interaction event handlers
-    registerMouseOverHandler: () => '',
-    unregisterMouseOverHandler: noop,
-    mouseOverHandlerFor: () => undefined,
-    registerMouseLeaveHandler: () => '',
-    unregisterMouseLeaveHandler: noop,
-    mouseLeaveHandlerFor: () => undefined,
+    mouse: defaultMouseValues(),
+    // registerMouseOverHandler: () => '',
+    // unregisterMouseOverHandler: noop,
+    // mouseOverHandlerFor: () => undefined,
+    // registerMouseLeaveHandler: () => '',
+    // unregisterMouseLeaveHandler: noop,
+    // mouseLeaveHandlerFor: () => undefined,
 
     registerTooltipContentProvider: noop,
     tooltipContentProvider: () => undefined
@@ -302,8 +305,9 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
 
-    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void>>(new Map())
-    const mouseLeaveHandlersRef = useRef<Map<string, (seriesName: string) => void>>(new Map())
+    const mouse = useMouse()
+    // const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void>>(new Map())
+    // const mouseLeaveHandlersRef = useRef<Map<string, (seriesName: string) => void>>(new Map())
     const tooltipContentProviderRef = useRef<((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => TooltipDimensions) | undefined>(undefined)
 
     // update the plot dimensions when the container size or margin change
@@ -353,19 +357,20 @@ export default function ChartProvider(props: Props): JSX.Element {
             addTimeUpdateHandler: (handlerId, handler) => timeUpdateHandlersRef.current.set(handlerId, handler),
             removeTimeUpdateHandler: handlerId => timeUpdateHandlersRef.current.delete(handlerId),
 
-            registerMouseOverHandler: (handlerId, handler) => {
-                mouseOverHandlersRef.current.set(handlerId, handler)
-                return handlerId
-            },
-            unregisterMouseOverHandler: handlerId => mouseOverHandlersRef.current.delete(handlerId),
-            mouseOverHandlerFor: handlerId => mouseOverHandlersRef.current.get(handlerId),
-
-            registerMouseLeaveHandler: (handlerId, handler) => {
-                mouseLeaveHandlersRef.current.set(handlerId, handler)
-                return handlerId
-            },
-            unregisterMouseLeaveHandler: handlerId => mouseLeaveHandlersRef.current.delete(handlerId),
-            mouseLeaveHandlerFor: handlerId => mouseLeaveHandlersRef.current.get(handlerId),
+            mouse,
+            // registerMouseOverHandler: (handlerId, handler) => {
+            //     mouseOverHandlersRef.current.set(handlerId, handler)
+            //     return handlerId
+            // },
+            // unregisterMouseOverHandler: handlerId => mouseOverHandlersRef.current.delete(handlerId),
+            // mouseOverHandlerFor: handlerId => mouseOverHandlersRef.current.get(handlerId),
+            //
+            // registerMouseLeaveHandler: (handlerId, handler) => {
+            //     mouseLeaveHandlersRef.current.set(handlerId, handler)
+            //     return handlerId
+            // },
+            // unregisterMouseLeaveHandler: handlerId => mouseLeaveHandlersRef.current.delete(handlerId),
+            // mouseLeaveHandlerFor: handlerId => mouseLeaveHandlersRef.current.get(handlerId),
 
             registerTooltipContentProvider: provider => tooltipContentProviderRef.current = provider,
             tooltipContentProvider: () => tooltipContentProviderRef.current,

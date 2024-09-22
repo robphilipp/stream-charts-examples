@@ -111,8 +111,7 @@ export function RasterPlot(props: Props): null {
 
         updateTimeRanges = noop,
 
-        mouseOverHandlerFor,
-        mouseLeaveHandlerFor,
+        mouse
     } = useChart()
 
     const {
@@ -120,6 +119,11 @@ export function RasterPlot(props: Props): null {
         yAxesState,
         setAxisAssignments
     } = axes
+
+    const {
+        mouseOverHandlerFor,
+        mouseLeaveHandlerFor
+    } = mouse
 
     const {
         seriesObservable,
