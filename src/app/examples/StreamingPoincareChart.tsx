@@ -14,7 +14,7 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {Series} from "../charts/datumSeries";
+import {TimeSeries} from "../charts/timeSeries";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/useChart';
@@ -71,7 +71,7 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
-const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<Series>) => Observable<IterateChartData> => {
+const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
     return initialData => iteratesObservable(randomWeightDataObservable(initialData, delta, updatePeriod, min, max), 1)
 }
 
@@ -81,7 +81,7 @@ const randomData = (delta: number, updatePeriod: number, min: number, max: numbe
 interface Props {
     theme?: Theme
     timeWindow?: number
-    initialData: Array<Series>
+    initialData: Array<TimeSeries>
     plotHeight?: number
     plotWidth?: number
 }
@@ -124,7 +124,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     }
 
     const randomDataObservable = randomData(25, 50, 10, 1000)
-    const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
+    const initialDataRef = useRef<Array<TimeSeries>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
     const [running, setRunning] = useState<boolean>(false)
 
@@ -143,7 +143,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     // chart time
     const chartTimeRef = useRef<number>(0)
 
-    function initialDataFrom(data: Array<Series>): Array<Series> {
+    function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
     }
 

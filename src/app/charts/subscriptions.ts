@@ -1,6 +1,6 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
 import {ContinuousNumericAxis, continuousRange, timeRanges} from "./axes";
-import {Datum, Series} from "./datumSeries";
+import {Datum, TimeSeries} from "./timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
@@ -35,7 +35,7 @@ export function subscriptionFor(
     onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
-    seriesMap: Map<string, Series>,
+    seriesMap: Map<string, TimeSeries>,
     setCurrentTime: (axisId: string, end: number) => void
 ): Subscription {
     const subscription = seriesObservable
@@ -136,7 +136,7 @@ export function subscriptionWithCadenceFor(
     onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
-    seriesMap: Map<string, Series>,
+    seriesMap: Map<string, TimeSeries>,
     setCurrentTime: (axisId: string, end: number) => void,
     cadencePeriod: number
 ): Subscription {

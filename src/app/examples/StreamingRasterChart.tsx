@@ -17,7 +17,7 @@ import {
 } from 'react-resizable-grid-layout';
 import {lightTheme, Theme} from "../ui/Themes";
 
-import {Datum, Series} from "../charts/datumSeries";
+import {Datum, TimeSeries} from "../charts/timeSeries";
 import {ChartData} from "../charts/chartData";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
@@ -72,7 +72,7 @@ const initialVisibility: Visibility = {
 interface Props {
     theme?: Theme
     timeWindow?: number;
-    initialData: Array<Series>;
+    initialData: Array<TimeSeries>;
     seriesHeight?: number;
     plotWidth?: number;
 }
@@ -102,7 +102,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         initialData,
     } = props;
 
-    const initialDataRef = useRef<Array<Series>>(initialDataFrom(initialData))
+    const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData))
     const observableRef = useRef<Observable<ChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
 
@@ -120,7 +120,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     // chart time
     const chartTimeRef = useRef<number>(0)
 
-    function initialDataFrom(data: Array<Series>): Array<Series> {
+    function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
         // return data.map(series => seriesFrom(series.name))
     }

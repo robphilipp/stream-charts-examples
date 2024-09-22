@@ -10,7 +10,7 @@
 import {Observable} from "rxjs";
 import {ChartData} from "./chartData";
 import {filter, map, scan} from "rxjs/operators";
-import {Datum, emptyDatum} from "./datumSeries";
+import {Datum, emptyDatum} from "./timeSeries";
 import {emptyIterateDatum, IterateDatum, iterateDatumOf, nonEmptyIterateDatum} from "./iterateSeries";
 
 

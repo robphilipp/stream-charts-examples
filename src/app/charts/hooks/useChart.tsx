@@ -2,11 +2,11 @@ import {createContext, JSX, useContext, useEffect, useRef, useState} from "react
 import {Dimensions, Margin, plotDimensionsFrom} from "../margins";
 import {GSelection} from "../d3types";
 import {Subscription} from "rxjs";
-import {Datum, Series} from "../datumSeries";
+import {Datum, TimeSeries} from "../timeSeries";
 // import {noop} from "../utils";
 import {BaseAxis, SeriesLineStyle} from "../axes";
 import {ContinuousAxisRange} from "../continuousAxisRangeFor";
-import {AxesAssignment, TimeSeries} from "../plot";
+import {AxesAssignment, Series} from "../plot";
 import {TooltipDimensions} from "../tooltipUtils";
 import {addAxisTo, AxesState, createAxesState} from "./AxesState";
 import {BaseSeries} from "../baseSeries";
@@ -168,7 +168,7 @@ interface UseChartValues {
      */
     registerMouseOverHandler: (
         handlerId: string,
-        handler: (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void
+        handler: (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void
     ) => string
     /**
      * Removes the mouse-over-series handler with the specified ID
@@ -181,7 +181,7 @@ interface UseChartValues {
      * @return The mouse-over-series handler for the ID, or `undefined` if not found
      */
     mouseOverHandlerFor: (handlerId: string) =>
-        ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined
+        ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined
     /**
      * Adds a mouse-leave-series handler with the specified ID and handler function
      * @param handlerId The handler ID
@@ -211,7 +211,7 @@ interface UseChartValues {
         provider: (
             seriesName: string,
             time: number,
-            series: TimeSeries,
+            series: Series,
             mouseCoords: [x: number, y: number]
         ) => TooltipDimensions) => void
     /**
@@ -219,7 +219,7 @@ interface UseChartValues {
      * registered, then returns `undefined`.
      */
     tooltipContentProvider: () =>
-        ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions) |
+        ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => TooltipDimensions) |
         undefined
 }
 
@@ -276,7 +276,7 @@ interface Props {
     margin: Margin
     color: string
     seriesStyles?: Map<string, SeriesLineStyle>
-    initialData: Array<Series>
+    initialData: Array<TimeSeries>
     seriesFilter?: RegExp
 
     /*
@@ -334,9 +334,9 @@ export default function ChartProvider(props: Props): JSX.Element {
 
     const timeUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
 
-    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void>>(new Map())
+    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void>>(new Map())
     const mouseLeaveHandlersRef = useRef<Map<string, (seriesName: string) => void>>(new Map())
-    const tooltipContentProviderRef = useRef<((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions) | undefined>(undefined)
+    const tooltipContentProviderRef = useRef<((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => TooltipDimensions) | undefined>(undefined)
 
     // update the plot dimensions when the container size or margin change
     useEffect(

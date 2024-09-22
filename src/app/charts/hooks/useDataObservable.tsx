@@ -1,7 +1,7 @@
 import {createContext, JSX, useContext} from "react";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "../chartData";
-import {Datum} from "../datumSeries";
+import {Datum} from "../timeSeries";
 // import {noop} from "../utils";
 import {IterateChartData} from "../iterates";
 import {IterateDatum} from "../iterateSeries";

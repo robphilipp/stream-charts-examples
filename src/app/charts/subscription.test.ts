@@ -2,7 +2,7 @@ import {filter, map, scan} from 'rxjs/operators';
 import {Observable, range} from 'rxjs';
 import {IterateChartData, iteratesObservable as iterateObservable} from './iterates'
 import {ChartData} from "./chartData";
-import {datumOf} from "./datumSeries";
+import {datumOf} from "./timeSeries";
 
 
 type Point = {

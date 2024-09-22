@@ -1,7 +1,7 @@
 import {SvgSelection, TrackerSelection} from "./d3types";
 import * as d3 from "d3";
 import {Selection} from "d3";
-import {Datum} from "./datumSeries";
+import {Datum} from "./timeSeries";
 import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {mouseInPlotAreaFor, textWidthOf} from "./utils";
 import {AxisLocation, ContinuousNumericAxis} from "./axes";

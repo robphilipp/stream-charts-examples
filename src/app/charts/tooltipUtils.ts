@@ -1,6 +1,6 @@
-import {TimeSeries} from "./plot";
+import {Series} from "./plot";
 import * as d3 from "d3";
-import {Datum} from "./datumSeries";
+import {Datum} from "./timeSeries";
 import {Dimensions, Margin} from "./margins";
 import {CategoryAxis} from "./axes";
 
@@ -159,7 +159,7 @@ export function categoryTooltipY(
  * @param time The time for which to find the bounding points
  * @return The index of the upper boundary.
  */
-function boundingPointsIndex(data: TimeSeries, time: number): number {
+function boundingPointsIndex(data: Series, time: number): number {
     const length = data.length
     if (time > data[length - 1][0]) {
         return length
@@ -182,7 +182,7 @@ function boundingPointsIndex(data: TimeSeries, time: number): number {
  * the mouse and just after the mouse. If the mouse is after the last point, then the "after" point
  * is `[NaN, NaN]`. If the mouse is before the first point, then the "before" point is `[NaN, NaN]`.
  */
-export function boundingPoints(data: TimeSeries, time: number): [[number, number], [number, number]] {
+export function boundingPoints(data: Series, time: number): [[number, number], [number, number]] {
     const upperIndex = boundingPointsIndex(data, time)
     if (upperIndex <= 0) {
         return [[NaN, NaN], data[0]]

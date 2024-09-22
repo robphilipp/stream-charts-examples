@@ -3,8 +3,8 @@ import {useChart} from "./hooks/useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {AxesAssignment, setClipPath, TimeSeries} from "./plot";
-import {Datum, Series} from "./datumSeries";
+import {AxesAssignment, setClipPath, Series} from "./plot";
+import {Datum, TimeSeries} from "./timeSeries";
 import {
     axesForSeriesGen,
     BaseAxis,
@@ -133,8 +133,8 @@ export function ScatterPlot(props: Props): null {
     // changes as well. The dataRef is used for performance, so that in the updatePlot function we don't
     // need to create a temporary array to holds the series data, rather, we can just use the one held in
     // the dataRef.
-    const dataRef = useRef<Array<Series>>(initialData.slice() as Array<Series>)
-    const seriesRef = useRef<Map<string, Series>>(new Map(initialData.map(series => [series.name, series as Series])))
+    const dataRef = useRef<Array<TimeSeries>>(initialData.slice() as Array<TimeSeries>)
+    const seriesRef = useRef<Map<string, TimeSeries>>(new Map(initialData.map(series => [series.name, series as TimeSeries])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
@@ -180,15 +180,15 @@ export function ScatterPlot(props: Props): null {
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
         () => {
-            dataRef.current = initialData.slice() as Array<Series>
-            seriesRef.current = new Map(initialData.map(series => [series.name, series as Series]))
+            dataRef.current = initialData.slice() as Array<TimeSeries>
+            seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot(new Map(Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
                         const [start, end] = range.original
-                        const minTime = (initialData as Array<Series>)
+                        const minTime = (initialData as Array<TimeSeries>)
                             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
                             .reduce(
                                 (tMin, series) => Math.min(
@@ -267,7 +267,7 @@ export function ScatterPlot(props: Props): null {
                 // creates a temporary array
                 const boundedSeries = new Map(dataRef.current.map(series => [
                     series.name,
-                    series.data.map(datum => [datum.time, datum.value]) as TimeSeries
+                    series.data.map(datum => [datum.time, datum.value]) as Series
                 ]))
 
                 // set up panning
@@ -555,12 +555,12 @@ function handleMouseOverSeries(
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
-    series: TimeSeries,
+    series: Series,
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)

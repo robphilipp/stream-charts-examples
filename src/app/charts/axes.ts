@@ -6,7 +6,7 @@ import {AxisElementSelection, SvgSelection} from "./d3types";
 import {addContinuousNumericXAxis, addContinuousNumericYAxis} from "./ContinuousAxis";
 import {noop} from "./utils";
 import {AxesState} from "./hooks/AxesState";
-import {Series} from "./datumSeries";
+import {TimeSeries} from "./timeSeries";
 import {AxesAssignment} from "./plot";
 import {IterateSeries} from "./iterateSeries";
 
@@ -272,7 +272,7 @@ export function calculatePanFor(
  * @return an array of the distinct axes that cover all the series in the plot
  */
 export function axesForSeriesGen(
-    series: Array<Series> | Array<IterateSeries>,
+    series: Array<TimeSeries> | Array<IterateSeries>,
     axisAssignments: Map<string, AxesAssignment>,
     xAxesState: AxesState
 ): Array<string> {

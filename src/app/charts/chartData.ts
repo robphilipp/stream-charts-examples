@@ -1,4 +1,4 @@
-import {Datum, Series} from "./datumSeries";
+import {Datum, TimeSeries} from "./timeSeries";
 
 /**
  * The spike-chart data produced by the rxjs observable that is pushed to a streaming chart
@@ -44,7 +44,7 @@ export function emptyChartData(series: Array<string>): ChartData {
  * @param seriesList The list of series names (identifiers) to update
  * @return An empty chart data object
  */
-export function initialChartData(seriesList: Array<Series>): ChartData {
+export function initialChartData(seriesList: Array<TimeSeries>): ChartData {
     const maxTime = seriesList.reduce(
         (tMax, series) => Math.max(tMax, series.last().map(p => p.time).getOrElse(-Infinity)),
         -Infinity

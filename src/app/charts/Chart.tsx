@@ -2,7 +2,7 @@ import {JSX} from 'react'
 import {useEffect, useMemo, useRef} from 'react'
 import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
 import {initialSvgStyle, SvgStyle} from "./svgStyle";
-import {Datum, Series} from "./datumSeries";
+import {Datum, TimeSeries} from "./timeSeries";
 import {Observable, Subscription} from "rxjs";
 import {ChartData} from "./chartData";
 import {GSelection} from "./d3types";
@@ -53,7 +53,7 @@ interface Props {
     /**
      * Initial (static) data to plot before subscribing to the {@link ChartData} observable.
      */
-    initialData: Array<Series>
+    initialData: Array<TimeSeries>
     /**
      * Regular expression that filters which series to display on the plot. Can be update while streaming
      */
@@ -69,7 +69,7 @@ interface Props {
     /**
      * The time-window (in milliseconds) to buffer the incoming data before updating the chart. This is
      * a lever to reduce the lag between real-time and chart-time when a large amount of data is being
-     * sourced by the observable. Smaller time-window result in smoother scrolling, but more updates, and
+     * sourced by the observable. Smaller time-windows result in smoother scrolling, but more updates, and
      * possibly a larger lag.
      */
     windowingTime?: number
@@ -85,7 +85,8 @@ interface Props {
     onSubscribe?: (subscription: Subscription) => void
     /**
      * Callback when the time range changes.
-     * @param times The times (start, end) times for each axis in the plot
+     * @param times A function that accepts the times, (start, end) times associated with
+     * each axis in the plot (generally the x-axis for time)
      * @return void
      */
     onUpdateTime?: (times: Map<string, [start: number, end: number]>) => void

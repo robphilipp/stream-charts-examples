@@ -3,8 +3,8 @@ import {useChart} from "./hooks/useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {AxesAssignment, setClipPath, TimeSeries} from "./plot";
-import {Datum, Series} from "./datumSeries";
+import {AxesAssignment, setClipPath, Series} from "./plot";
+import {Datum, TimeSeries} from "./timeSeries";
 import {
     axesForSeriesGen,
     BaseAxis,
@@ -280,7 +280,7 @@ export function PoincarePlot(props: Props): null {
                     return [
                         series.name,
                         // series.data.map((datum, index) => [series.data[index - 1].value, datum.value]) as TimeSeries
-                        series.data.filter(datum => !isNaN(datum.iterateN)).map(datum => [datum.iterateN, datum.iterateN_1]) as TimeSeries
+                        series.data.filter(datum => !isNaN(datum.iterateN)).map(datum => [datum.iterateN, datum.iterateN_1]) as Series
                     ]
                 }))
 
@@ -465,8 +465,9 @@ export function PoincarePlot(props: Props): null {
         [
             axisAssignments, dropDataAfter, mainG,
             onSubscribe, onUpdateData,
-            seriesObservable, updateRangesAndPlot, windowingTime, xAxesState,
-            withCadenceOf
+            seriesObservable, updateRangesAndPlot, windowingTime,
+            xAxesState, yAxesState,
+            // withCadenceOf
         ]
     )
 
@@ -571,12 +572,12 @@ function handleMouseOverSeries(
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
-    series: TimeSeries,
+    series: Series,
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)

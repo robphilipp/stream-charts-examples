@@ -1,4 +1,4 @@
-import {TimeSeries} from "./plot";
+import {Series} from "./plot";
 import {Dimensions, Margin} from "./margins";
 import {categoryTooltipY, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX} from "./tooltipUtils";
 import * as d3 from "d3";
@@ -157,7 +157,7 @@ export function RasterPlotTooltipContent(props: Props): null {
                      * @param mouseCoords The coordinates of the mouse
                      * @return The tooltip contents
                      */
-                    (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => {
+                    (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => {
                         const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
                         return addTooltipContent(
                             seriesName, time, series[0], mouseCoords,

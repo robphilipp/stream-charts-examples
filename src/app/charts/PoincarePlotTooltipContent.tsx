@@ -1,4 +1,4 @@
-import {TimeSeries} from "./plot";
+import {Series} from "./plot";
 import {Dimensions, Margin} from "./margins";
 import {boundingPoints, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import * as d3 from "d3";
@@ -175,7 +175,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
-                    (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
+                    (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) =>
                         addTooltipContent(
                             seriesName, time, series, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
@@ -213,7 +213,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
 function addTooltipContent(
     seriesName: string,
     time: number,
-    series: TimeSeries,
+    series: Series,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,

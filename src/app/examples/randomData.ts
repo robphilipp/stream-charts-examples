@@ -1,6 +1,6 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-import {Datum, Series} from "../charts/datumSeries";
+import {Datum, TimeSeries} from "../charts/timeSeries";
 import {ChartData, initialChartData} from "../charts/chartData";
 import {seriesFrom} from "../charts/baseSeries";
 // import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
@@ -49,7 +49,7 @@ function randomSpikeData(
  * @return An observable that produces data.
  */
 export function randomSpikeDataObservable(
-    series: Array<Series>,
+    series: Array<TimeSeries>,
     updatePeriod: number = UPDATE_PERIOD_MS,
     spikeProbability: number = 0.1
 ): Observable<ChartData> {
@@ -154,7 +154,7 @@ function mergeSeries(
  * @return An observable that produces data.
  */
 export function randomWeightDataObservable(
-    series: Array<Series>,
+    series: Array<TimeSeries>,
     delta: number,
     updatePeriod: number = 25,
     min: number = -1,
@@ -181,7 +181,7 @@ export function initialRandomWeightData(
     updatePeriod: number,
     delta: number,
     numTimes: number
-): Array<Series> {
+): Array<TimeSeries> {
     return seriesNames.map(name => {
         const data: Array<Datum> = []
         // let prevTime = Math.max(0, initialTime - Math.ceil(Math.random() * updatePeriod))
