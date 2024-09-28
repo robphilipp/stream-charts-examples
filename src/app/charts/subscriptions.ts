@@ -3,7 +3,7 @@ import {ContinuousNumericAxis, continuousRange, timeRanges} from "./axes";
 import {Datum, TimeSeries} from "./timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
-import {ChartData} from "./chartData";
+import {TimeSeriesChartData} from "./timeSeriesChartData";
 import {AxesAssignment} from "./plot";
 import {AxesState} from "./hooks/AxesState";
 import {emptySeries} from "./baseSeries";
@@ -27,7 +27,7 @@ import {emptyIterateDatum, IterateDatum, IterateSeries} from "./iterateSeries";
  * @return A subscription to the observable (for cancelling and the likes)
  */
 export function subscriptionFor(
-    seriesObservable: Observable<ChartData>,
+    seriesObservable: Observable<TimeSeriesChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
@@ -128,7 +128,7 @@ export function subscriptionFor(
  * @return A subscription to the observable (for cancelling and the likes)
  */
 export function subscriptionWithCadenceFor(
-    seriesObservable: Observable<ChartData>,
+    seriesObservable: Observable<TimeSeriesChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
@@ -152,7 +152,7 @@ export function subscriptionWithCadenceFor(
                     maxTime: value * cadencePeriod,
                     maxTimes: new Map(),
                     newPoints: new Map()
-                } as ChartData)
+                } as TimeSeriesChartData)
             )
         )
 
@@ -353,7 +353,7 @@ export function subscriptionIteratesFor(
  * @param xAxesState Holds information about the axis and how it is displayed
  * @return A map holding the x-axis names the names of the series associated with the axis.
  */
-function determineAssociatedSeries(data: ChartData, axisAssignments: Map<string, AxesAssignment>, xAxesState: AxesState): Map<string, Array<string>> {
+function determineAssociatedSeries(data: TimeSeriesChartData, axisAssignments: Map<string, AxesAssignment>, xAxesState: AxesState): Map<string, Array<string>> {
     return Array
         .from(data.maxTimes.entries())
         .reduce(

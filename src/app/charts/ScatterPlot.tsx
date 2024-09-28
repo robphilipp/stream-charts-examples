@@ -22,8 +22,9 @@ import {noop} from "./utils";
 import {Dimensions, Margin} from "./margins";
 import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
 import {useDataObservable} from "./hooks/useDataObservable";
-import {ChartData} from "./chartData";
+import {TimeSeriesChartData} from "./timeSeriesChartData";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {useInitialData} from "./hooks/useInitialData";
 
 interface Props {
     /**
@@ -94,11 +95,14 @@ export function ScatterPlot(props: Props): null {
         axes,
         color,
         seriesStyles,
-        initialData,
         seriesFilter,
 
         mouse
     } = useChart()
+
+    const {
+        initialData
+    } = useInitialData<Datum>()
 
     const {
         xAxesState,
@@ -426,7 +430,7 @@ export function ScatterPlot(props: Props): null {
             if (seriesObservable === undefined || mainG === null) return undefined
             if (withCadenceOf !== undefined) {
                 return subscriptionWithCadenceFor(
-                    seriesObservable as Observable<ChartData>,
+                    seriesObservable as Observable<TimeSeriesChartData>,
                     onSubscribe,
                     windowingTime,
                     axisAssignments, xAxesState,
@@ -439,7 +443,7 @@ export function ScatterPlot(props: Props): null {
                 )
             }
             return subscriptionFor(
-                seriesObservable as Observable<ChartData>,
+                seriesObservable as Observable<TimeSeriesChartData>,
                 onSubscribe,
                 windowingTime,
                 axisAssignments, xAxesState,

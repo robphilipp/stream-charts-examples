@@ -45,7 +45,7 @@ interface UseChartValues {
      * An array of time-series representing the initial data for the chart (i.e. static data
      * before streaming starts)
      */
-    initialData: Array<BaseSeries<any>>
+    // initialData: Array<BaseSeries<any>>
     // initialData: Array<Series> | Array<IterateSeries>
 
     /**
@@ -71,7 +71,7 @@ const defaultUseChartValues: UseChartValues = {
     axes: defaultAxesValues(),
 
     // data
-    initialData: [],
+    // initialData: [],
     seriesFilter: /./,
 
     // internal chart-interaction event handlers
@@ -87,24 +87,8 @@ interface Props {
     mainG: GSelection | null
     color: string
     seriesStyles?: Map<string, SeriesLineStyle>
-    initialData: Array<TimeSeries>
+    // initialData: Array<TimeSeries>
     seriesFilter?: RegExp
-
-    /*
-     | USER CALLBACK FUNCTIONS
-     */
-    /**
-     * Callback function that is called when the chart subscribes to the observable
-     * @param subscription The subscription resulting form the subscribe action
-     */
-    onSubscribe?: (subscription: Subscription) => void
-    /**
-     * Callback function that is called when new data arrives to the chart.
-     * @param seriesName The name of the series for which new data arrived
-     * @param data The new data that arrived in the windowing tine
-     * @see UseChartValues.windowingTime
-     */
-    onUpdateData?: (seriesName: string, data: Array<Datum>) => void
 
     children: JSX.Element | Array<JSX.Element>
 }
@@ -121,7 +105,7 @@ export default function ChartProvider(props: Props): JSX.Element {
         container,
         mainG,
         color,
-        initialData,
+        // initialData,
         seriesFilter = defaultUseChartValues.seriesFilter,
         seriesStyles = new Map(),
     } = props
@@ -135,7 +119,7 @@ export default function ChartProvider(props: Props): JSX.Element {
             chartId,
             color,
             seriesStyles,
-            initialData,
+            // initialData,
             seriesFilter,
             mainG,
             container,

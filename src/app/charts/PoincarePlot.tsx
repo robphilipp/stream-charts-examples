@@ -21,8 +21,9 @@ import {Dimensions, Margin} from "./margins";
 import {subscriptionIteratesFor} from "./subscriptions";
 import {useDataObservable} from "./hooks/useDataObservable";
 import {IterateChartData} from "./iterates";
-import {IterateSeries} from "./iterateSeries";
+import {IterateDatum, IterateSeries} from "./iterateSeries";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {useInitialData} from "./hooks/useInitialData";
 
 interface Props {
     /**
@@ -95,7 +96,7 @@ export function PoincarePlot(props: Props): null {
         // margin,
         color,
         seriesStyles,
-        initialData,
+        // initialData,
         seriesFilter,
 
         // onUpdateAxesBounds,
@@ -132,6 +133,8 @@ export function PoincarePlot(props: Props): null {
         onSubscribe = noop,
         onUpdateData,
     } = useDataObservable()
+
+    const {initialData} = useInitialData<IterateDatum>()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),

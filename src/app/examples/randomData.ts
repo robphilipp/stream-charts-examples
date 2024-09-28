@@ -1,7 +1,7 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
 import {Datum, TimeSeries} from "../charts/timeSeries";
-import {ChartData, initialChartData} from "../charts/chartData";
+import {TimeSeriesChartData, initialChartData} from "../charts/timeSeriesChartData";
 import {seriesFrom} from "../charts/baseSeries";
 // import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
 
@@ -20,7 +20,7 @@ function randomSpikeData(
     series: Array<string>,
     seriesMaxTimes: Map<string, number>,
     spikeProbability: number = 0.5,
-): ChartData {
+): TimeSeriesChartData {
     const maxTime = Math.max(...Array.from(seriesMaxTimes.values()))
     const maxTimes = new Map(
         Array.from(seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
@@ -52,7 +52,7 @@ export function randomSpikeDataObservable(
     series: Array<TimeSeries>,
     updatePeriod: number = UPDATE_PERIOD_MS,
     spikeProbability: number = 0.1
-): Observable<ChartData> {
+): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
     const initialData = initialChartData(series)
     return interval(updatePeriod).pipe(
@@ -78,7 +78,7 @@ function randomWeightData(
     seriesMaxTimes: Map<string, number>,
     updatePeriod: number,
     delta: number,
-): ChartData {
+): TimeSeriesChartData {
     const maxTimes = new Map(Array.from(
         seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
     )
@@ -107,7 +107,7 @@ function randomWeightData(
  * @param max The maximum allowed value
  * @return The accumulated chart data
  */
-function accumulateChartData(accum: ChartData, currentData: ChartData, min: number, max: number): ChartData {
+function accumulateChartData(accum: TimeSeriesChartData, currentData: TimeSeriesChartData, min: number, max: number): TimeSeriesChartData {
     return {
         maxTime: currentData.maxTime,
         maxTimes: currentData.maxTimes,
@@ -159,7 +159,7 @@ export function randomWeightDataObservable(
     updatePeriod: number = 25,
     min: number = -1,
     max: number = 1
-): Observable<ChartData> {
+): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
     const initialData = initialChartData(series)
     return interval(updatePeriod).pipe(

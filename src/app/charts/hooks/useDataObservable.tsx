@@ -1,6 +1,6 @@
 import {createContext, JSX, useContext} from "react";
 import {Observable, Subscription} from "rxjs";
-import {ChartData} from "../chartData";
+import {TimeSeriesChartData} from "../timeSeriesChartData";
 import {Datum} from "../timeSeries";
 // import {noop} from "../utils";
 import {IterateChartData} from "../iterates";
@@ -13,17 +13,18 @@ const noop = () => {
     /* empty on purpose */
 }
 
-type SeriesObservable = Observable<ChartData> | Observable<IterateChartData>
-type Data = Array<Datum> | Array<IterateDatum>
+// type SeriesObservable = Observable<TimeSeriesChartData> | Observable<IterateChartData>
+// type Data = Array<Datum> | Array<IterateDatum>
 
 /**
  * The values exposed through the {@link useDataObservable} react hook
  */
-interface UseObservableValues {
+interface UseObservableValues<CD, D> {
     /**
      * An observable source for chart data
      */
-    seriesObservable?: SeriesObservable
+    // seriesObservable?: SeriesObservable
+    seriesObservable?: Observable<CD>
     /**
      * When `true` the chart will subscribe to the observable, or if already subscribed, will remain
      * subscribed. When `false` the chart will unsubscribe to the observable if subscribed, or will
@@ -52,11 +53,12 @@ interface UseObservableValues {
      * @param data The new data that arrived in the windowing tine
      * @see UseChartValues.windowingTime
      */
-    onUpdateData?: (seriesName: string, data: Data) => void
+    onUpdateData?: (seriesName: string, data: Array<D>) => void
+    // onUpdateData?: (seriesName: string, data: Data) => void
 
 }
 
-const defaultObservableValues: UseObservableValues = {
+const defaultObservableValues: UseObservableValues<any, any> = {
     windowingTime: NaN,
     shouldSubscribe: false,
 
@@ -64,11 +66,11 @@ const defaultObservableValues: UseObservableValues = {
     onSubscribe: noop,
 }
 
-const ChartContext = createContext<UseObservableValues>(defaultObservableValues)
+const DataObservableContext = createContext<UseObservableValues<any, any>>(defaultObservableValues)
 
-interface Props {
+interface Props<CD, D> {
     // live data
-    seriesObservable?: SeriesObservable
+    seriesObservable?: Observable<CD>
     windowingTime?: number
     shouldSubscribe?: boolean
 
@@ -86,7 +88,7 @@ interface Props {
      * @param data The new data that arrived in the windowing tine
      * @see UseChartValues.windowingTime
      */
-    onUpdateData?: (seriesName: string, data: Data) => void
+    onUpdateData?: (seriesName: string, data: Array<D>) => void
 
     children: JSX.Element | Array<JSX.Element>
 }
@@ -97,7 +99,7 @@ interface Props {
  * @return The children wrapped in this provider
  * @constructor
  */
-export default function DataObservableProvider(props: Props): JSX.Element {
+export default function DataObservableProvider<CD, D>(props: Props<CD, D>): JSX.Element {
     const {
         seriesObservable,
         windowingTime = defaultObservableValues.windowingTime || 100,
@@ -108,7 +110,7 @@ export default function DataObservableProvider(props: Props): JSX.Element {
     } = props
 
 
-    return <ChartContext.Provider
+    return <DataObservableContext.Provider
         value={{
             seriesObservable,
             windowingTime,
@@ -119,15 +121,15 @@ export default function DataObservableProvider(props: Props): JSX.Element {
         }}
     >
         {props.children}
-    </ChartContext.Provider>
+    </DataObservableContext.Provider>
 }
 
 /**
- * React hook that sets up the react context for the chart values.
- * @return The {@link UseObservableValues} held in the react context.
+ * React hook that sets up the React context for the chart values.
+ * @return The {@link UseObservableValues} held in the React context.
  */
-export function useDataObservable(): UseObservableValues {
-    const context = useContext<UseObservableValues>(ChartContext)
+export function useDataObservable<CD, D>(): UseObservableValues<CD, D> {
+    const context = useContext<UseObservableValues<CD, D>>(DataObservableContext)
     const {onSubscribe} = context
     if (onSubscribe === undefined) {
         throw new Error("useDataObservable can only be used when the parent is a <DataObservableProvider/>")

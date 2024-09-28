@@ -23,8 +23,9 @@ import {Observable, Subscription} from "rxjs";
 import {Dimensions, Margin} from "./margins";
 import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
 import {useDataObservable} from "./hooks/useDataObservable";
-import {ChartData} from "./chartData";
+import {TimeSeriesChartData} from "./timeSeriesChartData";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {useInitialData} from "./hooks/useInitialData";
 
 interface Props {
     /**
@@ -96,7 +97,6 @@ export function RasterPlot(props: Props): null {
         axes,
         color,
         seriesStyles,
-        initialData,
         seriesFilter,
         mouse
     } = useChart()
@@ -122,6 +122,8 @@ export function RasterPlot(props: Props): null {
         onSubscribe = noop,
         onUpdateData,
     } = useDataObservable()
+
+    const {initialData} = useInitialData<Datum>()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
@@ -468,7 +470,7 @@ export function RasterPlot(props: Props): null {
             if (seriesObservable === undefined || mainG === null) return undefined
             if (withCadenceOf !== undefined) {
                 return subscriptionWithCadenceFor(
-                    seriesObservable as Observable<ChartData>,
+                    seriesObservable as Observable<TimeSeriesChartData>,
                     onSubscribe,
                     windowingTime,
                     axisAssignments, xAxesState,
@@ -481,7 +483,7 @@ export function RasterPlot(props: Props): null {
                 )
             }
             return subscriptionFor(
-                seriesObservable as Observable<ChartData>,
+                seriesObservable as Observable<TimeSeriesChartData>,
                 onSubscribe,
                 windowingTime,
                 axisAssignments, xAxesState,

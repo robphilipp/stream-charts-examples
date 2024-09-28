@@ -1,7 +1,7 @@
 import {filter, map, scan} from 'rxjs/operators';
 import {Observable, range} from 'rxjs';
 import {IterateChartData, iteratesObservable as iterateObservable} from './iterates'
-import {ChartData} from "./chartData";
+import {TimeSeriesChartData} from "./timeSeriesChartData";
 import {datumOf} from "./timeSeries";
 
 
@@ -250,7 +250,7 @@ describe('when calculating tent-map iterates with one new data point for each ev
                     maxTime: x,
                     maxTimes: new Map([['test1', x]]),
                     newPoints: new Map([['test1', [datumOf(x, tentFn(x / numPoints, 0.15))]]])
-                } as ChartData))
+                } as TimeSeriesChartData))
             )).subscribe(point => results.push(point));
         done()
         expect(results).toHaveLength(9)
@@ -326,7 +326,7 @@ describe('when calculating tent-map 1-iterates with two new data points for each
                         newPoints: new Map([
                             ['test1', [datumOf(2 * x, tentFn(2 * x / (2 * numPoints), 0.15)), datumOf(2 * x + 1, tentFn((2 * x + 1) / (2 * numPoints), 0.15))]],
                         ])
-                    } as ChartData))
+                    } as TimeSeriesChartData))
                 ))
             .subscribe(result => results.push(result));
         done()
@@ -402,7 +402,7 @@ describe('when calculating tent-map 1-iterates with two new data points for each
                             ['test1', [datumOf(2 * x, tentFn(2 * x / (2 * numPoints), 0.15)), datumOf(2 * x + 1, tentFn((2 * x + 1) / (2 * numPoints), 0.15))]],
                             ['test2', [datumOf(2 * x, tentFn(2 * x / (2 * numPoints), 0.35)), datumOf(2 * x + 1, tentFn((2 * x + 1) / (2 * numPoints), 0.35))]],
                         ])
-                    } as ChartData))
+                    } as TimeSeriesChartData))
                 ))
             .subscribe(result => results.push(result));
         done()

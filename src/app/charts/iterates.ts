@@ -8,7 +8,7 @@
  * 2. Accepts that chart-data observable and converts that observable to an iterate-chart-data observable
  */
 import {Observable} from "rxjs";
-import {ChartData} from "./chartData";
+import {TimeSeriesChartData} from "./timeSeriesChartData";
 import {filter, map, scan} from "rxjs/operators";
 import {Datum, emptyDatum} from "./timeSeries";
 import {emptyIterateDatum, IterateDatum, iterateDatumOf, nonEmptyIterateDatum} from "./iterateSeries";
@@ -71,20 +71,20 @@ type Accumulator = {
 const initialAccumulate = (n: number): Accumulator => ({n, previous: new Map(), accumulated: emptyIterateData()})
 
 /**
- * Accepts a {@link ChartData} observable and converts it to an observable of {@link IterateChartData}
+ * Accepts a {@link TimeSeriesChartData} observable and converts it to an observable of {@link IterateChartData}
  * for the specified n-iterate. suppose that `f[0](x) = x`, `f[1](x) = f(x)`, `f[2](x) = f(f(x))`,
  * `f[3](x) = f(f(f(x)))`, and `f[m](x) = f(f(f....(x)))`, where the function is applied `m` times. Given this,
  * then an iterate (Poincare) plot shows points `(f[m](x), f[m+1](x))`, which is a 1-iterate. Plots of
  * points `(f[m](x), f[m+n](x))` are n-iterates.
- * @param dataObservable The observable over {@link ChartData}
+ * @param dataObservable The observable over {@link TimeSeriesChartData}
  * @param [n=1] The iterate distance
  * @return An over {@link IterateChartData} holding the n-iterate for the incoming chart data
  */
-export function iteratesObservable(dataObservable: Observable<ChartData>, n: number = 1): Observable<IterateChartData> {
+export function iteratesObservable(dataObservable: Observable<TimeSeriesChartData>, n: number = 1): Observable<IterateChartData> {
     return dataObservable
         .pipe(
             // calculate the iterates for each series in the chart data
-            scan(({n, previous, accumulated}: Accumulator, current: ChartData) => {
+            scan(({n, previous, accumulated}: Accumulator, current: TimeSeriesChartData) => {
                 // make a deep copy of the accumulated data (because the accumulated data object
                 // holds references to maps)
                 const accum = copyIterateDataFrom(accumulated)
