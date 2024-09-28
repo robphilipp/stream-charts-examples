@@ -87,7 +87,7 @@ const randomData = (delta: number, updatePeriod: number, min: number, max: numbe
 interface Props {
     theme?: Theme
     timeWindow?: number
-    initialData: Array<TimeSeries>
+    initialData?: Array<TimeSeries>
     plotHeight?: number
     plotWidth?: number
     /**
@@ -107,7 +107,7 @@ interface Props {
 export function StreamingScatterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        initialData,
+        initialData = [],
         onSubscribe,
         onUpdateData
     } = props
@@ -144,7 +144,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     }
 
     const randomDataObservable = randomData(25, 50, 10, 1000)
-    const initialDataRef = useRef<Array<TimeSeries>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
+    const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const observableRef = useRef<Observable<TimeSeriesChartData>>(randomDataObservable(initialDataRef.current))
     const [running, setRunning] = useState<boolean>(false)
 
