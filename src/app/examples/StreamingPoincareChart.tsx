@@ -1,6 +1,6 @@
 import {default as React, JSX, useRef, useState} from "react";
 import {randomWeightDataObservable} from "./randomData";
-import {Observable, Subscription} from "rxjs";
+import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {
     Grid,
@@ -14,7 +14,7 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {TimeSeries} from "../charts/timeSeries";
+import {Datum, TimeSeries} from "../charts/timeSeries";
 import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/usePlotDimensions';
@@ -47,10 +47,8 @@ import {assignAxes} from "../charts/plot";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {IterateChartData, iteratesObservable} from "../charts/iterates";
-import {seriesFrom} from "../charts/baseSeries";
-import InitialDataProvider from "../charts/hooks/useInitialData";
-import DataObservableProvider from "../charts/hooks/useDataObservable";
-import {IterateDatum} from "../charts/iterateSeries";
+import {BaseSeries, seriesFrom} from "../charts/baseSeries";
+import {Button} from "../ui/Button";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -84,29 +82,29 @@ const randomData = (delta: number, updatePeriod: number, min: number, max: numbe
 interface Props {
     theme?: Theme
     timeWindow?: number
-    initialData: Array<TimeSeries>
+    initialData: Array<BaseSeries<Datum>>
     plotHeight?: number
     plotWidth?: number
-    /**
-     * Callback when the chart subscribes to the {@link TimeSeriesChartData} observable
-     * @param subscription The RxJS subscription
-     */
-    onSubscribe?: (subscription: Subscription) => void
-    /**
-     * Callback function that is called when new data arrives to the chart.
-     * @param seriesName The name of the series for which new data arrived
-     * @param data The new data that arrived in the windowing tine
-     * @see UseChartValues.windowingTime
-     */
-    onUpdateData?: (seriesName: string, data: Array<IterateDatum>) => void
+    // /**
+    //  * Callback when the chart subscribes to the {@link TimeSeriesChartData} observable
+    //  * @param subscription The RxJS subscription
+    //  */
+    // onSubscribe?: (subscription: Subscription) => void
+    // /**
+    //  * Callback function that is called when new data arrives to the chart.
+    //  * @param seriesName The name of the series for which new data arrived
+    //  * @param data The new data that arrived in the windowing tine
+    //  * @see UseChartValues.windowingTime
+    //  */
+    // onUpdateData?: (seriesName: string, data: Array<IterateDatum>) => void
 }
 
 export function StreamingPoincareChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        initialData,
-        onSubscribe,
-        onUpdateData
+        initialData = [],
+        // onSubscribe,
+        // onUpdateData
     } = props
 
 
@@ -140,8 +138,10 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         cursor: 'pointer',
     }
 
+    const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
+
     const randomDataObservable = randomData(25, 50, 10, 1000)
-    const initialDataRef = useRef<Array<TimeSeries>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
+    const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
     const [running, setRunning] = useState<boolean>(false)
 
@@ -218,10 +218,15 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         onChange={event => handleUpdateRegex(event.currentTarget.value)}
                         style={inputStyle}
                     /></label>
-                    <button
+                    <Button
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            color: theme.color
+                        }}
                         onClick={() => {
                             if (!running) {
-                                initialDataRef.current = initialDataFrom(initialData)
+                                // initialDataRef.current = initialDataFrom(initialData)
                                 observableRef.current = randomDataObservable(initialDataRef.current)
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
@@ -232,10 +237,23 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             }
                             setRunning(!running)
                         }}
-                        style={buttonStyle}
                     >
                         {running ? "Stop" : "Run"}
-                    </button>
+                    </Button>
+                    <Button
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            color: theme.color
+                        }}
+                        onClick={() => {
+                            initialDataRef.current = initialDataFrom(initialData)
+                            setElapsed(0)
+                        }}
+                        disabled={running}
+                    >
+                        Clear
+                    </Button>
                     <Checkbox
                         key={1}
                         checked={visibility.tooltip}
@@ -280,16 +298,18 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
-                <InitialDataProvider initialData={initialDataRef.current}>
-                    <DataObservableProvider
-                        seriesObservable={observableRef.current}
-                        shouldSubscribe={running}
-                        windowingTime={75}
+                {/*<InitialDataProvider initialData={initialDataRef.current}>*/}
+                {/*    <DataObservableProvider*/}
+                {/*        seriesObservable={observableRef.current}*/}
+                {/*        shouldSubscribe={running}*/}
+                {/*        windowingTime={75}*/}
 
-                        onSubscribe={onSubscribe}
-                        onUpdateData={onUpdateData}
-                    >
+                {/*        onSubscribe={onSubscribe}*/}
+                {/*        onUpdateData={onUpdateData}*/}
+                {/*    >*/}
                         <Chart
+                            // key={chartId.current}
+                            chartId={chartId.current}
                             width={useGridCellWidth()}
                             height={useGridCellHeight()}
                             margin={{...defaultMargin, top: 60, bottom: 30, right: 60}}
@@ -318,8 +338,13 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                                     highlightWidth: 5
                                 }],
                             ])}
+                            initialData={initialDataRef.current}
                             seriesFilter={filter}
+                            seriesObservable={observableRef.current}
+                            shouldSubscribe={running}
                             onUpdateAxesBounds={handleChartTimeUpdate}
+                            // onUpdateData={(name, data) => console.log(name, data.length)}
+                            windowingTime={150}
                         >
                             <ContinuousAxis
                                 axisId="x-axis-1"
@@ -383,8 +408,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                                 // withCadenceOf={30}
                             />
                         </Chart>
-                    </DataObservableProvider>
-                </InitialDataProvider>
+                {/*    </DataObservableProvider>*/}
+                {/*</InitialDataProvider>*/}
             </GridItem>
         </Grid>
     );

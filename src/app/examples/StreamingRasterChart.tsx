@@ -1,6 +1,7 @@
-import * as React from 'react';
+import React from 'react';
+import {JSX} from "react";
 import {useRef, useState} from 'react';
-import {Observable, Subscription} from "rxjs";
+import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {randomSpikeDataObservable} from "./randomData";
 import {
@@ -33,8 +34,6 @@ import {RasterPlot} from "../charts/RasterPlot";
 import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/baseSeries";
 import {assignAxes} from "../charts/plot";
-import InitialDataProvider from "../charts/hooks/useInitialData";
-import DataObservableProvider from "../charts/hooks/useDataObservable";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -77,18 +76,18 @@ interface Props {
     initialData: Array<TimeSeries>;
     seriesHeight?: number;
     plotWidth?: number;
-    /**
-     * Callback when the chart subscribes to the {@link TimeSeriesChartData} observable
-     * @param subscription The RxJS subscription
-     */
-    onSubscribe?: (subscription: Subscription) => void
-    /**
-     * Callback function that is called when new data arrives to the chart.
-     * @param seriesName The name of the series for which new data arrived
-     * @param data The new data that arrived in the windowing tine
-     * @see UseChartValues.windowingTime
-     */
-    onUpdateData?: (seriesName: string, data: Array<Datum>) => void
+    // /**
+    //  * Callback when the chart subscribes to the {@link TimeSeriesChartData} observable
+    //  * @param subscription The RxJS subscription
+    //  */
+    // onSubscribe?: (subscription: Subscription) => void
+    // /**
+    //  * Callback function that is called when new data arrives to the chart.
+    //  * @param seriesName The name of the series for which new data arrived
+    //  * @param data The new data that arrived in the windowing tine
+    //  * @see UseChartValues.windowingTime
+    //  */
+    // onUpdateData?: (seriesName: string, data: Array<Datum>) => void
 }
 
 /**
@@ -114,11 +113,14 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
         initialData,
-        onSubscribe,
-        onUpdateData
+        // onSubscribe,
+        // onUpdateData
     } = props;
 
-    const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData))
+    const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
+
+    const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
+    // const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.slice()))
     const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
 
@@ -203,7 +205,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         }}
                         onClick={() => {
                             if (!running) {
-                                initialDataRef.current = initialDataFrom(initialData)
+                                // initialDataRef.current = initialDataFrom(initialData)
                                 observableRef.current = randomSpikeDataObservable(initialDataRef.current, 50, 0.1)
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
@@ -216,6 +218,20 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         }}
                     >
                         {running ? "Stop" : "Run"}
+                    </Button>
+                    <Button
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            color: theme.color
+                        }}
+                        onClick={() => {
+                            initialDataRef.current = initialDataFrom(initialData)
+                            setElapsed(0)
+                        }}
+                        disabled={running}
+                    >
+                        Clear
                     </Button>
                     <Checkbox
                         key={1}
@@ -244,16 +260,18 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
-                <InitialDataProvider initialData={initialDataRef.current}>
-                    <DataObservableProvider
-                        seriesObservable={observableRef.current}
-                        shouldSubscribe={running}
-                        windowingTime={75}
+                {/*<InitialDataProvider initialData={initialDataRef.current}>*/}
+                    {/*<DataObservableProvider*/}
+                    {/*    seriesObservable={observableRef.current}*/}
+                    {/*    shouldSubscribe={running}*/}
+                    {/*    windowingTime={75}*/}
 
-                        onSubscribe={onSubscribe}
-                        onUpdateData={onUpdateData}
-                    >
+                    {/*    onSubscribe={onSubscribe}*/}
+                    {/*    onUpdateData={onUpdateData}*/}
+                    {/*>*/}
                         <Chart
+                            // key={chartId.current}
+                            chartId={chartId.current}
                             width={useGridCellWidth()}
                             height={useGridCellHeight()}
                             margin={{...defaultMargin, top: 60, right: 75, left: 70}}
@@ -300,10 +318,13 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                                 }],
                                 // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                             ])}
+                            initialData={initialDataRef.current}
+                            // initialData={initialData}
                             seriesFilter={filter}
+                            seriesObservable={observableRef.current}
+                            shouldSubscribe={running}
                             onUpdateAxesBounds={handleChartTimeUpdate}
-                            // onUpdateData={(name, data) => console.log(name, data.length)}
-                            // windowingTime={150}
+                            windowingTime={150}
                             // onSubscribe={subscription => console.log("subscribed raster")}
                         >
                             <ContinuousAxis
@@ -372,8 +393,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                                 withCadenceOf={50}
                             />
                         </Chart>
-                    </DataObservableProvider>
-                </InitialDataProvider>
+                {/*    </DataObservableProvider>*/}
+                {/*</InitialDataProvider>*/}
             </GridItem>
         </Grid>
     );

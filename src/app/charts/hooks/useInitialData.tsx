@@ -15,7 +15,7 @@ type UseInitialDataValues<D> = {
 }
 
 const defaultInitialDataValues: UseInitialDataValues<any> = {
-    initialData: []
+    initialData: new Array<BaseSeries<any>>()
 }
 
 const InitialDataContext = createContext<UseInitialDataValues<any>>(defaultInitialDataValues)

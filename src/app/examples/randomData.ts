@@ -2,7 +2,7 @@ import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
 import {Datum, TimeSeries} from "../charts/timeSeries";
 import {TimeSeriesChartData, initialChartData} from "../charts/timeSeriesChartData";
-import {seriesFrom} from "../charts/baseSeries";
+import {BaseSeries, seriesFrom} from "../charts/baseSeries";
 // import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
 
 const UPDATE_PERIOD_MS = 25;
@@ -181,7 +181,7 @@ export function initialRandomWeightData(
     updatePeriod: number,
     delta: number,
     numTimes: number
-): Array<TimeSeries> {
+): Array<BaseSeries<Datum>> {
     return seriesNames.map(name => {
         const data: Array<Datum> = []
         // let prevTime = Math.max(0, initialTime - Math.ceil(Math.random() * updatePeriod))
@@ -193,6 +193,7 @@ export function initialRandomWeightData(
             // prevTime = time
             prevValue = value
         }
-        return seriesFrom(name, data)
+        return seriesFrom<Datum>(name, data)
     })
 }
+

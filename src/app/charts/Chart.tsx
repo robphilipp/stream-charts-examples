@@ -11,10 +11,15 @@ import {noop} from "./utils";
 import AxesProvider from "./hooks/useAxes";
 import MouseProvider from "./hooks/useMouse";
 import TooltipProvider from "./hooks/useTooltip";
+import {Observable, Subscription} from "rxjs";
+import DataObservableProvider from './hooks/useDataObservable';
+import {BaseSeries} from "./baseSeries";
+import InitialDataProvider from "./hooks/useInitialData";
 
 const defaultBackground = '#202020';
 
-interface Props {
+interface Props<CD, D> {
+    chartId: number
     /**
      * The width of the chart container
      */
@@ -44,6 +49,13 @@ interface Props {
      */
     seriesStyles?: Map<string, SeriesLineStyle>
 
+    /*
+     | INITIAL DATA
+     */
+    /**
+     * Initial (static) data to plot before subscribing to the {@link TimeSeriesChartData} observable.
+     */
+    initialData: Array<BaseSeries<D>>
     /**
      * Regular expression that filters which series to display on the plot. Can be update while streaming
      */
@@ -51,6 +63,28 @@ interface Props {
 
     /*
      | DATA STREAM
+     */
+    /**
+     * {@link TimeSeriesChartData} RxJS `Observable` that feeds the chart data to display (i.e. the data stream).
+     */
+    seriesObservable?: Observable<CD>
+    /**
+     * The time-window (in milliseconds) to buffer the incoming data before updating the chart. This is
+     * a lever to reduce the lag between real-time and chart-time when a large amount of data is being
+     * sourced by the observable. Smaller time-windows result in smoother scrolling, but more updates, and
+     * possibly a larger lag.
+     */
+    windowingTime?: number
+    /**
+     * When switching to `true` from `false`, subscribes to the {@link Props.seriesObservable}. When switching
+     * to `false` from `true`, unsubscribes from the {@link Props.seriesObservable}.
+     */
+    shouldSubscribe?: boolean
+    /**
+     * Callback when the chart subscribes to the {@link TimeSeriesChartData} observable
+     * @param subscription The RxJS subscription
+     */
+    onSubscribe?: (subscription: Subscription) => void
     /**
      * Callback when the time range changes.
      * @param times A function that accepts the times, (start, end) times associated with
@@ -60,6 +94,13 @@ interface Props {
      * @return void
      */
     onUpdateAxesBounds?: (times: Map<string, [start: number, end: number]>) => void
+    /**
+     * Callback function that is called when new data arrives to the chart.
+     * @param seriesName The name of the series for which new data arrived
+     * @param data The new data that arrived in the windowing tine
+     * @see UseChartValues.windowingTime
+     */
+    onUpdateData?: (seriesName: string, data: Array<D>) => void
 
     /**
      * The child components of the chart (i.e. the axis, plot, tracker, tooltip)
@@ -75,94 +116,104 @@ interface Props {
  * @example
  *
 
- <Chart
- width={useGridCellWidth()}
- height={useGridCellHeight()}
- margin={{...defaultMargin, top: 60, right: 75, left: 70}}
- color={theme.color}
- backgroundColor={theme.backgroundColor}
- seriesStyles={new Map([
- ['neuron1', {
- ...defaultLineStyle,
- color: 'orange',
- lineWidth: 2,
- highlightColor: 'orange'
- }],
- ['neuron6', {
- ...defaultLineStyle,
- color: theme.name === 'light' ? 'blue' : 'gray',
- lineWidth: 3,
- highlightColor: theme.name === 'light' ? 'blue' : 'gray',
- highlightWidth: 5
- }],
- ])}
- initialData={initialDataRef.current}
- seriesFilter={filter}
- seriesObservable={observableRef.current}
- shouldSubscribe={running}
- onUpdateTime={handleChartTimeUpdate}
- windowingTime={150}
- >
- <ContinuousAxis
- axisId="x-axis-1"
- location={AxisLocation.Bottom}
- domain={[0, 5000]}
- label="t (ms)"
- />
- <CategoryAxis
- axisId="y-axis-1"
- location={AxisLocation.Left}
- categories={initialDataRef.current.map(series => series.name)}
- label="neuron"
- />
- <CategoryAxis
- axisId="y-axis-2"
- location={AxisLocation.Right}
- categories={initialDataRef.current.map(series => series.name)}
- label="neuron"
- />
- <Tracker
- visible={visibility.tracker}
- labelLocation={TrackerLabelLocation.WithMouse}
- style={{color: theme.color}}
- font={{color: theme.color}}
- />
- <Tooltip
- visible={visibility.tooltip}
- style={{
- fontColor: theme.color,
- backgroundColor: theme.backgroundColor,
- borderColor: theme.color,
- backgroundOpacity: 0.9,
- }}
- >
- <RasterPlotTooltipContent
- xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
- yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
- />
- </Tooltip>
- <RasterPlot
- spikeMargin={1}
- dropDataAfter={5000}
- panEnabled={true}
- zoomEnabled={true}
- zoomKeyModifiersRequired={true}
- />
- </Chart>
- */
-export function Chart(props: Props): JSX.Element {
+<Chart
+    width={useGridCellWidth()}
+    height={useGridCellHeight()}
+    margin={{...defaultMargin, top: 60, right: 75, left: 70}}
+    color={theme.color}
+    backgroundColor={theme.backgroundColor}
+    seriesStyles={new Map([
+        ['neuron1', {
+            ...defaultLineStyle,
+            color: 'orange',
+            lineWidth: 2,
+            highlightColor: 'orange'
+        }],
+        ['neuron6', {
+            ...defaultLineStyle,
+            color: theme.name === 'light' ? 'blue' : 'gray',
+            lineWidth: 3,
+            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+            highlightWidth: 5
+        }],
+    ])}
+    initialData={initialDataRef.current}
+    seriesFilter={filter}
+    seriesObservable={observableRef.current}
+    shouldSubscribe={running}
+    onUpdateTime={handleChartTimeUpdate}
+    windowingTime={150}
+>
+    <ContinuousAxis
+        axisId="x-axis-1"
+        location={AxisLocation.Bottom}
+        domain={[0, 5000]}
+        label="t (ms)"
+    />
+    <CategoryAxis
+        axisId="y-axis-1"
+        location={AxisLocation.Left}
+        categories={initialDataRef.current.map(series => series.name)}
+        label="neuron"
+    />
+    <CategoryAxis
+        axisId="y-axis-2"
+        location={AxisLocation.Right}
+        categories={initialDataRef.current.map(series => series.name)}
+        label="neuron"
+    />
+    <Tracker
+        visible={visibility.tracker}
+        labelLocation={TrackerLabelLocation.WithMouse}
+        style={{color: theme.color}}
+        font={{color: theme.color}}
+    />
+    <Tooltip
+        visible={visibility.tooltip}
+        style={{
+            fontColor: theme.color,
+            backgroundColor: theme.backgroundColor,
+            borderColor: theme.color,
+            backgroundOpacity: 0.9,
+        }}
+    >
+        <RasterPlotTooltipContent
+            xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
+            yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
+        />
+    </Tooltip>
+    <RasterPlot
+        spikeMargin={1}
+        dropDataAfter={5000}
+        panEnabled={true}
+        zoomEnabled={true}
+        zoomKeyModifiersRequired={true}
+    />
+</Chart>
+*/
+export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
     const {
+        chartId,
+
         width,
         height,
         color = '#d2933f',
         backgroundColor = defaultBackground,
         seriesStyles = new Map(),
+        initialData,
         seriesFilter = /./,
+        seriesObservable,
+        windowingTime = 100,
+        shouldSubscribe = true,
 
+        onSubscribe = noop,
         onUpdateAxesBounds = noop,
+        onUpdateData = noop,
 
         children,
     } = props
+
+    // const {initialData} = useInitialData<D>()
 
     // override the defaults with the parent's properties, leaving any unset values as the default value
     const margin = {...defaultMargin, ...props.margin}
@@ -172,7 +223,7 @@ export function Chart(props: Props): JSX.Element {
     )
 
     // id of the chart to avoid dom conflicts when multiple charts are used in the same app
-    const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
+    // const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     // hold a reference to the current width and the plot dimensions
     const plotDimRef = useRef<Dimensions>(plotDimensionsFrom(width, height, margin))
@@ -188,7 +239,8 @@ export function Chart(props: Props): JSX.Element {
             if (containerRef.current) {
                 // create the main SVG element if it doesn't already exist
                 if (!mainGRef.current) {
-                    mainGRef.current = createPlotContainer(chartId.current, containerRef.current, plotDimRef.current, color)
+                    mainGRef.current = createPlotContainer(chartId, containerRef.current, plotDimRef.current, color)
+                    // mainGRef.current = createPlotContainer(chartId.current, containerRef.current, plotDimRef.current, color)
                 }
 
                 // build up the svg style from the defaults and any svg style object
@@ -211,7 +263,7 @@ export function Chart(props: Props): JSX.Element {
                     .attr('style', style + background + ` color: ${color}`)
             }
         },
-        [color, backgroundColor, height, svgStyle, width]
+        [color, backgroundColor, height, svgStyle, width, chartId]
     )
 
     return (
@@ -221,20 +273,31 @@ export function Chart(props: Props): JSX.Element {
                 <AxesProvider onUpdateAxesBounds={onUpdateAxesBounds}>
                     <MouseProvider>
                         <TooltipProvider>
-                            <ChartProvider
-                                chartId={chartId.current}
-                                container={containerRef.current}
-                                mainG={mainGRef.current}
+                            <InitialDataProvider<D> initialData={initialData}>
+                                <DataObservableProvider<CD, D>
+                                    seriesObservable={seriesObservable}
+                                    windowingTime={windowingTime}
+                                    shouldSubscribe={shouldSubscribe}
 
-                                color={color}
-                                seriesStyles={seriesStyles}
-                                seriesFilter={seriesFilter}
-                            >
-                                {
-                                    // the chart elements are the children
-                                    children
-                                }
-                            </ChartProvider>
+                                    onSubscribe={onSubscribe}
+                                    onUpdateData={onUpdateData}
+                                >
+                                    <ChartProvider
+                                        chartId={chartId}
+                                        container={containerRef.current}
+                                        mainG={mainGRef.current}
+
+                                        color={color}
+                                        seriesStyles={seriesStyles}
+                                        seriesFilter={seriesFilter}
+                                    >
+                                        {
+                                            // the chart elements are the children
+                                            children
+                                        }
+                                    </ChartProvider>
+                                </DataObservableProvider>
+                            </InitialDataProvider>
                         </TooltipProvider>
                     </MouseProvider>
                 </AxesProvider>

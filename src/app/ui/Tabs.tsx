@@ -50,7 +50,10 @@ export function Tabs(props: Props): JSX.Element {
     const tabContents = <>
         {children
             .filter((_, index) => index === activeTab)
-            .map((child, index) => cloneElement(child, {key: `child-tab-${tabNames[index]}-${index}`, name: tabNames[index]}))
+            .map((child, _) => cloneElement(child, {
+                key: `child-tab-${tabNames[activeTab]}-${activeTab}`,
+                name: tabNames[activeTab]
+            }))
         }
     </>
 

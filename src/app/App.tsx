@@ -23,6 +23,7 @@ for (let i = 0; i < 30; ++i) {
     seriesNames.push(`test${i}`)
 }
 const initialScatterData = initialRandomWeightData(seriesNames, 10, 500, 50, 20, 10)
+const initialIterateData = initialRandomWeightData(seriesNames, 10, 500, 50, 20, 10)
 
 const spikeSeriesNames: Array<string> = []
 for (let i = 0; i < 50; ++i) {
@@ -126,7 +127,7 @@ const App: React.FC = () => {
                     <StreamingPoincareChart
                         theme={theme}
                         timeWindow={1000}
-                        initialData={initialScatterData}
+                        initialData={initialIterateData}
                     />
                 </Tabs>
             </GridItem>
