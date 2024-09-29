@@ -246,6 +246,10 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             borderColor: theme.color,
                             color: theme.color
                         }}
+                        disabledStyle={{
+                            backgroundColor: theme.disabledBackgroundColor,
+                            color: theme.disabledColor
+                        }}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)

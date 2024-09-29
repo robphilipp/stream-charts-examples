@@ -76,18 +76,6 @@ interface Props {
     initialData: Array<TimeSeries>;
     seriesHeight?: number;
     plotWidth?: number;
-    // /**
-    //  * Callback when the chart subscribes to the {@link TimeSeriesChartData} observable
-    //  * @param subscription The RxJS subscription
-    //  */
-    // onSubscribe?: (subscription: Subscription) => void
-    // /**
-    //  * Callback function that is called when new data arrives to the chart.
-    //  * @param seriesName The name of the series for which new data arrived
-    //  * @param data The new data that arrived in the windowing tine
-    //  * @see UseChartValues.windowingTime
-    //  */
-    // onUpdateData?: (seriesName: string, data: Array<Datum>) => void
 }
 
 /**
@@ -113,14 +101,11 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
         initialData,
-        // onSubscribe,
-        // onUpdateData
     } = props;
 
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    // const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.slice()))
     const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
 
@@ -205,7 +190,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         }}
                         onClick={() => {
                             if (!running) {
-                                // initialDataRef.current = initialDataFrom(initialData)
                                 observableRef.current = randomSpikeDataObservable(initialDataRef.current, 50, 0.1)
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
@@ -224,6 +208,10 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             backgroundColor: theme.backgroundColor,
                             borderColor: theme.color,
                             color: theme.color
+                        }}
+                        disabledStyle={{
+                            backgroundColor: theme.disabledBackgroundColor,
+                            color: theme.disabledColor
                         }}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
@@ -260,141 +248,128 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
-                {/*<InitialDataProvider initialData={initialDataRef.current}>*/}
-                    {/*<DataObservableProvider*/}
-                    {/*    seriesObservable={observableRef.current}*/}
-                    {/*    shouldSubscribe={running}*/}
-                    {/*    windowingTime={75}*/}
-
-                    {/*    onSubscribe={onSubscribe}*/}
-                    {/*    onUpdateData={onUpdateData}*/}
-                    {/*>*/}
-                        <Chart
-                            // key={chartId.current}
-                            chartId={chartId.current}
-                            width={useGridCellWidth()}
-                            height={useGridCellHeight()}
-                            margin={{...defaultMargin, top: 60, right: 75, left: 70}}
-                            // svgStyle={{'background-color': 'pink'}}
-                            color={theme.color}
-                            backgroundColor={theme.backgroundColor}
-                            seriesStyles={new Map([
-                                ['neuron1', {
-                                    ...defaultLineStyle,
-                                    color: 'orange',
-                                    lineWidth: 2,
-                                    highlightColor: 'orange'
-                                }],
-                                ['neuron2', {
-                                    ...defaultLineStyle,
-                                    color: 'orange',
-                                    lineWidth: 2,
-                                    highlightColor: 'orange'
-                                }],
-                                ['neuron3', {
-                                    ...defaultLineStyle,
-                                    color: 'orange',
-                                    lineWidth: 2,
-                                    highlightColor: 'orange'
-                                }],
-                                ['neuron4', {
-                                    ...defaultLineStyle,
-                                    color: 'orange',
-                                    lineWidth: 2,
-                                    highlightColor: 'orange'
-                                }],
-                                ['neuron5', {
-                                    ...defaultLineStyle,
-                                    color: 'orange',
-                                    lineWidth: 2,
-                                    highlightColor: 'orange'
-                                }],
-                                ['neuron6', {
-                                    ...defaultLineStyle,
-                                    color: theme.name === 'light' ? 'blue' : 'gray',
-                                    lineWidth: 3,
-                                    highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                                    highlightWidth: 5
-                                }],
-                                // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
-                            ])}
-                            initialData={initialDataRef.current}
-                            // initialData={initialData}
-                            seriesFilter={filter}
-                            seriesObservable={observableRef.current}
-                            shouldSubscribe={running}
-                            onUpdateAxesBounds={handleChartTimeUpdate}
-                            windowingTime={150}
-                            // onSubscribe={subscription => console.log("subscribed raster")}
-                        >
-                            <ContinuousAxis
-                                axisId="x-axis-1"
-                                location={AxisLocation.Bottom}
-                                domain={[0, 5000]}
-                                label="t (ms)"
-                                // font={{color: theme.color}}
-                            />
-                            <ContinuousAxis
-                                axisId="x-axis-2"
-                                location={AxisLocation.Top}
-                                domain={[0, 5000]}
-                                label="t (ms)"
-                                // font={{color: theme.color}}
-                            />
-                            <CategoryAxis
-                                axisId="y-axis-1"
-                                location={AxisLocation.Left}
-                                categories={initialDataRef.current.map(series => series.name)}
-                                label="neuron"
-                            />
-                            <CategoryAxis
-                                axisId="y-axis-2"
-                                location={AxisLocation.Right}
-                                categories={initialDataRef.current.map(series => series.name)}
-                                label="neuron"
-                            />
-                            <Tracker
-                                visible={visibility.tracker}
-                                labelLocation={TrackerLabelLocation.WithMouse}
-                                style={{color: theme.color}}
-                                font={{color: theme.color}}
-                                // onTrackerUpdate={update => console.dir(update)}
-                            />
-                            <Tooltip
-                                visible={visibility.tooltip}
-                                style={{
-                                    fontColor: theme.color,
-                                    backgroundColor: theme.backgroundColor,
-                                    borderColor: theme.color,
-                                    backgroundOpacity: 0.9,
-                                }}
-                            >
-                                <RasterPlotTooltipContent
-                                    xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
-                                    yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
-                                />
-                            </Tooltip>
-                            <RasterPlot
-                                axisAssignments={new Map([
-                                    // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                                    ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
-                                    ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
-                                    ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
-                                    ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
-                                    ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
-                                    ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
-                                    // ['test3', assignAxes("x-axis-1", "y-axis-1")],
-                                ])}
-                                spikeMargin={1}
-                                dropDataAfter={5000}
-                                panEnabled={true}
-                                zoomEnabled={true}
-                                zoomKeyModifiersRequired={true}
-                                withCadenceOf={50}
-                            />
-                        </Chart>
-                {/*    </DataObservableProvider>*/}
-                {/*</InitialDataProvider>*/}
+                <Chart
+                    chartId={chartId.current}
+                    width={useGridCellWidth()}
+                    height={useGridCellHeight()}
+                    margin={{...defaultMargin, top: 60, right: 75, left: 70}}
+                    // svgStyle={{'background-color': 'pink'}}
+                    color={theme.color}
+                    backgroundColor={theme.backgroundColor}
+                    seriesStyles={new Map([
+                        ['neuron1', {
+                            ...defaultLineStyle,
+                            color: 'orange',
+                            lineWidth: 2,
+                            highlightColor: 'orange'
+                        }],
+                        ['neuron2', {
+                            ...defaultLineStyle,
+                            color: 'orange',
+                            lineWidth: 2,
+                            highlightColor: 'orange'
+                        }],
+                        ['neuron3', {
+                            ...defaultLineStyle,
+                            color: 'orange',
+                            lineWidth: 2,
+                            highlightColor: 'orange'
+                        }],
+                        ['neuron4', {
+                            ...defaultLineStyle,
+                            color: 'orange',
+                            lineWidth: 2,
+                            highlightColor: 'orange'
+                        }],
+                        ['neuron5', {
+                            ...defaultLineStyle,
+                            color: 'orange',
+                            lineWidth: 2,
+                            highlightColor: 'orange'
+                        }],
+                        ['neuron6', {
+                            ...defaultLineStyle,
+                            color: theme.name === 'light' ? 'blue' : 'gray',
+                            lineWidth: 3,
+                            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                            highlightWidth: 5
+                        }],
+                        // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
+                    ])}
+                    initialData={initialDataRef.current}
+                    seriesFilter={filter}
+                    seriesObservable={observableRef.current}
+                    shouldSubscribe={running}
+                    onUpdateAxesBounds={handleChartTimeUpdate}
+                    windowingTime={150}
+                    // onSubscribe={subscription => console.log("subscribed raster")}
+                >
+                    <ContinuousAxis
+                        axisId="x-axis-1"
+                        location={AxisLocation.Bottom}
+                        domain={[0, 5000]}
+                        label="t (ms)"
+                        // font={{color: theme.color}}
+                    />
+                    <ContinuousAxis
+                        axisId="x-axis-2"
+                        location={AxisLocation.Top}
+                        domain={[0, 5000]}
+                        label="t (ms)"
+                        // font={{color: theme.color}}
+                    />
+                    <CategoryAxis
+                        axisId="y-axis-1"
+                        location={AxisLocation.Left}
+                        categories={initialDataRef.current.map(series => series.name)}
+                        label="neuron"
+                    />
+                    <CategoryAxis
+                        axisId="y-axis-2"
+                        location={AxisLocation.Right}
+                        categories={initialDataRef.current.map(series => series.name)}
+                        label="neuron"
+                    />
+                    <Tracker
+                        visible={visibility.tracker}
+                        labelLocation={TrackerLabelLocation.WithMouse}
+                        style={{color: theme.color}}
+                        font={{color: theme.color}}
+                        // onTrackerUpdate={update => console.dir(update)}
+                    />
+                    <Tooltip
+                        visible={visibility.tooltip}
+                        style={{
+                            fontColor: theme.color,
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            backgroundOpacity: 0.9,
+                        }}
+                    >
+                        <RasterPlotTooltipContent
+                            xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
+                            yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
+                        />
+                    </Tooltip>
+                    <RasterPlot
+                        axisAssignments={new Map([
+                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
+                            ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                        ])}
+                        spikeMargin={1}
+                        dropDataAfter={5000}
+                        panEnabled={true}
+                        zoomEnabled={true}
+                        zoomKeyModifiersRequired={true}
+                        withCadenceOf={50}
+                    />
+                </Chart>
             </GridItem>
         </Grid>
     );

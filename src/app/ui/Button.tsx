@@ -3,12 +3,13 @@ import {JSX} from "react";
 
 interface Props {
     style?: React.CSSProperties
+    disabledStyle?: React.CSSProperties
     onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
     disabled?: boolean
     children: JSX.Element | string
 }
 
-const defaultButtonStyle = {
+const defaultButtonStyle: React.CSSProperties = {
     backgroundColor: '#eee',
     outlineStyle: 'none',
     borderColor: '#202020',
@@ -24,19 +25,28 @@ const defaultButtonStyle = {
     cursor: 'pointer',
 }
 
-const disabledButtonStyle = {
+const defaultDisabledButtonStyle = {
     backgroundColor: '#9c9b9b',
 }
 
 export function Button(props: Props): JSX.Element {
     const {
         style = defaultButtonStyle,
+        disabledStyle = defaultDisabledButtonStyle,
         onClick,
         disabled = false,
         children
     } = props
 
-    const buttonStyle = disabled ? {...defaultButtonStyle, ...style,  ...disabledButtonStyle} : {...defaultButtonStyle, ...style}
+    const buttonStyle = disabled ? {
+        ...defaultButtonStyle,
+        ...style,
+        ...disabledStyle,
+        borderColor: disabledStyle.backgroundColor
+    } : {
+        ...defaultButtonStyle,
+        ...style
+    }
 
     return <button onClick={onClick} disabled={disabled} style={buttonStyle}>
         {children}
