@@ -1,14 +1,15 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {useChart} from "./hooks/useChart";
-import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {AxesAssignment, Series, setClipPath} from "./plot";
-import {Datum} from "./timeSeries";
+import {Series, setClipPath} from "./plot";
+import {Datum, TimeSeries} from "./timeSeries";
 import {
     axesForSeriesGen,
     BaseAxis,
     ContinuousNumericAxis,
+    continuousRangeForDefaultAxis,
     defaultLineStyle,
     panHandler,
     SeriesLineStyle,
@@ -24,14 +25,9 @@ import {IterateChartData} from "./iterates";
 import {IterateDatum, IterateSeries} from "./iterateSeries";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
 import {useInitialData} from "./hooks/useInitialData";
+import {AxesState} from "./hooks/AxesState";
 
 interface Props {
-    /**
-     * Holds the mapping between a series and the axis it uses (is assigned). The
-     * map's key holds the series name, and the value is an {@link AxesAssignment}
-     * object holding the ID of the assigned x-axis and y-axis.
-     */
-    axisAssignments?: Map<string, AxesAssignment>
     /**
      * The line interpolation curve factory. See the d3 documentation for curves at
      * {@link https://github.com/d3/d3-shape#curves} for information on available interpolations
@@ -96,13 +92,7 @@ export function PoincarePlot(props: Props): null {
         // margin,
         color,
         seriesStyles,
-        // initialData,
         seriesFilter,
-
-        // onUpdateAxesBounds,
-
-        // setAxisBoundsFor,
-        // updateAxesBounds = noop,
 
         mouse
     } = useChart()
@@ -137,7 +127,7 @@ export function PoincarePlot(props: Props): null {
     const {initialData} = useInitialData<IterateDatum>()
 
     const {
-        axisAssignments = new Map<string, AxesAssignment>(),
+        // axisAssignments = new Map<string, AxesAssignment>(),
         interpolation = d3.curveLinear,
         dropDataAfter = Infinity,
         panEnabled = false,
@@ -171,70 +161,116 @@ export function PoincarePlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen(initialData, axisAssignments, xAxesState),
-        [initialData, axisAssignments, xAxesState]
+        (): Array<string> => axesForSeriesPoincare(initialData, xAxesState),
+        [initialData, xAxesState]
     )
 
-    // updates the timing using the onUpdateTime and updatePlot references. This and the references
-    // defined above allow the axes' times to be updated properly by avoid stale reference to these
-    // functions.
-    const updateRangesAndPlot = useCallback((xRanges: Map<string, ContinuousAxisRange>, yRanges: Map<string, ContinuousAxisRange>): void => {
-        // todo this needs to be converted from updateTimingAndPlot to updateRangesAndPlot, name has changed,
-        //    code below still needs to be updated
+    const rangeMapFrom = useCallback(
+        /**
+         * Generates a range map from the f[n](x) and f[n+1](x) axis range
+         * @param fnRange
+         * @param fn1Range
+         */
+        (fnRange: ContinuousAxisRange, fn1Range: ContinuousAxisRange): Map<string, ContinuousAxisRange> => {
+            const start = Math.min(fnRange.start, fn1Range.start)
+            const end = Math.min(fnRange.end, fn1Range.end)
+            const ranges = new Map<string, ContinuousAxisRange>()
+            xAxesState.axisIds().forEach(id => ranges.set(id, continuousAxisRangeFor(start, end)))
+            yAxesState.axisIds().forEach(id => ranges.set(id, continuousAxisRangeFor(start, end)))
+            return ranges
+        },
+        [xAxesState, yAxesState]
+    )
+
+    const boundsMapFrom = useCallback(
+        (ranges: Map<string, ContinuousAxisRange>): Map<string, [number, number]> => {
+            return new Map<string, [number, number]>(
+                Array.from(ranges.entries())
+                    .map(([id, range]) => ([id, [range.start, range.end]]))
+            )
+        },
+        []
+    )
+
+    const updateRangesAndPlot = useCallback(
+        /**
+         * Updates the ranges for the axes, constraining them to be equal, and
+         * updates the bounds
+         * @param fnRange The x-axis
+         * @param fn1Range The y-axis
+         */
+        (fnRange: ContinuousAxisRange, fn1Range: ContinuousAxisRange): void => {
             if (mainG !== null) {
-                // onUpdateTimeRef.current(ranges)
-                updatePlotRef.current(xRanges, yRanges, mainG)
-                // if (onUpdateTime) {
-                //     setTimeout(() => {
-                //         const times = new Map<string, [number, number]>()
-                //         ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
-                //         onUpdateTime(times)
-                //     }, 0)
-                // }
+                // calculate the new map from the ranges
+                const ranges = rangeMapFrom(fnRange, fn1Range)
+                onUpdateTimeRef.current(ranges)
+
+                // calculate the bounds
+                updatePlotRef.current(fnRange, fn1Range, mainG)
+                if (onUpdateAxesBounds) {
+                    setTimeout(() => onUpdateAxesBounds(boundsMapFrom(ranges)), 0)
+                }
             }
         },
-        [mainG, onUpdateAxesBounds]
+        [mainG, onUpdateAxesBounds, rangeMapFrom, boundsMapFrom]
     )
 
-    // // todo find better way
-    // // when the initial data changes, then reset the plot. note that the initial data doesn't change
-    // // during the normal course of updates from the observable, only when the plot is restarted.
-    // useEffect(
-    //     () => {
-    //         dataRef.current = initialData.slice()
-    //         seriesRef.current = new Map(initialData.map(series => [series.name, series]))
-    //         currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
-    //         const xRanges = new Map(
-    //             Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-    //             .map(([id, range]) => {
-    //                 // grab the current range, then calculate the minimum time from the initial data, and
-    //                 // set that as the start, and then add the range to it for the end time
-    //                 const [start, end] = range.original
-    //                 const minTime = initialData
-    //                     .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-    //                     .reduce(
-    //                         (tMin, series) => Math.min(
-    //                             tMin,
-    //                             !series.isEmpty() ? series.data[0].time : tMin
-    //                         ),
-    //                         Infinity
-    //                     )
-    //                 const startTime = minTime === Infinity ? 0 : minTime
-    //                 return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
-    //             })
-    //         )
-    //         updateRangesAndPlot(xRanges, xRanges)
-    //     },
-    //     // ** not happy about this **
-    //     // only want this effect to run when the initial data is changed, which means all the
-    //     // other dependencies are recalculated anyway.
-    //     // eslint-disable-next-line react-hooks/exhaustive-deps
-    //     [initialData]
-    // )
+
+    // todo find better way
+    // when the initial data changes, then reset the plot. note that the initial data doesn't change
+    // during the normal course of updates from the observable, only when the plot is restarted.
+    useEffect(
+        () => {
+            dataRef.current = initialData.slice()
+            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
+            currentTimeRef.current = 0
+
+            const xRange = xAxesState.defaultAxis() ?
+                continuousRangeForDefaultAxis(xAxesState.defaultAxis() as ContinuousNumericAxis) :
+                continuousAxisRangeFor(Infinity, -Infinity)
+            const minTime = initialData
+                .reduce(
+                    (tMin, series) => Math.min(
+                        tMin,
+                        !series.isEmpty() ? series.data[0].time : tMin
+                    ),
+                    Infinity
+                )
+            const [start, end] = xRange.original
+            const startTime = minTime === Infinity ? 0 : minTime
+            const range = continuousAxisRangeFor(startTime, startTime + end - start)
+
+            // const xRanges = new Map(
+            //     Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+            //     .map(([id, range]) => {
+            //         // grab the current range, then calculate the minimum time from the initial data, and
+            //         // set that as the start, and then add the range to it for the end time
+            //         const [start, end] = range.original
+            //         const minTime = initialData
+            //             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+            //             .reduce(
+            //                 (tMin, series) => Math.min(
+            //                     tMin,
+            //                     !series.isEmpty() ? series.data[0].time : tMin
+            //                 ),
+            //                 Infinity
+            //             )
+            //         const startTime = minTime === Infinity ? 0 : minTime
+            //         return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
+            //     })
+            // )
+            updateRangesAndPlot(range, range)
+        },
+        // ** not happy about this **
+        // only want this effect to run when the initial data is changed, which means all the
+        // other dependencies are recalculated anyway.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [initialData]
+    )
 
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param deltaX The amount that the plot is dragged
+     * @param x The amount that the plot is dragged
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
@@ -271,10 +307,11 @@ export function PoincarePlot(props: Props): null {
     const updatePlot = useCallback(
         /**
          * Updates the plot data for the specified time-range, which may have changed due to zoom or pan
-         * @param timeRanges The current time range
+         * @param xRanges The current range of the x-axis (f[n](x))
+         * @param yRanges The currnet range of the y-axis (f[n+1](x))
          * @param mainGElem The main <g> element selection for that holds the plot
          */
-        (xRanges: Map<string, ContinuousAxisRange>, yRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
+        (xRanges: ContinuousAxisRange, yRanges: ContinuousAxisRange, mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
@@ -355,10 +392,20 @@ export function PoincarePlot(props: Props): null {
                 // define the clip-path so that the series lines don't go beyond the plot area
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
 
+                // const xBaseAxisLinear = xAxesState.axisFor(Array.from(axisAssignments.values())[0].xAxis) as ContinuousNumericAxis
+                // const yBaseAxisLinear = xAxesState.axisFor(Array.from(axisAssignments.values())[0].xAxis) as ContinuousNumericAxis
+                // mainGElem
+                //     .append("line")
+                //     .style("stroke", "grey")
+                //     .attr("x0", xBaseAxisLinear.scale(0))
+                //     .attr("x1", xBaseAxisLinear.scale(0))
+                //     .attr("y0", yBaseAxisLinear.scale(0))
+                //     .attr("y1", yBaseAxisLinear.scale(0))
+
                 boundedSeries.forEach((data, name) => {
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
-                    const [xAxisLinear, yAxisLinear] = axesFor(name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
+                    const [xAxisLinear, yAxisLinear] = axesFor(xAxesState.axisFor, yAxesState.axisFor)
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 
                     // grab the style for the series
@@ -424,7 +471,7 @@ export function PoincarePlot(props: Props): null {
         },
         [
             container, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
-            zoomKeyModifiersRequired, onZoom, axisAssignments, xAxesState.axisFor,
+            zoomKeyModifiersRequired, onZoom, xAxesState.axisFor,
             yAxesState.axisFor, seriesStyles, seriesFilter, interpolation,
             mouseOverHandlerFor, mouseLeaveHandlerFor
         ]
@@ -440,13 +487,13 @@ export function PoincarePlot(props: Props): null {
         },
         [updatePlot]
     )
-    // const onUpdateTimeRef = useRef(updateTimeRanges)
-    // useEffect(
-    //     () => {
-    //         onUpdateTimeRef.current = updateTimeRanges
-    //     },
-    //     [updateTimeRanges]
-    // )
+    const onUpdateTimeRef = useRef(updateAxesBounds)
+    useEffect(
+        () => {
+            onUpdateTimeRef.current = updateAxesBounds
+        },
+        [updateAxesBounds]
+    )
 
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
@@ -470,7 +517,7 @@ export function PoincarePlot(props: Props): null {
                 seriesObservable  as Observable<IterateChartData>,
                 onSubscribe,
                 windowingTime,
-                axisAssignments,
+                // axisAssignments,
                 xAxesState,
                 yAxesState,
                 onUpdateData,
@@ -481,7 +528,7 @@ export function PoincarePlot(props: Props): null {
             )
         },
         [
-            axisAssignments, dropDataAfter, mainG,
+            dropDataAfter, mainG,
             onSubscribe, onUpdateData,
             seriesObservable, updateRangesAndPlot, windowingTime,
             xAxesState, yAxesState,
@@ -544,6 +591,13 @@ export function PoincarePlot(props: Props): null {
     return null
 }
 
+function axesForSeriesPoincare(
+    series: Array<TimeSeries> | Array<IterateSeries>,
+    xAxesState: AxesState
+): Array<string> {
+    return axesForSeriesGen(series, new Map(), xAxesState)
+}
+
 /**
  * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
  * series name, then uses the default returned by the useChart() hook
@@ -555,15 +609,12 @@ export function PoincarePlot(props: Props): null {
  * @param yAxisFor The function that accepts an axis ID and returns the corresponding y-axis
  */
 function axesFor(
-    seriesName: string,
-    axisAssignments: Map<string, AxesAssignment>,
     xAxisFor: (id: string) => BaseAxis | undefined,
     yAxisFor: (id: string) => BaseAxis | undefined,
 ): [xAxis: ContinuousNumericAxis, yAxis: ContinuousNumericAxis] {
-    const axes = axisAssignments.get(seriesName)
-    const xAxis = xAxisFor(axes?.xAxis || "")
+    const xAxis = xAxisFor("")
     const xAxisLinear = xAxis as ContinuousNumericAxis
-    const yAxis = yAxisFor(axes?.yAxis || "")
+    const yAxis = yAxisFor("")
     const yAxisLinear = yAxis as ContinuousNumericAxis
     if (xAxis && !xAxisLinear) {
         throw Error("Poincare plot requires that x-axis be of type LinearAxis")

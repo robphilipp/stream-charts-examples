@@ -1,9 +1,6 @@
 import {createContext, JSX, useContext} from "react";
 import {GSelection} from "../d3types";
-import {Subscription} from "rxjs";
-import {Datum, TimeSeries} from "../timeSeries";
 import {SeriesLineStyle} from "../axes";
-import {BaseSeries} from "../baseSeries";
 import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
 import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
 import {defaultTooltipValues, useTooltip, UseTooltipValues} from "./useTooltip";

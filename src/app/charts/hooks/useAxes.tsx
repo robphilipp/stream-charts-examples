@@ -138,8 +138,8 @@ export default function AxesProvider(props: Props): JSX.Element {
      */
     function axisAssignmentsFor(seriesName: string): AxesAssignment {
         return axisAssignmentsRef.current.get(seriesName) || {
-            xAxis: xAxesRef.current.axisDefaultName(),
-            yAxis: yAxesRef.current.axisDefaultName()
+            xAxis: xAxesRef.current.axisDefaultId(),
+            yAxis: yAxesRef.current.axisDefaultId()
         }
     }
 

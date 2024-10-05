@@ -279,7 +279,7 @@ export function axesForSeriesGen(
     return series.map(srs => srs.name)
         // grab the x-axis assigned to the series, or use the default x-axis if not
         // assignment has been made
-        .map(name => axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName())
+        .map(name => axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId())
         // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
         // transformation more than once
         .reduce((accum: Array<string>, axisId: string) => {
@@ -411,11 +411,6 @@ export function zoomHandler(
  * @return a map associating the axis IDs to their time-range
  */
 export function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
-    // return new Map(Array.from(xAxes.entries())
-    //     .map(([id, axis]) => {
-    //         const [start, end] = axis.scale.domain()
-    //         return [id, continuousAxisRangeFor(start, end)]
-    //     }))
     return continuousRange(xAxes)
 }
 
@@ -440,4 +435,9 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
             const [start, end] = axis.scale.domain()
             return [id, continuousAxisRangeFor(start, end)]
         }))
+}
+
+export function continuousRangeForDefaultAxis(axis: ContinuousNumericAxis): ContinuousAxisRange {
+    const [start, end] = axis.scale.domain()
+    return continuousAxisRangeFor(start, end)
 }

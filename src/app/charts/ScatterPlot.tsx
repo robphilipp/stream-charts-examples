@@ -188,7 +188,7 @@ export function ScatterPlot(props: Props): null {
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
         () => {
-            dataRef.current = initialData.slice() as Array<TimeSeries>
+            dataRef.current = initialData.slice()
             seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot(new Map(Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
@@ -196,7 +196,7 @@ export function ScatterPlot(props: Props): null {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
                         const [start, end] = range.original
-                        const minTime = (initialData as Array<TimeSeries>)
+                        const minTime = initialData
                             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
                             .reduce(
                                 (tMin, series) => Math.min(

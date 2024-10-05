@@ -213,17 +213,12 @@ export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
         children,
     } = props
 
-    // const {initialData} = useInitialData<D>()
-
     // override the defaults with the parent's properties, leaving any unset values as the default value
     const margin = {...defaultMargin, ...props.margin}
     const svgStyle = useMemo<SvgStyle>(
         () => ({...initialSvgStyle, ...props.svgStyle, width: props.width, height: props.height}),
         [props.height, props.svgStyle, props.width]
     )
-
-    // id of the chart to avoid dom conflicts when multiple charts are used in the same app
-    // const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     // hold a reference to the current width and the plot dimensions
     const plotDimRef = useRef<Dimensions>(plotDimensionsFrom(width, height, margin))
@@ -240,7 +235,6 @@ export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
                 // create the main SVG element if it doesn't already exist
                 if (!mainGRef.current) {
                     mainGRef.current = createPlotContainer(chartId, containerRef.current, plotDimRef.current, color)
-                    // mainGRef.current = createPlotContainer(chartId.current, containerRef.current, plotDimRef.current, color)
                 }
 
                 // build up the svg style from the defaults and any svg style object

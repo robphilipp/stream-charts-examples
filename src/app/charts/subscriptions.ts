@@ -1,5 +1,5 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {ContinuousNumericAxis, continuousRange, timeRanges} from "./axes";
+import {ContinuousNumericAxis, continuousRange, continuousRangeForDefaultAxis, timeRanges} from "./axes";
 import {Datum, TimeSeries} from "./timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
@@ -67,7 +67,7 @@ export function subscriptionFor(
                     // calculate the current time for the series' assigned x-axis (which may end up
                     // just being the default) based on the max time for the series, and the overall
                     // max time
-                    const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName();
+                    const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId();
                     const currentAxisTime = axesSeries.get(axisId)
                         ?.reduce(
                             (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
@@ -202,7 +202,7 @@ export function subscriptionWithCadenceFor(
                 series.data.push(...newData);
 
                 // drop data when specified
-                const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultName()
+                const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId()
                 const currentAxisTime = axesSeries.get(axisId)
                     ?.reduce(
                         (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
@@ -247,15 +247,17 @@ export function subscriptionIteratesFor(
     seriesObservable: Observable<IterateChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
-    axisAssignments: Map<string, AxesAssignment>,
+    // axisAssignments: Map<string, AxesAssignment>,
     xAxesState: AxesState,
     yAxesState: AxesState,
     onUpdateData: ((seriesName: string, data: Array<IterateDatum>) => void) | undefined,
     dropDataAfter: number,
-    updateRangesAndPlot: (xRanges: Map<string, ContinuousAxisRange>, yRanges: Map<string, ContinuousAxisRange>) => void,
+    updateRangesAndPlot: (xRanges: ContinuousAxisRange, yRanges: ContinuousAxisRange) => void,
+    // updateRangesAndPlot: (xRanges: Map<string, ContinuousAxisRange>, yRanges: Map<string, ContinuousAxisRange>) => void,
     seriesMap: Map<string, IterateSeries>,
     updateCurrentTime: (time: number) => void
 ): Subscription {
+    const axisAssignments = new Map<string, AxesAssignment>()
     const subscription = seriesObservable
         .pipe(bufferTime(windowingTime))
         .subscribe(dataList => {
@@ -335,7 +337,9 @@ export function subscriptionIteratesFor(
                 })
 
                 // update the data
-                updateRangesAndPlot(xAxesRanges, yAxesRanges)
+                const xRange = continuousRangeForDefaultAxis(xAxesState.defaultAxis() as ContinuousNumericAxis)
+                const yRange = continuousRangeForDefaultAxis(yAxesState.defaultAxis() as ContinuousNumericAxis)
+                updateRangesAndPlot(xRange, yRange)
             })
         })
 
@@ -358,7 +362,7 @@ function determineAssociatedSeries(data: TimeSeriesChartData, axisAssignments: M
         .from(data.maxTimes.entries())
         .reduce(
             (assignedSeries, [seriesName,]) => {
-                const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultName()
+                const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultId()
                 const as = assignedSeries.get(id) || []
                 as.push(seriesName)
                 assignedSeries.set(id, as)
@@ -379,7 +383,7 @@ function xAxisIdFrom(
     axesState: AxesState,
     axisAssignments: Map<string, AxesAssignment>
 ): (seriesName: string) => string {
-    return seriesName => axisAssignments.get(seriesName)?.xAxis || axesState.axisDefaultName()
+    return seriesName => axisAssignments.get(seriesName)?.xAxis || axesState.axisDefaultId()
 }
 
 /**
@@ -393,7 +397,7 @@ function yAxisIdFrom(
     axesState: AxesState,
     axisAssignments: Map<string, AxesAssignment>
 ): (seriesName: string) => string {
-    return seriesName => axisAssignments.get(seriesName)?.yAxis || axesState.axisDefaultName()
+    return seriesName => axisAssignments.get(seriesName)?.yAxis || axesState.axisDefaultId()
 }
 
 /**

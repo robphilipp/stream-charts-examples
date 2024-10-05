@@ -85,26 +85,12 @@ interface Props {
     initialData: Array<BaseSeries<Datum>>
     plotHeight?: number
     plotWidth?: number
-    // /**
-    //  * Callback when the chart subscribes to the {@link TimeSeriesChartData} observable
-    //  * @param subscription The RxJS subscription
-    //  */
-    // onSubscribe?: (subscription: Subscription) => void
-    // /**
-    //  * Callback function that is called when new data arrives to the chart.
-    //  * @param seriesName The name of the series for which new data arrived
-    //  * @param data The new data that arrived in the windowing tine
-    //  * @see UseChartValues.windowingTime
-    //  */
-    // onUpdateData?: (seriesName: string, data: Array<IterateDatum>) => void
 }
 
 export function StreamingPoincareChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
         initialData = [],
-        // onSubscribe,
-        // onUpdateData
     } = props
 
 
@@ -120,22 +106,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         padding: 4,
         margin: 6,
         marginRight: 20
-    }
-
-    const buttonStyle = {
-        backgroundColor: theme.backgroundColor,
-        outlineStyle: 'none',
-        borderColor: theme.color,
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: theme.color,
-        fontSize: 12,
-        width: 50,
-        padding: 4,
-        margin: 6,
-        marginRight: 20,
-        cursor: 'pointer',
     }
 
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
@@ -226,8 +196,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         }}
                         onClick={() => {
                             if (!running) {
-                                // initialDataRef.current = initialDataFrom(initialData)
-                                observableRef.current = randomDataObservable(initialDataRef.current)
+                                observableRef.current = randomDataObservable(initialData)
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
                                 intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -302,118 +271,100 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
-                {/*<InitialDataProvider initialData={initialDataRef.current}>*/}
-                {/*    <DataObservableProvider*/}
-                {/*        seriesObservable={observableRef.current}*/}
-                {/*        shouldSubscribe={running}*/}
-                {/*        windowingTime={75}*/}
-
-                {/*        onSubscribe={onSubscribe}*/}
-                {/*        onUpdateData={onUpdateData}*/}
-                {/*    >*/}
-                        <Chart
-                            // key={chartId.current}
-                            chartId={chartId.current}
-                            width={useGridCellWidth()}
-                            height={useGridCellHeight()}
-                            margin={{...defaultMargin, top: 60, bottom: 30, right: 60}}
-                            // svgStyle={{'background-color': 'pink'}}
-                            color={theme.color}
-                            backgroundColor={theme.backgroundColor}
-                            seriesStyles={new Map([
-                                ['test1', {
-                                    ...defaultLineStyle,
-                                    color: 'orange',
-                                    lineWidth: 1,
-                                    highlightColor: 'orange'
-                                }],
-                                ['test2', {
-                                    ...defaultLineStyle,
-                                    color: theme.name === 'light' ? 'blue' : 'gray',
-                                    lineWidth: 3,
-                                    highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                                    highlightWidth: 5
-                                }],
-                                ['test3', {
-                                    ...defaultLineStyle,
-                                    color: theme.name === 'light' ? 'dodgerblue' : 'gray',
-                                    lineWidth: 3,
-                                    highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
-                                    highlightWidth: 5
-                                }],
-                            ])}
-                            initialData={initialDataRef.current}
-                            seriesFilter={filter}
-                            seriesObservable={observableRef.current}
-                            shouldSubscribe={running}
-                            onUpdateAxesBounds={handleChartTimeUpdate}
-                            // onUpdateData={(name, data) => console.log(name, data.length)}
-                            windowingTime={150}
-                        >
-                            <ContinuousAxis
-                                axisId="x-axis-1"
-                                location={AxisLocation.Bottom}
-                                domain={[10, 10000]}
-                                label="x-axis"
-                            />
-                            <ContinuousAxis
-                                axisId="y-axis-1"
-                                location={AxisLocation.Left}
-                                domain={[0, 1000]}
-                                label="y-axis"
-                            />
-                            <ContinuousAxis
-                                axisId="x-axis-2"
-                                location={AxisLocation.Top}
-                                domain={[100, 2500]}
-                                label="x-axis (2)"
-                            />
-                            <ContinuousAxis
-                                axisId="y-axis-2"
-                                location={AxisLocation.Right}
-                                scale={d3.scaleLog()}
-                                domain={[100, 1200]}
-                                label="y-axis (2)"
-                            />
-                            <Tracker
-                                visible={visibility.tracker}
-                                labelLocation={TrackerLabelLocation.WithMouse}
-                                style={{color: theme.color}}
-                                font={{color: theme.color}}
-                                // onTrackerUpdate={update => console.dir(update)}
-                            />
-                            <Tooltip
-                                visible={visibility.tooltip}
-                                style={{
-                                    fontColor: theme.color,
-                                    backgroundColor: theme.backgroundColor,
-                                    borderColor: theme.color,
-                                    backgroundOpacity: 0.9,
-                                }}
-                            >
-                                <PoincarePlotTooltipContent
-                                    xLabel="t (ms)"
-                                    yLabel="count"
-                                    yValueFormatter={value => formatNumber(value, " ,.0f")}
-                                    yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
-                                />
-                            </Tooltip>
-                            <PoincarePlot
-                                interpolation={interpolation}
-                                axisAssignments={new Map([
-                                    // ['test1', assignAxes("x-axis-1", "y-axis-1")],
-                                    ['test2', assignAxes("x-axis-2", "y-axis-2")],
-                                    ['test3', assignAxes("x-axis-2", "y-axis-1")],
-                                ])}
-                                dropDataAfter={10000}
-                                panEnabled={true}
-                                zoomEnabled={true}
-                                zoomKeyModifiersRequired={true}
-                                // withCadenceOf={30}
-                            />
-                        </Chart>
-                {/*    </DataObservableProvider>*/}
-                {/*</InitialDataProvider>*/}
+                <Chart
+                    chartId={chartId.current}
+                    width={useGridCellWidth()}
+                    height={useGridCellHeight()}
+                    margin={{...defaultMargin, top: 60, bottom: 30, right: 60}}
+                    // svgStyle={{'background-color': 'pink'}}
+                    color={theme.color}
+                    backgroundColor={theme.backgroundColor}
+                    seriesStyles={new Map([
+                        ['test1', {
+                            ...defaultLineStyle,
+                            color: 'orange',
+                            lineWidth: 1,
+                            highlightColor: 'orange'
+                        }],
+                        ['test2', {
+                            ...defaultLineStyle,
+                            color: theme.name === 'light' ? 'blue' : 'gray',
+                            lineWidth: 1,
+                            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                            highlightWidth: 5
+                        }],
+                        ['test3', {
+                            ...defaultLineStyle,
+                            color: theme.name === 'light' ? 'red' : 'gray',
+                            lineWidth: 1,
+                            highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
+                            highlightWidth: 5
+                        }],
+                    ])}
+                    initialData={initialDataRef.current}
+                    seriesFilter={filter}
+                    seriesObservable={observableRef.current}
+                    shouldSubscribe={running}
+                    onUpdateAxesBounds={handleChartTimeUpdate}
+                    // onUpdateData={(name, data) => console.log(name, data.length)}
+                    windowingTime={150}
+                >
+                    <ContinuousAxis
+                        axisId="x-axis-1"
+                        location={AxisLocation.Bottom}
+                        domain={[0, 1000]}
+                        label="f[n](x)"
+                    />
+                    <ContinuousAxis
+                        axisId="y-axis-1"
+                        location={AxisLocation.Left}
+                        domain={[0, 1000]}
+                        label="f[n+1](x)"
+                    />
+                    <ContinuousAxis
+                        axisId="x-axis-2"
+                        location={AxisLocation.Top}
+                        domain={[0, 1000]}
+                        label="f[n](x)"
+                    />
+                    <ContinuousAxis
+                        axisId="y-axis-2"
+                        location={AxisLocation.Right}
+                        domain={[0, 1000]}
+                        label="f[n+1](x)"
+                    />
+                    <Tracker
+                        visible={visibility.tracker}
+                        labelLocation={TrackerLabelLocation.WithMouse}
+                        style={{color: theme.color}}
+                        font={{color: theme.color}}
+                        // onTrackerUpdate={update => console.dir(update)}
+                    />
+                    <Tooltip
+                        visible={visibility.tooltip}
+                        style={{
+                            fontColor: theme.color,
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            backgroundOpacity: 0.9,
+                        }}
+                    >
+                        <PoincarePlotTooltipContent
+                            xLabel="t (ms)"
+                            yLabel="count"
+                            yValueFormatter={value => formatNumber(value, " ,.0f")}
+                            yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
+                        />
+                    </Tooltip>
+                    <PoincarePlot
+                        interpolation={interpolation}
+                        dropDataAfter={10000}
+                        panEnabled={true}
+                        zoomEnabled={true}
+                        zoomKeyModifiersRequired={true}
+                        // withCadenceOf={30}
+                    />
+                </Chart>
             </GridItem>
         </Grid>
     );

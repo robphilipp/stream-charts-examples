@@ -13,13 +13,19 @@ export interface AxesState {
      */
     readonly axisFor: (axisId: string) => BaseAxis | undefined
     /**
+     * Returns the default axis
+     * @return The default axis
+     * @see axisDefaultId
+     */
+    readonly defaultAxis: () => BaseAxis
+    /**
      * @return An array holding all existing the x-axis IDs
      */
     readonly axisIds: () => Array<string>
     /**
      * @return The default name of the x-axis (in case only on default axis was added)
      */
-    readonly axisDefaultName: () => string
+    readonly axisDefaultId: () => string
     /**
      * Mapping of the axis IDs to their axis objects
      */
@@ -67,7 +73,8 @@ function axesStateFrom(axes: Map<string, BaseAxis>): AxesState {
             return axis
         },
         axisIds: () => Array.from(axes.keys()),
-        axisDefaultName: () => Array.from(axes.keys())[0],
+        axisDefaultId: () => Array.from(axes.keys())[0],
+        defaultAxis: () => Array.from(axes.values())[0],
         axes
     }
 }
