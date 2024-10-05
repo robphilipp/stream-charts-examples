@@ -208,7 +208,7 @@ export function PoincarePlot(props: Props): null {
                 // calculate the bounds
                 updatePlotRef.current(fnRange, fn1Range, mainG)
                 if (onUpdateAxesBounds) {
-                    setTimeout(() => onUpdateAxesBounds(boundsMapFrom(ranges)), 0)
+                    setTimeout(() => {onUpdateAxesBounds(boundsMapFrom(ranges))}, 0)
                 }
             }
         },
@@ -228,37 +228,9 @@ export function PoincarePlot(props: Props): null {
             const xRange = xAxesState.defaultAxis() ?
                 continuousRangeForDefaultAxis(xAxesState.defaultAxis() as ContinuousNumericAxis) :
                 continuousAxisRangeFor(Infinity, -Infinity)
-            const minTime = initialData
-                .reduce(
-                    (tMin, series) => Math.min(
-                        tMin,
-                        !series.isEmpty() ? series.data[0].time : tMin
-                    ),
-                    Infinity
-                )
             const [start, end] = xRange.original
-            const startTime = minTime === Infinity ? 0 : minTime
-            const range = continuousAxisRangeFor(startTime, startTime + end - start)
+            const range = continuousAxisRangeFor(start, end)
 
-            // const xRanges = new Map(
-            //     Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-            //     .map(([id, range]) => {
-            //         // grab the current range, then calculate the minimum time from the initial data, and
-            //         // set that as the start, and then add the range to it for the end time
-            //         const [start, end] = range.original
-            //         const minTime = initialData
-            //             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-            //             .reduce(
-            //                 (tMin, series) => Math.min(
-            //                     tMin,
-            //                     !series.isEmpty() ? series.data[0].time : tMin
-            //                 ),
-            //                 Infinity
-            //             )
-            //         const startTime = minTime === Infinity ? 0 : minTime
-            //         return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
-            //     })
-            // )
             updateRangesAndPlot(range, range)
         },
         // ** not happy about this **
@@ -392,15 +364,24 @@ export function PoincarePlot(props: Props): null {
                 // define the clip-path so that the series lines don't go beyond the plot area
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
 
-                // const xBaseAxisLinear = xAxesState.axisFor(Array.from(axisAssignments.values())[0].xAxis) as ContinuousNumericAxis
-                // const yBaseAxisLinear = xAxesState.axisFor(Array.from(axisAssignments.values())[0].xAxis) as ContinuousNumericAxis
-                // mainGElem
-                //     .append("line")
-                //     .style("stroke", "grey")
-                //     .attr("x0", xBaseAxisLinear.scale(0))
-                //     .attr("x1", xBaseAxisLinear.scale(0))
-                //     .attr("y0", yBaseAxisLinear.scale(0))
-                //     .attr("y1", yBaseAxisLinear.scale(0))
+                // ---
+                // todo only want to do this once, on the first plot, and then leave it,
+                //     unless the axes are updated
+                const xAxis = xAxesState.defaultAxis() as ContinuousNumericAxis
+                const yAxis = yAxesState.defaultAxis() as ContinuousNumericAxis
+                const {start: xStart, end: xEnd} = continuousRangeForDefaultAxis(xAxis)
+                const {start: yStart, end: yEnd} = continuousRangeForDefaultAxis(yAxis)
+
+                const line = d3.line()([
+                    [xAxis.scale(xStart), yAxis.scale(yStart)],
+                    [xAxis.scale(xEnd), yAxis.scale(yEnd)]
+                ])
+                mainGElem
+                    .append("path")
+                    .style("stroke", "grey")
+                    .attr("d", line)
+                    .attr('transform', `translate(${margin.left}, ${margin.top})`)
+                // ---
 
                 boundedSeries.forEach((data, name) => {
                     // grab the x and y axes assigned to the series, and if either or both
@@ -469,12 +450,8 @@ export function PoincarePlot(props: Props): null {
                 })
             }
         },
-        [
-            container, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
-            zoomKeyModifiersRequired, onZoom, xAxesState.axisFor,
-            yAxesState.axisFor, seriesStyles, seriesFilter, interpolation,
-            mouseOverHandlerFor, mouseLeaveHandlerFor
-        ]
+        [container, chartId, plotDimensions, margin, xAxesState.axisFor, yAxesState.axisFor,
+            seriesStyles, seriesFilter, interpolation, mouseOverHandlerFor, mouseLeaveHandlerFor]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -499,20 +476,6 @@ export function PoincarePlot(props: Props): null {
     const subscribe = useCallback(
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
-            // if (withCadenceOf !== undefined) {
-            //     return subscriptionWithCadenceFor(
-            //         seriesObservable as Observable<IterateChartData>,
-            //         onSubscribe,
-            //         windowingTime,
-            //         axisAssignments, xAxesState,
-            //         onUpdateData,
-            //         dropDataAfter,
-            //         updateTimingAndPlot,
-            //         seriesRef.current,
-            //         (axisId, end) => currentTimeRef.current.set(axisId, end),
-            //         withCadenceOf
-            //     )
-            // }
             return subscriptionIteratesFor(
                 seriesObservable  as Observable<IterateChartData>,
                 onSubscribe,
@@ -536,39 +499,18 @@ export function PoincarePlot(props: Props): null {
         ]
     )
 
-    // const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
-    // useEffect(
-    //     () => {
-    //         if (container && mainG) {
-    //             // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
-    //             // change. for example, as data is streamed in, the times change, and then we need to update the
-    //             // time-range. however, we want to keep the time-ranges to reflect their original scale so that
-    //             // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
-    //             // interpolation changes, then the update plot changes, and the time-ranges must maintain their
-    //             // original scale as well.
-    //             if (timeRangesRef.current.size === 0) {
-    //                 // when no time-ranges have yet been created, then create them and hold on to a mutable
-    //                 // reference to them
-    //                 timeRangesRef.current = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-    //             } else {
-    //                 // when the time-ranges already exist, then we want to update the time-ranges for each
-    //                 // existing time-range in a way that maintains the original scale.
-    //                 const intervals = timeIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-    //                 timeRangesRef.current
-    //                     .forEach((range, id, rangesMap) => {
-    //                         const [start, end] = intervals.get(id) || [NaN, NaN]
-    //                         if (!isNaN(start) && !isNaN(end)) {
-    //                             // update the reference map with the new (start, end) portion of the range,
-    //                             // while keeping the original scale intact
-    //                             rangesMap.set(id, range.update(start, end))
-    //                         }
-    //                     })
-    //             }
-    //             updatePlot(timeRangesRef.current, mainG)
-    //         }
-    //     },
-    //     [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
-    // )
+    // updates the plot when the interpolation and filter change, because the updatePlot
+    // callback has changed.
+    useEffect(
+        () => {
+            if (container && mainG) {
+                // todo the ranges are temporary, either they will be removed, or they will
+                //     be updated to correspond to the ranges for all the axes
+                updatePlot(continuousAxisRangeFor(0, 0), continuousAxisRangeFor(0, 0), mainG)
+            }
+        },
+        [container, mainG, updatePlot]
+    )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
     // is changed to `true` and we haven't subscribed yet, then subscribe. when the
@@ -592,7 +534,7 @@ export function PoincarePlot(props: Props): null {
 }
 
 function axesForSeriesPoincare(
-    series: Array<TimeSeries> | Array<IterateSeries>,
+    series: Array<IterateSeries>,
     xAxesState: AxesState
 ): Array<string> {
     return axesForSeriesGen(series, new Map(), xAxesState)
