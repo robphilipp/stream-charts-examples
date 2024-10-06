@@ -26,6 +26,7 @@ import {IterateDatum, IterateSeries} from "./iterateSeries";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
 import {useInitialData} from "./hooks/useInitialData";
 import {AxesState} from "./hooks/AxesState";
+import {emptySeries} from "./baseSeries";
 
 interface Props {
     /**
@@ -151,6 +152,8 @@ export function PoincarePlot(props: Props): null {
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     const allowTooltip = useRef<boolean>(isSubscriptionClosed())
+
+    const lineDataRef = useRef<Series>([])
 
     // useEffect(
     //     () => {
@@ -366,21 +369,28 @@ export function PoincarePlot(props: Props): null {
 
                 // ---
                 // todo only want to do this once, on the first plot, and then leave it,
-                //     unless the axes are updated
+                //     unless the axes are updated, also needs to be removed/added when the
+                //     plot size changes
                 const xAxis = xAxesState.defaultAxis() as ContinuousNumericAxis
                 const yAxis = yAxesState.defaultAxis() as ContinuousNumericAxis
                 const {start: xStart, end: xEnd} = continuousRangeForDefaultAxis(xAxis)
                 const {start: yStart, end: yEnd} = continuousRangeForDefaultAxis(yAxis)
 
-                const line = d3.line()([
-                    [xAxis.scale(xStart), yAxis.scale(yStart)],
-                    [xAxis.scale(xEnd), yAxis.scale(yEnd)]
-                ])
+                const lineGenerator = d3.line()
+                    .x(d => xAxis.scale(d[0]))
+                    .y(d => yAxis.scale(d[1]))
                 mainGElem
-                    .append("path")
-                    .style("stroke", "grey")
-                    .attr("d", line)
-                    .attr('transform', `translate(${margin.left}, ${margin.top})`)
+                    .selectAll(`#fn-equals-fn1-${chartId}-poincare`)
+                    .data([[[xStart, yStart], [xEnd, yEnd]] as Series])
+                    .join(enter => enter
+                            .select("path")
+                            .style("stroke", "grey")
+                            .attr("class", `fn-equals-fn1-poincare`)
+                            .attr('transform', `translate(${margin.left}, ${margin.top})`)
+                            .attr("d", lineGenerator),
+                        update => update.remove(),
+                        exit => exit.remove()
+                    )
                 // ---
 
                 boundedSeries.forEach((data, name) => {
