@@ -109,7 +109,9 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
-    const randomDataObservable = randomData(1.5, 100)
+    const [tentMapMu, setTentMapMu] = useState<number>(1.8)
+
+    const randomDataObservable = randomData(tentMapMu, 100)
     // const randomDataObservable = randomData(1.83, 100)
     const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
@@ -152,6 +154,10 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         const [, factory] = INTERPOLATIONS.get(selectedInterpolation) || ['Linear', d3.curveLinear]
         setInterpolation(() => factory)
         setSelectedInterpolationName(selectedInterpolation)
+    }
+
+    function handleTentMapMuUpdate(mu: number): void {
+        setTentMapMu(mu)
     }
 
     /**
@@ -264,6 +270,13 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <option key={value} value={value}>{name}</option>
                         ))}
                     </select>
+                    <label style={{color: theme.color, paddingLeft: 10}}>mu <input
+                        type="number"
+                        value={tentMapMu}
+                        onChange={event => handleTentMapMuUpdate(event.currentTarget.value as unknown as number)}
+                        style={inputStyle}
+                        disabled={running}
+                    /></label>
                     <span style={{
                         color: theme.color,
                         marginLeft: 25

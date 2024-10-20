@@ -1,4 +1,4 @@
-import {emptySeries, seriesFrom} from "./timeSeries";
+import {emptySeries, seriesFrom} from "./baseSeries";
 
 describe('should be able to create an empty series', () => {
     test('an empty series should be empty', () => {
