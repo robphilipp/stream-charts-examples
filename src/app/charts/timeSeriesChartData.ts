@@ -42,22 +42,24 @@ export function emptyTimeSeriesChartData(series: Array<string>): TimeSeriesChart
 /**
  * Creates an empty chart data object with all the values set to 0
  * @param seriesList The list of series names (identifiers) to update
+ * @param currentTime=0] The current time
  * @return An empty chart data object
  */
-export function initialChartData(seriesList: Array<TimeSeries>): TimeSeriesChartData {
+export function initialChartData(seriesList: Array<TimeSeries>, currentTime: number = 0): TimeSeriesChartData {
     const maxTime = seriesList.reduce(
-        (tMax, series) => Math.max(tMax, series.last().map(p => p.time).getOrElse(-Infinity)),
+        (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(-Infinity)),
         -Infinity
     )
     return {
         maxTime,
-        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(p => p.time).getOrElse(0)])),
+        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [
             series.name,
             [{
-                time: series.last().map(p => p.time).getOrElse(0),
-                value: series.last().map(p => p.value).getOrElse(0)
+                time: series.last().map(datum => datum.time).getOrElse(0),
+                value: series.last().map(datum => datum.value).getOrElse(0)
             }]
-        ]))
+        ])),
+        currentTime: currentTime
     }
 }

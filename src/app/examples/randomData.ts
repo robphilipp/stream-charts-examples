@@ -1,6 +1,6 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-import {Datum, TimeSeries} from "../charts/timeSeries";
+import {Datum, datumOf, TimeSeries} from "../charts/timeSeries";
 import {TimeSeriesChartData, initialChartData} from "../charts/timeSeriesChartData";
 import {BaseSeries, seriesFrom} from "../charts/baseSeries";
 // import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
@@ -63,6 +63,138 @@ export function randomSpikeDataObservable(
     );
 }
 
+
+/**
+ * Higher-order function that forms a closure on the tent map's mu and returns
+ * a function that calculates the tent map iterates. The tent map is defined as
+ * <p>`x[n+1] = f[mu, n](x[n]) = mu * min(x[n], 1 - x[n])`</p>
+ * where the `x[n]` must be on the unit interval `[0, 1]`.
+ * @param mu The slope of the tent map must be in the interval `[0, 2]`. When
+ * the specified {@link mu} is not in this interval, it will be clamped to be
+ * in the interval.
+ * @return A function that accepts a data collection time and the previous iterate.
+ * The `time` does not factor into the evaluation of the next tent-map iterate,
+ * but rather is just cargo used for displaying time, if needed. This function returns
+ * a {@link Datum} whose y-values are the iterates of the tent-map, and whose
+ * x-values are the collection/calculation time.
+ */
+function tentMapFn(mu: number): (time: number, xn: number) => Datum {
+    const cleanMu = Math.max(0, Math.min(mu, 2))
+
+    // the time is just the data collection time and does not factor int
+    // the tent map calculation.
+    return (time: number, xn: number): Datum => {
+        const xn1 = cleanMu * Math.min(xn, 1 - xn)
+        return datumOf(time, xn1)
+    }
+}
+
+export function initialTentMapData(updatePeriod: number, series: Map<string, number>): Array<TimeSeries> {
+    return Array.from(series.entries())
+        .map(([name, initialTime]) => seriesFrom(name, [datumOf(initialTime + Math.ceil(Math.random() * updatePeriod), Math.random())])
+    )
+}
+// export function initialTentMapData(updatePeriod: number, series: Map<string, number>): Map<string, Datum> {
+//     return new Map<string, Datum>(Array.from(series.entries())
+//         .map(([name, initialTime]) => [
+//             name,
+//             {
+//                 time: initialTime + Math.ceil(Math.random() * updatePeriod),
+//                 value: Math.random()
+//             }]
+//         )
+//     )
+// }
+// function initialTentMapData(
+//     initialTime: number,
+//     updatePeriod: number,
+//     series: Array<string>
+// ): Map<string, Datum> {
+//     return new Map<string, Datum>(series
+//         .map(name => [
+//             name,
+//             {
+//                 time: initialTime + Math.ceil(Math.random() * updatePeriod),
+//                 value: Math.random()
+//             }]
+//         )
+//     )
+// }
+
+function tentMapData(
+    iterateTime: number,
+    series: Array<string>,
+    seriesPreviousIterates: Map<string, Datum>,
+    tentMap: (time: number, xn: number) => Datum,
+    updatePeriod: number
+): TimeSeriesChartData {
+    const maxTimes = new Map(Array.from(seriesPreviousIterates.entries())
+        .map(([name, datum]) => [name, datum.time + iterateTime])
+    )
+    return {
+        maxTime: iterateTime,
+        maxTimes,
+        newPoints: new Map(series.map(name => {
+            const maxTime = maxTimes.get(name) || 0
+            const nextIterateTime = iterateTime + maxTime - Math.ceil(Math.random() * updatePeriod)
+            const {time, value} = tentMap(nextIterateTime, seriesPreviousIterates.get(name)?.value || 0)
+            return [name, [{time, value}]]
+        }))
+    }
+}
+
+export function tentMapObservable(
+    mu: number,
+    series: Array<TimeSeries>,
+    updatePeriod: number = 25
+): Observable<TimeSeriesChartData> {
+    const initialData = initialChartData(series)
+    const tentMap = tentMapFn(mu)
+    const accumulateFn = accumulateTentDataAt(updatePeriod);
+    return interval(updatePeriod).pipe(
+        // convert the number sequence to a time
+        // map(sequence => (sequence + 1) * updatePeriod),
+
+        // map(time => tentMapData(time, seriesNames, ))
+        scan((prev, sequence) => accumulateFn(prev, sequence + 1, tentMap), initialData)
+    )
+}
+
+function accumulateTentData(
+    previous: TimeSeriesChartData,
+    iterateNum: number,
+    updatePeriod: number,
+    tentMap: (time: number, xn: number) => Datum
+): TimeSeriesChartData {
+    // make a copy of the current max times, which we'll update with new points
+    const maxTimes = new Map(previous.maxTimes.entries())
+    previous.newPoints.forEach((datum, name) => {
+        maxTimes.set(name, (datum[datum.length-1].time + updatePeriod))
+    })
+    // deep copy of the previous data points, and calculate the next point
+    const newPoints = new Map(Array.from(previous.newPoints.entries()).map(([name, data]) => [name, data.slice()]))
+    newPoints.forEach((data, name) => {
+        const lastDatum = data[data.length-1]
+        const newDatum = tentMap(lastDatum.time + updatePeriod, lastDatum.value)
+        data.shift()
+        data.push(newDatum)
+    })
+
+    return {
+        maxTime: previous.maxTime + updatePeriod,
+        maxTimes,
+        newPoints,
+        currentTime: (iterateNum + 1) * updatePeriod
+    };
+}
+
+function accumulateTentDataAt(updatePeriod: number):
+    (previous: TimeSeriesChartData, iterateNum: number, tentMap: (time: number, xn: number) => Datum) => TimeSeriesChartData
+{
+    return (previous: TimeSeriesChartData, iterateNum: number, tentMap: (time: number, xn: number) => Datum) =>
+        accumulateTentData(previous, iterateNum, updatePeriod, tentMap)
+}
+
 /**
  * Creates random weight data
  * @param sequenceTime The current time
@@ -97,7 +229,6 @@ function randomWeightData(
         }))
     };
 }
-
 
 /**
  * Adds the accumulated chart data to the current random one
@@ -149,8 +280,8 @@ function mergeSeries(
  * @param series The number of time-series for which to generate data (i.e. one for each neuron)
  * @param delta The max change in weight
  * @param [updatePeriod=25] The time-interval between the generation of subsequent data points
- * @param min The minimum allowed value
- * @param max The maximum allowed value
+ * @param [min=-1] The minimum allowed value
+ * @param [max=1] The maximum allowed value
  * @return An observable that produces data.
  */
 export function randomWeightDataObservable(
@@ -171,7 +302,7 @@ export function randomWeightDataObservable(
 
         // add the random value to the previous random value in succession to create a random walk for each series
         scan((acc, value) => accumulateChartData(acc, value, min, max), initialData)
-    );
+    )
 }
 
 export function initialRandomWeightData(
@@ -196,4 +327,3 @@ export function initialRandomWeightData(
         return seriesFrom<Datum>(name, data)
     })
 }
-

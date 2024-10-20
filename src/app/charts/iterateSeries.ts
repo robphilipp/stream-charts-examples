@@ -54,11 +54,3 @@ export const seriesFromTuples = (name: string, data: Array<[number, number, numb
     seriesFrom(name, data.map(([t, fn, fn_1]) => iterateDatumOf(t, fn, fn_1)))
 
 
-export interface PixelIterateDatum extends IterateDatum {
-    // f[n](x)
-    x: number;
-    // f[n+1](x)
-    y: number;
-}
-
-

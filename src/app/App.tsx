@@ -13,7 +13,7 @@ import {
 import {Toggle, ToggleStatus} from "./ui/Toggle";
 import {darkTheme, lightTheme, Theme} from "./ui/Themes";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
-import {initialRandomWeightData} from "./examples/randomData";
+import {initialRandomWeightData, initialTentMapData} from "./examples/randomData";
 import {Tabs} from "./ui/Tabs";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {StreamingPoincareChart} from "./examples/StreamingPoincareChart";
@@ -23,7 +23,8 @@ for (let i = 0; i < 30; ++i) {
     seriesNames.push(`test${i}`)
 }
 const initialScatterData = initialRandomWeightData(seriesNames, 10, 500, 50, 20, 10)
-const initialIterateData = initialRandomWeightData(seriesNames, 10, 500, 50, 20, 10)
+const iterateSeriesNames = seriesNames.slice(1, 2)
+const initialIterateData = initialTentMapData(25, new Map<string, number>(iterateSeriesNames.map(name => [name, Math.random() * 2])))
 
 const spikeSeriesNames: Array<string> = []
 for (let i = 0; i < 50; ++i) {

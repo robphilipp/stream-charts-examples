@@ -4,7 +4,7 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRange
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {Series, setClipPath} from "./plot";
-import {Datum, TimeSeries} from "./timeSeries";
+import {Datum} from "./timeSeries";
 import {
     axesForSeriesGen,
     BaseAxis,
@@ -26,7 +26,6 @@ import {IterateDatum, IterateSeries} from "./iterateSeries";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
 import {useInitialData} from "./hooks/useInitialData";
 import {AxesState} from "./hooks/AxesState";
-import {emptySeries} from "./baseSeries";
 
 interface Props {
     /**
@@ -152,8 +151,6 @@ export function PoincarePlot(props: Props): null {
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     const allowTooltip = useRef<boolean>(isSubscriptionClosed())
-
-    const lineDataRef = useRef<Series>([])
 
     // useEffect(
     //     () => {
@@ -313,6 +310,8 @@ export function PoincarePlot(props: Props): null {
                         series.data.filter(datum => !isNaN(datum.iterateN)).map(datum => [datum.iterateN, datum.iterateN_1]) as Series
                     ]
                 }))
+                // console.log("dataRef", dataRef.current)
+                // console.log("boundedSeries", boundedSeries)
 
                 // set up panning
                 // if (panEnabled) {

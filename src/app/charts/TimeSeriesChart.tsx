@@ -285,7 +285,7 @@ export function Chart(props: Props): JSX.Element {
 
                                     color={color}
                                     seriesStyles={seriesStyles}
-                                    initialData={initialData}
+                                    // initialData={initialData}
                                     seriesFilter={seriesFilter}
                                 >
                                     {

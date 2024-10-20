@@ -1,5 +1,5 @@
 import {default as React, JSX, useRef, useState} from "react";
-import {randomWeightDataObservable} from "./randomData";
+import {tentMapObservable} from "./randomData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {
@@ -25,7 +25,6 @@ import {Tooltip} from "../charts/Tooltip";
 import {PoincarePlotTooltipContent} from "../charts/PoincarePlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
 import {PoincarePlot} from "../charts/PoincarePlot";
-import {assignAxes} from "../charts/plot";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -72,8 +71,8 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
-const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
-    return initialData => iteratesObservable(randomWeightDataObservable(initialData, delta, updatePeriod, min, max), 1)
+const randomData = (mu: number, updatePeriod: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
+    return initialData => iteratesObservable(tentMapObservable(mu, initialData, updatePeriod), 1)
 }
 
 /**
@@ -110,7 +109,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
-    const randomDataObservable = randomData(25, 50, 10, 1000)
+    const randomDataObservable = randomData(1.5, 100)
+    // const randomDataObservable = randomData(1.83, 100)
     const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
     const [running, setRunning] = useState<boolean>(false)
@@ -312,25 +312,25 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[0, 1000]}
+                        domain={[0, 1]}
                         label="f[n](x)"
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
-                        domain={[0, 1000]}
+                        domain={[0, 1]}
                         label="f[n+1](x)"
                     />
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[0, 1000]}
+                        domain={[0, 1]}
                         label="f[n](x)"
                     />
                     <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
-                        domain={[0, 1000]}
+                        domain={[0, 1]}
                         label="f[n+1](x)"
                     />
                     <Tracker
