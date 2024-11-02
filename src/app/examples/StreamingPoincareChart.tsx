@@ -48,6 +48,7 @@ import {lightTheme, Theme} from "../ui/Themes";
 import {IterateChartData, iteratesObservable} from "../charts/iterates";
 import {BaseSeries, seriesFrom} from "../charts/baseSeries";
 import {Button} from "../ui/Button";
+import {Option} from "prelude-ts";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -58,6 +59,10 @@ const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveStepBefore', ['Step Before', d3.curveStepBefore]],
     ['curveBumpX', ['Bump', d3.curveBumpX]],
 ])
+
+function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory = d3.curveLinear): d3.CurveFactory {
+    return (INTERPOLATIONS.get(name) || [undefined, defaultFactory])[1]
+}
 
 interface Visibility {
     tooltip: boolean;
@@ -121,8 +126,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
-    const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
-    const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
+    const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveStepAfter')
+    const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => interpolationFactoryFor(selectedInterpolationName))
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
@@ -151,7 +156,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
      * @param selectedInterpolation The name of the selected interpolation
      */
     function handleInterpolationChange(selectedInterpolation: string): void {
-        const [, factory] = INTERPOLATIONS.get(selectedInterpolation) || ['Linear', d3.curveLinear]
+        const factory = interpolationFactoryFor(selectedInterpolation)
         setInterpolation(() => factory)
         setSelectedInterpolationName(selectedInterpolation)
     }
