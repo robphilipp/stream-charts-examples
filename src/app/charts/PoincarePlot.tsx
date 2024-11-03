@@ -67,7 +67,7 @@ interface Props {
 }
 
 /**
- * Renders a streaming scatter plot for the series in the initial data and those sourced by the
+ * Renders a streaming Poincare (iterates) plot for the series in the initial data and those sourced by the
  * observable specified as a property in the {@link Chart}. This component uses the {@link useChart}
  * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
  * chart ecosystem (axes, tracker, tooltip).
@@ -126,7 +126,7 @@ export function PoincarePlot(props: Props): null {
 
         onSubscribe = noop,
         onUpdateData,
-    } = useDataObservable()
+    } = useDataObservable<IterateChartData, IterateDatum>()
 
     const {initialData} = useInitialData<IterateDatum>()
 
@@ -390,11 +390,15 @@ export function PoincarePlot(props: Props): null {
                             .select("path")
                             .style("stroke", "grey")
                             .attr("class", `fn-equals-fn1-poincare`)
+                            .attr("id", `#fn-equals-fn1-${chartId}-poincare`)
                             .attr('transform', `translate(${margin.left}, ${margin.top})`)
                             .attr("d", lineGenerator),
                         update => update.remove(),
                         exit => exit.remove()
                     )
+                    // clear out mouse-enter callbacks for the diagonal line
+                    .on("mouseenter", () => {})
+                    .on("mouseleave", () => {})
                 // ---
 
                 boundedSeries.forEach((data, name) => {
@@ -416,7 +420,6 @@ export function PoincarePlot(props: Props): null {
                     if (showPoints) {
                         mainGElem
                             .selectAll(`.${name}-${chartId}-poincare-points`)
-                            // .selectAll(`#${name}-${chartId}-poincare-points`)
                             .data(plotData, () => `${name}`)
                             .join(
                                 enter => enter
@@ -437,7 +440,7 @@ export function PoincarePlot(props: Props): null {
                                 ,
                                 exit => exit.remove()
                             )
-                            .on("mouseover", (event: React.MouseEvent<SVGCircleElement>, datumArray: [number, number]) => {
+                            .on("mouseenter", (event: React.MouseEvent<SVGCircleElement>, datumArray: [number, number]) => {
                                 d3.select<SVGPathElement, Datum>(event.currentTarget)
                                     .attr("r", 5)
                             })
@@ -452,8 +455,7 @@ export function PoincarePlot(props: Props): null {
                         .selectAll(`#${name}-${chartId}-poincare`)
                         .data([[], plotData], () => `${name}`)
                         .join(
-                            enter => {
-                                const pathSelection = enter
+                            enter => enter
                                     .append("path")
                                     .attr("class", 'iterate-series-lines')
                                     .attr("id", `${name}-${chartId}-poincare`)
@@ -469,9 +471,8 @@ export function PoincarePlot(props: Props): null {
                                     .attr("stroke-width", lineWidth)
                                     .attr('transform', `translate(${margin.left}, ${margin.top})`)
                                     .attr("clip-path", `url(#${clipPathId})`)
-                                pathSelection
                                     .on(
-                                        "mouseover",
+                                        "mouseenter",
                                         (event, datumArray) =>
                                             // recall that this handler is passed down via the "useChart" hook
                                             handleMouseOverSeries(
@@ -498,8 +499,7 @@ export function PoincarePlot(props: Props): null {
                                             mouseLeaveHandlerFor(`tooltip-${chartId}`)
                                         )
                                     )
-                                return pathSelection
-                            },
+                            ,
                             update => update,
                             exit => exit.remove()
                         )
@@ -589,10 +589,7 @@ export function PoincarePlot(props: Props): null {
     return null
 }
 
-function axesForSeriesPoincare(
-    series: Array<IterateSeries>,
-    xAxesState: AxesState
-): Array<string> {
+function axesForSeriesPoincare(series: Array<IterateSeries>, xAxesState: AxesState): Array<string> {
     return axesForSeriesGen(series, new Map(), xAxesState)
 }
 
@@ -621,25 +618,6 @@ function axesFor(
         throw Error("Poincare plot requires that y-axis be of type LinearAxis")
     }
     return [xAxisLinear, yAxisLinear]
-}
-
-function pointBetween(point: [number, number], b1: [number, number], b2: [number, number]): boolean {
-    const [px, py] = point
-    const [b1x, b1y] = b1
-    const [b2x, b2y] = b2
-    return (b1x <= px && px < b2x && b1y <= py && py < b2y) || (b2x <= px && px < b1x && b2y <= py && py < b1y)
-}
-
-type PointId = {
-    index: number,
-    x: number,
-    y: number,
-    sx: number,
-    sy: number,
-    distance: number
-}
-function equalsWithin(value1: number, value2: number, tolerance: number = 0.1): boolean {
-    return Math.abs(value1 - value2) <= tolerance
 }
 
 type Point = {
@@ -676,19 +654,21 @@ function isEmptyIndexedPoint(point: IndexedPoint = emptyIndexedPoint()): boolean
     return isNaN(point.index) && isNaN(point.delta) && isNaN(point.distance) && isEmptyPoint(point.point)
 }
 
-function distance(p1: Point, p2: Point): number {
+function distance(p1: Point, p2: Point, maxDistance: number = Infinity): number {
     if (p1 === undefined || p2 === undefined) {
-        return Infinity
+        return maxDistance
     }
-    return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y))
+    return Math.min(
+        Math.sqrt(
+            (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
+        ),
+        maxDistance
+    )
 }
 
 function pointsEqualWithin(point1: Point, point2: Point, tolerance: number = 2): boolean {
     return distance(point1, point2) <= tolerance
 }
-// function pointsEqualWithin(point: Point, domPoint: DOMPoint, tolerance: number = 2): boolean {
-//     return distance(point, {x: domPoint.x, y: domPoint.y} as Point) <= tolerance
-// }
 
 /**
  * For the specified series of points, calculates the distance between each successive point,
@@ -702,15 +682,12 @@ function calculateLinearIndexedPoints(series: Array<Point>): Array<IndexedPoint>
     return series
         .reduce(
             (indexedPoints, point, currentIndex) => {
-            // (indexedPoints, dataPoint, currentIndex) => {
-                // const point = {x: dataPoint[0], y: dataPoint[1]}
                 const delta = currentIndex > 0 ? distance(indexedPoints[currentIndex-1].point, point) : 0
                 const totalDistance = currentIndex > 0 ? indexedPoints[currentIndex-1].distance + delta : 0
 
                 const indexPoint = {
                     index: currentIndex,
                     point,
-                    // point: {x: dataPoint[0], y: dataPoint[1]},
                     delta,
                     distance: totalDistance
                 }
@@ -719,7 +696,6 @@ function calculateLinearIndexedPoints(series: Array<Point>): Array<IndexedPoint>
             },
             [] as Array<IndexedPoint>
         )
-        // .sort((p1, p2) => p2.distance - p1.distance)
 }
 
 /**
@@ -755,13 +731,9 @@ function handleMouseOverSeries(
     // grab the mouse coordinates (in screen coordinates)
     const mouseP = d3.pointer(event, container)
     const mousePixels = {x: mouseP[0], y: mouseP[1]} as Point
-    // const mousePixels = {x: event.clientX, y: event.clientY} as Point
 
     // convert all the data points to screen coordinates
     const dataPixels = series.map(([x, y]) => ({x: xAxis.scale(x) + margin.left, y: yAxis.scale(y) + margin.top} as Point))
-
-    // // calculate the linear distance between the mouse coordinates and the first data point
-    // const initialDist = distance(mousePixels, dataPixels[0])
 
     // calculate the linear distances between the data points, sorting them by their distance
     // from the first point. we use these to search for points.
@@ -779,8 +751,9 @@ function handleMouseOverSeries(
     let upperBound: IndexedPoint = emptyIndexedPoint()
     const totalPathLength = svgPath.getTotalLength()
 
-    // calculate the linear distance between the mouse coordinates and the first data point
-    let mouseDistance: number = distance(mousePixels, dataPixels[0]);
+    // calculate the linear distance between the mouse coordinates and the first data point,
+    // clamping the point at the SVG path length
+    let mouseDistance: number = distance(mousePixels, dataPixels[0], svgPath.getTotalLength());
     let pathPoint: Point;
     do {
         // get the point on the path at the current distance

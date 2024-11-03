@@ -1,10 +1,6 @@
 import {createContext, JSX, useContext} from "react";
 import {Observable, Subscription} from "rxjs";
-import {TimeSeriesChartData} from "../timeSeriesChartData";
-import {Datum} from "../timeSeries";
 // import {noop} from "../utils";
-import {IterateChartData} from "../iterates";
-import {IterateDatum} from "../iterateSeries";
 
 /**
  * No operation function for use when a default function is needed
@@ -108,7 +104,6 @@ export default function DataObservableProvider<CD, D>(props: Props<CD, D>): JSX.
         onSubscribe = noop,
         onUpdateData = noop,
     } = props
-
 
     return <DataObservableContext.Provider
         value={{
