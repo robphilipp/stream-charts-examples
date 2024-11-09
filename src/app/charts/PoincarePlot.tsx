@@ -311,7 +311,6 @@ export function PoincarePlot(props: Props): null {
                     })
                     return [
                         series.name,
-                        // series.data.map((datum, index) => [series.data[index - 1].value, datum.value]) as TimeSeries
                         series.data.filter(datum => !isNaN(datum.iterateN)).map(datum => [datum.iterateN, datum.iterateN_1]) as Series
                     ]
                 }))
@@ -408,7 +407,7 @@ export function PoincarePlot(props: Props): null {
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 
                     // grab the style for the series
-                    const {color, lineWidth} = seriesStyles.get(name) || {
+                    const {color, lineWidth, highlightColor} = seriesStyles.get(name) || {
                         ...defaultLineStyle,
                         highlightColor: defaultLineStyle.color
                     }
@@ -440,13 +439,61 @@ export function PoincarePlot(props: Props): null {
                                 ,
                                 exit => exit.remove()
                             )
-                            .on("mouseenter", (event: React.MouseEvent<SVGCircleElement>, datumArray: [number, number]) => {
-                                d3.select<SVGPathElement, Datum>(event.currentTarget)
+                            .on("mouseenter", (event: React.MouseEvent<SVGCircleElement>, datum: [number, number]) => {
+                                const circle = event.currentTarget as SVGCircleElement;
+                                d3.select<SVGPathElement, Datum>(circle)
                                     .attr("r", 5)
+                                    .style("fill", highlightColor)
+                                const index = plotData
+                                    .findIndex(point => point[0] === datum[0] && point[1] === datum[1])
+                                if (index > 0) {
+                                    d3.select(`#${name}-${chartId}-poincare-point-${index-1}`)
+                                        .attr("r", 5)
+                                        .style("fill", d3.rgb(highlightColor).brighter(0.7).toString())
+                                        .style("stroke-width", 1)
+                                        .style("stroke", color)
+                                    // make an arrow
+                                    const xArrow = xAxisLinear.scale(plotData[index-1][0]) + margin.left
+                                    const yArrow = yAxisLinear.scale(plotData[index-1][1]) + margin.top
+                                    svg
+                                        .append("text")
+                                        .attr('class', `${name}-${chartId}-poincare-point-text`)
+                                        .attr('fill', highlightColor)
+                                        .attr('font-family', 'sans-serif')
+                                        .attr('font-size', 11)
+                                        .attr('font-weight', 700)
+                                        .attr("transform", `translate(${xArrow - 8}, ${yArrow - 7})`)
+                                        .text(`n = ${index-1}`)
+
+                                }
+                                if (index < plotData.length-1) {
+                                    d3.select(`#${name}-${chartId}-poincare-point-${index+1}`)
+                                        .attr("r", 5)
+                                        .style("fill", highlightColor)
+                                        .style("fill", d3.rgb(highlightColor).brighter(0.7).toString())
+                                        .style("stroke-width", 1)
+                                        .style("stroke", color)
+                                    // make an arrow
+                                    const xArrow = xAxisLinear.scale(plotData[index+1][0]) + margin.left
+                                    const yArrow = yAxisLinear.scale(plotData[index+1][1]) + margin.top
+                                    svg
+                                        .append("text")
+                                        .attr('class', `${name}-${chartId}-poincare-point-text`)
+                                        .attr('fill', highlightColor)
+                                        .attr('font-family', 'sans-serif')
+                                        .attr('font-size', 11)
+                                        .attr('font-weight', 700)
+                                        .attr("transform", `translate(${xArrow - 8}, ${yArrow - 7})`)
+                                        .text(`n = ${index+1}`)
+                                }
                             })
-                            .on("mouseleave", (event: React.MouseEvent<SVGCircleElement>, datumArray: [number, number]) => {
-                                d3.select<SVGPathElement, Datum>(event.currentTarget)
+                            .on("mouseleave", (event: React.MouseEvent<SVGCircleElement>, datum: [number, number]) => {
+                                d3.selectAll<SVGPathElement, Datum>(`.${name}-${chartId}-poincare-points`)
                                     .attr("r", 2)
+                                    .style("fill", color)
+                                    .style("stroke", "none")
+                                d3.selectAll(`.${name}-${chartId}-poincare-point-arrows`).remove()
+                                d3.selectAll(`.${name}-${chartId}-poincare-point-text`).remove()
                             })
                     }
 
@@ -471,34 +518,34 @@ export function PoincarePlot(props: Props): null {
                                     .attr("stroke-width", lineWidth)
                                     .attr('transform', `translate(${margin.left}, ${margin.top})`)
                                     .attr("clip-path", `url(#${clipPathId})`)
-                                    .on(
-                                        "mouseenter",
-                                        (event, datumArray) =>
-                                            // recall that this handler is passed down via the "useChart" hook
-                                            handleMouseOverSeries(
-                                                chartId,
-                                                container,
-                                                xAxisLinear,
-                                                yAxisLinear,
-                                                name,
-                                                datumArray,
-                                                event,
-                                                margin,
-                                                seriesStyles,
-                                                allowTooltip.current,
-                                                mouseOverHandlerFor(`tooltip-${chartId}`)
-                                            )
-                                    )
-                                    .on(
-                                        "mouseleave",
-                                        event => handleMouseLeaveSeries(
-                                            name,
-                                            chartId,
-                                            event.currentTarget as SVGPathElement,
-                                            seriesStyles,
-                                            mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                                        )
-                                    )
+                                    // .on(
+                                    //     "mouseenter",
+                                    //     (event, datumArray) =>
+                                    //         // recall that this handler is passed down via the "useChart" hook
+                                    //         handleMouseOverSeries(
+                                    //             chartId,
+                                    //             container,
+                                    //             xAxisLinear,
+                                    //             yAxisLinear,
+                                    //             name,
+                                    //             datumArray,
+                                    //             event,
+                                    //             margin,
+                                    //             seriesStyles,
+                                    //             allowTooltip.current,
+                                    //             mouseOverHandlerFor(`tooltip-${chartId}`)
+                                    //         )
+                                    // )
+                                    // .on(
+                                    //     "mouseleave",
+                                    //     event => handleMouseLeaveSeries(
+                                    //         name,
+                                    //         chartId,
+                                    //         event.currentTarget as SVGPathElement,
+                                    //         seriesStyles,
+                                    //         mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                                    //     )
+                                    // )
                             ,
                             update => update,
                             exit => exit.remove()
@@ -710,7 +757,7 @@ function calculateLinearIndexedPoints(series: Array<Point>): Array<IndexedPoint>
  * @param margin The plot margin
  * @param seriesStyles The series style information (needed for (un)highlighting)
  * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
- * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
+ * @param mouseOverHandlerFor The handler for the mouse-over (registered by the <Tooltip/>)
  */
 function handleMouseOverSeries(
     chartId: number,
@@ -735,10 +782,12 @@ function handleMouseOverSeries(
     // convert all the data points to screen coordinates
     const dataPixels = series.map(([x, y]) => ({x: xAxis.scale(x) + margin.left, y: yAxis.scale(y) + margin.top} as Point))
 
+    // todo move this into the component as a ref and useEffect to recalculate when the data changes
     // calculate the linear distances between the data points, sorting them by their distance
     // from the first point. we use these to search for points.
     const pointsWithLinearDistances = calculateLinearIndexedPoints(dataPixels)
 
+    // todo move this into the component as a ref and useEffect to recalculate when the data or the spline changes
     // holds points for which we hava found the distances along the path
     const foundPoints: Array<IndexedPoint> = series.map(() => emptyIndexedPoint())
 
@@ -837,15 +886,16 @@ function handleMouseOverSeries(
     // Use d3 to select element, change color and size
     d3.select<SVGCircleElement, Datum>(`#${seriesName}-${chartId}-poincare-point-${upperBound.index}`)
         .attr('stroke', highlightColor)
-        .attr('stroke-width', highlightWidth)
         .attr("r", 5)
+        .attr("fill", d3.rgb(highlightColor).brighter(0.7).toString())
     d3.select<SVGCircleElement, Datum>(`#${seriesName}-${chartId}-poincare-point-${upperBound.index-1}`)
         .attr('stroke', highlightColor)
-        .attr('stroke-width', highlightWidth)
         .attr("r", 5)
+        .attr("fill", d3.rgb(highlightColor).brighter(0.7).toString())
     d3.select(svgPath)
         .attr('stroke', highlightColor)
-        .attr('stroke-width', highlightWidth)
+        .attr('stroke-width', 2)
+        // .attr('stroke-width', highlightWidth)
 
     if (mouseOverHandlerFor && allowTooltip) {
         mouseOverHandlerFor(seriesName, fn, series, [x, y])
@@ -872,6 +922,7 @@ function handleMouseLeaveSeries(
         .attr('stroke', color)
         .attr('stroke-width', lineWidth)
         .attr("r", 2)
+        .attr("fill", color)
     d3.select(svgPath)
         .attr('stroke', color)
         .attr('stroke-width', lineWidth)
