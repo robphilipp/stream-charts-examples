@@ -24,7 +24,7 @@ import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
 import {Tooltip} from "../charts/Tooltip";
 import {PoincarePlotTooltipContent} from "../charts/PoincarePlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
-import {PoincarePlot} from "../charts/PoincarePlot";
+import {NoCurveFactory, PoincarePlot} from "../charts/PoincarePlot";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -48,7 +48,6 @@ import {lightTheme, Theme} from "../ui/Themes";
 import {IterateChartData, iteratesObservable} from "../charts/iterates";
 import {BaseSeries, seriesFrom} from "../charts/baseSeries";
 import {Button} from "../ui/Button";
-import {Option} from "prelude-ts";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -58,6 +57,7 @@ const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveStepAfter', ['Step After', d3.curveStepAfter]],
     ['curveStepBefore', ['Step Before', d3.curveStepBefore]],
     ['curveBumpX', ['Bump', d3.curveBumpX]],
+    ['curveNoLine', ['No Line', NoCurveFactory]],
 ])
 
 function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory = d3.curveLinear): d3.CurveFactory {

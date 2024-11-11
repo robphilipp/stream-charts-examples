@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {useChart} from "./hooks/useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
-import {ZoomTransform} from "d3";
+import {CurveFactory, ZoomTransform} from "d3";
 import {setClipPath} from "./plot";
 import {Datum} from "./timeSeries";
 import {
@@ -33,6 +33,10 @@ type Series = Array<IteratePoint>
 function emptyIteratePoint(): IteratePoint {
     return {n: NaN, n_1: NaN, time: NaN, index: NaN}
 }
+
+// A sentinel that represents that no curve factory is to be used, which means
+// that no line will be drawn between the iterates (kinda gross)
+export const NoCurveFactory: CurveFactory = undefined as unknown as CurveFactory;
 
 interface Props {
     /**
@@ -141,7 +145,7 @@ export function PoincarePlot(props: Props): null {
 
     const {
         // axisAssignments = new Map<string, AxesAssignment>(),
-        interpolation = d3.curveStepAfter,
+        interpolation,// = d3.curveStepAfter,
         showPoints = true,
         dropDataAfter = Infinity,
         panEnabled = false,
@@ -490,53 +494,59 @@ export function PoincarePlot(props: Props): null {
                         .x(d => xAxis.scale(d.n || 0))
                         .y(d => yAxis.scale(d.n_1 || 0))
 
-                    // create the time-series paths
-                    mainGElem
-                        .selectAll(`#${name}-${chartId}-poincare`)
-                        .data([[], plotData], () => `${name}`)
-                        .join(
-                            enter => enter
-                                .append("path")
-                                .attr("class", 'iterate-series-lines')
-                                .attr("id", `${name}-${chartId}-poincare`)
-                                .attr("d", pathGenerator.curve(interpolation))
-                                .style("fill", "none")
-                                .style("stroke", seriesLineStyle.color)
-                                .style("stroke-width", seriesLineStyle.lineWidth)
-                                .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                                .attr("clip-path", `url(#${clipPathId})`)
-                            // .on(
-                            //     "mouseenter",
-                            //     (event, datumArray) =>
-                            //         // recall that this handler is passed down via the "useChart" hook
-                            //         handleMouseOverSeries(
-                            //             chartId,
-                            //             container,
-                            //             xAxisLinear,
-                            //             yAxisLinear,
-                            //             name,
-                            //             datumArray,
-                            //             event,
-                            //             margin,
-                            //             seriesStyles,
-                            //             allowTooltip.current,
-                            //             mouseOverHandlerFor(`tooltip-${chartId}`)
-                            //         )
-                            // )
-                            // .on(
-                            //     "mouseleave",
-                            //     event => handleMouseLeaveSeries(
-                            //         name,
-                            //         chartId,
-                            //         event.currentTarget as SVGPathElement,
-                            //         seriesStyles,
-                            //         mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                            //     )
-                            // )
-                            ,
-                            update => update,
-                            exit => exit.remove()
-                        )
+                    if (interpolation === undefined) {
+                        mainGElem
+                            .selectAll(`#${name}-${chartId}-poincare`)
+                            .remove()
+                    } else {
+                        // create the time-series paths
+                        mainGElem
+                            .selectAll(`#${name}-${chartId}-poincare`)
+                            .data([[], plotData], () => `${name}`)
+                            .join(
+                                enter => enter
+                                    .append("path")
+                                    .attr("class", 'iterate-series-lines')
+                                    .attr("id", `${name}-${chartId}-poincare`)
+                                    .attr("d", pathGenerator.curve(interpolation))
+                                    .style("fill", "none")
+                                    .style("stroke", seriesLineStyle.color)
+                                    .style("stroke-width", seriesLineStyle.lineWidth)
+                                    .attr('transform', `translate(${margin.left}, ${margin.top})`)
+                                    .attr("clip-path", `url(#${clipPathId})`)
+                                // .on(
+                                //     "mouseenter",
+                                //     (event, datumArray) =>
+                                //         // recall that this handler is passed down via the "useChart" hook
+                                //         handleMouseOverSeries(
+                                //             chartId,
+                                //             container,
+                                //             xAxisLinear,
+                                //             yAxisLinear,
+                                //             name,
+                                //             datumArray,
+                                //             event,
+                                //             margin,
+                                //             seriesStyles,
+                                //             allowTooltip.current,
+                                //             mouseOverHandlerFor(`tooltip-${chartId}`)
+                                //         )
+                                // )
+                                // .on(
+                                //     "mouseleave",
+                                //     event => handleMouseLeaveSeries(
+                                //         name,
+                                //         chartId,
+                                //         event.currentTarget as SVGPathElement,
+                                //         seriesStyles,
+                                //         mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                                //     )
+                                // )
+                                ,
+                                update => update,
+                                exit => exit.remove()
+                            )
+                    }
                 })
             }
         },
