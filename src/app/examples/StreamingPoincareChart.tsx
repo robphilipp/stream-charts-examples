@@ -135,7 +135,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
-    const chartTimeRef = useRef<number>(0)
+    // const chartTimeRef = useRef<number>(0)
+    const [chartTime, setChartTime] = useState<number>(0)
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
@@ -167,10 +168,10 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     /**
      * Updates the time from the chart (the max value of the axes ranges)
-     * @param times A map associating the axis with its time range
+     * @param time The current max time
      */
-    function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
-        chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
+    function handleChartTimeUpdate(time: number): void {
+        setChartTime(time)
     }
 
     return (
@@ -285,7 +286,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
-                    }}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>
+                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -323,8 +324,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    onUpdateAxesBounds={handleChartTimeUpdate}
-                    // onUpdateData={(name, data) => console.log(name, data.length)}
+                    onUpdateChartTime={handleChartTimeUpdate}
+                    // onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={150}
                 >
                     <ContinuousAxis

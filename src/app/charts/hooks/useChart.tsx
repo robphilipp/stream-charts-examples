@@ -4,6 +4,7 @@ import {SeriesLineStyle} from "../axes";
 import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
 import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
 import {defaultTooltipValues, useTooltip, UseTooltipValues} from "./useTooltip";
+import {SvgStyle} from "../svgStyle";
 
 /**
  * The values exposed through the {@link useChart} react hook
@@ -25,6 +26,14 @@ interface UseChartValues {
      * Base color
      */
     color: string
+    /**
+     * The base/default background color. This can be overridden by the {@link Props.svgStyle} property.
+     */
+    backgroundColor: string
+    /**
+     * Overrides for the SVG style
+     */
+    svgStyle: Partial<SvgStyle>
     /**
      * A `map(series_name -> series_line_style)`
      */
@@ -62,6 +71,8 @@ const defaultUseChartValues: UseChartValues = {
     container: null,
     mainG: null,
     color: '#d2933f',
+    backgroundColor: '#EEE',
+    svgStyle: new Map(),
     seriesStyles: new Map(),
 
     // axes
@@ -83,6 +94,8 @@ interface Props {
     container: SVGSVGElement | null
     mainG: GSelection | null
     color: string
+    backgroundColor: string
+    svgStyle: Partial<SvgStyle>
     seriesStyles?: Map<string, SeriesLineStyle>
     // initialData: Array<TimeSeries>
     seriesFilter?: RegExp
@@ -102,8 +115,10 @@ export default function ChartProvider(props: Props): JSX.Element {
         container,
         mainG,
         color,
+        backgroundColor,
         // initialData,
         seriesFilter = defaultUseChartValues.seriesFilter,
+        svgStyle,
         seriesStyles = new Map(),
     } = props
 
@@ -115,6 +130,8 @@ export default function ChartProvider(props: Props): JSX.Element {
         value={{
             chartId,
             color,
+            backgroundColor,
+            svgStyle,
             seriesStyles,
             // initialData,
             seriesFilter,

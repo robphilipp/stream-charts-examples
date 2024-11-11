@@ -128,7 +128,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
-    const chartTimeRef = useRef<number>(0)
+    const [chartTime, setChartTime] = useState<number>(0)
+    // const chartTimeRef = useRef<number>(0)
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
@@ -159,8 +160,11 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      * @param times A map associating the axis with its time range
      */
     function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
-        chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
+        setChartTime(Math.max(...Array.from(times.values()).map(([, end]) => end)))
     }
+    // function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
+    //     chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
+    // }
 
     return (
         <Grid
@@ -267,7 +271,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
-                    }}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>
+                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">

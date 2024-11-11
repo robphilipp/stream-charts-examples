@@ -76,8 +76,8 @@ interface Props<CD, D> {
      */
     windowingTime?: number
     /**
-     * When switching to `true` from `false`, subscribes to the {@link Props.seriesObservable}. When switching
-     * to `false` from `true`, unsubscribes from the {@link Props.seriesObservable}.
+     * When switching to `true` from `false`, subscribes to the {@link seriesObservable}. When switching
+     * to `false` from `true`, unsubscribes from the {@link seriesObservable}.
      */
     shouldSubscribe?: boolean
     /**
@@ -86,14 +86,22 @@ interface Props<CD, D> {
      */
     onSubscribe?: (subscription: Subscription) => void
     /**
-     * Callback when the time range changes.
+     * Callback when the time range changes. This is generally used by plots where the
+     * x-axis starts to scroll as the data streams in past the end of the current time
+     * window.
      * @param times A function that accepts the times, (start, end) times associated with
      * each axis in the plot (generally the x-axes for time). The times argument is a
      * map(axis_id -> (start, end)). Where start and end refer to the time-range for the
      * axis.
-     * @return void
      */
     onUpdateAxesBounds?: (times: Map<string, [start: number, end: number]>) => void
+    /**
+     * Callback for updating the current chart time. This is generally used by plots
+     * where the axes do not represent time, but rather some fix values, and the data
+     * hold time information
+     * @param time The current chart time
+     */
+    onUpdateChartTime?: (time: number) => void
     /**
      * Callback function that is called when new data arrives to the chart.
      * @param seriesName The name of the series for which new data arrived
@@ -208,6 +216,7 @@ export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
 
         onSubscribe = noop,
         onUpdateAxesBounds = noop,
+        onUpdateChartTime = noop,
         onUpdateData = noop,
 
         children,
@@ -275,6 +284,7 @@ export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
 
                                     onSubscribe={onSubscribe}
                                     onUpdateData={onUpdateData}
+                                    onUpdateChartTime={onUpdateChartTime}
                                 >
                                     <ChartProvider
                                         chartId={chartId}
@@ -282,6 +292,8 @@ export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
                                         mainG={mainGRef.current}
 
                                         color={color}
+                                        backgroundColor={backgroundColor}
+                                        svgStyle={svgStyle}
                                         seriesStyles={seriesStyles}
                                         seriesFilter={seriesFilter}
                                     >

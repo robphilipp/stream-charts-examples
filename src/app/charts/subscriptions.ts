@@ -232,7 +232,6 @@ export function subscriptionWithCadenceFor(
  * @param seriesObservable The series observable holding the stream of chart data
  * @param onSubscribe Callback for when the observable is subscribed to
  * @param windowingTime Basically the update time when data is collected and then rendered
- * @param axisAssignments The assignment of the series to their x- and y-axes
  * @param xAxesState The current state of the x-axis
  * @param yAxesState The current state of the y-axis
  * @param onUpdateData Callback for when data is updated
@@ -320,18 +319,26 @@ export function subscriptionIteratesFor(
 
                     // calculate and update the current time, which will be that max time of the
                     // f[n+1](x) values (y-axis)
-                    const lastMaxUpdateTime = data.maxIterate.time
-                    const currentTime = yAxesSeries.get(xAxisId)
-                        ?.reduce(
-                            (tMax, name) => {
-                                const iterateData = data.newPoints.get(name)
-                                if (iterateData !== undefined) {
-                                    return Math.max(iterateData[iterateData.length - 1].time || lastMaxUpdateTime, tMax)
-                                }
-                                return tMax
-                            },
-                            -Infinity
-                        ) || lastMaxUpdateTime
+                    const currentTime = Array.from(data.newPoints.values())
+                        .reduce((maxTime, currentSeries) => {
+                            const seriesMaxTime = currentSeries.length > 0 ? currentSeries[currentSeries.length-1].time : 0
+                            if (seriesMaxTime > maxTime) {
+                                return seriesMaxTime
+                            }
+                            return maxTime
+                        }, 0)
+                    // const lastMaxUpdateTime = data.maxIterate.time
+                    // const currentTime = yAxesSeries.get(xAxisId)
+                    //     ?.reduce(
+                    //         (tMax, name) => {
+                    //             const iterateData = data.newPoints.get(name)
+                    //             if (iterateData !== undefined) {
+                    //                 return Math.max(iterateData[iterateData.length - 1].time || lastMaxUpdateTime, tMax)
+                    //             }
+                    //             return tMax
+                    //         },
+                    //         -Infinity
+                    //     ) || lastMaxUpdateTime
 
                     updateCurrentTime(currentTime)
                 })

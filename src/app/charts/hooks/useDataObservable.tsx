@@ -51,7 +51,7 @@ interface UseObservableValues<CD, D> {
      */
     onUpdateData?: (seriesName: string, data: Array<D>) => void
     // onUpdateData?: (seriesName: string, data: Data) => void
-
+    onUpdateChartTime?: (time: number) => void
 }
 
 const defaultObservableValues: UseObservableValues<any, any> = {
@@ -85,6 +85,7 @@ interface Props<CD, D> {
      * @see UseChartValues.windowingTime
      */
     onUpdateData?: (seriesName: string, data: Array<D>) => void
+    onUpdateChartTime?: (time: number) => void
 
     children: JSX.Element | Array<JSX.Element>
 }
@@ -103,6 +104,7 @@ export default function DataObservableProvider<CD, D>(props: Props<CD, D>): JSX.
 
         onSubscribe = noop,
         onUpdateData = noop,
+        onUpdateChartTime = noop,
     } = props
 
     return <DataObservableContext.Provider
@@ -113,6 +115,7 @@ export default function DataObservableProvider<CD, D>(props: Props<CD, D>): JSX.
 
             onSubscribe,
             onUpdateData,
+            onUpdateChartTime,
         }}
     >
         {props.children}

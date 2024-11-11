@@ -29,8 +29,30 @@ export const mouseInPlotAreaFor =
  * @return The width in pixels, or 0 if SVG text element has not children
  */
 export const textWidthOf =
-    (elem: Selection<SVGTextElement, any, HTMLElement, any>) =>
+    (elem: Selection<SVGTextElement, any, any, any>): number =>
         elem.node()?.getBBox()?.width || 0
+
+/**
+ * Calculates the height of an SVG text element, based on its bounding box
+ * @param elem The SVG text element
+ * @return The height in pixels, or 0 if SVG text element has not children
+ */
+export const textHeightOf =
+    (elem: Selection<SVGTextElement, any, any, any>): number =>
+        elem.node()?.getBBox()?.height || 0
+
+/**
+ * Calculates the width and height of the text element
+ * @param elem The SVG text element
+ * @return The width and height of the bounding box
+ */
+export function textDimensions(elem: Selection<SVGTextElement, any, any, any>): ({width: number, height: number}) {
+    const boundingBox = elem.node()?.getBBox()
+    return {
+        width: boundingBox?.width || 0,
+        height: boundingBox?.height || 0
+    }
+}
 
 /**
  * The object returned by the zoom

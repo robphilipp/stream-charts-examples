@@ -1,4 +1,4 @@
-import {cloneElement, useEffect, useMemo} from "react";
+import {cloneElement, useEffect, useMemo, JSX} from "react";
 import {defaultTooltipStyle, removeTooltip, TooltipStyle} from "./tooltipUtils";
 import * as d3 from "d3";
 import {useChart} from "./hooks/useChart";
