@@ -17,7 +17,7 @@ import {
     SeriesLineStyle,
     timeIntervals,
     timeRanges,
-    zoomHandler
+    axisZoomHandler
 } from "./axes";
 import {Observable, Subscription} from "rxjs";
 import {Dimensions, Margin} from "./margins";
@@ -169,7 +169,7 @@ export function RasterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        () => axesForSeriesGen(initialData, axisAssignments, xAxesState),
+        () => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 
@@ -277,9 +277,8 @@ export function RasterPlot(props: Props): null {
             transform: ZoomTransform,
             x: number,
             plotDimensions: Dimensions,
-            series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => zoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, series, ranges),
+        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
@@ -325,7 +324,6 @@ export function RasterPlot(props: Props): null {
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
                                     plotDimensions,
-                                    dataRef.current.map(series => series.name),
                                     timeRanges,
                                 )
                                 updatePlotRef.current(timeRanges, mainGElem)

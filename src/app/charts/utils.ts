@@ -67,7 +67,6 @@ export interface Zoom {
  * at the location of the mouse when the scroll wheel or gesture was applied.
  * @param transform The d3 zoom transformation information
  * @param x The x-position of the mouse when the scroll wheel or gesture is used
- * @param plotDimensions The current dimensions of the plot
  * @param containerWidth The container width
  * @param margin The plot margins
  * @param xAxis The linear x-axis
@@ -77,14 +76,13 @@ export interface Zoom {
 export function handleZoom(
     transform: ZoomTransform,
     x: number,
-    plotDimensions: Dimensions,
     containerWidth: number,
     margin: Margin,
     xAxis: ContinuousNumericAxis,
     timeRange: ContinuousAxisRange,
 ): Zoom | undefined {
     if (x > 0 && x < containerWidth - margin.right) {
-        const {range, zoomFactor} = calculateZoomFor(transform, x, plotDimensions, xAxis, timeRange)
+        const {range, zoomFactor} = calculateZoomFor(transform, x, xAxis, timeRange)
         return {zoomFactor, timeRange: range}
     }
 }

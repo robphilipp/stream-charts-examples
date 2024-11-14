@@ -14,7 +14,7 @@ import {
     SeriesLineStyle,
     timeIntervals,
     timeRanges,
-    zoomHandler
+    axisZoomHandler
 } from "./axes";
 import {GSelection} from "./d3types";
 import {Observable, Subscription} from "rxjs";
@@ -160,7 +160,7 @@ export function ScatterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen(initialData, axisAssignments, xAxesState),
+        (): Array<string> => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 
@@ -248,9 +248,8 @@ export function ScatterPlot(props: Props): null {
             transform: ZoomTransform,
             x: number,
             plotDimensions: Dimensions,
-            series: Array<string>,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => zoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, series, ranges),
+        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
@@ -318,7 +317,6 @@ export function ScatterPlot(props: Props): null {
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
                                     plotDimensions,
-                                    Array.from(boundedSeries.keys()),
                                     timeRanges,
                                 )
                                 updatePlotRef.current(timeRanges, mainGElem)

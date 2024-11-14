@@ -13,7 +13,7 @@ import {
     defaultLineStyle,
     panHandler,
     SeriesLineStyle,
-    zoomHandler
+    axisZoomHandler, axesZoomHandler
 } from "./axes";
 import {GSelection} from "./d3types";
 import {Observable, Subscription} from "rxjs";
@@ -119,6 +119,7 @@ export function PoincarePlot(props: Props): null {
         setAxisBoundsFor,
         updateAxesBounds = noop,
         onUpdateAxesBounds,
+        axisBoundsFor
     } = axes
 
     const {
@@ -177,62 +178,92 @@ export function PoincarePlot(props: Props): null {
     //     [xAxesState]
     // )
 
-    // calculates the distinct series IDs that cover all the series in the plot
-    const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesPoincare(initialData, xAxesState),
-        [initialData, xAxesState]
+    // calculates the distinct axis IDs that cover all the series in the plot
+    const xAxesForSeries = useMemo(
+        (): Array<string> => xAxesState.axisIds(),
+        [xAxesState]
+    )
+    const yAxesForSeries = useMemo(
+        (): Array<string> => yAxesState.axisIds(),
+        [yAxesState]
     )
 
-    const rangeMapFrom = useCallback(
+    const xRangeMapFrom = useCallback(
         /**
-         * Generates a range map from the f[n](x) and f[n+1](x) axis range
+         * Generates a range map from the f[n](x) axis range for each x-axis ID
          * @param fnRange
+         */
+        (fnRange: ContinuousAxisRange): Map<string, ContinuousAxisRange> =>
+            new Map<string, ContinuousAxisRange>(
+                xAxesState.axisIds().map(id => [id, continuousAxisRangeFor(fnRange.start, fnRange.end)])
+            ),
+        [xAxesState]
+    )
+    const yRangeMapFrom = useCallback(
+        /**
+         * Generates a range map from the f[n](x) axis range for each x-axis ID
          * @param fn1Range
          */
-        (fnRange: ContinuousAxisRange, fn1Range: ContinuousAxisRange): Map<string, ContinuousAxisRange> => {
-            const start = Math.min(fnRange.start, fn1Range.start)
-            const end = Math.min(fnRange.end, fn1Range.end)
-            const ranges = new Map<string, ContinuousAxisRange>()
-            xAxesState.axisIds().forEach(id => ranges.set(id, continuousAxisRangeFor(start, end)))
-            yAxesState.axisIds().forEach(id => ranges.set(id, continuousAxisRangeFor(start, end)))
-            return ranges
-        },
-        [xAxesState, yAxesState]
+        (fn1Range: ContinuousAxisRange): Map<string, ContinuousAxisRange> =>
+            new Map<string, ContinuousAxisRange>(
+                yAxesState.axisIds().map(id => [id, continuousAxisRangeFor(fn1Range.start, fn1Range.end)])
+            ),
+        [yAxesState]
     )
+    // const rangeMapFrom = useCallback(
+    //     /**
+    //      * Generates a range map from the f[n](x) and f[n+1](x) axis range
+    //      * @param fnRange
+    //      * @param fn1Range
+    //      */
+    //     (fnRange: ContinuousAxisRange, fn1Range: ContinuousAxisRange): Map<string, ContinuousAxisRange> => {
+    //         const start = Math.min(fnRange.start, fn1Range.start)
+    //         const end = Math.min(fnRange.end, fn1Range.end)
+    //         const ranges = new Map<string, ContinuousAxisRange>()
+    //         xAxesState.axisIds().forEach(id => ranges.set(id, continuousAxisRangeFor(start, end)))
+    //         yAxesState.axisIds().forEach(id => ranges.set(id, continuousAxisRangeFor(start, end)))
+    //         return ranges
+    //     },
+    //     [xAxesState, yAxesState]
+    // )
 
-    const boundsMapFrom = useCallback(
-        (ranges: Map<string, ContinuousAxisRange>): Map<string, [number, number]> => {
-            return new Map<string, [number, number]>(
-                Array.from(ranges.entries())
-                    .map(([id, range]) => ([id, [range.start, range.end]]))
-            )
-        },
-        []
-    )
+    // const boundsMapFrom = useCallback(
+    //     (ranges: Map<string, ContinuousAxisRange>): Map<string, [number, number]> => {
+    //         return new Map<string, [number, number]>(
+    //             Array.from(ranges.entries())
+    //                 .map(([id, range]) => ([id, [range.start, range.end]]))
+    //         )
+    //     },
+    //     []
+    // )
 
     const updateRangesAndPlot = useCallback(
         /**
          * Updates the ranges for the axes, constraining them to be equal, and
          * updates the bounds
-         * @param fnRange The x-axis
-         * @param fn1Range The y-axis
+         * @param fnRange The x-axis ranges
+         * @param fn1Range The y-axis ranges
          */
         (fnRange: ContinuousAxisRange, fn1Range: ContinuousAxisRange): void => {
             if (mainG !== null) {
                 // calculate the new map from the ranges
-                const ranges = rangeMapFrom(fnRange, fn1Range)
+                const ranges = new Map<string, ContinuousAxisRange>([
+                    ...Array.from(xRangeMapFrom(fnRange).entries()),
+                    ...Array.from(yRangeMapFrom(fn1Range).entries())
+                ])
                 onUpdateTimeRef.current(ranges)
 
                 // calculate the bounds
-                updatePlotRef.current(fnRange, fn1Range, mainG)
-                if (onUpdateAxesBounds) {
-                    setTimeout(() => {
-                        onUpdateAxesBounds(boundsMapFrom(ranges))
-                    }, 0)
-                }
+                updatePlotRef.current(xRangeMapFrom(fnRange), yRangeMapFrom(fn1Range), mainG)
+                // updatePlotRef.current(fnRange, fn1Range, mainG)
+                // if (onUpdateAxesBounds) {
+                //     setTimeout(() => {
+                //         onUpdateAxesBounds(boundsMapFrom(ranges))
+                //     }, 0)
+                // }
             }
         },
-        [mainG, onUpdateAxesBounds, rangeMapFrom, boundsMapFrom]
+        [mainG, xRangeMapFrom, yRangeMapFrom]
     )
 
     // todo find better way
@@ -271,15 +302,17 @@ export function PoincarePlot(props: Props): null {
          plotDimensions: Dimensions,
          series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>,
-        ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => panHandler(xAxesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
+        [xAxesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * at the location of the mouse when the scroll wheel or gesture was applied. Unlike time-series
+     * plots, the iterates plot zooms the x- and y-axis at the same rate.
      * @param transform The d3 zoom transformation information
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param y The y-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time-range
@@ -288,11 +321,14 @@ export function PoincarePlot(props: Props): null {
         (
             transform: ZoomTransform,
             x: number,
+            y: number,
             plotDimensions: Dimensions,
-            series: Array<string>,
-            ranges: Map<string, ContinuousAxisRange>,
-        ) => zoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+            xRanges: Map<string, ContinuousAxisRange>,
+            yRanges: Map<string, ContinuousAxisRange>
+        ) => axesZoomHandler(
+            xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState
+        )(transform, [x, y], plotDimensions, xRanges, yRanges),
+        [xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState]
     )
 
     const updatePlot = useCallback(
@@ -302,7 +338,7 @@ export function PoincarePlot(props: Props): null {
          * @param yRanges The current range of the y-axis (f[n+1](x))
          * @param mainGElem The main <g> element selection for that holds the plot
          */
-        (xRanges: ContinuousAxisRange, yRanges: ContinuousAxisRange, mainGElem: GSelection) => {
+        (xRanges: Map<string, ContinuousAxisRange>, yRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
             if (container) {
                 onUpdateChartTime(currentTimeRef.current)
 
@@ -372,25 +408,26 @@ export function PoincarePlot(props: Props): null {
                 // }
 
                 // set up for zooming
-                // if (zoomEnabled) {
-                //     const zoom = d3.zoom<SVGSVGElement, Datum>()
-                //         .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                //         .scaleExtent([0, 10])
-                //         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                //         .on("zoom", event => {
-                //                 onZoom(
-                //                     event.transform,
-                //                     event.sourceEvent.offsetX - margin.left,
-                //                     plotDimensions,
-                //                     Array.from(boundedSeries.keys()),
-                //                     timeRanges,
-                //                 )
-                //                 updatePlotRef.current(timeRanges, mainGElem)
-                //             }
-                //         )
-                //
-                //     svg.call(zoom)
-                // }
+                if (zoomEnabled) {
+                    const zoom = d3.zoom<SVGSVGElement, Datum>()
+                        .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                        .scaleExtent([0, 1])
+                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                        .on("zoom", event => {
+                                onZoom(
+                                    event.transform,
+                                    event.sourceEvent.offsetX - margin.left,
+                                    event.sourceEvent.offsetY - margin.top,
+                                    plotDimensions,
+                                    xRanges,
+                                    yRanges
+                                )
+                                updatePlotRef.current(xRanges, yRanges, mainGElem)
+                            }
+                        )
+
+                    svg.call(zoom)
+                }
 
                 // define the clip-path so that the series lines don't go beyond the plot area
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
@@ -452,7 +489,6 @@ export function PoincarePlot(props: Props): null {
                                 enter => enter
                                     .append("circle")
                                     .attr("class", `${name}-${chartId}-poincare-points`)
-                                    // .attr("id", (_, index) => `${name}-${chartId}-poincare-points`)
                                     .attr("id", (_, index) => `${name}-${chartId}-poincare-point-${index}`)
                                     .attr("fill", seriesLineStyle.color)
                                     .attr("stroke", "none")
@@ -460,7 +496,8 @@ export function PoincarePlot(props: Props): null {
                                     .attr("cy", (d: IteratePoint) => yAxisLinear.scale(d.n_1) || 0)
                                     .attr("r", 2)
                                     .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                                    .attr("clip-path", `url(#${clipPathId})`),
+                                    .attr("clip-path", `url(#${clipPathId})`)
+                                ,
                                 update => update
                                     .attr("cx", (d: IteratePoint) => xAxisLinear.scale(d.n) || 0)
                                     .attr("cy", (d: IteratePoint) => yAxisLinear.scale(d.n_1) || 0)
@@ -480,8 +517,6 @@ export function PoincarePlot(props: Props): null {
                                         yAxisLinear,
                                         margin,
                                         seriesLineStyle,
-                                        // color,
-                                        // highlightColor,
                                         backgroundColor
                                     )
                             )
@@ -603,10 +638,16 @@ export function PoincarePlot(props: Props): null {
             if (container && mainG) {
                 // todo the ranges are temporary, either they will be removed, or they will
                 //     be updated to correspond to the ranges for all the axes
-                updatePlot(continuousAxisRangeFor(0, 0), continuousAxisRangeFor(0, 0), mainG)
+                const [xStart, xEnd] = axisBoundsFor(xAxesState.axisDefaultId()) || [0, 0]
+                const [yStart, yEnd] = axisBoundsFor(yAxesState.axisDefaultId()) || [0, 0]
+                updatePlot(
+                    xRangeMapFrom(continuousAxisRangeFor(xStart, xEnd)),
+                    yRangeMapFrom(continuousAxisRangeFor(yStart, yEnd)),
+                    mainG
+                )
             }
         },
-        [container, mainG, updatePlot]
+        [axisBoundsFor, container, mainG, updatePlot, xAxesState, xRangeMapFrom, yAxesState, yRangeMapFrom]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
@@ -630,9 +671,9 @@ export function PoincarePlot(props: Props): null {
     return null
 }
 
-function axesForSeriesPoincare(series: Array<IterateSeries>, xAxesState: AxesState): Array<string> {
-    return axesForSeriesGen(series, new Map(), xAxesState)
-}
+// function axesForSeriesPoincare(series: Array<IterateSeries>, xAxesState: AxesState): Array<string> {
+//     return axesForSeriesGen<IterateDatum>(series, new Map(), xAxesState)
+// }
 
 /**
  * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
