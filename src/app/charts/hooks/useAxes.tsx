@@ -105,11 +105,11 @@ const AxesContext = createContext<UseAxesValues>(defaultAxesValues())
 
 type Props = {
     /**
-     * Callback when the time range changes.
-     * @param times The times (start, end) times for each axis in the plot
-     * @return void
+     * Callback when the axes bounds change.
+     * @param ranges The ranges (start, end) for each axis in the plot
      */
-    onUpdateAxesBounds?: (times: Map<string, [start: number, end: number]>) => void
+    onUpdateAxesBounds?: (ranges: Map<string, [start: number, end: number]>) => void
+
     children: JSX.Element | Array<JSX.Element>
 }
 

@@ -275,13 +275,9 @@ export function PoincarePlot(props: Props): null {
             seriesRef.current = new Map(initialData.map(series => [series.name, series]))
             currentTimeRef.current = 0
 
-            const xRange = xAxesState.defaultAxis() ?
-                continuousRangeForDefaultAxis(xAxesState.defaultAxis() as ContinuousNumericAxis) :
-                continuousAxisRangeFor(Infinity, -Infinity)
-            const [start, end] = xRange.original
-            const range = continuousAxisRangeFor(start, end)
-
-            updateRangesAndPlot(range, range)
+            const xRange = axisRangeFrom(xAxesState)
+            const yRange = axisRangeFrom(yAxesState)
+            updateRangesAndPlot(xRange, yRange)
         },
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which means all the
@@ -669,6 +665,14 @@ export function PoincarePlot(props: Props): null {
     )
 
     return null
+}
+
+function axisRangeFrom(axesState: AxesState): ContinuousAxisRange {
+    const range = axesState.defaultAxis() ?
+        continuousRangeForDefaultAxis(axesState.defaultAxis() as ContinuousNumericAxis) :
+        continuousAxisRangeFor(Infinity, -Infinity)
+    const [start, end] = range.original
+    return continuousAxisRangeFor(start, end)
 }
 
 // function axesForSeriesPoincare(series: Array<IterateSeries>, xAxesState: AxesState): Array<string> {

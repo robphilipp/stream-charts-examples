@@ -96,7 +96,8 @@ export function addLinearAxis(
                 domain,
                 axesLabelFont,
                 margin,
-                axisLabel
+                axisLabel,
+                noop,
             )
 
         // x-axis

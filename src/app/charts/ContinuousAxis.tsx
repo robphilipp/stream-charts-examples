@@ -29,12 +29,7 @@ export function ContinuousAxis(props: Props): null {
     const {
         chartId,
         container,
-        // plotDimensions,
-        // margin,
         axes,
-        // setAxisBoundsFor,
-        // axisBoundsFor,
-        // addAxesBoundsUpdateHandler,
         color
     } = useChart()
 
@@ -131,9 +126,17 @@ export function ContinuousAxis(props: Props): null {
                                 font,
                                 margin,
                                 label,
+                                setAxisBoundsFor
                             )
                             // add the y-axis to the chart context
                             addYAxis(axisRef.current, axisId)
+
+                            // set the time-range for the time-axis
+                            setAxisBoundsFor(axisId, domain)
+
+                            // add an update handler
+                            timeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
+                            addAxesBoundsUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
                     }
                 } else {
                     switch (location) {
@@ -268,6 +271,7 @@ export function addContinuousNumericYAxis(
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
+    setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
 ): ContinuousNumericAxis {
     const scale = scaleGenerator
         .domain(domain)
@@ -290,13 +294,29 @@ export function addContinuousNumericYAxis(
         .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
         .text(axisLabel)
 
-    const axis = {axisId, selection, location, scale, generator, update: noop}
+    const axis: ContinuousNumericAxis = {
+        axisId,
+        location,
+        selection,
+        scale,
+        generator: location === AxisLocation.Left ? d3.axisLeft(scale) : d3.axisRight(scale),
+        update: noop
+    }
     return {
         ...axis,
-        update: (domain, plotDimensions, margin) => updateLinearYAxis(
-            chartId, svg, axis, domain, plotDimensions, margin, axesLabelFont, location
-        )
+        update: (domain: [start: number, end: number], plotDimensions: Dimensions, margin: Margin) => {
+            updateLinearYAxis(chartId, svg, axis, domain, plotDimensions, margin, axesLabelFont, location)
+            setAxisRangeFor(axisId, domain)
+        }
     }
+
+    // const axis = {axisId, selection, location, scale, generator, update: noop}
+    // return {
+    //     ...axis,
+    //     update: (domain, plotDimensions, margin) => updateLinearYAxis(
+    //         chartId, svg, axis, domain, plotDimensions, margin, axesLabelFont, location
+    //     )
+    // }
 }
 
 function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {

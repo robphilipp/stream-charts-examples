@@ -89,12 +89,11 @@ interface Props<CD, D> {
      * Callback when the time range changes. This is generally used by plots where the
      * x-axis starts to scroll as the data streams in past the end of the current time
      * window.
-     * @param times A function that accepts the times, (start, end) times associated with
-     * each axis in the plot (generally the x-axes for time). The times argument is a
-     * map(axis_id -> (start, end)). Where start and end refer to the time-range for the
-     * axis.
+     * @param ranges A function that accepts the ranges, (start, end) associated with
+     * each axis in the plot. The ranges argument is a map(axis_id -> (start, end)).
+     * Where start and end refer to the range for the axis.
      */
-    onUpdateAxesBounds?: (times: Map<string, [start: number, end: number]>) => void
+    onUpdateAxesBounds?: (ranges: Map<string, [start: number, end: number]>) => void
     /**
      * Callback for updating the current chart time. This is generally used by plots
      * where the axes do not represent time, but rather some fix values, and the data
