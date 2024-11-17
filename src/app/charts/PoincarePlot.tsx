@@ -70,6 +70,19 @@ interface Props {
      */
     zoomKeyModifiersRequired?: boolean
     /**
+     * The smallest scale factor allowed for zooming (in). For example, a setting of 0.5 means
+     * that the largest zoom amount is 2 times the current size, or put another way, an interval
+     * of length 1 unit covers twice as may pixels after the zoom. Effectively, the smaller this
+     * factor, the more the user can "zoom in". Default value is 0.0.
+     */
+    zoomMinScaleFactor?: number
+    /**
+     * The largest scale factor allowed for zooming (out). For example, a setting of 2.0 means
+     * that at this value, the length of 1 unit covers 1/2 the number of pixels. Effectively,
+     * the larger this factor, the more the user can "zoom out". Default value is 1.0.
+     */
+    zoomMaxScaleFactor?: number
+    /**
      * When set, uses a cadence with the specified refresh period (in milliseconds). For plots
      * where the updates are slow (> 100 ms) using a cadence of 10 to 25 ms smooths out the
      * updates and makes the plot updates look cleaner. When updates are around 25 ms or less,
@@ -155,6 +168,8 @@ export function PoincarePlot(props: Props): null {
         panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
+        zoomMinScaleFactor = 0,
+        zoomMaxScaleFactor = 1,
         withCadenceOf,
     } = props
 
@@ -267,9 +282,9 @@ export function PoincarePlot(props: Props): null {
             xRanges: Map<string, ContinuousAxisRange>,
             yRanges: Map<string, ContinuousAxisRange>
         ) => axesZoomHandler(
-            xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState
+            xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState, [zoomMinScaleFactor, zoomMaxScaleFactor]
         )(transform, [x, y], plotDimensions, xRanges, yRanges),
-        [xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState]
+        [xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState, zoomMinScaleFactor, zoomMaxScaleFactor]
     )
 
     const updatePlot = useCallback(
@@ -341,7 +356,7 @@ export function PoincarePlot(props: Props): null {
                 if (zoomEnabled) {
                     const zoom = d3.zoom<SVGSVGElement, Datum>()
                         .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                        .scaleExtent([0, 1])
+                        .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
                         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                         .on("zoom", event => {
                                 onZoom(

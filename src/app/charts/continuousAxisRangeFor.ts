@@ -16,6 +16,7 @@ export interface ContinuousAxisRange {
      * @return A new continuous-axis range with updated values
      */
     scale: (factor: number, time: number) => ContinuousAxisRange
+    constrainedScale: (factor: number, time: number, constraint: [min: number, max: number]) => ContinuousAxisRange
     /**
      * Translates the axis-range by the specified amount
      * @param amount The amount by which to translate the axis-range
@@ -73,21 +74,41 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
             return originalStart === start && originalEnd === end
         }
 
+        function scaledRange(factor: number, value: number): [start: number, end: number] {
+            const oldScale = scaleFactor
+            const dts = value - start
+            const dte = end - value
+            start = value - dts * factor / oldScale
+            end = value + dte * factor / oldScale
+            return [start, end]
+        }
+
         /**
-         * Scales the time-range by the specified scale factor from the specified time-location. The equations
-         * are written so that the zooming (scaling) occurs at the specified time, and expands/contracts equally
-         * from that time.
+         * Scales the axis-range by the specified scale factor from the specified value. The equations
+         * are written so that the zooming (scaling) occurs at the specified value, and expands/contracts equally
+         * from that value.
          * @param factor The scale factor
-         * @param time The time from which to scale the interval
+         * @param value The value from which to scale the interval
          * @return A new continuous-axis range with updated values
          */
-        function scale(factor: number, time: number): ContinuousAxisRange {
-            const oldScale = scaleFactor
-            const dts = time - start
-            const dte = end - time
-            start = time - dts * factor / oldScale
-            end = time + dte * factor / oldScale
+        function scale(factor: number, value: number): ContinuousAxisRange {
+            const [start, end] = scaledRange(factor, value)
             return updateAxisRange(start, end)
+        }
+
+        /**
+         * Scales the axis-range by the specified scale factor from the specified value, while keeping
+         * the range within the constraints (start, end). The equations are written so that the zooming
+         * (scaling) occurs at the specified value, and expands/contracts equally from that value.
+         * @param factor The scale factor
+         * @param value The value from which to scale the interval
+         * @param constraint The minimum and maximum values that range bounds can be
+         * @return A new continuous-axis range with updated values
+         */
+        function constrainedScale(factor: number, value: number, constraint: [min: number, max: number]): ContinuousAxisRange {
+            const [start, end] = scaledRange(factor, value)
+            const [min, max] = constraint
+            return updateAxisRange(Math.max(min, start), Math.min(max, end))
         }
 
         /**
@@ -108,6 +129,7 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
             matchesOriginal,
             scaleFactor,
             scale,
+            constrainedScale,
             translate,
             update: updateAxisRange
         }

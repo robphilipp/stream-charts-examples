@@ -230,6 +230,31 @@ export function calculateZoomFor(
 }
 
 /**
+ * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+ * at the location of the mouse when the scroll wheel or gesture was applied, while ensure that
+ * the range (start, end) is contained within the constraint (min, max).
+ * @param transform The d3 zoom transformation information
+ * @param x The x-position of the mouse when the scroll wheel or gesture is used
+ * @param axis The axis being zoomed
+ * @param range The current range for the axis being zoomed
+ * @param constraint The minimum and maximum value the scaled range can have
+ * @return The updated range and the new zoom factor
+ */
+export function calculateConstrainedZoomFor(
+    transform: ZoomTransform,
+    x: number,
+    axis: ContinuousNumericAxis,
+    range: ContinuousAxisRange,
+    constraint: [min: number, max: number],
+): ZoomResult {
+    const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
+    return {
+        range: range.constrainedScale(transform.k, time, constraint),
+        zoomFactor: transform.k
+    }
+}
+
+/**
  * Adjusts the range and updates the plot when the plot is dragged to the left or right
  * @param deltaX The amount that the plot is dragged
  * @param axis The axis being zoomed
@@ -414,7 +439,8 @@ export function axesZoomHandler(
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
     xAxesState: AxesState,
-    yAxesState: AxesState
+    yAxesState: AxesState,
+    scaleExtent: [min: number, max: number],
 ): (
     transform: ZoomTransform,
     mousePosition: [x: number, y: number],
@@ -422,6 +448,8 @@ export function axesZoomHandler(
     xRanges: Map<string, ContinuousAxisRange>,
     yRanges: Map<string, ContinuousAxisRange>,
 ) => void {
+
+    const [, zoomMax] = scaleExtent
 
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
@@ -445,7 +473,13 @@ export function axesZoomHandler(
             if (range) {
                 const axis = axesState.axisFor(axisId) as ContinuousNumericAxis
 
-                const zoom = calculateZoomFor(transform, value, axis, range)
+                //
+                const [so, eo] = range.original
+                const constraint: [number, number] = [so * zoomMax, eo * zoomMax]
+                //
+
+                const zoom = calculateConstrainedZoomFor(transform, value, axis, range, constraint)
+                // const zoom = calculateZoomFor(transform, value, axis, range)
 
                 // update the axis range
                 ranges.set(axisId, zoom.range)
