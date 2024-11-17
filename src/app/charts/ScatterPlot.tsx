@@ -435,6 +435,8 @@ export function ScatterPlot(props: Props): null {
                     onUpdateData,
                     dropDataAfter,
                     updateTimingAndPlot,
+                    // as new data flows into the subscription, the subscription
+                    // updates this map directly (for performance)
                     seriesRef.current,
                     (axisId, end) => currentTimeRef.current.set(axisId, end),
                     withCadenceOf
@@ -448,6 +450,8 @@ export function ScatterPlot(props: Props): null {
                 onUpdateData,
                 dropDataAfter,
                 updateTimingAndPlot,
+                // as new data flows into the subscription, the subscription
+                // updates this map directly (for performance)
                 seriesRef.current,
                 (axisId, end) => currentTimeRef.current.set(axisId, end)
             )

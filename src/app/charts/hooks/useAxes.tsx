@@ -13,6 +13,11 @@ const noop = () => {
     /* empty on purpose */
 }
 
+type Range = [start: number, end: number]
+const anEmptyRange: Range = [NaN, NaN]
+const copyRangeMap = (ranges: Map<string, Range>): Map<string, Range> =>
+    new Map(Array.from(ranges.entries()).map(([id, [start, end]]) => [id, [start, end]]))
+
 export type UseAxesValues = {
     /**
      * The x-axes state holds the currently set x-axes, manipulation and accessor functions
@@ -22,8 +27,9 @@ export type UseAxesValues = {
      * Adds an x-axis to the axes and updates the internal state
      * @param axis The axis to add
      * @param id The ID of the axis to add
+     * @param domain The initial axis range (start, end)
      */
-    addXAxis: (axis: BaseAxis, id: string) => void
+    addXAxis: (axis: BaseAxis, id: string, range?: [start: number, end: number]) => void
     /**
      * The y-axes state holds the currently set x-axes, manipulation and accessor functions
      */
@@ -32,8 +38,9 @@ export type UseAxesValues = {
      * Adds a y-axis to the axes and updates the internal state
      * @param axis The axis to add
      * @param id The ID of the axis to add
+     * @param domain The initial axis range (start, end)
      */
-    addYAxis: (axis: BaseAxis, id: string) => void
+    addYAxis: (axis: BaseAxis, id: string, range?: [start: number, end: number]) => void
     /**
      * Sets the axis assigned to each series. This should contain **all** the series used in
      * the chart.
@@ -46,11 +53,21 @@ export type UseAxesValues = {
      */
     axisAssignmentsFor: (seriesName: string) => AxesAssignment
     /**
-     * Retrieves the time range for the specified axis ID
-     * @param axisId The ID of the axis for which to retrieve the time-range
-     * @return The time-range as a `[t_start, t_end]` tuple if the axis ID is found, `undefined` otherwise
+     * Retrieves the axis range for the specified axis ID
+     * @param axisId The ID of the axis for which to retrieve the axis-range
+     * @return The axis-range as a `[start, end]` tuple if the axis ID is found, `undefined` otherwise
      */
-    axisBoundsFor: (axisId: string) => [start: number, end: number] | undefined
+    axisBoundsFor: (axisId: string) => Range
+    /**
+     * Retrieves the original axis range for the specified axis ID
+     * @param axisId The ID of the axis for which to retrieve the axis-range
+     * @return The axis-range as a `[start, end]` tuple if the axis ID is found, `undefined` otherwise
+     */
+    originalAxisBoundsFor: (axisId: string) => Range
+    /**
+     * @return The original axis bounds as a map(axis_id, (start, end))
+     */
+    originalAxisBounds: () => Map<string, Range>
     /**
      * Sets the time-range for the specified axis ID to the specified range
      * @param axisId The ID of the axis for which to set the range
@@ -71,7 +88,7 @@ export type UseAxesValues = {
      * axis.
      * @return void
      */
-    onUpdateAxesBounds?: (times: Map<string, [start: number, end: number]>) => void
+    onUpdateAxesBounds?: (times: Map<string, Range>) => void
     /**
      * Adds a handler for when the time is updated. The time could change because of a zoom action,
      * a pan action, or as new data is streamed in.
@@ -93,7 +110,9 @@ export const defaultAxesValues = (): UseAxesValues => ({
     addYAxis: noop,
     setAxisAssignments: noop,
     axisAssignmentsFor: () => ({xAxis: "", yAxis: ""}),
-    axisBoundsFor: () => [NaN, NaN],
+    axisBoundsFor: () => anEmptyRange,
+    originalAxisBoundsFor: () => anEmptyRange,
+    originalAxisBounds: () => new Map<string, Range>(),
     setAxisBoundsFor: noop,
     updateAxesBounds: noop,
     addAxesBoundsUpdateHandler: () => noop,
@@ -127,7 +146,10 @@ export default function AxesProvider(props: Props): JSX.Element {
     const xAxesRef = useRef<AxesState>(createAxesState())
     const yAxesRef = useRef<AxesState>(createAxesState())
     const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
+    // holds the current axis bounds, map(axis_id -> (start, end)
     const axesBoundsRef = useRef<Map<string, [start: number, end: number]>>(new Map())
+    // holds the original axis bounds, map(axis_id -> (start, end)
+    const originalAxesBoundsRef =  useRef<Map<string, [start: number, end: number]>>(new Map())
     const axesBoundsUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
 
     /**
@@ -159,12 +181,26 @@ export default function AxesProvider(props: Props): JSX.Element {
         value={{
             xAxesState: xAxesRef.current,
             yAxesState: yAxesRef.current,
-            addXAxis: (axis, id) => xAxesRef.current = addAxisTo(xAxesRef.current, axis, id),
-            addYAxis: (axis, id) => yAxesRef.current = addAxisTo(yAxesRef.current, axis, id),
+            addXAxis: (axis, id, range) => {
+                xAxesRef.current = addAxisTo(xAxesRef.current, axis, id)
+                if (range !== undefined) {
+                    originalAxesBoundsRef.current.set(id, range)
+                    axesBoundsRef.current.set(id, range)
+                }
+            },
+            addYAxis: (axis, id, range) => {
+                yAxesRef.current = addAxisTo(yAxesRef.current, axis, id)
+                if (range !== undefined) {
+                    originalAxesBoundsRef.current.set(id, range)
+                    axesBoundsRef.current.set(id, range)
+                }
+            },
             setAxisAssignments: assignments => axisAssignmentsRef.current = assignments,
             axisAssignmentsFor: seriesName => axisAssignmentsFor(seriesName),
-            axisBoundsFor: axisId => axesBoundsRef.current.get(axisId),
-            setAxisBoundsFor: ((axisId, timeRange) => axesBoundsRef.current.set(axisId, timeRange)),
+            axisBoundsFor: axisId => axesBoundsRef.current.get(axisId) || anEmptyRange,
+            originalAxisBoundsFor: axisId => originalAxesBoundsRef.current.get(axisId) || anEmptyRange,
+            originalAxisBounds: () => copyRangeMap(originalAxesBoundsRef.current),
+            setAxisBoundsFor: ((axisId, range) => axesBoundsRef.current.set(axisId, range)),
             updateAxesBounds,
             onUpdateAxesBounds,
             addAxesBoundsUpdateHandler: (handlerId, handler) => axesBoundsUpdateHandlersRef.current.set(handlerId, handler),

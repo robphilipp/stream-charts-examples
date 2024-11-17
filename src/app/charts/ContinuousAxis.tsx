@@ -57,7 +57,7 @@ export function ContinuousAxis(props: Props): null {
     } = props
 
     const axisRef = useRef<ContinuousNumericAxis>()
-    const timeUpdateHandlerIdRef = useRef<string>()
+    const rangeUpdateHandlerIdRef = useRef<string>()
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
@@ -75,8 +75,8 @@ export function ContinuousAxis(props: Props): null {
                 const svg = d3.select<SVGSVGElement, any>(container)
                 const font: AxesLabelFont = {...defaultAxesLabelFont, color, ...props.font}
 
-                const handleTimeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
-                    if (timeUpdateHandlerIdRef.current && axisRef.current) {
+                const handleRangeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
+                    if (rangeUpdateHandlerIdRef.current && axisRef.current) {
                         const range = updates.get(axisId)
                         if (range) {
                             axisRef.current.update([range.start, range.end], plotDim, marginRef.current)
@@ -89,54 +89,30 @@ export function ContinuousAxis(props: Props): null {
                         case AxisLocation.Bottom:
                         case AxisLocation.Top:
                             axisRef.current = addContinuousNumericXAxis(
-                                chartId,
-                                svg,
-                                plotDimensions,
-                                location,
-                                scale,
-                                domain,
-                                font,
-                                margin,
-                                label,
-                                axisId,
-                                setAxisBoundsFor,
+                                chartId, axisId, svg, plotDimensions, location, scale, domain,
+                                font, margin, label, setAxisBoundsFor
                             )
                             // add the x-axis to the chart context
-                            addXAxis(axisRef.current, axisId)
-
-                            // set the time-range for the time-axis
-                            setAxisBoundsFor(axisId, domain)
+                            addXAxis(axisRef.current, axisId, domain)
 
                             // add an update handler
-                            timeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
-                            addAxesBoundsUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
+                            rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
+                            addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
 
                             break
 
                         case AxisLocation.Left:
                         case AxisLocation.Right:
                             axisRef.current = addContinuousNumericYAxis(
-                                chartId,
-                                axisId,
-                                svg,
-                                plotDimensions,
-                                location,
-                                scale,
-                                domain,
-                                font,
-                                margin,
-                                label,
-                                setAxisBoundsFor
+                                chartId, axisId, svg, plotDimensions, location, scale, domain,
+                                font, margin, label, setAxisBoundsFor
                             )
                             // add the y-axis to the chart context
-                            addYAxis(axisRef.current, axisId)
-
-                            // set the time-range for the time-axis
-                            setAxisBoundsFor(axisId, domain)
+                            addYAxis(axisRef.current, axisId, domain)
 
                             // add an update handler
-                            timeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
-                            addAxesBoundsUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
+                            rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
+                            addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                     }
                 } else {
                     switch (location) {
@@ -146,15 +122,22 @@ export function ContinuousAxis(props: Props): null {
                             if (timeRange) {
                                 axisRef.current.update(timeRange, plotDimensions, margin)
                             }
-                            if (timeUpdateHandlerIdRef.current !== undefined) {
-                                addAxesBoundsUpdateHandler(timeUpdateHandlerIdRef.current, handleTimeUpdates)
+                            if (rangeUpdateHandlerIdRef.current !== undefined) {
+                                addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                             }
                             break
                         case AxisLocation.Left:
                         case AxisLocation.Right:
                             // todo will need to use and update the domain for the y-axis when using
                             //      zoom...do something similar to what I did for the time-range
-                            axisRef.current.update(domain, plotDimensions, margin)
+                            const range = axisBoundsFor(axisId)
+                            if (range) {
+                                axisRef.current.update(range, plotDimensions, margin)
+                            }
+                            if (rangeUpdateHandlerIdRef.current !== undefined) {
+                                addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
+                            }
+                            // axisRef.current.update(domain, plotDimensions, margin)
                     }
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
@@ -183,6 +166,7 @@ function labelIdFor(chartId: number, location: AxisLocation): string {
 
 export function addContinuousNumericXAxis(
     chartId: number,
+    axisId: string,
     svg: SvgSelection,
     plotDimensions: Dimensions,
     location: AxisLocation.Bottom | AxisLocation.Top,
@@ -191,7 +175,6 @@ export function addContinuousNumericXAxis(
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
-    axisId: string,
     setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([0, plotDimensions.width])
@@ -277,7 +260,6 @@ export function addContinuousNumericYAxis(
         .domain(domain)
         .range([Math.max(margin.bottom, plotDimensions.height - margin.bottom), 0])
 
-    const generator = location === AxisLocation.Left ? d3.axisLeft(scale) : d3.axisRight(scale)
     const selection = svg
         .append<SVGGElement>('g')
         .attr('class', 'y-axis')
@@ -309,14 +291,6 @@ export function addContinuousNumericYAxis(
             setAxisRangeFor(axisId, domain)
         }
     }
-
-    // const axis = {axisId, selection, location, scale, generator, update: noop}
-    // return {
-    //     ...axis,
-    //     update: (domain, plotDimensions, margin) => updateLinearYAxis(
-    //         chartId, svg, axis, domain, plotDimensions, margin, axesLabelFont, location
-    //     )
-    // }
 }
 
 function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {

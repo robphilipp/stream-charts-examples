@@ -237,7 +237,7 @@ export function subscriptionWithCadenceFor(
  * @param onUpdateData Callback for when data is updated
  * @param dropDataAfter Limits the amount of data stored. Any data older than this value (ms) will
  * be dropped on the next update
- * @param updateRangesAndPlot The callback function to update the plot and timing
+ * @param updateRangesAndPlot The callback function to update the plot
  * @param seriesMap The series-name and the associated series
  * @param updateCurrentTime Callback to update the current time based on the streamed data
  * @return A subscription to the observable (for cancelling and the likes)
@@ -246,34 +246,47 @@ export function subscriptionIteratesFor(
     seriesObservable: Observable<IterateChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
-    // axisAssignments: Map<string, AxesAssignment>,
     xAxesState: AxesState,
     yAxesState: AxesState,
     onUpdateData: ((seriesName: string, data: Array<IterateDatum>) => void) | undefined,
     dropDataAfter: number,
-    updateRangesAndPlot: (xRanges: ContinuousAxisRange, yRanges: ContinuousAxisRange) => void,
-    // updateRangesAndPlot: (xRanges: Map<string, ContinuousAxisRange>, yRanges: Map<string, ContinuousAxisRange>) => void,
+    updateRangesAndPlot: () => void,
     seriesMap: Map<string, IterateSeries>,
     updateCurrentTime: (time: number) => void
 ): Subscription {
-    const axisAssignments = new Map<string, AxesAssignment>()
+    // maintains the x and y axis ranges based on the original domain of the axes
+    const xAxesRanges = new Map<string, ContinuousAxisRange>(Array.from(xAxesState.axes.entries())
+        .map(([id, axis]) => {
+            const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
+            return [id, continuousAxisRangeFor(start, end)]
+        }))
+    const yAxesRanges = new Map<string, ContinuousAxisRange>(Array.from(yAxesState.axes.entries())
+        .map(([id, axis]) => {
+            const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
+            return [id, continuousAxisRangeFor(start, end)]
+        }))
+
+    /**
+     * Updates the original axis range with new domain values, while maintaining the orginal
+     * domain values.
+     * @param originals The original axis ranges
+     * @param axes The current axes
+     */
+    function updateRange(originals: Map<string, ContinuousAxisRange>, axes: Map<string, ContinuousNumericAxis>): void {
+        axes.forEach((axis, id) => {
+            const [start, end] = axis.scale.domain()
+            const original: ContinuousAxisRange = originals.get(id) || continuousAxisRangeFor(start, end)
+            originals.set(id, original.update(start, end))
+        })
+    }
+
     const subscription = seriesObservable
         .pipe(bufferTime(windowingTime))
         .subscribe(dataList => {
             dataList.forEach(data => {
                 // calculate the bounds for each of the x- and y-axes
-                const xAxesRanges = continuousRange(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                const yAxesRanges = continuousRange(yAxesState.axes as Map<string, ContinuousNumericAxis>)
-
-                // create the functions to retrieve the x- and y-axes IDs from a given series name
-                const xAxisIdFn = xAxisIdFrom(xAxesState, axisAssignments)  // f[n](x)
-                const yAxisIdFn = yAxisIdFrom(yAxesState, axisAssignments)  // f[n+1](x)
-
-                // for each (of the possible 4) axes, calculate the which series are assigned to them.
-                // for example, series A could be assigned to the bottom x-axis, and the right y-axis, and
-                // series B could be assigned to the top x-axis and the left y-axis, etc.
-                const xAxesSeries = iterateSeriesToAxesMapping(data, seriesName => xAxisIdFn(seriesName))
-                const yAxesSeries = iterateSeriesToAxesMapping(data, seriesName => yAxisIdFn(seriesName))
+                updateRange(xAxesRanges, xAxesState.axes  as Map<string, ContinuousNumericAxis>)
+                updateRange(yAxesRanges, yAxesState.axes  as Map<string, ContinuousNumericAxis>)
 
                 // add each new point to its corresponding series, the newPoints object
                 // is a map(series_name -> new_point[])
@@ -287,36 +300,6 @@ export function subscriptionIteratesFor(
                     // add the new data to the series
                     series.data.push(...newData)
 
-                    const xAxisId = xAxisIdFn(seriesName)
-                    const yAxisId = yAxisIdFn(seriesName)
-
-                    function calculateBounds(
-                        range: ContinuousAxisRange,
-                        minIterate: IterateDatum,
-                        maxIterate: IterateDatum,
-                        iterateFn: (iterate: IterateDatum) => number
-                    ): ContinuousAxisRange {
-                        return continuousAxisRangeFor(
-                            Math.min(iterateFn(minIterate), range.start),
-                            Math.max(iterateFn(maxIterate), range.end)
-                        )
-                    }
-
-                    // calculate and set the new bounds on the x- and y-axes, which may or may not have changed
-                    const minIterate = data.minIterates.get(seriesName)
-                    const maxIterate = data.maxIterates.get(seriesName)
-
-                    if (minIterate !== undefined && maxIterate !== undefined) {
-                        const xRange = xAxesRanges.get(xAxisId)
-                        if (xRange !== undefined) {
-                            xAxesRanges.set(seriesName, calculateBounds(xRange, minIterate, maxIterate, iterate => iterate.iterateN))
-                        }
-                        const yRange = yAxesRanges.get(yAxisId)
-                        if (yRange !== undefined) {
-                            yAxesRanges.set(seriesName, calculateBounds(yRange, minIterate, maxIterate, iterate => iterate.iterateN_1))
-                        }
-                    }
-
                     // calculate and update the current time, which will be that max time of the
                     // f[n+1](x) values (y-axis)
                     const currentTime = Array.from(data.newPoints.values())
@@ -327,26 +310,16 @@ export function subscriptionIteratesFor(
                             }
                             return maxTime
                         }, 0)
-                    // const lastMaxUpdateTime = data.maxIterate.time
-                    // const currentTime = yAxesSeries.get(xAxisId)
-                    //     ?.reduce(
-                    //         (tMax, name) => {
-                    //             const iterateData = data.newPoints.get(name)
-                    //             if (iterateData !== undefined) {
-                    //                 return Math.max(iterateData[iterateData.length - 1].time || lastMaxUpdateTime, tMax)
-                    //             }
-                    //             return tMax
-                    //         },
-                    //         -Infinity
-                    //     ) || lastMaxUpdateTime
 
                     updateCurrentTime(currentTime)
                 })
 
                 // update the data
-                const xRange = continuousRangeForDefaultAxis(xAxesState.defaultAxis() as ContinuousNumericAxis)
-                const yRange = continuousRangeForDefaultAxis(yAxesState.defaultAxis() as ContinuousNumericAxis)
-                updateRangesAndPlot(xRange, yRange)
+                const xRange = xAxesRanges.get(xAxesState.axisDefaultId())
+                const yRange = yAxesRanges.get(yAxesState.axisDefaultId())
+                if (xRange !== undefined && yRange !== undefined) {
+                    updateRangesAndPlot()
+                }
             })
         })
 
@@ -379,57 +352,57 @@ function determineAssociatedSeries(data: TimeSeriesChartData, axisAssignments: M
         )
 }
 
-/**
- * Higher-order function that returns a function which maps a series name to its x-axis
- * ID by forming a closure over the x-axis state and the axis assignments
- * @param axesState The x-axis state
- * @param axisAssignments The axis assignments
- * @return a function that accepts a series name and returns the corresponding axis ID
- */
-function xAxisIdFrom(
-    axesState: AxesState,
-    axisAssignments: Map<string, AxesAssignment>
-): (seriesName: string) => string {
-    return seriesName => axisAssignments.get(seriesName)?.xAxis || axesState.axisDefaultId()
-}
-
-/**
- * Higher-order function that returns a function which maps a series name to its y-axis
- * ID by forming a closure over the y-axis state and the axis assignments
- * @param axesState The y-axis state
- * @param axisAssignments The axis assignments
- * @return a function that accepts a series name and returns the corresponding axis ID
- */
-function yAxisIdFrom(
-    axesState: AxesState,
-    axisAssignments: Map<string, AxesAssignment>
-): (seriesName: string) => string {
-    return seriesName => axisAssignments.get(seriesName)?.yAxis || axesState.axisDefaultId()
-}
-
-/**
- * Generates a map that associates an axis-id with an array of iterate-series names that are
- * assigned to that axis
- * @param data The iterate chart data
- * @param axisIdFromSeriesNameFn Function that accepts a series name and returns that ID of the axis to
- * which the series is assigned.
- * @return A map that associates an axis-id with an array of iterate-series names that are
- * assigned to that axis
- */
-function iterateSeriesToAxesMapping(
-    data: IterateChartData,
-    axisIdFromSeriesNameFn: (seriesName: string) => string
-): Map<string, Array<string>> {
-    return Array
-        .from(data.maxIterates.entries())
-        .reduce(
-            (assignedSeries, [seriesName,]) => {
-                const id = axisIdFromSeriesNameFn(seriesName)
-                const as = assignedSeries.get(id) || []
-                as.push(seriesName)
-                assignedSeries.set(id, as)
-                return assignedSeries
-            },
-            new Map<string, Array<string>>()
-        )
-}
+// /**
+//  * Higher-order function that returns a function which maps a series name to its x-axis
+//  * ID by forming a closure over the x-axis state and the axis assignments
+//  * @param axesState The x-axis state
+//  * @param axisAssignments The axis assignments
+//  * @return a function that accepts a series name and returns the corresponding axis ID
+//  */
+// function xAxisIdFrom(
+//     axesState: AxesState,
+//     axisAssignments: Map<string, AxesAssignment>
+// ): (seriesName: string) => string {
+//     return seriesName => axisAssignments.get(seriesName)?.xAxis || axesState.axisDefaultId()
+// }
+//
+// /**
+//  * Higher-order function that returns a function which maps a series name to its y-axis
+//  * ID by forming a closure over the y-axis state and the axis assignments
+//  * @param axesState The y-axis state
+//  * @param axisAssignments The axis assignments
+//  * @return a function that accepts a series name and returns the corresponding axis ID
+//  */
+// function yAxisIdFrom(
+//     axesState: AxesState,
+//     axisAssignments: Map<string, AxesAssignment>
+// ): (seriesName: string) => string {
+//     return seriesName => axisAssignments.get(seriesName)?.yAxis || axesState.axisDefaultId()
+// }
+//
+// /**
+//  * Generates a map that associates an axis-id with an array of iterate-series names that are
+//  * assigned to that axis
+//  * @param data The iterate chart data
+//  * @param axisIdFromSeriesNameFn Function that accepts a series name and returns that ID of the axis to
+//  * which the series is assigned.
+//  * @return A map that associates an axis-id with an array of iterate-series names that are
+//  * assigned to that axis
+//  */
+// function iterateSeriesToAxesMapping(
+//     data: IterateChartData,
+//     axisIdFromSeriesNameFn: (seriesName: string) => string
+// ): Map<string, Array<string>> {
+//     return Array
+//         .from(data.maxIterates.entries())
+//         .reduce(
+//             (assignedSeries, [seriesName,]) => {
+//                 const id = axisIdFromSeriesNameFn(seriesName)
+//                 const as = assignedSeries.get(id) || []
+//                 as.push(seriesName)
+//                 assignedSeries.set(id, as)
+//                 return assignedSeries
+//             },
+//             new Map<string, Array<string>>()
+//         )
+// }

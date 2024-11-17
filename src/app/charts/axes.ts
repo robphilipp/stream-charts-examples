@@ -103,19 +103,7 @@ export function addLinearAxis(
         // x-axis
         case AxisLocation.Bottom:
         case AxisLocation.Top:
-            return addContinuousNumericXAxis(
-                chartId,
-                svg,
-                plotDimensions,
-                location,
-                d3.scaleLinear(),
-                domain,
-                axesLabelFont,
-                margin,
-                axisLabel,
-                "",
-                noop,
-            )
+            return addContinuousNumericXAxis(chartId, "", svg, plotDimensions, location, d3.scaleLinear(), domain, axesLabelFont, margin, axisLabel, noop)
     }
 }
 
@@ -471,8 +459,8 @@ export function axesZoomHandler(
 
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         const [x, y] = mousePosition
-        xAxesForSeries.forEach(axisId => calcZoomAndUpdate(x, axisId, xAxesState, xRanges))
-        yAxesForSeries.forEach(axisId => calcZoomAndUpdate(y, axisId, yAxesState, yRanges))
+        xAxesForSeries.forEach(id => calcZoomAndUpdate(x, id, xAxesState, xRanges))
+        yAxesForSeries.forEach(id => calcZoomAndUpdate(y, id, yAxesState, yRanges))
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }
 }
@@ -498,7 +486,7 @@ export function timeIntervals(xAxes: Map<string, ContinuousNumericAxis>): Map<st
 
 /**
  * Returns the bounds on the specified continuous numeric axes
- * @param axes A map associating an axis ID with a {@link ContinuousNumerAxis}
+ * @param axes A map associating an axis ID with a {@link ContinuousNumericAxis}
  * @return A map associating each specified axis ID with the interval covered (bounds) by the axis
  */
 export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
