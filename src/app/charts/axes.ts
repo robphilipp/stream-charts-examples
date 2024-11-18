@@ -374,19 +374,24 @@ export function panHandler(
  * @param margin The plot margin
  * @param setRangeFor Function for setting the new time-range for a specific axis
  * @param axesState The current state of the x- or y-axes
+ * @param scaleExtent The minimum and maximum allowed scale factors
  * @return A handler function for pan events
  */
 export function axisZoomHandler(
     axesForSeries: Array<string>,
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
-    axesState: AxesState
+    axesState: AxesState,
+    scaleExtent: [min: number, max: number] = [-Infinity, Infinity],
 ): (
     transform: ZoomTransform,
     x: number,
     plotDimensions: Dimensions,
     ranges: Map<string, ContinuousAxisRange>,
 ) => void {
+
+    const [, zoomMax] = scaleExtent
+
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
@@ -402,7 +407,14 @@ export function axisZoomHandler(
                 const axis = axesState.axisFor(axisId) as ContinuousNumericAxis
                 const range = ranges.get(axisId)
                 if (range) {
-                    const zoom = calculateZoomFor(transform, x, axis, range)
+                    // calculate the constraint for the zoom
+                    const [originalStart, originalEnd] = range.original
+                    const constraint: [number, number] = isFinite(zoomMax) ?
+                        [originalStart * zoomMax, originalEnd * zoomMax] :
+                        [-Infinity, Infinity]
+
+                    const zoom = calculateConstrainedZoomFor(transform, x, axis, range, constraint)
+                    // const zoom = calculateZoomFor(transform, x, axis, range)
 
                     // update the axis range
                     ranges.set(axisId, zoom.range)
@@ -431,6 +443,7 @@ export function axisZoomHandler(
  * @param setRangeFor Function for setting the new time-range for a specific axis
  * @param xAxesState The current state of the x-axes
  * @param yAxesState The current state of the y-axes
+ * @param scaleExtent The smallest and largest scale factors allowed
  * @return A handler function for pan events
  */
 export function axesZoomHandler(
@@ -473,13 +486,11 @@ export function axesZoomHandler(
             if (range) {
                 const axis = axesState.axisFor(axisId) as ContinuousNumericAxis
 
-                //
-                const [so, eo] = range.original
-                const constraint: [number, number] = [so * zoomMax, eo * zoomMax]
-                //
+                // calculate the constraint for the zoom
+                const [originalStart, originalEnd] = range.original
+                const constraint: [number, number] = [originalStart * zoomMax, originalEnd * zoomMax]
 
                 const zoom = calculateConstrainedZoomFor(transform, value, axis, range, constraint)
-                // const zoom = calculateZoomFor(transform, value, axis, range)
 
                 // update the axis range
                 ranges.set(axisId, zoom.range)

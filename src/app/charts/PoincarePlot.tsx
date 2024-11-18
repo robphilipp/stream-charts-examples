@@ -383,12 +383,14 @@ export function PoincarePlot(props: Props): null {
                 //     plot size changes
                 const xAxis = xAxesState.defaultAxis() as ContinuousNumericAxis
                 const yAxis = yAxesState.defaultAxis() as ContinuousNumericAxis
-                const {start: xStart, end: xEnd} = continuousRangeForDefaultAxis(xAxis)
-                const {start: yStart, end: yEnd} = continuousRangeForDefaultAxis(yAxis)
 
                 const lineGenerator = d3.line<[x: number, y: number]>()
                     .x(d => xAxis.scale(d[0] || 0))
                     .y(d => yAxis.scale(d[1] || 0))
+                // ---
+
+                const [xStart, xEnd] = xAxisRangesRef.current.get(xAxesState.axisDefaultId())?.original || [0, 0]
+                const [yStart, yEnd] = yAxisRangesRef.current.get(yAxesState.axisDefaultId())?.original || [0, 0]
 
                 mainGElem
                     .selectAll(`#fn-equals-fn1-${chartId}-poincare`)
@@ -408,7 +410,6 @@ export function PoincarePlot(props: Props): null {
                     })
                     .on("mouseleave", () => {
                     })
-                // ---
 
                 boundedSeries.forEach((data, name) => {
                     // grab the x and y axes assigned to the series, and if either or both
