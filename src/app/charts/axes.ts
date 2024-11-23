@@ -6,9 +6,7 @@ import {AxisElementSelection, SvgSelection} from "./d3types";
 import {addContinuousNumericXAxis, addContinuousNumericYAxis} from "./ContinuousAxis";
 import {noop} from "./utils";
 import {AxesState} from "./hooks/AxesState";
-import {TimeSeries} from "./timeSeries";
 import {AxesAssignment} from "./plot";
-import {IterateSeries} from "./iterateSeries";
 import {BaseSeries} from "./baseSeries";
 
 export interface AxesLabelFont {
@@ -381,6 +379,8 @@ export function panHandler(
  * @param setAxisRange Function for setting the new time-range for a specific axis
  * @param xAxesState The current state of the x-axes
  * @param yAxesState The current state of the y-axes
+ * @param [constrainToOriginalRange=true] Optional argument, that when set to `true`, constrains the
+ * axis range to remain in the origin axis range; when `false` the axis range is unconstrained
  * @return A handler function for pan events
  */
 export function panHandler2D(
@@ -390,7 +390,7 @@ export function panHandler2D(
     setAxisRange: (axisId: string, timeRange: [start: number, end: number]) => void,
     xAxesState: AxesState,
     yAxesState: AxesState,
-    constainToOriginalRange: boolean = true
+    constrainToOriginalRange: boolean = true
 ): (
     x: number,
     y: number,
@@ -415,7 +415,7 @@ export function panHandler2D(
                 const currentRange = ranges.get(axisId)
                 if (currentRange) {
                     // calculate the change in the time-range based on the pixel change from the drag event
-                    const range = calculatePanFor(delta, axis, currentRange, constainToOriginalRange)
+                    const range = calculatePanFor(delta, axis, currentRange, constrainToOriginalRange)
 
                     // update the time-range for the axis
                     ranges.set(axisId, range)

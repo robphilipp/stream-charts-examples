@@ -161,10 +161,9 @@ export function PoincarePlot(props: Props): null {
     const {initialData} = useInitialData<IterateDatum>()
 
     const {
-        // axisAssignments = new Map<string, AxesAssignment>(),
-        interpolation,// = d3.curveStepAfter,
+        interpolation,
         showPoints = true,
-        dropDataAfter = Infinity,
+        dropDataAfter = 1000,
         panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,

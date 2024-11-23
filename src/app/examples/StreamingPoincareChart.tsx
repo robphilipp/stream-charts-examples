@@ -60,6 +60,11 @@ const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveNoLine', ['No Line', NoCurveFactory]],
 ])
 
+const DROP_DATA_AFTER_SECONDS: Map<string, number> = new Map<string, number>([
+    ['Drop after 10 s', 10000], ['Drop after 20 s', 20000], ['Drop after 50 s', 50000], ['Drop after 100 s', 100000], ['Keep All', Infinity]
+])
+const DEFAULT_DROP_AFTER: [name: string, value: number] = Array.from(DROP_DATA_AFTER_SECONDS.entries())[1]
+
 function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory = d3.curveLinear): d3.CurveFactory {
     return (INTERPOLATIONS.get(name) || [undefined, defaultFactory])[1]
 }
@@ -129,6 +134,9 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveStepAfter')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => interpolationFactoryFor(selectedInterpolationName))
 
+    const [selectedDropAfterName, setSelectedDropAfterName] = useState<string>(DEFAULT_DROP_AFTER[0])
+    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER[1])
+
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
     const intervalRef = useRef<NodeJS.Timeout>()
@@ -160,6 +168,12 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         const factory = interpolationFactoryFor(selectedInterpolation)
         setInterpolation(() => factory)
         setSelectedInterpolationName(selectedInterpolation)
+    }
+
+    function handleDropAfterChange(selectedDropAfterName: string): void {
+        const dropAfter = DROP_DATA_AFTER_SECONDS.get(selectedDropAfterName) || Infinity
+        setDropAfterMs(dropAfter)
+        setSelectedDropAfterName(selectedDropAfterName)
     }
 
     function handleTentMapMuUpdate(mu: number): void {
@@ -276,6 +290,23 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <option key={value} value={value}>{name}</option>
                         ))}
                     </select>
+                    <select
+                        name="drop_after"
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            color: theme.color,
+                            borderColor: theme.color,
+                            padding: 5,
+                            borderRadius: 3,
+                            outlineStyle: 'none'
+                        }}
+                        onChange={event => handleDropAfterChange(event.currentTarget.value)}
+                        value={selectedDropAfterName}
+                    >
+                        {Array.from(DROP_DATA_AFTER_SECONDS.entries()).map(([name, seconds]) => (
+                            <option key={name} value={name}>{name}</option>
+                        ))}
+                    </select>
                     <label style={{color: theme.color, paddingLeft: 10}}>mu <input
                         type="number"
                         value={tentMapMu}
@@ -377,7 +408,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     </Tooltip>
                     <PoincarePlot
                         interpolation={interpolation}
-                        dropDataAfter={10000}
+                        dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

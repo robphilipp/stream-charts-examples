@@ -312,6 +312,12 @@ export function subscriptionIteratesFor(
                         }, 0)
 
                     updateCurrentTime(currentTime)
+
+                    // drop data that is older than the max time-window
+                    while (currentTime - series.data[0].time > dropDataAfter) {
+                        series.data.shift()
+                    }
+
                 })
 
                 // update the data
