@@ -69,6 +69,12 @@ function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory =
     return (INTERPOLATIONS.get(name) || [undefined, defaultFactory])[1]
 }
 
+const LAG_N: Map<string, number> = new Map<string, number>([
+    ['lag = 1', 1], ['lag = 2', 2], ['lag = 3', 3], ['lag = 4', 4], ['lag = 5', 5]
+])
+
+const DEFAULT_LAG_N: [name: string, value: number] = Array.from(LAG_N.entries())[0]
+
 interface Visibility {
     tooltip: boolean;
     tracker: boolean;
@@ -81,8 +87,8 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
-const randomData = (mu: number, updatePeriod: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
-    return initialData => iteratesObservable(tentMapObservable(mu, initialData, updatePeriod), 1)
+const randomData = (mu: number, updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
+    return initialData => iteratesObservable(tentMapObservable(mu, initialData, updatePeriod), lagN)
 }
 
 /**
@@ -121,10 +127,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const [tentMapMu, setTentMapMu] = useState<number>(1.8)
 
-    const randomDataObservable = randomData(tentMapMu, 100)
     // const randomDataObservable = randomData(1.83, 100)
     const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
-    const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -136,6 +140,11 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const [selectedDropAfterName, setSelectedDropAfterName] = useState<string>(DEFAULT_DROP_AFTER[0])
     const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER[1])
+
+    const [selectedLagN, setSelectedLagN] = useState<string>(DEFAULT_LAG_N[0])
+    const [lagN, setLagN] = useState<number>(DEFAULT_LAG_N[1])
+    const randomDataObservable = randomData(tentMapMu, 100, lagN)
+    const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
@@ -174,6 +183,12 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         const dropAfter = DROP_DATA_AFTER_SECONDS.get(selectedDropAfterName) || Infinity
         setDropAfterMs(dropAfter)
         setSelectedDropAfterName(selectedDropAfterName)
+    }
+
+    function handleUpdateLag(selectedLagN: string): void {
+        const lag = LAG_N.get(selectedLagN) || 1
+        setLagN(lag)
+        setSelectedLagN(selectedLagN)
     }
 
     function handleTentMapMuUpdate(mu: number): void {
@@ -274,6 +289,24 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
                     <select
+                        name="lagN"
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            color: theme.color,
+                            borderColor: theme.color,
+                            padding: 5,
+                            borderRadius: 3,
+                            outlineStyle: 'none'
+                        }}
+                        onChange={event => handleUpdateLag(event.currentTarget.value)}
+                        value={selectedLagN}
+                        disabled={running}
+                    >
+                        {Array.from(LAG_N.entries()).map(([name, value]) => (
+                            <option key={name} value={name}>{name}</option>
+                        ))}
+                    </select>
+                    <select
                         name="interpolations"
                         style={{
                             backgroundColor: theme.backgroundColor,
@@ -302,6 +335,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         }}
                         onChange={event => handleDropAfterChange(event.currentTarget.value)}
                         value={selectedDropAfterName}
+                        disabled={running}
                     >
                         {Array.from(DROP_DATA_AFTER_SECONDS.entries()).map(([name, seconds]) => (
                             <option key={name} value={name}>{name}</option>
