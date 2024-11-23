@@ -22,7 +22,7 @@ export interface ContinuousAxisRange {
      * @param amount The amount by which to translate the axis-range
      * @return An updated {@link ContinuousAxisRange} that has been translated by the specified amount
      */
-    translate: (amount: number) => ContinuousAxisRange
+    translate: (amount: number, constraints?: [start: number, end: number]) => ContinuousAxisRange
     /**
      * Updates the axis-range based on the new start and end values
      * @param start The new start of the axis-range
@@ -114,11 +114,18 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
         /**
          * Translates the axis-range by the specified amount
          * @param amount The amount by which to translate the axis-range
+         * @param [constraint=[-Infinity, Infinity]] Optional constraint interval in which the axis range must be within
          * @return An updated {@link ContinuousAxisRange} that has been translated by the specified amount
          */
-        function translate(amount: number): ContinuousAxisRange {
-            start += amount
-            end += amount
+        function translate(amount: number, constraint: [start: number, end: number]  = [-Infinity, Infinity]): ContinuousAxisRange {
+            const [cs, ce] = constraint
+            // when either of the constraints is infinite, or the pan keeps the new axis range
+            // within the origin axis range (i.e. zoomed in and the panned), then allow the pan,
+            // otherwise don't update
+            if ((!isFinite(cs) && !isFinite(ce)) || (start + amount >= cs && end + amount <= ce)) {
+                start += amount
+                end += amount
+            }
             return updateAxisRange(start, end)
         }
 

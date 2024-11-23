@@ -11,7 +11,7 @@ import {
     ContinuousNumericAxis,
     continuousRangeForDefaultAxis,
     defaultLineStyle,
-    panHandler,
+    panHandler, panHandler2D,
     SeriesLineStyle
 } from "./axes";
 import {GSelection} from "./d3types";
@@ -254,12 +254,20 @@ export function PoincarePlot(props: Props): null {
      * @param ranges A map holding the axis ID and its associated time range
      */
     const onPan = useCallback(
-        (x: number,
-         plotDimensions: Dimensions,
-         series: Array<string>,
-         ranges: Map<string, ContinuousAxisRange>,
-        ) => panHandler(xAxesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
-        [xAxesForSeries, margin, setAxisBoundsFor, xAxesState]
+        (
+            x: number,
+            y: number,
+            plotDimensions: Dimensions,
+            series: Array<string>,
+            xRanges: Map<string, ContinuousAxisRange>,
+            yRanges: Map<string, ContinuousAxisRange>,
+        ) => panHandler2D(
+            xAxesForSeries, yAxesForSeries,
+            margin,
+            setAxisBoundsFor,
+            xAxesState, yAxesState
+        )(x, y, plotDimensions, series, xRanges, yRanges),
+        [xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState]
     )
 
     /**
@@ -324,33 +332,35 @@ export function PoincarePlot(props: Props): null {
                 }))
 
                 // set up panning
-                // if (panEnabled) {
-                //     const drag = d3.drag<SVGSVGElement, Datum>()
-                //         .on("start", () => {
-                //             d3.select(container).style("cursor", "move")
-                //             // during panning, we need to disable viewing the tooltip to prevent
-                //             // tooltips from rendering but not getting removed
-                //             allowTooltip.current = false;
-                //         })
-                //         .on("drag", (event) => {
-                //             onPan(
-                //                 event.dx,
-                //                 plotDimensions,
-                //                 Array.from(boundedSeries.keys()),
-                //                 timeRanges,
-                //             )
-                //             updatePlotRef.current(timeRanges, mainGElem)
-                //         })
-                //         .on("end", () => {
-                //             d3.select(container).style("cursor", "auto")
-                //             // during panning, we disabled viewing the tooltip to prevent
-                //             // tooltips from rendering but not getting removed, now that panning
-                //             // is over, allow tooltips to render again
-                //             allowTooltip.current = isSubscriptionClosed();
-                //         })
-                //
-                //     svg.call(drag)
-                // }
+                if (panEnabled) {
+                    const drag = d3.drag<SVGSVGElement, Datum>()
+                        .on("start", () => {
+                            d3.select(container).style("cursor", "move")
+                            // during panning, we need to disable viewing the tooltip to prevent
+                            // tooltips from rendering but not getting removed
+                            allowTooltip.current = false;
+                        })
+                        .on("drag", event => {
+                            onPan(
+                                event.dx,
+                                event.dy,
+                                plotDimensions,
+                                Array.from(boundedSeries.keys()),
+                                xAxisRangesRef.current,
+                                yAxisRangesRef.current
+                            )
+                            updatePlotRef.current(mainGElem)
+                        })
+                        .on("end", () => {
+                            d3.select(container).style("cursor", "auto")
+                            // during panning, we disabled viewing the tooltip to prevent
+                            // tooltips from rendering but not getting removed, now that panning
+                            // is over, allow tooltips to render again
+                            allowTooltip.current = isSubscriptionClosed();
+                        })
+
+                    svg.call(drag)
+                }
 
                 // set up for zooming
                 if (zoomEnabled) {
@@ -359,6 +369,7 @@ export function PoincarePlot(props: Props): null {
                         .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
                         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                         .on("zoom", event => {
+                                allowTooltip.current = false
                                 onZoom(
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
@@ -368,6 +379,7 @@ export function PoincarePlot(props: Props): null {
                                     yAxisRangesRef.current
                                 )
                                 updatePlotRef.current(mainGElem)
+                                allowTooltip.current = true
                             }
                         )
 
@@ -398,6 +410,8 @@ export function PoincarePlot(props: Props): null {
                     .join(enter => enter
                             .select("path")
                             .style("stroke", "grey")
+                            .style("fill", "none")
+                            .style("stroke-width", "1px")
                             .attr("class", `fn-equals-fn1-poincare`)
                             .attr("id", `#fn-equals-fn1-${chartId}-poincare`)
                             .attr('transform', `translate(${margin.left}, ${margin.top})`)
@@ -531,7 +545,7 @@ export function PoincarePlot(props: Props): null {
                 })
             }
         },
-        [container, onUpdateChartTime, zoomEnabled, chartId, plotDimensions, margin, xAxesState, yAxesState, zoomKeyModifiersRequired, onZoom, seriesStyles, seriesFilter, showPoints, interpolation, backgroundColor]
+        [container, onUpdateChartTime, panEnabled, zoomEnabled, chartId, plotDimensions, margin, xAxesState, yAxesState, onPan, zoomMinScaleFactor, zoomMaxScaleFactor, zoomKeyModifiersRequired, onZoom, seriesStyles, seriesFilter, showPoints, interpolation, backgroundColor]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
