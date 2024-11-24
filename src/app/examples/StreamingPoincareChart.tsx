@@ -1,5 +1,5 @@
 import {default as React, JSX, useRef, useState} from "react";
-import {tentMapObservable} from "./randomData";
+import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {
@@ -73,6 +73,30 @@ const LAG_N: Map<string, number> = new Map<string, number>([
     ['lag = 1', 1], ['lag = 2', 2], ['lag = 3', 3], ['lag = 4', 4], ['lag = 5', 5]
 ])
 
+type IterateFunction = (time: number, xn: number) => Datum
+type IterateFunctionInfo = {fn: IterateFunction, range: [start: number, end: number]}
+const iterateInfo = (fn: IterateFunction, start: number, end: number): IterateFunctionInfo => ({
+    fn,
+    range: [start, end],
+})
+const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
+    ['tent_map(µ=0.25)', iterateInfo(tentMapFn(0.25), 0, 1)],
+    ['tent_map(µ=0.50)', iterateInfo(tentMapFn(0.5), 0, 1)],
+    ['tent_map(µ=0.75)', iterateInfo(tentMapFn(0.75), 0, 1)],
+    ['tent_map(µ=1.00)', iterateInfo(tentMapFn(1.00), 0, 1)],
+    ['tent_map(µ=1.25)', iterateInfo(tentMapFn(1.25), 0, 1)],
+    ['tent_map(µ=1.50)', iterateInfo(tentMapFn(1.50), 0, 1)],
+    ['tent_map(µ=1.75)', iterateInfo(tentMapFn(1.75), 0, 1)],
+    ['logistic_map(r=1.5)', iterateInfo(logisticMapFn(1.5), 0, 1)],
+    ['logistic_map(r=2.75)', iterateInfo(logisticMapFn(2.75), 0, 1)],
+    ['logistic_map(r=3.0)', iterateInfo(logisticMapFn(3.0), 0, 1)],
+    ['logistic_map(r=3.5)', iterateInfo(logisticMapFn(3.5), 0, 1)],
+    ['logistic_map(r=4.0)', iterateInfo(logisticMapFn(4.0), 0, 1)],
+    ['gauss_map(α=4.90, iterateInfo(β=-0.58)', iterateInfo(gaussMapFn(4.90, -0.58), -1, 1)]
+])
+
+const DEFAULT_ITERATE_FUNCTION = Array.from(ITERATE_FUNCTIONS.entries())[12]
+
 const DEFAULT_LAG_N: [name: string, value: number] = Array.from(LAG_N.entries())[0]
 
 interface Visibility {
@@ -87,9 +111,9 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
-const randomData = (mu: number, updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
-    return initialData => iteratesObservable(tentMapObservable(mu, initialData, updatePeriod), lagN)
-}
+// const randomData = (mu: number, updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
+//     return initialData => iteratesObservable(tentMapObservable(mu, initialData, updatePeriod), lagN)
+// }
 
 /**
  * The properties
@@ -125,7 +149,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
-    const [tentMapMu, setTentMapMu] = useState<number>(1.8)
+    // const [tentMapMu, setTentMapMu] = useState<number>(1.8)
 
     // const randomDataObservable = randomData(1.83, 100)
     const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
@@ -143,7 +167,16 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const [selectedLagN, setSelectedLagN] = useState<string>(DEFAULT_LAG_N[0])
     const [lagN, setLagN] = useState<number>(DEFAULT_LAG_N[1])
-    const randomDataObservable = randomData(tentMapMu, 100, lagN)
+
+    const [selectedIterateFunction, setSelectedIterateFunction] = useState<string>(DEFAULT_ITERATE_FUNCTION[0])
+    const [iterateFunction, setIterateFunction] = useState<IterateFunction>(() => DEFAULT_ITERATE_FUNCTION[1].fn)
+    const [axesRange, setAxesRange] = useState<[start: number, end: number]>(DEFAULT_ITERATE_FUNCTION[1].range)
+
+    const randomData = (updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
+        return initialData => iteratesObservable(iterateFunctionObservable(iterateFunction, initialData, updatePeriod), lagN)
+    }
+
+    const randomDataObservable = randomData(100, lagN)
     const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
 
     // elapsed time
@@ -191,8 +224,14 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         setSelectedLagN(selectedLagN)
     }
 
-    function handleTentMapMuUpdate(mu: number): void {
-        setTentMapMu(mu)
+    function handleIterateFunctionChange(selectedIterateFunction: string): void {
+        setSelectedIterateFunction(selectedIterateFunction)
+
+        const func = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.fn || tentMapFn(1.8)
+        setIterateFunction(() => func)
+
+        const [start, end] = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.range || [0, 1]
+        setAxesRange([start, end])
     }
 
     /**
@@ -337,17 +376,28 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         value={selectedDropAfterName}
                         disabled={running}
                     >
-                        {Array.from(DROP_DATA_AFTER_SECONDS.entries()).map(([name, seconds]) => (
+                        {Array.from(DROP_DATA_AFTER_SECONDS.entries()).map(([name, _]) => (
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
-                    <label style={{color: theme.color, paddingLeft: 10}}>mu <input
-                        type="number"
-                        value={tentMapMu}
-                        onChange={event => handleTentMapMuUpdate(event.currentTarget.value as unknown as number)}
-                        style={inputStyle}
+                    <select
+                        name="iterate_function"
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            color: theme.color,
+                            borderColor: theme.color,
+                            padding: 5,
+                            borderRadius: 3,
+                            outlineStyle: 'none'
+                        }}
+                        onChange={event => handleIterateFunctionChange(event.currentTarget.value)}
+                        value={selectedIterateFunction}
                         disabled={running}
-                    /></label>
+                    >
+                        {Array.from(ITERATE_FUNCTIONS.entries()).map(([name, _]) => (
+                            <option key={name} value={name}>{name}</option>
+                        ))}
+                    </select>
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
@@ -390,32 +440,35 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateChartTime={handleChartTimeUpdate}
-                    // onUpdateAxesBounds={() => {}}
                     windowingTime={150}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[0, 1]}
+                        domain={axesRange}
                         label="f[n](x)"
+                        deferAxisRangeUpdates={false}
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
-                        domain={[0, 1]}
-                        label="f[n+1](x)"
+                        domain={axesRange}
+                        label={`f[n+${lagN}](x)`}
+                        deferAxisRangeUpdates={false}
                     />
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[0, 1]}
+                        domain={axesRange}
                         label="f[n](x)"
+                        deferAxisRangeUpdates={false}
                     />
                     <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
-                        domain={[0, 1]}
-                        label="f[n+1](x)"
+                        domain={axesRange}
+                        label={`f[n+${lagN}](x)`}
+                        deferAxisRangeUpdates={false}
                     />
                     <Tracker
                         visible={visibility.tracker}

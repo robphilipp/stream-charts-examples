@@ -63,6 +63,7 @@ export function randomSpikeDataObservable(
     );
 }
 
+export type IterateFunction = (time: number, xn: number) => Datum
 
 /**
  * Higher-order function that forms a closure on the tent map's mu and returns
@@ -78,7 +79,7 @@ export function randomSpikeDataObservable(
  * a {@link Datum} whose y-values are the iterates of the tent-map, and whose
  * x-values are the collection/calculation time.
  */
-function tentMapFn(mu: number): (time: number, xn: number) => Datum {
+export function tentMapFn(mu: number): IterateFunction {
     const cleanMu = Math.max(0, Math.min(mu, 2))
 
     // the time is just the data collection time and does not factor int
@@ -94,6 +95,16 @@ export function initialTentMapData(updatePeriod: number, series: Map<string, num
         .map(([name, initialTime]) => seriesFrom(name, [datumOf(initialTime + Math.ceil(Math.random() * updatePeriod), Math.random())])
     )
 }
+
+export function logisticMapFn(r: number): IterateFunction {
+    const clearR = Math.max(0, Math.min(r, 4))
+    return (time: number, xn: number): Datum => datumOf(time, clearR * xn * (1 - xn))
+}
+
+export function gaussMapFn(alpha: number, beta: number): IterateFunction {
+    return (time: number, xn: number): Datum =>  datumOf(time, Math.exp(-alpha * xn * xn) + beta)
+}
+
 // export function initialTentMapData(updatePeriod: number, series: Map<string, number>): Map<string, Datum> {
 //     return new Map<string, Datum>(Array.from(series.entries())
 //         .map(([name, initialTime]) => [
@@ -121,50 +132,61 @@ export function initialTentMapData(updatePeriod: number, series: Map<string, num
 //     )
 // }
 
-function tentMapData(
-    iterateTime: number,
-    series: Array<string>,
-    seriesPreviousIterates: Map<string, Datum>,
-    tentMap: (time: number, xn: number) => Datum,
-    updatePeriod: number
-): TimeSeriesChartData {
-    const maxTimes = new Map(Array.from(seriesPreviousIterates.entries())
-        .map(([name, datum]) => [name, datum.time + iterateTime])
-    )
-    return {
-        maxTime: iterateTime,
-        maxTimes,
-        newPoints: new Map(series.map(name => {
-            const maxTime = maxTimes.get(name) || 0
-            const nextIterateTime = iterateTime + maxTime - Math.ceil(Math.random() * updatePeriod)
-            const {time, value} = tentMap(nextIterateTime, seriesPreviousIterates.get(name)?.value || 0)
-            return [name, [{time, value}]]
-        }))
-    }
-}
+// function tentMapData(
+//     iterateTime: number,
+//     series: Array<string>,
+//     seriesPreviousIterates: Map<string, Datum>,
+//     tentMap: (time: number, xn: number) => Datum,
+//     updatePeriod: number
+// ): TimeSeriesChartData {
+//     const maxTimes = new Map(Array.from(seriesPreviousIterates.entries())
+//         .map(([name, datum]) => [name, datum.time + iterateTime])
+//     )
+//     return {
+//         maxTime: iterateTime,
+//         maxTimes,
+//         newPoints: new Map(series.map(name => {
+//             const maxTime = maxTimes.get(name) || 0
+//             const nextIterateTime = iterateTime + maxTime - Math.ceil(Math.random() * updatePeriod)
+//             const {time, value} = tentMap(nextIterateTime, seriesPreviousIterates.get(name)?.value || 0)
+//             return [name, [{time, value}]]
+//         }))
+//     }
+// }
 
-export function tentMapObservable(
-    mu: number,
-    series: Array<TimeSeries>,
+// export function tentMapObservable(
+//     mu: number,
+//     series: Array<TimeSeries>,
+//     updatePeriod: number = 25
+// ): Observable<TimeSeriesChartData> {
+//     const initialData = initialChartData(series)
+//     const tentMap = tentMapFn(mu)
+//     const accumulateFn = accumulateTentDataAt(updatePeriod);
+//     return interval(updatePeriod).pipe(
+//         scan((prev, sequence) => accumulateFn(prev, sequence + 1, tentMap), initialData)
+//     )
+// }
+
+export function iterateFunctionObservable(
+    iterateFunction: IterateFunction,
+    initialSeries: Array<TimeSeries>,
     updatePeriod: number = 25
 ): Observable<TimeSeriesChartData> {
-    const initialData = initialChartData(series)
-    const tentMap = tentMapFn(mu)
-    const accumulateFn = accumulateTentDataAt(updatePeriod);
+    // convert the initial time-series to chart data needed by the observable
+    const initialData = initialChartData(initialSeries)
+    // create the function that accumulates the time-series into an iterate series
+    const accumulateFn = accumulateIterateDataAt(updatePeriod)
+    // observable that converts the time-series into iterates
     return interval(updatePeriod).pipe(
-        // convert the number sequence to a time
-        // map(sequence => (sequence + 1) * updatePeriod),
-
-        // map(time => tentMapData(time, seriesNames, ))
-        scan((prev, sequence) => accumulateFn(prev, sequence + 1, tentMap), initialData)
+        scan((prev, sequence) => accumulateFn(prev, sequence + 1, iterateFunction), initialData)
     )
 }
 
-function accumulateTentData(
+function accumulateIterateData(
     previous: TimeSeriesChartData,
     iterateNum: number,
     updatePeriod: number,
-    tentMap: (time: number, xn: number) => Datum
+    iterateFunction: IterateFunction
 ): TimeSeriesChartData {
     // make a copy of the current max times, which we'll update with new points
     const maxTimes = new Map(previous.maxTimes.entries())
@@ -175,7 +197,7 @@ function accumulateTentData(
     const newPoints = new Map(Array.from(previous.newPoints.entries()).map(([name, data]) => [name, data.slice()]))
     newPoints.forEach((data, name) => {
         const lastDatum = data[data.length-1]
-        const newDatum = tentMap(lastDatum.time + updatePeriod, lastDatum.value)
+        const newDatum = iterateFunction(lastDatum.time + updatePeriod, lastDatum.value)
         data.shift()
         data.push(newDatum)
     })
@@ -188,11 +210,11 @@ function accumulateTentData(
     };
 }
 
-function accumulateTentDataAt(updatePeriod: number):
-    (previous: TimeSeriesChartData, iterateNum: number, tentMap: (time: number, xn: number) => Datum) => TimeSeriesChartData
+function accumulateIterateDataAt(updatePeriod: number):
+    (previous: TimeSeriesChartData, iterateNum: number, iterateFunction: IterateFunction) => TimeSeriesChartData
 {
-    return (previous: TimeSeriesChartData, iterateNum: number, tentMap: (time: number, xn: number) => Datum) =>
-        accumulateTentData(previous, iterateNum, updatePeriod, tentMap)
+    return (previous: TimeSeriesChartData, iterateNum: number, iterateFunction: IterateFunction) =>
+        accumulateIterateData(previous, iterateNum, updatePeriod, iterateFunction)
 }
 
 /**

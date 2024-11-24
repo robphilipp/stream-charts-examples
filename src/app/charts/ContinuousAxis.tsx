@@ -23,6 +23,19 @@ interface Props {
     font?: Partial<AxesLabelFont>
     // the axis label
     label: string
+    // the scatter and raster time-series charts start "scrolling" the time axis when the
+    // current time hits the upper end of the axis range, and when that happens, the updates
+    // to the axis range are driven by the data. in this case, we want to defer the axis-range
+    // updates to the subscription by setting this value to `true` (its default value),
+    // because it knows about the data and how to calculate the new axis range to simulate
+    // scrolling of the time axis.
+    //
+    // on the other hand, the iterates chart generally has fixed axis ranges, that may be
+    // controlled by the implementation of the chart. for example, when switching an iterate
+    // function that has a different range, we want to be able to use the new "domain" value
+    // to update the axis. in this case we set this value to `false` and let this the
+    // "ContinuousAxis" manage the axis range.
+    deferAxisRangeUpdates?: boolean
 }
 
 export function ContinuousAxis(props: Props): null {
@@ -54,6 +67,7 @@ export function ContinuousAxis(props: Props): null {
         scale = d3.scaleLinear(),
         domain,
         label,
+        deferAxisRangeUpdates = true
     } = props
 
     const axisRef = useRef<ContinuousNumericAxis>()
@@ -117,19 +131,7 @@ export function ContinuousAxis(props: Props): null {
                 } else {
                     switch (location) {
                         case AxisLocation.Bottom:
-                        case AxisLocation.Top:
-                            const timeRange = axisBoundsFor(axisId)
-                            if (timeRange) {
-                                axisRef.current.update(timeRange, plotDimensions, margin)
-                            }
-                            if (rangeUpdateHandlerIdRef.current !== undefined) {
-                                addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
-                            }
-                            break
-                        case AxisLocation.Left:
-                        case AxisLocation.Right:
-                            // todo will need to use and update the domain for the y-axis when using
-                            //      zoom...do something similar to what I did for the time-range
+                        case AxisLocation.Top: {
                             const range = axisBoundsFor(axisId)
                             if (range) {
                                 axisRef.current.update(range, plotDimensions, margin)
@@ -137,7 +139,24 @@ export function ContinuousAxis(props: Props): null {
                             if (rangeUpdateHandlerIdRef.current !== undefined) {
                                 addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                             }
-                            // axisRef.current.update(domain, plotDimensions, margin)
+                            if (!deferAxisRangeUpdates) {
+                                updateLinearXAxis(domain, label, chartId, svg, axisRef.current, plotDimensions, margin, location)
+                            }
+                            break
+                        }
+                        case AxisLocation.Left:
+                        case AxisLocation.Right: {
+                            const range = axisBoundsFor(axisId)
+                            if (range) {
+                                axisRef.current.update(range, plotDimensions, margin)
+                            }
+                            if (rangeUpdateHandlerIdRef.current !== undefined) {
+                                addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
+                            }
+                            if (!deferAxisRangeUpdates) {
+                                updateLinearYAxis(domain, label, chartId, svg, axisRef.current, plotDimensions, margin, font, location)
+                            }
+                        }
                     }
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
@@ -145,14 +164,21 @@ export function ContinuousAxis(props: Props): null {
         },
         [
             chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis,
-            domain, scale, container, margin, plotDimensions, setAxisBoundsFor, axisBoundsFor, addAxesBoundsUpdateHandler,
-            color
+            domain, scale, container, margin, plotDimensions, setAxisBoundsFor, axisBoundsFor,
+            addAxesBoundsUpdateHandler, color, deferAxisRangeUpdates
         ]
     )
 
     return null
 }
 
+/**
+ * Calculates the CSS ID for the axis, based on the chart ID and the location
+ * of the axis (e.g. y-axis: left, right; x-axis: top, bottom)
+ * @param chartId The ID of the chart
+ * @param location The location of the axis
+ * @return The CSS ID for the axis
+ */
 function labelIdFor(chartId: number, location: AxisLocation): string {
     switch (location) {
         case AxisLocation.Bottom:
@@ -164,6 +190,21 @@ function labelIdFor(chartId: number, location: AxisLocation): string {
     }
 }
 
+/**
+ * Adds a new x-axis to the SVG element at the specified location
+ * @param chartId The ID of the chart
+ * @param axisId The ID of the axis
+ * @param svg The SVG selection to which to add the axis
+ * @param plotDimensions The dimensions of the plot
+ * @param location The location of the axis
+ * @param scaleGenerator The higher-order function that returns the axis d3 "scale" function
+ * @param domain The axis range (start, end)
+ * @param axesLabelFont The font for the axis labels
+ * @param margin The plot margins for the border of main SVG group
+ * @param axisLabel The label for the axis
+ * @param setAxisRangeFor A callback used to set the axis range
+ * @return A {@link ContinuousNumericAxis} based on the arguments to this function
+ */
 export function addContinuousNumericXAxis(
     chartId: number,
     axisId: string,
@@ -175,7 +216,7 @@ export function addContinuousNumericXAxis(
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
-    setTimeRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
+    setAxisRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([0, plotDimensions.width])
 
@@ -205,29 +246,29 @@ export function addContinuousNumericXAxis(
     return {
         ...axis,
         update: (domain: [start: number, end: number], plotDimensions: Dimensions, margin: Margin) => {
-            updateLinearXAxis(chartId, svg, axis, domain, plotDimensions, margin, location)
-            setTimeRangeFor(axisId, domain)
+            updateLinearXAxis(domain, axisLabel, chartId, svg, axis, plotDimensions, margin, location)
+            setAxisRangeFor(axisId, domain)
         }
     }
 }
 
-function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
-    return location === AxisLocation.Bottom ?
-        Math.max(margin.bottom + margin.top, plotDimensions.height + margin.top - margin.bottom) :
-        margin.top
-}
-
-function labelYTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
-    return location === AxisLocation.Bottom ?
-        plotDimensions.height + margin.top + margin.bottom / 3 :
-        margin.top / 3
-}
-
+/**
+ * Updates the x-axis with the new domain and axis label
+ * @param domain The new (start, end) range of the axis
+ * @param label The new label for the axis
+ * @param chartId The ID of the chart
+ * @param svg The SVG selection of which the axis is a child node
+ * @param axis The x-axis
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margins for the border of main SVG group
+ * @param location The location of the axis (i.e. top, bottom, left, right)
+ */
 function updateLinearXAxis(
+    domain: [startValue: number, endValue: number],
+    label: string,
     chartId: number,
     svg: SvgSelection,
     axis: ContinuousNumericAxis,
-    domain: [startValue: number, endValue: number],
     plotDimensions: Dimensions,
     margin: Margin,
     location: AxisLocation.Bottom | AxisLocation.Top,
@@ -240,9 +281,50 @@ function updateLinearXAxis(
     svg
         .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${labelYTranslation(location, plotDimensions, margin)})`)
+        .text(label)
 }
 
+/**
+ * The number of pixels to translate the x-axis to the right
+ * @param location The location of the x-axis
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margins for the border of main SVG group
+ * @return The number of pixels to translate the x-axis to the right
+ */
+function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
+    return location === AxisLocation.Bottom ?
+        Math.max(margin.bottom + margin.top, plotDimensions.height + margin.top - margin.bottom) :
+        margin.top
+}
 
+/**
+ * The number of pixels to translate the x-axis label to the right
+ * @param location The location of the x-axis
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margins for the border of main SVG group
+ * @return The number of pixels to translate the x-axis label to the right
+ */
+function labelYTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
+    return location === AxisLocation.Bottom ?
+        plotDimensions.height + margin.top + margin.bottom / 3 :
+        margin.top / 3
+}
+
+/**
+ * Adds a new y-axis to the SVG element at the specified location
+ * @param chartId The ID of the chart
+ * @param axisId The ID of the axis
+ * @param svg The SVG selection to which to add the axis
+ * @param plotDimensions The dimensions of the plot
+ * @param location The location of the axis
+ * @param scaleGenerator The higher-order function that returns the axis d3 "scale" function
+ * @param domain The axis range (start, end)
+ * @param axesLabelFont The font for the axis labels
+ * @param margin The plot margins for the border of main SVG group
+ * @param axisLabel The label for the axis
+ * @param setAxisRangeFor A callback used to set the axis range
+ * @return A {@link ContinuousNumericAxis} based on the arguments to this function
+ */
 export function addContinuousNumericYAxis(
     chartId: number,
     axisId: string,
@@ -287,29 +369,30 @@ export function addContinuousNumericYAxis(
     return {
         ...axis,
         update: (domain: [start: number, end: number], plotDimensions: Dimensions, margin: Margin) => {
-            updateLinearYAxis(chartId, svg, axis, domain, plotDimensions, margin, axesLabelFont, location)
+            updateLinearYAxis(domain, axisLabel, chartId, svg, axis, plotDimensions, margin, axesLabelFont, location)
             setAxisRangeFor(axisId, domain)
         }
     }
 }
 
-function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
-    return location === AxisLocation.Left ?
-        margin.left :
-        margin.left + plotDimensions.width
-}
-
-function labelXTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesLabelFont): number {
-    return location === AxisLocation.Left ?
-        axesLabelFont.size :
-        margin.left + plotDimensions.width + margin.right - axesLabelFont.size
-}
-
+/**
+ * Updates the y-axis with the new domain and axis label
+ * @param domain The new (start, end) range of the axis
+ * @param label The new label for the axis
+ * @param chartId The ID of the chart
+ * @param svg The SVG selection of which the axis is a child node
+ * @param axis The y-axis
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margins for the border of main SVG group
+ * @param axesLabelFont The font for the axis label
+ * @param location The location of the axis (i.e. top, bottom, left, right)
+ */
 function updateLinearYAxis(
+    domain: [startValue: number, endValue: number],
+    label: string,
     chartId: number,
     svg: SvgSelection,
     axis: ContinuousNumericAxis,
-    domain: [startValue: number, endValue: number],
     plotDimensions: Dimensions,
     margin: Margin,
     axesLabelFont: AxesLabelFont,
@@ -323,4 +406,32 @@ function updateLinearYAxis(
     svg
         .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
+        .text(label)
+}
+
+/**
+ * The number of pixels to translate the y-axis down
+ * @param location The location of the y-axis
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margins for the border of main SVG group
+ * @return The number of pixels to translate the y-axis down
+ */
+function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
+    return location === AxisLocation.Left ?
+        margin.left :
+        margin.left + plotDimensions.width
+}
+
+/**
+ * The number of pixels to translate the y-axis label down
+ * @param location The location of the y-axis
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margins for the border of main SVG group
+ * @param axesLabelFont The font for the axis label
+ * @return The number of pixels to translate the y-axis label down
+ */
+function labelXTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesLabelFont): number {
+    return location === AxisLocation.Left ?
+        axesLabelFont.size :
+        margin.left + plotDimensions.width + margin.right - axesLabelFont.size
 }

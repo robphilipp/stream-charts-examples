@@ -13,9 +13,9 @@ const noop = () => {
     /* empty on purpose */
 }
 
-type Range = [start: number, end: number]
-const anEmptyRange: Range = [NaN, NaN]
-const copyRangeMap = (ranges: Map<string, Range>): Map<string, Range> =>
+type AxisRange = [start: number, end: number]
+const anEmptyRange: AxisRange = [NaN, NaN]
+const copyRangeMap = (ranges: Map<string, AxisRange>): Map<string, AxisRange> =>
     new Map(Array.from(ranges.entries()).map(([id, [start, end]]) => [id, [start, end]]))
 
 export type UseAxesValues = {
@@ -57,17 +57,17 @@ export type UseAxesValues = {
      * @param axisId The ID of the axis for which to retrieve the axis-range
      * @return The axis-range as a `[start, end]` tuple if the axis ID is found, `undefined` otherwise
      */
-    axisBoundsFor: (axisId: string) => Range
+    axisBoundsFor: (axisId: string) => AxisRange
     /**
      * Retrieves the original axis range for the specified axis ID
      * @param axisId The ID of the axis for which to retrieve the axis-range
      * @return The axis-range as a `[start, end]` tuple if the axis ID is found, `undefined` otherwise
      */
-    originalAxisBoundsFor: (axisId: string) => Range
+    originalAxisBoundsFor: (axisId: string) => AxisRange
     /**
      * @return The original axis bounds as a map(axis_id, (start, end))
      */
-    originalAxisBounds: () => Map<string, Range>
+    originalAxisBounds: () => Map<string, AxisRange>
     /**
      * Sets the time-range for the specified axis ID to the specified range
      * @param axisId The ID of the axis for which to set the range
@@ -88,7 +88,7 @@ export type UseAxesValues = {
      * axis.
      * @return void
      */
-    onUpdateAxesBounds?: (times: Map<string, Range>) => void
+    onUpdateAxesBounds?: (times: Map<string, AxisRange>) => void
     /**
      * Adds a handler for when the time is updated. The time could change because of a zoom action,
      * a pan action, or as new data is streamed in.
@@ -112,7 +112,7 @@ export const defaultAxesValues = (): UseAxesValues => ({
     axisAssignmentsFor: () => ({xAxis: "", yAxis: ""}),
     axisBoundsFor: () => anEmptyRange,
     originalAxisBoundsFor: () => anEmptyRange,
-    originalAxisBounds: () => new Map<string, Range>(),
+    originalAxisBounds: () => new Map<string, AxisRange>(),
     setAxisBoundsFor: noop,
     updateAxesBounds: noop,
     addAxesBoundsUpdateHandler: () => noop,
