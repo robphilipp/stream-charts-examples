@@ -38,6 +38,15 @@ interface Props {
     deferAxisRangeUpdates?: boolean
 }
 
+/**
+ * Represents a continuous numeric axis (x or y) that can be place on the top, bottom,
+ * left, or right of the chart. The domain (axis range) can be managed by this axis
+ * component, or managed externally (i.e. deferred). This component returns null, meaning
+ * React won't render it, because we are updating the SVG element and don't want React
+ * involved, except to call this function if the props change.
+ * @param props The properties for the axis
+ * @constructor
+ */
 export function ContinuousAxis(props: Props): null {
     const {
         chartId,
