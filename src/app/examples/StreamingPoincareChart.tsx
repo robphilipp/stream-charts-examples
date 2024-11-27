@@ -1,4 +1,4 @@
-import {default as React, JSX, useRef, useState} from "react";
+import {default as React, JSX, useEffect, useRef, useState} from "react";
 import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -15,7 +15,6 @@ import {
     withPixels
 } from "react-resizable-grid-layout";
 import {Datum, TimeSeries} from "../charts/timeSeries";
-import {regexFilter} from "../charts/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/usePlotDimensions';
 import {AxisLocation, defaultLineStyle} from '../charts/axes';
@@ -72,32 +71,127 @@ function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory =
 const LAG_N: Map<string, number> = new Map<string, number>([
     ['lag = 1', 1], ['lag = 2', 2], ['lag = 3', 3], ['lag = 4', 4], ['lag = 5', 5]
 ])
+const DEFAULT_LAG_N: [name: string, value: number] = Array.from(LAG_N.entries())[0]
 
+//
+// iterate functions
+//
 type IterateFunction = (time: number, xn: number) => Datum
-type IterateFunctionInfo = {fn: IterateFunction, range: [start: number, end: number]}
-const iterateInfo = (fn: IterateFunction, start: number, end: number): IterateFunctionInfo => ({
-    fn,
-    range: [start, end],
+type IterateFunctionCallback = (fn: IterateFunction) => void
+type IterateFunctionInfo = {inputFn: (callback: IterateFunctionCallback, theme: Theme) => JSX.Element, range: [start: number, end: number]}
+
+const inputStyleFor = (theme: Theme) => ({
+    backgroundColor: theme.backgroundColor,
+    outlineStyle: 'none',
+    borderColor: theme.color,
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderRadius: 3,
+    color: theme.color,
+    fontSize: 12,
+    padding: 4,
+    margin: 6,
+    marginLeft: 0,
+    marginRight: 20,
 })
+
+const spanStyleFor = (theme: Theme) => ({
+    padding: 4,
+    backgroundColor: theme.disabledBackgroundColor,
+})
+
+const labelStyleFor = (theme: Theme) => ({
+    color: theme.color,
+    paddingLeft: 6,
+    paddingRight: 0,
+})
+
+function TentMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+    const {theme = lightTheme, onFunctionChange} = props
+
+    const [mu, setMu] = useState<string>('1.8')
+
+    // we need the useEffect so that on mount, we issue the callback with the new iterate
+    // function
+    useEffect(() => {
+        onFunctionChange(tentMapFn(parseFloat(mu)))
+    }, [mu, onFunctionChange]);
+
+    return <>
+        <label style={labelStyleFor(theme)}>µ <input
+            type="text"
+            value={mu}
+            onChange={event => setMu(event.currentTarget.value)}
+            style={inputStyleFor(theme)}
+        /></label>
+    </>
+}
+
+function LogisticMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+    const {theme = lightTheme, onFunctionChange} = props
+
+    const [r, setR] = useState<string>('3.0')
+
+    // we need the useEffect so that on mount, we issue the callback with the new iterate
+    // function
+    useEffect(() => {
+        onFunctionChange(logisticMapFn(parseFloat(r)))
+    }, [r, onFunctionChange]);
+
+    return <>
+        <label style={labelStyleFor(theme)}>r <input
+            type="text"
+            value={r}
+            onChange={event => setR(event.currentTarget.value)}
+            style={inputStyleFor(theme)}
+        /></label>
+    </>
+}
+
+function GaussMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+    const {theme = lightTheme, onFunctionChange} = props
+
+    const [alpha, setAlpha] = useState<string>('4.90')
+    const [beta, setBeta] = useState<string>('-0.58')
+
+    // we need the useEffect so that on mount, we issue the callback with the new iterate
+    // function
+    useEffect(() => {
+        onFunctionChange(gaussMapFn(parseFloat(alpha), parseFloat(beta)))
+    }, [alpha, beta, onFunctionChange]);
+
+    return <span style={spanStyleFor(theme)}>
+        <label style={labelStyleFor(theme)}>α <input
+            type="text"
+            value={alpha}
+            onChange={event => setAlpha(event.currentTarget.value)}
+            style={{...inputStyleFor(theme), marginRight: 6}}
+        /></label>
+        <label style={labelStyleFor(theme)}>β <input
+            type="text"
+            value={beta}
+            onChange={event => setBeta(event.currentTarget.value)}
+            style={inputStyleFor(theme)}
+        /></label>
+    </span>
+}
+
 const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
-    ['tent_map(µ=0.25)', iterateInfo(tentMapFn(0.25), 0, 1)],
-    ['tent_map(µ=0.50)', iterateInfo(tentMapFn(0.5), 0, 1)],
-    ['tent_map(µ=0.75)', iterateInfo(tentMapFn(0.75), 0, 1)],
-    ['tent_map(µ=1.00)', iterateInfo(tentMapFn(1.00), 0, 1)],
-    ['tent_map(µ=1.25)', iterateInfo(tentMapFn(1.25), 0, 1)],
-    ['tent_map(µ=1.50)', iterateInfo(tentMapFn(1.50), 0, 1)],
-    ['tent_map(µ=1.75)', iterateInfo(tentMapFn(1.75), 0, 1)],
-    ['logistic_map(r=1.5)', iterateInfo(logisticMapFn(1.5), 0, 1)],
-    ['logistic_map(r=2.75)', iterateInfo(logisticMapFn(2.75), 0, 1)],
-    ['logistic_map(r=3.0)', iterateInfo(logisticMapFn(3.0), 0, 1)],
-    ['logistic_map(r=3.5)', iterateInfo(logisticMapFn(3.5), 0, 1)],
-    ['logistic_map(r=4.0)', iterateInfo(logisticMapFn(4.0), 0, 1)],
-    ['gauss_map(α=4.90, iterateInfo(β=-0.58)', iterateInfo(gaussMapFn(4.90, -0.58), -1, 1)]
+    ['Tent Map', {
+        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (<TentMapGenerator onFunctionChange={callback} theme={theme}/>),
+        range: [0, 1]
+    }],
+    ['Logistic Map', {
+        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (<LogisticMapGenerator onFunctionChange={callback} theme={theme}/>),
+        range: [0, 1]
+    }],
+    ['Gauss Map', {
+        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (<GaussMapGenerator onFunctionChange={callback} theme={theme}/>),
+        range: [-1, 1]
+    }],
 ])
 
-const DEFAULT_ITERATE_FUNCTION = Array.from(ITERATE_FUNCTIONS.entries())[12]
-
-const DEFAULT_LAG_N: [name: string, value: number] = Array.from(LAG_N.entries())[0]
+const DEFAULT_ITER_FUNC = Array.from(ITERATE_FUNCTIONS.entries())[0]
 
 interface Visibility {
     tooltip: boolean;
@@ -128,28 +222,10 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         initialData = [],
     } = props
 
-
-    const inputStyle = {
-        backgroundColor: theme.backgroundColor,
-        outlineStyle: 'none',
-        borderColor: theme.color,
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: theme.color,
-        fontSize: 12,
-        padding: 4,
-        margin: 6,
-        marginRight: 20
-    }
-
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const [running, setRunning] = useState<boolean>(false)
-
-    const [filterValue, setFilterValue] = useState<string>('');
-    const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveStepAfter')
@@ -161,9 +237,17 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [selectedLagN, setSelectedLagN] = useState<string>(DEFAULT_LAG_N[0])
     const [lagN, setLagN] = useState<number>(DEFAULT_LAG_N[1])
 
-    const [selectedIterateFunction, setSelectedIterateFunction] = useState<string>(DEFAULT_ITERATE_FUNCTION[0])
-    const [iterateFunction, setIterateFunction] = useState<IterateFunction>(() => DEFAULT_ITERATE_FUNCTION[1].fn)
-    const [axesRange, setAxesRange] = useState<[start: number, end: number]>(DEFAULT_ITERATE_FUNCTION[1].range)
+    const [selectedIterateFunction, setSelectedIterateFunction] = useState<string>(DEFAULT_ITER_FUNC[0])
+    const [iterateFunctionInputGen, setIterateFunctionInputGen] = useState<(callback: IterateFunctionCallback, theme: Theme) => JSX.Element>(() => DEFAULT_ITER_FUNC[1].inputFn)
+    const [iterateFunction, setIterateFunction] = useState<IterateFunction>(() => tentMapFn(1.8))
+    const [axesRange, setAxesRange] = useState<[start: number, end: number]>(DEFAULT_ITER_FUNC[1].range)
+
+    // holds the iterate function input component as state, updating it when the iterate function
+    // input generator changes (e.g. when the user selects a new iterate function
+    const [iterFuncInput, setIterFuncInput] = useState<JSX.Element>(() => iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
+    useEffect(() => {
+        setIterFuncInput(iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
+    }, [iterateFunctionInputGen, theme]);
 
     const randomData = (updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
         return initialData => iteratesObservable(iterateFunctionObservable(iterateFunction, initialData, updatePeriod), lagN)
@@ -178,20 +262,10 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
-    // const chartTimeRef = useRef<number>(0)
     const [chartTime, setChartTime] = useState<number>(0)
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
-    }
-
-    /**
-     * Called when the user changes the regular expression filter
-     * @param updatedFilter The updated the filter
-     */
-    function handleUpdateRegex(updatedFilter: string): void {
-        setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).ifSome((regex: RegExp) => setFilter(regex));
     }
 
     /**
@@ -220,8 +294,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     function handleIterateFunctionChange(selectedIterateFunction: string): void {
         setSelectedIterateFunction(selectedIterateFunction)
 
-        const func = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.fn || tentMapFn(1.8)
-        setIterateFunction(() => func)
+        const componentFactory = ITERATE_FUNCTIONS.get(selectedIterateFunction)!.inputFn
+        setIterateFunctionInputGen(() => componentFactory)
 
         const [start, end] = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.range || [0, 1]
         setAxesRange([start, end])
@@ -255,12 +329,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         >
             <GridItem gridAreaName="chart-controls">
                 <div>
-                    <label style={{color: theme.color}}>regex filter <input
-                        type="text"
-                        value={filterValue}
-                        onChange={event => handleUpdateRegex(event.currentTarget.value)}
-                        style={inputStyle}
-                    /></label>
                     <Button
                         style={{
                             backgroundColor: theme.backgroundColor,
@@ -334,7 +402,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         value={selectedLagN}
                         disabled={running}
                     >
-                        {Array.from(LAG_N.entries()).map(([name,]) => (
+                        {Array.from(LAG_N.entries()).map(([name, _]) => (
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
@@ -373,6 +441,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
+                    <span style={spanStyleFor(theme)}>
                     <select
                         name="iterate_function"
                         style={{
@@ -391,6 +460,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
+                    {iterFuncInput}
+                        </span>
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
@@ -429,7 +500,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         }],
                     ])}
                     initialData={initialDataRef.current}
-                    seriesFilter={filter}
+                    // seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateChartTime={handleChartTimeUpdate}
