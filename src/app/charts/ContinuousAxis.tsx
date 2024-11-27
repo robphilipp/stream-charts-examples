@@ -23,19 +23,6 @@ interface Props {
     font?: Partial<AxesLabelFont>
     // the axis label
     label: string
-    // the scatter and raster time-series charts start "scrolling" the time axis when the
-    // current time hits the upper end of the axis range, and when that happens, the updates
-    // to the axis range are driven by the data. in this case, we want to defer the axis-range
-    // updates to the subscription by setting this value to `true` (its default value),
-    // because it knows about the data and how to calculate the new axis range to simulate
-    // scrolling of the time axis.
-    //
-    // on the other hand, the iterates chart generally has fixed axis ranges, that may be
-    // controlled by the implementation of the chart. for example, when switching an iterate
-    // function that has a different range, we want to be able to use the new "domain" value
-    // to update the axis. in this case we set this value to `false` and let this the
-    // "ContinuousAxis" manage the axis range.
-    deferAxisRangeUpdates?: boolean
 }
 
 /**
@@ -63,6 +50,7 @@ export function ContinuousAxis(props: Props): null {
         setAxisBoundsFor,
         axisBoundsFor,
         addAxesBoundsUpdateHandler,
+        resetAxisBoundsFor,
     } = axes
 
     const {
@@ -76,7 +64,6 @@ export function ContinuousAxis(props: Props): null {
         scale = d3.scaleLinear(),
         domain,
         label,
-        deferAxisRangeUpdates = true
     } = props
 
     const axisRef = useRef<ContinuousNumericAxis>()
@@ -84,6 +71,7 @@ export function ContinuousAxis(props: Props): null {
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
+    const domainRef = useRef<[start: number, end: number]>(domain)
     useEffect(
         () => {
             axisIdRef.current = axisId
@@ -140,19 +128,7 @@ export function ContinuousAxis(props: Props): null {
                 } else {
                     switch (location) {
                         case AxisLocation.Bottom:
-                        case AxisLocation.Top: {
-                            const range = axisBoundsFor(axisId)
-                            if (range) {
-                                axisRef.current.update(range, plotDimensions, margin)
-                            }
-                            if (rangeUpdateHandlerIdRef.current !== undefined) {
-                                addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
-                            }
-                            if (!deferAxisRangeUpdates) {
-                                updateLinearXAxis(domain, label, chartId, svg, axisRef.current, plotDimensions, margin, location)
-                            }
-                            break
-                        }
+                        case AxisLocation.Top:
                         case AxisLocation.Left:
                         case AxisLocation.Right: {
                             const range = axisBoundsFor(axisId)
@@ -162,8 +138,9 @@ export function ContinuousAxis(props: Props): null {
                             if (rangeUpdateHandlerIdRef.current !== undefined) {
                                 addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                             }
-                            if (!deferAxisRangeUpdates) {
-                                updateLinearYAxis(domain, label, chartId, svg, axisRef.current, plotDimensions, margin, font, location)
+                            if (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1]) {
+                                domainRef.current = domain
+                                resetAxisBoundsFor(axisId, domain)
                             }
                         }
                     }
@@ -172,9 +149,9 @@ export function ContinuousAxis(props: Props): null {
             }
         },
         [
-            chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis,
-            domain, scale, container, margin, plotDimensions, setAxisBoundsFor, axisBoundsFor,
-            addAxesBoundsUpdateHandler, color, deferAxisRangeUpdates
+            chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis, domain,
+            scale, container, margin, plotDimensions, setAxisBoundsFor, axisBoundsFor, addAxesBoundsUpdateHandler,
+            color, resetAxisBoundsFor
         ]
     )
 

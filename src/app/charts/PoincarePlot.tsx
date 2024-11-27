@@ -134,8 +134,9 @@ export function PoincarePlot(props: Props): null {
         yAxesState,
         setAxisBoundsFor,
         updateAxesBounds = noop,
-        onUpdateAxesBounds,
         axisBoundsFor,
+        addAxesBoundsUpdateHandler,
+        removeAxesBoundsUpdateHandler,
     } = axes
 
     const {
@@ -244,6 +245,40 @@ export function PoincarePlot(props: Props): null {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [initialData]
     )
+
+    // strange construct so that we only add the update handler when the chart ID
+    // changes, and not when the addAxesBoundsUpdateHandler or removeAxesBoundsUpdateHandler
+    // which they do, and that breaks the updates...someone, please teach me react
+    //
+    // the update handler is needed so that when the axes bounds are changed (say to accommodate a
+    // different iterate function's domain/range), then the handler needs to update the x and y
+    // axes range refs
+    const addAxesBoundsUpdateHandlerRef = useRef(addAxesBoundsUpdateHandler)
+    const removeAxesBoundsUpdateHandlerRef = useRef(removeAxesBoundsUpdateHandler)
+    useEffect(() => {
+        addAxesBoundsUpdateHandlerRef.current(`handler-${chartId}`, updatedBoundsHandler)
+        const removeHandler = removeAxesBoundsUpdateHandlerRef.current
+        return () => {
+            // closure on the function to remove the handler from this chart
+            removeHandler(`handler-${chartId}`)
+        }
+    }, [chartId]);
+
+    /**
+     * When the axes bounds have changed, we need to reset the range references so that
+     * the new axis ranges are used
+     * @param updates The updates to the axes
+     */
+    function updatedBoundsHandler(updates: Map<string, ContinuousAxisRange>): void {
+        updates.forEach((update, axisId) => {
+            if (xAxisRangesRef.current.has(axisId)) {
+                xAxisRangesRef.current.set(axisId, update)
+            }
+            if (yAxisRangesRef.current.has(axisId)) {
+                yAxisRangesRef.current.set(axisId, update)
+            }
+        })
+    }
 
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right

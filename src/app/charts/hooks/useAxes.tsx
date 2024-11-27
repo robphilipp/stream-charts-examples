@@ -2,7 +2,7 @@ import {addAxisTo, AxesState, createAxesState} from "./AxesState";
 import {BaseAxis} from "../axes";
 import {AxesAssignment} from "../plot";
 import {createContext, JSX, useContext, useRef} from "react";
-import {ContinuousAxisRange} from "../continuousAxisRangeFor";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "../continuousAxisRangeFor";
 import {Dimensions} from "../margins";
 import {usePlotDimensions} from "./usePlotDimensions";
 
@@ -82,6 +82,16 @@ export type UseAxesValues = {
      */
     updateAxesBounds: (times: Map<string, ContinuousAxisRange>) => void
     /**
+     * Resets the axes bounds to their original bounds
+     * @param axisId The ID of the axis
+     * @param [axisBounds] An optional bounds that resets the original bounds
+     */
+    resetAxisBoundsFor: (axisId: string, axisBounds?: AxisRange) => void
+    /**
+     * Resets all the axes bound to the original bounds
+     */
+    resetAxesBounds: (axesBounds?: Map<string, AxisRange>) => void
+    /**
      * Callback when the time range changes.
      * @param times The times (start, end) times for each axis in the plot. The times argument is a
      * map(axis_id -> (start, end)). Where start and end refer to the time-range for the
@@ -93,7 +103,7 @@ export type UseAxesValues = {
      * Adds a handler for when the time is updated. The time could change because of a zoom action,
      * a pan action, or as new data is streamed in.
      * @param handlerId The unique ID of the handler to register/add
-     * @param handler The handler function
+     * @param handler The handler function that accepts a map of updates and a plot dimension
      */
     addAxesBoundsUpdateHandler: (handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void) => void
     /**
@@ -115,6 +125,8 @@ export const defaultAxesValues = (): UseAxesValues => ({
     originalAxisBounds: () => new Map<string, AxisRange>(),
     setAxisBoundsFor: noop,
     updateAxesBounds: noop,
+    resetAxisBoundsFor: noop,
+    resetAxesBounds: noop,
     addAxesBoundsUpdateHandler: () => noop,
     removeAxesBoundsUpdateHandler: () => noop,
 })
@@ -147,9 +159,9 @@ export default function AxesProvider(props: Props): JSX.Element {
     const yAxesRef = useRef<AxesState>(createAxesState())
     const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
     // holds the current axis bounds, map(axis_id -> (start, end)
-    const axesBoundsRef = useRef<Map<string, [start: number, end: number]>>(new Map())
+    const axesBoundsRef = useRef<Map<string, AxisRange>>(new Map())
     // holds the original axis bounds, map(axis_id -> (start, end)
-    const originalAxesBoundsRef =  useRef<Map<string, [start: number, end: number]>>(new Map())
+    const originalAxesBoundsRef =  useRef<Map<string, AxisRange>>(new Map())
     const axesBoundsUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
 
     /**
@@ -177,6 +189,47 @@ export default function AxesProvider(props: Props): JSX.Element {
         axesBoundsUpdateHandlersRef.current.forEach((handler, ) => handler(updates, plotDimensions.plotDimensions))
     }
 
+    /**
+     * Resets the bounds for the specified axis to the original range, or if the optional
+     * range is specified, then to the specified range. The optional range is helpful when
+     * the axes ranges are changing in response to a domain change, and the original bounds
+     * need to reflect that change.
+     * @param axisId The ID of the axis
+     * @param axisRange The optional range to which to set the axis
+     */
+    function resetAxisBoundsFor(axisId: string, axisRange?: AxisRange): void {
+        if (axisRange !== undefined) {
+            const [start, end] = axisRange
+            const updates = new Map<string, ContinuousAxisRange>([[axisId, continuousAxisRangeFor(start, end)]])
+            updateAxesBounds(updates)
+        } else if (axesBoundsRef.current.has(axisId) && originalAxesBoundsRef.current.has(axisId)) {
+            const [start, end] = originalAxesBoundsRef.current.get(axisId) || anEmptyRange
+            const updates = new Map<string, ContinuousAxisRange>([[axisId, continuousAxisRangeFor(start, end)]])
+            updateAxesBounds(updates)
+        }
+    }
+
+    /**
+     * Resets the bounds of all the axis to their original value, or to the values specified
+     * in the optional bounds map.
+     * @param [axisBounds=new Map()] An optional map holds bounds for specified axes. The map
+     * associates an axis ID to a new bounds.
+     */
+    function resetAxesBounds(axisBounds: Map<string, AxisRange> = new Map()): void {
+        const updates: Map<string, ContinuousAxisRange> = new Map(Array.from(axesBoundsRef.current.entries())
+            .filter(([id, _]) => originalAxesBoundsRef.current.has(id) || axisBounds.has(id))
+            .map(([id, _]) => {
+                // because of the filter, this will never be an empty range
+                if (axisBounds.has(id)) {
+                    const [start, end] = axisBounds.get(id) || anEmptyRange
+                    return [id, continuousAxisRangeFor(start, end)]
+                }
+                const [start, end] = originalAxesBoundsRef.current.get(id) || anEmptyRange
+                return [id, continuousAxisRangeFor(start, end)]
+            }))
+        updateAxesBounds(updates)
+    }
+
     return <AxesContext.Provider
         value={{
             xAxesState: xAxesRef.current,
@@ -202,6 +255,8 @@ export default function AxesProvider(props: Props): JSX.Element {
             originalAxisBounds: () => copyRangeMap(originalAxesBoundsRef.current),
             setAxisBoundsFor: ((axisId, range) => axesBoundsRef.current.set(axisId, range)),
             updateAxesBounds,
+            resetAxisBoundsFor,
+            resetAxesBounds,
             onUpdateAxesBounds,
             addAxesBoundsUpdateHandler: (handlerId, handler) => axesBoundsUpdateHandlersRef.current.set(handlerId, handler),
             removeAxesBoundsUpdateHandler: handlerId => axesBoundsUpdateHandlersRef.current.delete(handlerId),

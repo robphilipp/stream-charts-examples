@@ -111,10 +111,6 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
-// const randomData = (mu: number, updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
-//     return initialData => iteratesObservable(tentMapObservable(mu, initialData, updatePeriod), lagN)
-// }
-
 /**
  * The properties
  */
@@ -149,9 +145,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
-    // const [tentMapMu, setTentMapMu] = useState<number>(1.8)
-
-    // const randomDataObservable = randomData(1.83, 100)
     const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const [running, setRunning] = useState<boolean>(false)
 
@@ -341,7 +334,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         value={selectedLagN}
                         disabled={running}
                     >
-                        {Array.from(LAG_N.entries()).map(([name, value]) => (
+                        {Array.from(LAG_N.entries()).map(([name,]) => (
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
@@ -447,28 +440,24 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         location={AxisLocation.Bottom}
                         domain={axesRange}
                         label="f[n](x)"
-                        deferAxisRangeUpdates={false}
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         domain={axesRange}
                         label={`f[n+${lagN}](x)`}
-                        deferAxisRangeUpdates={false}
                     />
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
                         domain={axesRange}
                         label="f[n](x)"
-                        deferAxisRangeUpdates={false}
                     />
                     <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
                         domain={axesRange}
                         label={`f[n+${lagN}](x)`}
-                        deferAxisRangeUpdates={false}
                     />
                     <Tracker
                         visible={visibility.tracker}
