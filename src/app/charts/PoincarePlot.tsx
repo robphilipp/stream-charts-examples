@@ -499,20 +499,24 @@ export function PoincarePlot(props: Props): null {
                                 exit => exit.remove()
                             )
                             .on("mouseenter",
-                                (event: React.MouseEvent<SVGCircleElement>, datum: IteratePoint) =>
-                                    handleMouseEnterPoint(
-                                        chartId,
-                                        name,
-                                        event.currentTarget as SVGCircleElement,
-                                        svg,
-                                        datum,
-                                        plotData,
-                                        xAxisLinear,
-                                        yAxisLinear,
-                                        margin,
-                                        seriesLineStyle,
-                                        backgroundColor
-                                    )
+                                (event: React.MouseEvent<SVGCircleElement>, datum: IteratePoint) => {
+                                    if (allowTooltip.current) {
+                                        return handleMouseEnterPoint(
+                                            chartId,
+                                            name,
+                                            event.currentTarget as SVGCircleElement,
+                                            svg,
+                                            datum,
+                                            plotData,
+                                            xAxisLinear,
+                                            yAxisLinear,
+                                            margin,
+                                            seriesLineStyle,
+                                            backgroundColor
+                                        )
+                                    }
+                                    return <></>
+                                }
                             )
                             .on("mouseleave", (event: React.MouseEvent<SVGCircleElement>, datum: IteratePoint) =>
                                 handleMouseLeavePoint(chartId, name, seriesLineStyle.color)
