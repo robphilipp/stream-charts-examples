@@ -52,7 +52,10 @@ export function Tooltip(props: Props): JSX.Element {
         mouse
     } = useChart()
 
-    const {tooltipContentProvider} = tooltip
+    const {
+        tooltipContentProvider,
+        setVisibilityState,
+    } = tooltip
 
     const {margin, plotDimensions} = usePlotDimensions()
 
@@ -70,6 +73,9 @@ export function Tooltip(props: Props): JSX.Element {
     } = mouse
 
     const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
+
+    // let the tooltip context know whether the tooltip is visible
+    setVisibilityState(visible)
 
     useEffect(
         () => {

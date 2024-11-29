@@ -3,7 +3,7 @@ import {useChart} from "./hooks/useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {CurveFactory, ZoomTransform} from "d3";
-import {setClipPath} from "./plot";
+import {Series, setClipPath} from "./plot";
 import {Datum} from "./timeSeries";
 import {
     axesZoomHandler,
@@ -20,12 +20,13 @@ import {Dimensions, Margin} from "./margins";
 import {subscriptionIteratesFor} from "./subscriptions";
 import {useDataObservable} from "./hooks/useDataObservable";
 import {IterateChartData} from "./iterates";
-import {IterateDatum, IterateSeries} from "./iterateSeries";
+import {emptyIterateDatum, IterateDatum, IterateSeries} from "./iterateSeries";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
 import {useInitialData} from "./hooks/useInitialData";
+import {useTooltip} from "./hooks/useTooltip";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
-type Series = Array<IteratePoint>
+type IteratePointSeries = Array<IteratePoint>
 
 function generateAxisRangeMap(axes: Map<string, BaseAxis>): Map<string, ContinuousAxisRange> {
     return new Map(
@@ -118,9 +119,6 @@ export function PoincarePlot(props: Props): null {
         container,
         mainG,
         axes,
-        // plotDimensions,
-        // margin,
-        // color,
         backgroundColor,
         seriesStyles,
         seriesFilter,
@@ -159,6 +157,8 @@ export function PoincarePlot(props: Props): null {
     } = useDataObservable<IterateChartData, IterateDatum>()
 
     const {initialData} = useInitialData<IterateDatum>()
+
+    const {visibilityState: tooltipVisible} = useTooltip()
 
     const {
         interpolation,
@@ -259,19 +259,6 @@ export function PoincarePlot(props: Props): null {
         },
         [zoomEnabled]
     )
-    // function updatedBoundsHandler(updates: Map<string, ContinuousAxisRange>): void {
-    //     updates.forEach((update, axisId) => {
-    //         if (xAxisRangesRef.current.has(axisId)) {
-    //             xAxisRangesRef.current.set(axisId, update)
-    //         }
-    //         if (yAxisRangesRef.current.has(axisId)) {
-    //             yAxisRangesRef.current.set(axisId, update)
-    //         }
-    //     })
-    //     if (zoomEnabled && zoomSelectionRef.current !== undefined && zoomRef.current !== undefined) {
-    //         zoomSelectionRef.current.call(zoomRef.current.transform, d3.zoomIdentity)
-    //     }
-    // }
 
     // strange construct so that we only add the update handler when the chart ID
     // changes, and not when the addAxesBoundsUpdateHandler or removeAxesBoundsUpdateHandler
@@ -364,7 +351,7 @@ export function PoincarePlot(props: Props): null {
                 // dataRef.current and don't have to do Array.from(seriesRef.current.values()) which
                 // creates a temporary array
                 // const offset = 1
-                const boundedSeries = new Map<string, Series>(dataRef.current.map(series => {
+                const boundedSeries = new Map<string, IteratePointSeries>(dataRef.current.map(series => {
                     return [
                         series.name,
                         series.data
@@ -375,7 +362,7 @@ export function PoincarePlot(props: Props): null {
                                     time: datum.time,
                                     index: index
                                 })
-                            ) as Series
+                            ) as IteratePointSeries
                     ]
                 }))
 
@@ -516,27 +503,35 @@ export function PoincarePlot(props: Props): null {
                             )
                             .on("mouseenter",
                                 (event: React.MouseEvent<SVGCircleElement>, datum: IteratePoint) => {
-                                    if (allowTooltip.current) {
+                                    if (allowTooltip.current && tooltipVisible) {
                                         return handleMouseEnterPoint(
                                             chartId,
                                             name,
-                                            event.currentTarget as SVGCircleElement,
-                                            svg,
+                                            container,
+                                            // svg,
+                                            event,
                                             datum,
                                             plotData,
                                             xAxisLinear,
                                             yAxisLinear,
                                             margin,
                                             seriesLineStyle,
-                                            backgroundColor
+                                            backgroundColor,
+                                            allowTooltip.current,
+                                            mouseOverHandlerFor(`tooltip-${chartId}`)
                                         )
                                     }
                                     return <></>
                                 }
                             )
-                            .on("mouseleave", (event: React.MouseEvent<SVGCircleElement>, datum: IteratePoint) =>
-                                handleMouseLeavePoint(chartId, name, seriesLineStyle.color)
-                            )
+                            .on("mouseleave", () => {
+                                handleMouseLeavePoint(
+                                    chartId,
+                                    name,
+                                    seriesLineStyle.color,
+                                    mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                                )
+                            })
                     }
 
                     const pathGenerator = d3.line<IteratePoint>()
@@ -563,34 +558,6 @@ export function PoincarePlot(props: Props): null {
                                     .style("stroke-width", seriesLineStyle.lineWidth)
                                     .attr('transform', `translate(${margin.left}, ${margin.top})`)
                                     .attr("clip-path", `url(#${clipPathId})`)
-                                // .on(
-                                //     "mouseenter",
-                                //     (event, datumArray) =>
-                                //         // recall that this handler is passed down via the "useChart" hook
-                                //         handleMouseOverSeries(
-                                //             chartId,
-                                //             container,
-                                //             xAxisLinear,
-                                //             yAxisLinear,
-                                //             name,
-                                //             datumArray,
-                                //             event,
-                                //             margin,
-                                //             seriesStyles,
-                                //             allowTooltip.current,
-                                //             mouseOverHandlerFor(`tooltip-${chartId}`)
-                                //         )
-                                // )
-                                // .on(
-                                //     "mouseleave",
-                                //     event => handleMouseLeaveSeries(
-                                //         name,
-                                //         chartId,
-                                //         event.currentTarget as SVGPathElement,
-                                //         seriesStyles,
-                                //         mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                                //     )
-                                // )
                                 ,
                                 update => update,
                                 exit => exit.remove()
@@ -599,7 +566,15 @@ export function PoincarePlot(props: Props): null {
                 })
             }
         },
-        [container, onUpdateChartTime, panEnabled, zoomEnabled, chartId, plotDimensions, margin, xAxesState, yAxesState, onPan, zoomMinScaleFactor, zoomMaxScaleFactor, zoomKeyModifiersRequired, onZoom, seriesStyles, seriesFilter, showPoints, interpolation, backgroundColor]
+        [
+            container, onUpdateChartTime, panEnabled, zoomEnabled, chartId, plotDimensions, margin,
+            xAxesState, yAxesState,
+            onPan,
+            zoomMinScaleFactor, zoomMaxScaleFactor, zoomKeyModifiersRequired, onZoom,
+            seriesStyles, seriesFilter, showPoints,
+            interpolation, backgroundColor,
+            mouseOverHandlerFor, mouseLeaveHandlerFor
+        ]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -682,10 +657,6 @@ export function PoincarePlot(props: Props): null {
 /**
  * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
  * series name, then uses the default returned by the useChart() hook
- * @param seriesName Name of the series for which to retrieve the axis
- * @param axisAssignments A map holding the series name and the associated x- and y-axes assigned
- * to that series. Note that the series in the axis-assignment map is merely a subset of the set
- * of series names.
  * @param xAxisFor The function that accepts an axis ID and returns the corresponding x-axis
  * @param yAxisFor The function that accepts an axis ID and returns the corresponding y-axis
  */
@@ -786,8 +757,8 @@ function calculateLinearIndexedPoints(series: Array<Point>): Array<IndexedPoint>
 /**
  * @param chartId The ID of the chart
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param circle
- * @param svg
+ * @param container The SVG container holding the plot
+ * @param event The mouse event that triggered this call
  * @param datum The datum over which the mouse has entered
  * @param plotData The iterates series
  * @param xAxisLinear The x-axis (f[n](x))
@@ -795,31 +766,31 @@ function calculateLinearIndexedPoints(series: Array<Point>): Array<IndexedPoint>
  * @param margin The plot margin
  * @param seriesStyle The series style information (needed for (un)highlighting)
  * @param backgroundColor
- *
  * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse-over (registered by the <Tooltip/>)
- *
  */
 function handleMouseEnterPoint(
     chartId: number,
     seriesName: string,
-    circle: SVGCircleElement,
-    svg: d3.Selection<SVGSVGElement, any, null, undefined>,
+    container: SVGSVGElement,
+    event: React.MouseEvent<SVGPathElement>,
     datum: IteratePoint,
-    plotData: Series,
+    plotData: IteratePointSeries,
     xAxisLinear: ContinuousNumericAxis,
     yAxisLinear: ContinuousNumericAxis,
     margin: Margin,
     seriesStyle: SeriesLineStyle,
-    // color: string,
-    // highlightColor: string,
-    backgroundColor: string
+    backgroundColor: string,
+    allowTooltip: boolean,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     const {color, highlightColor, lineWidth} = seriesStyle
 
     const padding = 4
     const circleRadius = 5
     const circleStroke = lineWidth
+
+    const circle = event.currentTarget as SVGCircleElement
 
     d3.select<SVGPathElement, Datum>(circle)
         .attr("r", circleRadius)
@@ -842,6 +813,8 @@ function handleMouseEnterPoint(
         // grab the (x, y)-coordinates for the plot
         const iterateN = xAxisLinear.scale(plotData[index].n) + margin.left
         const iterateN_1 = yAxisLinear.scale(plotData[index].n_1) + margin.top
+
+        const svg = d3.select<SVGSVGElement, any>(container)
 
         // add a rectangle that serves as the background for the text (to make the
         // text readable when the chart is busy)
@@ -879,12 +852,25 @@ function handleMouseEnterPoint(
     if (index < plotData.length - 1) {
         showInfo(index + 1)
     }
+
+    const [x, y] = d3.pointer(event, container)
+    const currentDatum: IteratePoint = (index > 0) ? plotData[index] : {time: 0, n: 0, n_1: 0, index}
+
+    if (mouseOverHandlerFor && allowTooltip) {
+        mouseOverHandlerFor(
+            seriesName,
+            currentDatum.time,
+            plotData.map(iterPoint => ([iterPoint.n, iterPoint.n_1])),
+            [x, y]
+        )
+    }
 }
 
 function handleMouseLeavePoint(
     chartId: number,
     seriesName: string,
-    color: string
+    color: string,
+    mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
     d3.selectAll<SVGPathElement, Datum>(`.${seriesName}-${chartId}-poincare-points`)
         .attr("r", 2)
@@ -893,195 +879,9 @@ function handleMouseLeavePoint(
     d3.selectAll(`.${seriesName}-${chartId}-poincare-point-arrows`).remove()
     d3.selectAll(`.${seriesName}-${chartId}-poincare-point-text`).remove()
     d3.selectAll(`.${seriesName}-${chartId}-poincare-point-text-background`).remove()
-}
-
-/**
- * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
- * @param chartId The ID of the chart
- * @param container The chart container
- * @param xAxis The x-axis (f[n](x))
- * @param yAxis The y-axis (f[n+1](x))
- * @param seriesName The name of the series (i.e. the neuron ID)
- * @param series The time series
- * @param event The mouse-over series event
- * @param margin The plot margin
- * @param seriesStyles The series style information (needed for (un)highlighting)
- * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
- * @param mouseOverHandlerFor The handler for the mouse-over (registered by the <Tooltip/>)
- */
-function handleMouseOverSeries(
-    chartId: number,
-    container: SVGSVGElement,
-    xAxis: ContinuousNumericAxis,
-    yAxis: ContinuousNumericAxis,
-    seriesName: string,
-    series: Series,
-    event: React.MouseEvent<SVGPathElement>,
-    margin: Margin,
-    seriesStyles: Map<string, SeriesLineStyle>,
-    allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined,
-): void {
-
-    const svgPath = event.currentTarget as SVGPathElement
-
-    // grab the mouse coordinates (in screen coordinates)
-    const mouseP = d3.pointer(event, container)
-    const mousePixels = {x: mouseP[0], y: mouseP[1]} as Point
-
-    // convert all the data points to screen coordinates
-    const dataPixels = series.map(({n, n_1}) => ({
-        x: xAxis.scale(n) + margin.left,
-        y: yAxis.scale(n_1) + margin.top
-    } as Point))
-
-    // todo move this into the component as a ref and useEffect to recalculate when the data changes
-    // calculate the linear distances between the data points, sorting them by their distance
-    // from the first point. we use these to search for points.
-    const pointsWithLinearDistances = calculateLinearIndexedPoints(dataPixels)
-
-    // todo move this into the component as a ref and useEffect to recalculate when the data or the spline changes
-    // holds points for which we hava found the distances along the path
-    const foundPoints: Array<IndexedPoint> = series.map(() => emptyIndexedPoint())
-
-    //
-    // calculate getPointAtLength(distance) and see if it matches the mouse coordinates, if not increment the
-    // distance by one, and then check to see if it matches the mouse coordinates, or any point that is the
-    // incremented distance from the start. repeat this until the distance to the mouse coordinates is found.
-    // Also fill in the map of data points to path distance mapping.
-    //
-    let upperBound: IndexedPoint = emptyIndexedPoint()
-    const totalPathLength = svgPath.getTotalLength()
-
-    // calculate the linear distance between the mouse coordinates and the first data point,
-    // clamping the point at the SVG path length
-    let mouseDistance: number = distance(mousePixels, dataPixels[0], svgPath.getTotalLength());
-    let pathPoint: Point;
-    do {
-        // get the point on the path at the current distance
-        const point = svgPath.getPointAtLength(mouseDistance)
-        pathPoint = {x: point.x + margin.left, y: point.y + margin.top} as Point
-
-        // todo should be able to drop the index in the indexed-points because I'm no longer sorting
-        // as an optimization for later, check if any data points exist at this distance, and if so, add them
-        // to the found points
-        for (let index = 0; index < pointsWithLinearDistances.length; index++) {
-            const indexedPoint = pointsWithLinearDistances[index]
-            if (isEmptyIndexedPoint(foundPoints[indexedPoint.index]) && pointsEqualWithin(indexedPoint.point, pathPoint)) {
-                const foundPoint: IndexedPoint = {
-                    ...indexedPoint,
-                    delta: (index > 0) ? mouseDistance - pointsWithLinearDistances[index - 1].distance : 0,
-                    distance: mouseDistance
-                }
-                foundPoints[foundPoint.index] = foundPoint
-
-                // this will only happen once the found points are calculated and held outside of this function
-                // in the component and updated when points are added (but for now leave this
-                if (foundPoint.index < foundPoints.length && !isEmptyIndexedPoint(foundPoints[foundPoint.index + 1])) {
-                    // we found the bounds for the mouse, and we're done
-                    upperBound = foundPoint
-                }
-                break;
-            }
-        }
-
-        // update to the next pixel
-        mouseDistance++
-    } while (!pointsEqualWithin(mousePixels, pathPoint) && mouseDistance <= totalPathLength)
-
-    // once the mouse distance is found, check to see if its distance falls between two successive
-    // data point distances. if it does, then those are the points. otherwise continue.
-    if (isEmptyIndexedPoint(upperBound)) {
-        // continue the search starting at the mouse distance
-        let pathDistance = mouseDistance
-        let foundPoint = emptyIndexedPoint()
-        do {
-            // pathPoint = svgPath.getPointAtLength(pathDistance)
-            const point = svgPath.getPointAtLength(pathDistance)
-            pathPoint = {x: point.x + margin.left, y: point.y + margin.top} as Point
-
-            for (let index = 0; index < pointsWithLinearDistances.length; index++) {
-                const indexedPoint = pointsWithLinearDistances[index]
-                if (isEmptyIndexedPoint(foundPoints[indexedPoint.index]) && pointsEqualWithin(indexedPoint.point, pathPoint)) {
-                    foundPoint = {
-                        ...indexedPoint,
-                        delta: (index > 0) ? mouseDistance - pointsWithLinearDistances[index - 1].distance : 0,
-                        distance: mouseDistance
-                    }
-                    foundPoints[foundPoint.index] = foundPoint
-
-                    // this will only happen once the found points are calculated and held outside of this function
-                    // in the component and updated when points are added (but for now leave this
-                    if (foundPoint.index > 0 && !isEmptyIndexedPoint(foundPoints[foundPoint.index - 1])) {
-                        // we found the bounds for the mouse, and we're done
-                        upperBound = foundPoint
-                    }
-                    break;
-                }
-            }
-            pathDistance++
-        } while (!pointsEqualWithin(foundPoint.point, pathPoint) && pathDistance <= totalPathLength)
-
-        upperBound = foundPoint
-    }
-
-    if (isEmptyIndexedPoint(upperBound)) {
-        // this is an error
-        console.error("Was unable to find the point")
-    }
-
-    const [x, y] = d3.pointer(event, container)
-    const fn = xAxis.scale.invert(x - margin.left)
-    const fn1 = yAxis.scale.invert(y - margin.top)
-
-    const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle
-
-    // Use d3 to select element, change color and size
-    d3.select<SVGCircleElement, Datum>(`#${seriesName}-${chartId}-poincare-point-${upperBound.index}`)
-        .attr('stroke', highlightColor)
-        .attr("r", 5)
-        .attr("fill", d3.rgb(highlightColor).brighter(0.7).toString())
-    d3.select<SVGCircleElement, Datum>(`#${seriesName}-${chartId}-poincare-point-${upperBound.index - 1}`)
-        .attr('stroke', highlightColor)
-        .attr("r", 5)
-        .attr("fill", d3.rgb(highlightColor).brighter(0.7).toString())
-    d3.select(svgPath)
-        .attr('stroke', highlightColor)
-        .attr('stroke-width', 2)
-    // .attr('stroke-width', highlightWidth)
-
-    if (mouseOverHandlerFor && allowTooltip) {
-        mouseOverHandlerFor(seriesName, fn, series, [x, y])
-    }
-}
-
-/**
- * Unselects the time series and calls the mouse-leave-series handler registered for this series.
- * @param seriesName The name of the series (i.e. the neuron ID)
- * @param chartId The ID of the chart
- * @param svgPath The SVG path representing the spline between the iterates
- * @param seriesStyles The styles for the series (for (un)highlighting)
- * @param mouseLeaverHandlerFor Registered handler for the series when the mouse leaves
- */
-function handleMouseLeaveSeries(
-    seriesName: string,
-    chartId: number,
-    svgPath: SVGPathElement,
-    seriesStyles: Map<string, SeriesLineStyle>,
-    mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
-): void {
-    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle
-    d3.selectAll<SVGPathElement, Datum>(`.${seriesName}-${chartId}-poincare-points`)
-        .attr('stroke', color)
-        .attr('stroke-width', lineWidth)
-        .attr("r", 2)
-        .attr("fill", color)
-    d3.select(svgPath)
-        .attr('stroke', color)
-        .attr('stroke-width', lineWidth)
-
 
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)
     }
+
 }

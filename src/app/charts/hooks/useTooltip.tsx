@@ -30,11 +30,16 @@ export type UseTooltipValues = {
     tooltipContentProvider: () =>
         ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => TooltipDimensions) |
         undefined
+
+    setVisibilityState: (visible: boolean) => void
+    visibilityState: boolean
 }
 
 export const defaultTooltipValues = (): UseTooltipValues => ({
     registerTooltipContentProvider: noop,
-    tooltipContentProvider: () => undefined
+    tooltipContentProvider: () => undefined,
+    setVisibilityState: noop,
+    visibilityState: false,
 })
 
 const TooltipContext = createContext<UseTooltipValues>(defaultTooltipValues())
@@ -47,11 +52,14 @@ export default function TooltipProvider(props: Props): JSX.Element {
     const {children} = props
 
     const tooltipContentProviderRef = useRef<((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => TooltipDimensions) | undefined>(undefined)
+    const visibilityStateRef = useRef<boolean>(false)
 
     return <TooltipContext.Provider
         value={{
             registerTooltipContentProvider: provider => tooltipContentProviderRef.current = provider,
             tooltipContentProvider: () => tooltipContentProviderRef.current,
+            setVisibilityState: (visible: boolean) => visibilityStateRef.current = visible,
+            visibilityState: visibilityStateRef.current
         }}
     >
         {children}
