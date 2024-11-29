@@ -778,13 +778,12 @@ function handleMouseEnterPoint(
     }
 
     const [x, y] = d3.pointer(event, container)
-    const currentDatum: IteratePoint = (index > 0) ? plotData[index] : {time: 0, n: 0, n_1: 0, index}
+    const currentDatum: IteratePoint = (index >= 0) ? plotData[index] : {time: 0, n: 0, n_1: 0, index}
 
     if (mouseOverHandlerFor && allowTooltip) {
         mouseOverHandlerFor(
             seriesName,
             currentDatum.time,
-            // plotData.map(iterPoint => ([iterPoint.n, iterPoint.n_1])),
             plotData.map(ip => ({iterateN: ip.n, iterateN_1: ip.n_1, time: ip.time})),
             [x, y]
         )

@@ -1,6 +1,14 @@
 import {Series} from "./plot";
 import {Dimensions, Margin} from "./margins";
-import {boundingPoints, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
+import {
+    boundingPoints,
+    defaultTooltipStyle,
+    findPointAndNeighbors,
+    TooltipDimensions,
+    TooltipStyle,
+    tooltipX,
+    tooltipY
+} from "./tooltipUtils";
 import * as d3 from "d3";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "./utils";
 import {TextSelection} from "./d3types";
@@ -78,7 +86,7 @@ This pattern allows you to supplement that `useChart` mouse-over callback with i
  */
 interface TooltipOptions {
     labels: { x: string, y: string }
-    headers: {before: string, after: string, delta: string}
+    headers: {nMinusLag: string, n: string, nPlusLag: string}
     formatters: {
         x: { value: (value: number) => string, change: (value1: number, value2: number) => string },
         y: { value: (value: number) => string, change: (value1: number, value2: number) => string },
@@ -99,9 +107,9 @@ interface Props {
     // label for the x-values (x-value row header)
     xLabel: string
     yLabel: string
-    beforeHeader?: string
-    afterHeader?: string
-    deltaHeader?: string
+    nMinusLagHeader?: string
+    nHeader?: string
+    nPlusLagHeader?: string
     xValueFormatter?: (value: number) => string
     yValueFormatter?: (value: number) => string
     xChangeFormatter?: (value1: number, value2: number) => string,
@@ -148,9 +156,9 @@ export function PoincarePlotTooltipContent(props: Props): null {
     const {
         xLabel,
         yLabel,
-        beforeHeader = 'before',
-        afterHeader = 'after',
-        deltaHeader = '∆',
+        nMinusLagHeader = ' f[n-1](x)',
+        nHeader         = ' f[n](x)  ',
+        nPlusLagHeader  = ' f[n+1](x)',
         xValueFormatter = formatTime,
         yValueFormatter = formatValue,
         xChangeFormatter = formatTimeChange,
@@ -175,7 +183,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
                 // assemble the options for adding the tooltip
                 const options: TooltipOptions = {
                     labels: {x: xLabel, y: yLabel},
-                    headers: {before: beforeHeader, after: afterHeader, delta: deltaHeader},
+                    headers: {nMinusLag: nMinusLagHeader, n: nHeader, nPlusLag: nPlusLagHeader},
                     formatters: {
                         x: {value: xValueFormatter, change: xChangeFormatter},
                         y: {value: yValueFormatter, change: yChangeFormatter},
@@ -198,7 +206,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
             chartId, container, margin, plotDimensions, registerTooltipContentProvider,
             xLabel, xChangeFormatter, xValueFormatter,
             yLabel, yChangeFormatter, yValueFormatter,
-            beforeHeader, afterHeader, deltaHeader,
+            nMinusLagHeader, nHeader, nPlusLagHeader,
             tooltipStyle
         ]
     )
@@ -217,7 +225,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
  * @param margin The plot margins
  * @param tooltipStyle The style properties for the tooltip
  * @param plotDimensions The dimensions of the plot
- * @param options The options passed through the the function that adds the tooltip content
+ * @param options The options passed through the function that adds the tooltip content
  * @return The width and text height of the tooltip content
  */
 function addTooltipContent(
@@ -234,7 +242,9 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {labels, formatters} = options
     const [x, y] = mouseCoords
-    const [lower, upper] = boundingPoints(series, time, value => value.time, () => emptyIterateDatum)
+    const [lower, point, upper, index] = findPointAndNeighbors(
+        series, time, 0.1, value => value.time, () => emptyIterateDatum
+    )
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
@@ -261,19 +271,19 @@ function addTooltipContent(
 
 
     const headerRow = table.append('g').attr('font-weight', tooltipStyle.fontWeight + 550)
-    const hrLower = headerRow.append<SVGTextElement>("text").text(() => options.headers.before)
-    const hrUpper = headerRow.append<SVGTextElement>("text").text(() => options.headers.after)
-    const hrDelta = headerRow.append<SVGTextElement>("text").text(() => options.headers.delta)
+    const hrLower = headerRow.append<SVGTextElement>("text").text(() => index >= 0 ? `f[${index}](x)` : '---')
+    const hrUpper = headerRow.append<SVGTextElement>("text").text(() => `f[${index+1}](x)`)
+    const hrDelta = headerRow.append<SVGTextElement>("text").text(() => `f[${index+2}](x)`)
 
     const trHeader = table.append<SVGTextElement>("text").text(() => labels.x)
     const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower.time))
-    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper.time))
-    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.change(lower.time, upper.time))
+    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(point.time))
+    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper.time))
 
     const vrHeader = table.append<SVGTextElement>("text").text(() => labels.y)
     const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower.iterateN_1))
-    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper.iterateN_1))
-    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.change(lower.iterateN_1, upper.iterateN_1))
+    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(point.iterateN_1))
+    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper.iterateN_1))
 
     const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
     const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0

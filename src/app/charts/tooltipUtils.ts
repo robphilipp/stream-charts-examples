@@ -195,3 +195,18 @@ export function boundingPoints<D>(data: Series<D>, value: number, xFrom: (value:
     }
     return [data[upperIndex - 1], data[upperIndex]]
 }
+
+export function findPointAndNeighbors<D>(
+    data: Series<D>,
+    value: number,
+    tolerance: number,
+    xFrom: (value: D) => number,
+    emptyDatum: () => D
+): [D, D, D, number] {
+    // find the index of the point
+    const index = data.findIndex((_, index, array) => Math.abs(xFrom(array[index]) - value) <= tolerance)
+    const point = index > -1 ? data[index] : emptyDatum()
+    const lower = (index > 0) ? data[index-1] : emptyDatum()
+    const upper = (index < data.length - 1) ? data[index+1] : emptyDatum()
+    return [lower, point, upper, index]
+}

@@ -516,9 +516,9 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     >
                         <PoincarePlotTooltipContent
                             xLabel="t (ms)"
-                            yLabel="count"
-                            yValueFormatter={value => formatNumber(value, " ,.0f")}
-                            yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
+                            yLabel="f(x)"
+                            yValueFormatter={value => formatNumber(value, " ,.4f")}
+                            // yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
                         />
                     </Tooltip>
                     <PoincarePlot
