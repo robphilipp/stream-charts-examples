@@ -573,7 +573,8 @@ export function PoincarePlot(props: Props): null {
             zoomMinScaleFactor, zoomMaxScaleFactor, zoomKeyModifiersRequired, onZoom,
             seriesStyles, seriesFilter, showPoints,
             interpolation, backgroundColor,
-            mouseOverHandlerFor, mouseLeaveHandlerFor
+            mouseOverHandlerFor, mouseLeaveHandlerFor,
+            tooltipVisible,
         ]
     )
 
@@ -675,83 +676,6 @@ function axesFor(
         throw Error("Poincare plot requires that y-axis be of type LinearAxis")
     }
     return [xAxisLinear, yAxisLinear]
-}
-
-type Point = {
-    readonly x: number
-    readonly y: number
-}
-
-function isEmptyPoint(point: Point): boolean {
-    return isNaN(point.x) && isNaN(point.y)
-}
-
-type IndexedPoint = {
-    // the index of the data point in the series
-    readonly index: number
-    // the data point
-    readonly point: Point
-    // the distance along the path to the last data point
-    readonly delta: number
-    // the distance along the path, from the start of the
-    // path to the point
-    readonly distance: number
-}
-
-function emptyIndexedPoint(): IndexedPoint {
-    return {
-        index: NaN,
-        point: {x: NaN, y: NaN},
-        delta: NaN,
-        distance: NaN
-    }
-}
-
-function isEmptyIndexedPoint(point: IndexedPoint = emptyIndexedPoint()): boolean {
-    return isNaN(point.index) && isNaN(point.delta) && isNaN(point.distance) && isEmptyPoint(point.point)
-}
-
-function distance(p1: Point, p2: Point, maxDistance: number = Infinity): number {
-    if (p1 === undefined || p2 === undefined) {
-        return maxDistance
-    }
-    return Math.min(
-        Math.sqrt(
-            (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
-        ),
-        maxDistance
-    )
-}
-
-function pointsEqualWithin(point1: Point, point2: Point, tolerance: number = 2): boolean {
-    return distance(point1, point2) <= tolerance
-}
-
-/**
- * For the specified series of points, calculates the distance between each successive point,
- * and the total distance from the first point, Each point is enriched with its index into
- * the original series
- * @param series The series of points
- * @return An array of indexed points, and enriched with the index into the original series
- */
-function calculateLinearIndexedPoints(series: Array<Point>): Array<IndexedPoint> {
-    return series
-        .reduce(
-            (indexedPoints, point, currentIndex) => {
-                const delta = currentIndex > 0 ? distance(indexedPoints[currentIndex - 1].point, point) : 0
-                const totalDistance = currentIndex > 0 ? indexedPoints[currentIndex - 1].distance + delta : 0
-
-                const indexPoint = {
-                    index: currentIndex,
-                    point,
-                    delta,
-                    distance: totalDistance
-                }
-                indexedPoints.push(indexPoint)
-                return indexedPoints
-            },
-            [] as Array<IndexedPoint>
-        )
 }
 
 /**
