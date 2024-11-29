@@ -7,6 +7,7 @@ import {TextSelection} from "./d3types";
 import {useEffect, useMemo} from "react";
 import {useChart} from "./hooks/useChart";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {emptyIterateDatum, IterateDatum} from "./iterateSeries";
 
 /**
 # Want to write your own tooltip-content component?
@@ -135,7 +136,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
         // margin,
         // plotDimensions,
         tooltip
-    } = useChart()
+    } = useChart<IterateDatum>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -184,7 +185,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
-                    (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) =>
+                    (seriesName: string, time: number, series: Series<IterateDatum>, mouseCoords: [x: number, y: number]) =>
                         addTooltipContent(
                             seriesName, time, series, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
@@ -222,7 +223,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
 function addTooltipContent(
     seriesName: string,
     time: number,
-    series: Series,
+    series: Series<IterateDatum>,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -233,7 +234,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {labels, formatters} = options
     const [x, y] = mouseCoords
-    const [lower, upper] = boundingPoints(series, time)
+    const [lower, upper] = boundingPoints(series, time, value => value.time, () => emptyIterateDatum)
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
@@ -265,14 +266,14 @@ function addTooltipContent(
     const hrDelta = headerRow.append<SVGTextElement>("text").text(() => options.headers.delta)
 
     const trHeader = table.append<SVGTextElement>("text").text(() => labels.x)
-    const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower[0]))
-    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper[0]))
-    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.change(lower[0], upper[0]))
+    const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower.time))
+    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper.time))
+    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.change(lower.time, upper.time))
 
     const vrHeader = table.append<SVGTextElement>("text").text(() => labels.y)
-    const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower[1]))
-    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper[1]))
-    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.change(lower[1], upper[1]))
+    const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower.iterateN_1))
+    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper.iterateN_1))
+    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.change(lower.iterateN_1, upper.iterateN_1))
 
     const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
     const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0

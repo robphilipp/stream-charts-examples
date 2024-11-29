@@ -275,7 +275,7 @@ export function ScatterPlot(props: Props): null {
                 // creates a temporary array
                 const boundedSeries = new Map(dataRef.current.map(series => [
                     series.name,
-                    series.data.map(datum => [datum.time, datum.value]) as Series
+                    series.data.map(datum => [datum.time, datum.value]) as Series<[number, number]>
                 ]))
 
                 // set up panning
@@ -566,12 +566,12 @@ function handleMouseOverSeries(
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
-    series: Series,
+    series: Series<[number, number]>,
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)

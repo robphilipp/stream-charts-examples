@@ -8,7 +8,7 @@ const noop = () => {
     /* empty on purpose */
 }
 
-export type UseMouseValues = {
+export type UseMouseValues<D> = {
     /**
      * Adds a mouse-over-series handler with the specified ID and handler function
      * @param handlerId The handler ID
@@ -19,7 +19,7 @@ export type UseMouseValues = {
      */
     registerMouseOverHandler: (
         handlerId: string,
-        handler: (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void
+        handler: (seriesName: string, time: number, series: Series<D>, mouseCoords: [x: number, y: number]) => void
     ) => string
     /**
      * Removes the mouse-over-series handler with the specified ID
@@ -32,7 +32,7 @@ export type UseMouseValues = {
      * @return The mouse-over-series handler for the ID, or `undefined` if not found
      */
     mouseOverHandlerFor: (handlerId: string) =>
-        ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined
+        ((seriesName: string, time: number, series: Series<D>, mouseCoords: [x: number, y: number]) => void) | undefined
     /**
      * Adds a mouse-leave-series handler with the specified ID and handler function
      * @param handlerId The handler ID
@@ -53,7 +53,7 @@ export type UseMouseValues = {
     mouseLeaveHandlerFor: (handlerId: string) => ((seriesName: string) => void) | undefined
 }
 
-export const defaultMouseValues = (): UseMouseValues => ({
+export const defaultMouseValues = (): UseMouseValues<any> => ({
     registerMouseOverHandler: () => '',
     unregisterMouseOverHandler: noop,
     mouseOverHandlerFor: () => undefined,
@@ -62,16 +62,16 @@ export const defaultMouseValues = (): UseMouseValues => ({
     mouseLeaveHandlerFor: () => undefined,
 })
 
-const MouseContext = createContext<UseMouseValues>(defaultMouseValues())
+const MouseContext = createContext<UseMouseValues<any>>(defaultMouseValues())
 
 type Props = {
     children: JSX.Element | Array<JSX.Element>
 }
 
-export default function MouseProvider(props: Props): JSX.Element {
+export default function MouseProvider<D>(props: Props): JSX.Element {
     const {children} = props
 
-    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void>>(new Map())
+    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, series: Series<D>, mouseCoords: [x: number, y: number]) => void>>(new Map())
     const mouseLeaveHandlersRef = useRef<Map<string, (seriesName: string) => void>>(new Map())
 
     return <MouseContext.Provider
@@ -99,8 +99,8 @@ export default function MouseProvider(props: Props): JSX.Element {
  * React hook that sets up the React context for the mouse values.
  * @return The {@link UseMouseValues} held in the React context.
  */
-export function useMouse(): UseMouseValues {
-    const context = useContext<UseMouseValues>(MouseContext)
+export function useMouse<D>(): UseMouseValues<D> {
+    const context = useContext<UseMouseValues<D>>(MouseContext)
     const {mouseOverHandlerFor} = context
     if (mouseOverHandlerFor === undefined || mouseOverHandlerFor === null) {
         throw new Error("useMouse can only be used when the parent is a <MouseProvider/>")

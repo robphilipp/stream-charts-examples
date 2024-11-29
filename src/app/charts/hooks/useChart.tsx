@@ -9,7 +9,7 @@ import {SvgStyle} from "../svgStyle";
 /**
  * The values exposed through the {@link useChart} react hook
  */
-interface UseChartValues {
+interface UseChartValues<D> {
     /**
      * Unique ID for the chart
      */
@@ -62,11 +62,11 @@ interface UseChartValues {
     /*
      | INTERNAL INTERACTION EVENT HANDLERS
      */
-    mouse: UseMouseValues
-    tooltip: UseTooltipValues
+    mouse: UseMouseValues<D>
+    tooltip: UseTooltipValues<D>
 }
 
-const defaultUseChartValues: UseChartValues = {
+const defaultUseChartValues: UseChartValues<any> = {
     chartId: NaN,
     container: null,
     mainG: null,
@@ -87,7 +87,7 @@ const defaultUseChartValues: UseChartValues = {
     tooltip: defaultTooltipValues()
 }
 
-const ChartContext = createContext<UseChartValues>(defaultUseChartValues)
+const ChartContext = createContext<UseChartValues<any>>(defaultUseChartValues)
 
 interface Props {
     chartId: number
@@ -151,8 +151,8 @@ export default function ChartProvider(props: Props): JSX.Element {
  * React hook that sets up the React context for the chart values.
  * @return The {@link UseChartValues} held in the React context.
  */
-export function useChart(): UseChartValues {
-    const context = useContext<UseChartValues>(ChartContext)
+export function useChart<D>(): UseChartValues<D> {
+    const context = useContext<UseChartValues<D>>(ChartContext)
     const {chartId} = context
     if (isNaN(chartId)) {
         throw new Error("useChart can only be used when the parent is a <ChartProvider/>")

@@ -148,7 +148,6 @@ export function categoryTooltipY(
     return y + margin.top - halfHeight + categoryHeight / 2
 }
 
-
 /**
  * Returns the index of the data point whose time is the upper boundary on the specified
  * time. If the specified time is larger than any time in the specified data, the returns
@@ -156,39 +155,43 @@ export function categoryTooltipY(
  * the specified array, then returns -1.
  * @param data The array of points from which to select the
  * boundary.
- * @param time The time for which to find the bounding points
+ * @param value The time for which to find the bounding points
+ * @param xFrom A function that extracts the x-value from the datum
+ * @template D The type of the datum in the data-series
  * @return The index of the upper boundary.
  */
-function boundingPointsIndex(data: Series, time: number): number {
+function boundingPointsIndex<D>(data: Series<D>, value: number, xFrom: (value: D) => number): number {
     const length = data.length
-    if (time > data[length - 1][0]) {
+    if (value > xFrom(data[length - 1])) {
         return length
     }
-    if (time < data[0][0]) {
+    if (value < xFrom(data[0])) {
         return 0
     }
-    return data.findIndex((value, index, array) => {
+    return data.findIndex((_, index, array) => {
         const lowerIndex = Math.max(0, index - 1)
-        return array[lowerIndex][0] <= time && time <= array[index][0]
+        return xFrom(array[lowerIndex]) <= value && value <= xFrom(array[index])
     })
 }
-
 
 /**
  * Returns the (time, value) point that comes just before the mouse and just after the mouse
  * @param data The time-series data
- * @param time The time represented by the mouse's x-coordinate
+ * @param value The time represented by the mouse's x-coordinate
+ * @param xFrom A function that extracts the x-value from the datum
+ * @param emptyDatum A function that returns an empty datum
+ * @template D The type of the datum in the data-series
  * @return {[[number, number], [number, number]]} the (time, value) point that comes just before
  * the mouse and just after the mouse. If the mouse is after the last point, then the "after" point
  * is `[NaN, NaN]`. If the mouse is before the first point, then the "before" point is `[NaN, NaN]`.
  */
-export function boundingPoints(data: Series, time: number): [[number, number], [number, number]] {
-    const upperIndex = boundingPointsIndex(data, time)
+export function boundingPoints<D>(data: Series<D>, value: number, xFrom: (value: D) => number, emptyDatum: () => D): [D, D] {
+    const upperIndex = boundingPointsIndex<D>(data, value, xFrom)
     if (upperIndex <= 0) {
-        return [[NaN, NaN], data[0]]
+        return [emptyDatum(), data[0]]
     }
     if (upperIndex >= data.length) {
-        return [data[data.length - 1], [NaN, NaN]]
+        return [data[data.length - 1], emptyDatum()]
     }
     return [data[upperIndex - 1], data[upperIndex]]
 }

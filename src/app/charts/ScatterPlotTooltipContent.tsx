@@ -133,7 +133,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
         chartId,
         container,
         tooltip
-    } = useChart()
+    } = useChart<[number, number]>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -179,7 +179,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
-                    (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) =>
+                    (seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) =>
                         addTooltipContent(
                             seriesName, time, series, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
@@ -217,7 +217,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
 function addTooltipContent(
     seriesName: string,
     time: number,
-    series: Series,
+    series: Series<[number, number]>,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -228,7 +228,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {labels, formatters} = options
     const [x, y] = mouseCoords
-    const [lower, upper] = boundingPoints(series, time)
+    const [lower, upper] = boundingPoints(series, time, value => value[0], () => [NaN, NaN])
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)

@@ -277,8 +277,8 @@ export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
             <svg ref={containerRef}/>
             <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
                 <AxesProvider onUpdateAxesBounds={onUpdateAxesBounds}>
-                    <MouseProvider>
-                        <TooltipProvider>
+                    <MouseProvider<D>>
+                        <TooltipProvider<D>>
                             <InitialDataProvider<D> initialData={initialData}>
                                 <DataObservableProvider<CD, D>
                                     seriesObservable={seriesObservable}

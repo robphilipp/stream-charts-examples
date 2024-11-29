@@ -2,8 +2,9 @@ import {Dimensions, Margin} from "./margins";
 import * as d3 from "d3";
 import {GSelection, SvgSelection} from "./d3types";
 
-export type Range = [min: number, max: number]
-export type Series = Array<[number, number]>
+export type Series<D> = Array<D>
+// export type Series<D = [number, number]> = Array<D>
+// export type Series = Array<[number, number]>
 
 /**
  * Creates the main SVG for holding the plot.

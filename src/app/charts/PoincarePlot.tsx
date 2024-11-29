@@ -706,7 +706,7 @@ function handleMouseEnterPoint(
     seriesStyle: SeriesLineStyle,
     backgroundColor: string,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<IterateDatum>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     const {color, highlightColor, lineWidth} = seriesStyle
 
@@ -784,7 +784,8 @@ function handleMouseEnterPoint(
         mouseOverHandlerFor(
             seriesName,
             currentDatum.time,
-            plotData.map(iterPoint => ([iterPoint.n, iterPoint.n_1])),
+            // plotData.map(iterPoint => ([iterPoint.n, iterPoint.n_1])),
+            plotData.map(ip => ({iterateN: ip.n, iterateN_1: ip.n_1, time: ip.time})),
             [x, y]
         )
     }

@@ -115,7 +115,7 @@ export function RasterPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart()
+    } = useChart<[number, number]>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -165,7 +165,7 @@ export function RasterPlotTooltipContent(props: Props): null {
                      * @param mouseCoords The coordinates of the mouse
                      * @return The tooltip contents
                      */
-                    (seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => {
+                    (seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => {
                         const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
                         return addTooltipContent(
                             seriesName, time, series[0], mouseCoords,

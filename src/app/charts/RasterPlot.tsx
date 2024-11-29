@@ -612,7 +612,7 @@ function handleMouseOverSeries(
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)
