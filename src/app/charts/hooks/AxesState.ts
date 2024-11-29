@@ -79,28 +79,28 @@ function axesStateFrom(axes: Map<string, BaseAxis>): AxesState {
     }
 }
 
-// /**
-//  * Makes a copy of the specified axes state
-//  * @param axesState The axes state to copy
-//  * @return A new axes state copied from the specified one
-//  */
-// export function copyAxesState(axesState: AxesState): AxesState {
-//     const {axes} = axesState
-//     return {
-//         axisFor: (id: string) => {
-//             const axis = axes.get(id)
-//             // when there is no axis for the specified ID and there is at least
-//             // one axis, then just use that...it is the default axis
-//             if (axis === undefined && axes.size >= 1) {
-//                 return Array.from(axes.values())[0]
-//             }
-//             return axis
-//         },
-//         axisIds: () => Array.from(axes.keys()),
-//         axisDefaultId: () => Array.from(axes.keys())[0],
-//         defaultAxis: () => Array.from(axes.values())[0],
-//         axes: new Map<string, BaseAxis>(
-//             Array.from(axes.entries()).map(([id, axis]) => [id, {...axis}])
-//         ),
-//     }
-// }
+/**
+ * Makes a copy of the specified axes state
+ * @param axesState The axes state to copy
+ * @return A new axes state copied from the specified one
+ */
+export function copyAxesState(axesState: AxesState): AxesState {
+    const {axes} = axesState
+    return {
+        axisFor: (id: string) => {
+            const axis = axes.get(id)
+            // when there is no axis for the specified ID and there is at least
+            // one axis, then just use that...it is the default axis
+            if (axis === undefined && axes.size >= 1) {
+                return Array.from(axes.values())[0]
+            }
+            return axis
+        },
+        axisIds: () => Array.from(axes.keys()),
+        axisDefaultId: () => Array.from(axes.keys())[0],
+        defaultAxis: () => Array.from(axes.values())[0],
+        axes: new Map<string, BaseAxis>(
+            Array.from(axes.entries()).map(([id, axis]) => [id, {...axis}])
+        ),
+    }
+}

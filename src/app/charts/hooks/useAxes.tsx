@@ -1,4 +1,4 @@
-import {addAxisTo, AxesState, createAxesState} from "./AxesState";
+import {addAxisTo, AxesState, copyAxesState, createAxesState} from "./AxesState";
 import {BaseAxis} from "../axes";
 import {AxesAssignment} from "../plot";
 import {createContext, JSX, useContext, useRef} from "react";

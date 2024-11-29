@@ -23,6 +23,22 @@ interface Props {
     font?: Partial<AxesLabelFont>
     // the axis label
     label: string
+    // The domain prop holds the axis bounds as a (min, max) tuple. The default
+    // behaviour is to update the axis bounds when the **values** of the domain
+    // prop change, rather than when the object reference changes. This allows
+    // a user of the chart to specify a tuple-literal as the ranges, rather than
+    // forcing the user of the chart to create a ref and use that ref.
+    //
+    // This behavior is important when allowing the axes to scroll in time, as
+    // is done in the scatter plot or the raster plot. In this case, if the user
+    // of the raster chart specifies the axis domain as a tuple-literal, then
+    // the bounds will get reset to their original value with each render.
+    //
+    // However, for charts that don't scroll, such as the iterates chart, but where
+    // the user would like to change axis-bounds, say for a different iterates
+    // function, we would like the axis bounds to be reset based on a change to
+    // the object ref instead. In this case, we can set this property to false.
+    updateAxisBasedOnDomainValues?: boolean
 }
 
 /**
@@ -63,6 +79,7 @@ export function ContinuousAxis(props: Props): null {
         location,
         scale = d3.scaleLinear(),
         domain,
+        updateAxisBasedOnDomainValues = true,
         label,
     } = props
 
@@ -138,7 +155,11 @@ export function ContinuousAxis(props: Props): null {
                             if (rangeUpdateHandlerIdRef.current !== undefined) {
                                 addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                             }
-                            if (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1]) {
+                            // if (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1]) {
+                            if (
+                                (updateAxisBasedOnDomainValues && (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1])) ||
+                                (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
+                            ) {
                                 domainRef.current = domain
                                 resetAxisBoundsFor(axisId, domain)
                             }
@@ -151,7 +172,7 @@ export function ContinuousAxis(props: Props): null {
         [
             chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis, domain,
             scale, container, margin, plotDimensions, setAxisBoundsFor, axisBoundsFor, addAxesBoundsUpdateHandler,
-            color, resetAxisBoundsFor
+            color, resetAxisBoundsFor, updateAxisBasedOnDomainValues
         ]
     )
 

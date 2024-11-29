@@ -48,6 +48,11 @@ import {IterateChartData, iteratesObservable} from "../charts/iterates";
 import {BaseSeries, seriesFrom} from "../charts/baseSeries";
 import {Button} from "../ui/Button";
 
+//
+// the interpolations for the lines drawn between each iterate point.
+// the "step-after" interpolations show a "cobweb" plot. the others
+// are there for fun
+//
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
     ['curveNatural', ['Natural', d3.curveNatural]],
@@ -59,22 +64,36 @@ const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveNoLine', ['No Line', NoCurveFactory]],
 ])
 
+/**
+ * Returns a d3 curve-factory for generating the interpolations
+ * @param name The name of the interpolation
+ * @param [defaultFactory=d3.curveLinear] The default curve factory
+ * @return A d3 curve-factory for generating the interpolations
+ */
+function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory = d3.curveLinear): d3.CurveFactory {
+    return (INTERPOLATIONS.get(name) || [undefined, defaultFactory])[1]
+}
+
+//
+// policy for when to drop old data from long-running charts. recall that the data is
+// streamed in at a specified interval, and so the data builds up over time.
+//
 const DROP_DATA_AFTER_SECONDS: Map<string, number> = new Map<string, number>([
     ['Drop after 10 s', 10000], ['Drop after 20 s', 20000], ['Drop after 50 s', 50000], ['Drop after 100 s', 100000], ['Keep All', Infinity]
 ])
 const DEFAULT_DROP_AFTER: [name: string, value: number] = Array.from(DROP_DATA_AFTER_SECONDS.entries())[1]
 
-function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory = d3.curveLinear): d3.CurveFactory {
-    return (INTERPOLATIONS.get(name) || [undefined, defaultFactory])[1]
-}
-
+//
+// By default, the iterates plot shows f[n](x) versus f[n+1](x). Generally, given a lag "m",
+// the plot can show f[n](x) versus f[n+m](x).
+//
 const LAG_N: Map<string, number> = new Map<string, number>([
     ['lag = 1', 1], ['lag = 2', 2], ['lag = 3', 3], ['lag = 4', 4], ['lag = 5', 5]
 ])
 const DEFAULT_LAG_N: [name: string, value: number] = Array.from(LAG_N.entries())[0]
 
 //
-// iterate functions
+// iterate functions for Poincare plots
 //
 type IterateFunction = (time: number, xn: number) => Datum
 type IterateFunctionCallback = (fn: IterateFunction) => void
@@ -106,76 +125,7 @@ const labelStyleFor = (theme: Theme) => ({
     paddingRight: 0,
 })
 
-function TentMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
-    const {theme = lightTheme, onFunctionChange} = props
-
-    const [mu, setMu] = useState<string>('1.8')
-
-    // we need the useEffect so that on mount, we issue the callback with the new iterate
-    // function
-    useEffect(() => {
-        onFunctionChange(tentMapFn(parseFloat(mu)))
-    }, [mu, onFunctionChange]);
-
-    return <>
-        <label style={labelStyleFor(theme)}>µ <input
-            type="text"
-            value={mu}
-            onChange={event => setMu(event.currentTarget.value)}
-            style={inputStyleFor(theme)}
-        /></label>
-    </>
-}
-
-function LogisticMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
-    const {theme = lightTheme, onFunctionChange} = props
-
-    const [r, setR] = useState<string>('3.0')
-
-    // we need the useEffect so that on mount, we issue the callback with the new iterate
-    // function
-    useEffect(() => {
-        onFunctionChange(logisticMapFn(parseFloat(r)))
-    }, [r, onFunctionChange]);
-
-    return <>
-        <label style={labelStyleFor(theme)}>r <input
-            type="text"
-            value={r}
-            onChange={event => setR(event.currentTarget.value)}
-            style={inputStyleFor(theme)}
-        /></label>
-    </>
-}
-
-function GaussMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
-    const {theme = lightTheme, onFunctionChange} = props
-
-    const [alpha, setAlpha] = useState<string>('4.90')
-    const [beta, setBeta] = useState<string>('-0.58')
-
-    // we need the useEffect so that on mount, we issue the callback with the new iterate
-    // function
-    useEffect(() => {
-        onFunctionChange(gaussMapFn(parseFloat(alpha), parseFloat(beta)))
-    }, [alpha, beta, onFunctionChange]);
-
-    return <span style={spanStyleFor(theme)}>
-        <label style={labelStyleFor(theme)}>α <input
-            type="text"
-            value={alpha}
-            onChange={event => setAlpha(event.currentTarget.value)}
-            style={{...inputStyleFor(theme), marginRight: 6}}
-        /></label>
-        <label style={labelStyleFor(theme)}>β <input
-            type="text"
-            value={beta}
-            onChange={event => setBeta(event.currentTarget.value)}
-            style={inputStyleFor(theme)}
-        /></label>
-    </span>
-}
-
+// input components are at the end of the file
 const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
     ['Tent Map', {
         inputFn: (callback: IterateFunctionCallback, theme: Theme) => (<TentMapGenerator onFunctionChange={callback} theme={theme}/>),
@@ -193,6 +143,9 @@ const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
 
 const DEFAULT_ITER_FUNC = Array.from(ITERATE_FUNCTIONS.entries())[0]
 
+//
+// styling information
+//
 interface Visibility {
     tooltip: boolean;
     tracker: boolean;
@@ -216,6 +169,13 @@ interface Props {
     plotWidth?: number
 }
 
+/**
+ * Example of a streaming Poincare chart that shows iterate functions plotted as f[n](x) versus f[n+m](x).
+ * I've added a few iterate functions: tent-map, logistic-map, and Gauss-map, with parameter inputs so that
+ * you can play with the functions interactively.
+ * @param props The props
+ * @constructor
+ */
 export function StreamingPoincareChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
@@ -294,11 +254,18 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     function handleIterateFunctionChange(selectedIterateFunction: string): void {
         setSelectedIterateFunction(selectedIterateFunction)
 
+        handleClearChart()
+
         const componentFactory = ITERATE_FUNCTIONS.get(selectedIterateFunction)!.inputFn
         setIterateFunctionInputGen(() => componentFactory)
 
         const [start, end] = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.range || [0, 1]
         setAxesRange([start, end])
+    }
+
+    function handleClearChart(): void {
+        initialDataRef.current = initialDataFrom(initialData)
+        setElapsed(0)
     }
 
     /**
@@ -360,10 +327,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             backgroundColor: theme.disabledBackgroundColor,
                             color: theme.disabledColor
                         }}
-                        onClick={() => {
-                            initialDataRef.current = initialDataFrom(initialData)
-                            setElapsed(0)
-                        }}
+                        onClick={handleClearChart}
                         disabled={running}
                     >
                         Clear
@@ -511,24 +475,28 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         location={AxisLocation.Bottom}
                         domain={axesRange}
                         label="f[n](x)"
+                        updateAxisBasedOnDomainValues={false}
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         domain={axesRange}
                         label={`f[n+${lagN}](x)`}
+                        updateAxisBasedOnDomainValues={false}
                     />
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
                         domain={axesRange}
                         label="f[n](x)"
+                        updateAxisBasedOnDomainValues={false}
                     />
                     <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
                         domain={axesRange}
                         label={`f[n+${lagN}](x)`}
+                        updateAxisBasedOnDomainValues={false}
                     />
                     <Tracker
                         visible={visibility.tracker}
@@ -565,4 +533,75 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
             </GridItem>
         </Grid>
     );
+}
+
+
+function TentMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+    const {theme = lightTheme, onFunctionChange} = props
+
+    const [mu, setMu] = useState<string>('1.8')
+
+    // we need the useEffect so that on mount, we issue the callback with the new iterate
+    // function
+    useEffect(() => {
+        onFunctionChange(tentMapFn(parseFloat(mu)))
+    }, [mu, onFunctionChange]);
+
+    return <>
+        <label style={labelStyleFor(theme)}>µ <input
+            type="text"
+            value={mu}
+            onChange={event => setMu(event.currentTarget.value)}
+            style={inputStyleFor(theme)}
+        /></label>
+    </>
+}
+
+function LogisticMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+    const {theme = lightTheme, onFunctionChange} = props
+
+    const [r, setR] = useState<string>('4.0')
+
+    // we need the useEffect so that on mount, we issue the callback with the new iterate
+    // function
+    useEffect(() => {
+        onFunctionChange(logisticMapFn(parseFloat(r)))
+    }, [r, onFunctionChange]);
+
+    return <>
+        <label style={labelStyleFor(theme)}>r <input
+            type="text"
+            value={r}
+            onChange={event => setR(event.currentTarget.value)}
+            style={inputStyleFor(theme)}
+        /></label>
+    </>
+}
+
+function GaussMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+    const {theme = lightTheme, onFunctionChange} = props
+
+    const [alpha, setAlpha] = useState<string>('4.90')
+    const [beta, setBeta] = useState<string>('-0.58')
+
+    // we need the useEffect so that on mount, we issue the callback with the new iterate
+    // function
+    useEffect(() => {
+        onFunctionChange(gaussMapFn(parseFloat(alpha), parseFloat(beta)))
+    }, [alpha, beta, onFunctionChange]);
+
+    return <span style={spanStyleFor(theme)}>
+        <label style={labelStyleFor(theme)}>α <input
+            type="text"
+            value={alpha}
+            onChange={event => setAlpha(event.currentTarget.value)}
+            style={{...inputStyleFor(theme), marginRight: 6}}
+        /></label>
+        <label style={labelStyleFor(theme)}>β <input
+            type="text"
+            value={beta}
+            onChange={event => setBeta(event.currentTarget.value)}
+            style={inputStyleFor(theme)}
+        /></label>
+    </span>
 }

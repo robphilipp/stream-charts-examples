@@ -9,9 +9,8 @@ import {
     axesZoomHandler,
     BaseAxis,
     ContinuousNumericAxis,
-    continuousRangeForDefaultAxis,
     defaultLineStyle,
-    panHandler, panHandler2D,
+    panHandler2D,
     SeriesLineStyle
 } from "./axes";
 import {GSelection} from "./d3types";
@@ -170,7 +169,6 @@ export function PoincarePlot(props: Props): null {
         zoomKeyModifiersRequired = true,
         zoomMinScaleFactor = 0,
         zoomMaxScaleFactor = 1,
-        withCadenceOf,
     } = props
 
     // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
@@ -190,6 +188,11 @@ export function PoincarePlot(props: Props): null {
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     const allowTooltip = useRef<boolean>(isSubscriptionClosed())
+
+    // so that we can reset the zoom when the axes-bounds change, we hold on to the zoom-behaviour
+    // and the zoom-selection so that we can reset the transform to the identity
+    const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, Datum>>()
+    const zoomSelectionRef = useRef<d3.Selection<SVGSVGElement, any, null, undefined>>()
 
     // calculates the distinct axis IDs that cover all the series in the plot
     const xAxesForSeries = useMemo(
@@ -211,18 +214,11 @@ export function PoincarePlot(props: Props): null {
         }
     }, [xAxesState, yAxesState]);
 
+    // update the plot with the new axes bounds
     const updateRangesAndPlot = useCallback(
         (): void => {
             if (mainG !== null) {
                 updatePlotRef.current(mainG)
-
-                // if (onUpdateAxesBounds) {
-                //     setTimeout(() => {
-                //         const axisRanges = new Map<string, [number, number]>()
-                //         ranges.forEach((range, name) => axisRanges.set(name, [range.start, range.end]))
-                //         onUpdateAxesBounds(axisRanges)
-                //     }, 0)
-                // }
             }
         },
         [mainG]
@@ -239,12 +235,43 @@ export function PoincarePlot(props: Props): null {
 
             updateRangesAndPlot()
         },
-        // ** not happy about this **
-        // only want this effect to run when the initial data is changed, which means all the
-        // other dependencies are recalculated anyway.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [initialData]
+        [initialData, updateRangesAndPlot]
     )
+
+    /**
+     * When the axes bounds have changed, we need to reset the range references so that
+     * the new axis ranges are used
+     * @param updates The updates to the axes
+     */
+    const updatedBoundsHandler = useCallback(
+        (updates: Map<string, ContinuousAxisRange>): void => {
+            updates.forEach((update, axisId) => {
+                if (xAxisRangesRef.current.has(axisId)) {
+                    xAxisRangesRef.current.set(axisId, update)
+                }
+                if (yAxisRangesRef.current.has(axisId)) {
+                    yAxisRangesRef.current.set(axisId, update)
+                }
+            })
+            if (zoomEnabled && zoomSelectionRef.current !== undefined && zoomRef.current !== undefined) {
+                zoomSelectionRef.current.call(zoomRef.current.transform, d3.zoomIdentity)
+            }
+        },
+        [zoomEnabled]
+    )
+    // function updatedBoundsHandler(updates: Map<string, ContinuousAxisRange>): void {
+    //     updates.forEach((update, axisId) => {
+    //         if (xAxisRangesRef.current.has(axisId)) {
+    //             xAxisRangesRef.current.set(axisId, update)
+    //         }
+    //         if (yAxisRangesRef.current.has(axisId)) {
+    //             yAxisRangesRef.current.set(axisId, update)
+    //         }
+    //     })
+    //     if (zoomEnabled && zoomSelectionRef.current !== undefined && zoomRef.current !== undefined) {
+    //         zoomSelectionRef.current.call(zoomRef.current.transform, d3.zoomIdentity)
+    //     }
+    // }
 
     // strange construct so that we only add the update handler when the chart ID
     // changes, and not when the addAxesBoundsUpdateHandler or removeAxesBoundsUpdateHandler
@@ -255,30 +282,17 @@ export function PoincarePlot(props: Props): null {
     // axes range refs
     const addAxesBoundsUpdateHandlerRef = useRef(addAxesBoundsUpdateHandler)
     const removeAxesBoundsUpdateHandlerRef = useRef(removeAxesBoundsUpdateHandler)
-    useEffect(() => {
-        addAxesBoundsUpdateHandlerRef.current(`handler-${chartId}`, updatedBoundsHandler)
-        const removeHandler = removeAxesBoundsUpdateHandlerRef.current
-        return () => {
-            // closure on the function to remove the handler from this chart
-            removeHandler(`handler-${chartId}`)
-        }
-    }, [chartId]);
-
-    /**
-     * When the axes bounds have changed, we need to reset the range references so that
-     * the new axis ranges are used
-     * @param updates The updates to the axes
-     */
-    function updatedBoundsHandler(updates: Map<string, ContinuousAxisRange>): void {
-        updates.forEach((update, axisId) => {
-            if (xAxisRangesRef.current.has(axisId)) {
-                xAxisRangesRef.current.set(axisId, update)
+    useEffect(
+        () => {
+            addAxesBoundsUpdateHandlerRef.current(`handler-${chartId}`, updatedBoundsHandler)
+            const removeHandler = removeAxesBoundsUpdateHandlerRef.current
+            return () => {
+                // closure on the function to remove the handler from this chart
+                removeHandler(`handler-${chartId}`)
             }
-            if (yAxisRangesRef.current.has(axisId)) {
-                yAxisRangesRef.current.set(axisId, update)
-            }
-        })
-    }
+        },
+        [chartId, updatedBoundsHandler]
+    );
 
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
@@ -398,26 +412,28 @@ export function PoincarePlot(props: Props): null {
 
                 // set up for zooming
                 if (zoomEnabled) {
-                    const zoom = d3.zoom<SVGSVGElement, Datum>()
+                    zoomRef.current = d3.zoom<SVGSVGElement, Datum>()
                         .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
                         .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
                         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                         .on("zoom", event => {
                                 allowTooltip.current = false
-                                onZoom(
-                                    event.transform,
-                                    event.sourceEvent.offsetX - margin.left,
-                                    event.sourceEvent.offsetY - margin.top,
-                                    plotDimensions,
-                                    xAxisRangesRef.current,
-                                    yAxisRangesRef.current
-                                )
-                                updatePlotRef.current(mainGElem)
+                                if (event.sourceEvent !== null) {
+                                    onZoom(
+                                        event.transform,
+                                        event.sourceEvent.offsetX - margin.left,
+                                        event.sourceEvent.offsetY - margin.top,
+                                        plotDimensions,
+                                        xAxisRangesRef.current,
+                                        yAxisRangesRef.current
+                                    )
+                                    updatePlotRef.current(mainGElem)
+                                }
                                 allowTooltip.current = true
                             }
                         )
 
-                    svg.call(zoom)
+                    zoomSelectionRef.current = svg.call(zoomRef.current)
                 }
 
                 // define the clip-path so that the series lines don't go beyond the plot area
