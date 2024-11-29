@@ -18,6 +18,10 @@ import InitialDataProvider from "./hooks/useInitialData";
 
 const defaultBackground = '#202020';
 
+/**
+ * @template CD refers to the chart-data that is used by the Observable that has the stream of data.
+ * @template D refers to the datum in the data-series
+ */
 interface Props<CD, D> {
     chartId: number
     /**
@@ -33,7 +37,7 @@ interface Props<CD, D> {
      */
     margin?: Partial<Margin>
     /**
-     * The base/default color of the chart lines. This can be overriden by the {@link Props.svgStyle} property.
+     * The base/default color of the chart lines. This can be overridden by the {@link Props.svgStyle} property.
      */
     color?: string
     /**
