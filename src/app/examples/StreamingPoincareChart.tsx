@@ -188,6 +188,10 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [running, setRunning] = useState<boolean>(false)
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
+
+    //
+    // header bar information
+    //
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveStepAfter')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => interpolationFactoryFor(selectedInterpolationName))
 
@@ -209,10 +213,14 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         setIterFuncInput(iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
     }, [iterateFunctionInputGen, theme]);
 
+    /**
+     * Creates an iterates stream with lag N from a stream of points (time-series chart data
+     * @param updatePeriod The time between successive points
+     * @param lagN The lag of the iterates plot (e.g. f[n](x) vs f[n+N](x), where N is the lag)
+     */
     const randomData = (updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
         return initialData => iteratesObservable(iterateFunctionObservable(iterateFunction, initialData, updatePeriod), lagN)
     }
-
     const randomDataObservable = randomData(100, lagN)
     const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
 
@@ -239,18 +247,31 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         setSelectedInterpolationName(selectedInterpolation)
     }
 
+    /**
+     * When the user changes the time after which to drop points that are older than that time
+     * @param selectedDropAfterName The name (in the select dropdown) representing the drop-after time
+     */
     function handleDropAfterChange(selectedDropAfterName: string): void {
         const dropAfter = DROP_DATA_AFTER_SECONDS.get(selectedDropAfterName) || Infinity
         setDropAfterMs(dropAfter)
         setSelectedDropAfterName(selectedDropAfterName)
     }
 
+    /**
+     * The lag of the iterates plot (e.g. f[n](x) vs f[n+N](x), where N is the lag)
+     * @param selectedLagN The name in the select dropdown that represents the lag N
+     */
     function handleUpdateLag(selectedLagN: string): void {
         const lag = LAG_N.get(selectedLagN) || 1
         setLagN(lag)
         setSelectedLagN(selectedLagN)
     }
 
+    /**
+     * Updates the plot, axis bounds, and clears the data when the user selects a different
+     * iterate function from the select dropdown
+     * @param selectedIterateFunction The name of the iterate function to use
+     */
     function handleIterateFunctionChange(selectedIterateFunction: string): void {
         setSelectedIterateFunction(selectedIterateFunction)
 
@@ -263,6 +284,9 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         setAxesRange([start, end])
     }
 
+    /**
+     * Clears the chart and initializes the zoom
+     */
     function handleClearChart(): void {
         initialDataRef.current = initialDataFrom(initialData)
         setElapsed(0)
@@ -366,7 +390,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         value={selectedLagN}
                         disabled={running}
                     >
-                        {Array.from(LAG_N.entries()).map(([name, _]) => (
+                        {Array.from(LAG_N.entries()).map(([name, ]) => (
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
