@@ -8,15 +8,24 @@ export interface ContinuousAxisRange {
     scaleFactor: number
     matchesOriginal: (start: number, end: number) => boolean
     /**
-     * Scales the time-range by the specified scale factor from the specified time-location. The equations
-     * are written so that the zooming (scaling) occurs at the specified time, and expands/contracts equally
-     * from that time.
+     * Scales the axis-range by the specified scale factor from the specified {@link value}. The equations
+     * are written so that the zooming (scaling) occurs at the specified {@link value}, and expands/contracts equally
+     * from that {@link value}.
      * @param factor The scale factor
      * @param time The time from which to scale the interval
      * @return A new continuous-axis range with updated values
      */
-    scale: (factor: number, time: number) => ContinuousAxisRange
-    constrainedScale: (factor: number, time: number, constraint: [min: number, max: number]) => ContinuousAxisRange
+    scale: (factor: number, value: number) => ContinuousAxisRange
+    /**
+     * Scales the axis-range by the specified scale factor, but constrains the range to the specified
+     * {@link constraint} min and max. The equations are written so that the zooming (scaling) occurs
+     * at the specified {@link value}, and expands/contracts equally from that {@link value}.
+     * @param factor The scale factor
+     * @param time The value at which the zoom is initiated
+     * @param constraint The min and max range
+     * @return A new continuous-axis range with updated values
+     */
+    constrainedScale: (factor: number, value: number, constraint: [min: number, max: number]) => ContinuousAxisRange
     /**
      * Translates the axis-range by the specified amount
      * @param amount The amount by which to translate the axis-range

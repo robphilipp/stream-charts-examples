@@ -473,7 +473,7 @@ export function axisZoomHandler(
     ranges: Map<string, ContinuousAxisRange>,
 ) => void {
 
-    const [, zoomMax] = scaleExtent
+    // const [_, zoomMax] = scaleExtent
 
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
@@ -490,14 +490,14 @@ export function axisZoomHandler(
                 const axis = axesState.axisFor(axisId) as ContinuousNumericAxis
                 const range = ranges.get(axisId)
                 if (range) {
-                    // calculate the constraint for the zoom
-                    const [originalStart, originalEnd] = range.original
-                    const constraint: [number, number] = isFinite(zoomMax) ?
-                        [originalStart * zoomMax, originalEnd * zoomMax] :
-                        [-Infinity, Infinity]
-
-                    const zoom = calculateConstrainedZoomFor(transform, x, axis, range, constraint)
-                    // const zoom = calculateZoomFor(transform, x, axis, range)
+                    // // calculate the constraint for the zoom
+                    // const [originalStart, originalEnd] = range.original
+                    // const constraint: [number, number] = isFinite(zoomMax) ?
+                    //     [originalStart * zoomMax, originalEnd * zoomMax] :
+                    //     [-Infinity, Infinity]
+                    //
+                    // const zoom = calculateConstrainedZoomFor(transform, x, axis, range, constraint)
+                    const zoom = calculateZoomFor(transform, x, axis, range)
 
                     // update the axis range
                     ranges.set(axisId, zoom.range)
