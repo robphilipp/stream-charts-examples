@@ -271,9 +271,9 @@ function addTooltipContent(
 
 
     const headerRow = table.append('g').attr('font-weight', tooltipStyle.fontWeight + 550)
-    const hrLower = headerRow.append<SVGTextElement>("text").text(() => index >= 0 ? `f[${index}](x)` : '---')
-    const hrUpper = headerRow.append<SVGTextElement>("text").text(() => `f[${index+1}](x)`)
-    const hrDelta = headerRow.append<SVGTextElement>("text").text(() => `f[${index+2}](x)`)
+    const hrLower = headerRow.append<SVGTextElement>("text").text(() => index > 0 ? `f[${index-1}](x)` : '- n/a -')
+    const hrUpper = headerRow.append<SVGTextElement>("text").text(() => `f[${index}](x)`)
+    const hrDelta = headerRow.append<SVGTextElement>("text").text(() => `f[${index+1}](x)`)
 
     const trHeader = table.append<SVGTextElement>("text").text(() => labels.x)
     const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower.time))
