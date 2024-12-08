@@ -34,6 +34,8 @@ import {RasterPlot} from "../charts/plots/RasterPlot";
 import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {assignAxes} from "../charts/plots/plot";
+import {BarPlot} from "../charts/plots/BarPlot";
+import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -87,7 +89,7 @@ export interface SpikesChartData {
 }
 
 /**
- * An example wrapper to a raster chart, that accepts an rxjs observable. The {@link Chart} manages
+ * An example wrapper to a bar chart, that accepts an rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
  * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
  * {@link Chart} updates itself with the new data without causing React to re-render the component. In this
@@ -97,7 +99,7 @@ export interface SpikesChartData {
  * @return {Element} The streaming raster chart
  * @constructor
  */
-export function StreamingRasterChart(props: Props): JSX.Element {
+export function StreamingBarChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
         initialData,
@@ -346,12 +348,12 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             backgroundOpacity: 0.9,
                         }}
                     >
-                        <RasterPlotTooltipContent
+                        <BarPlotTooltipContent
                             xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
                             yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
                         />
                     </Tooltip>
-                    <RasterPlot
+                    <BarPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],
                             ['neuron1', assignAxes("x-axis-2", "y-axis-2")],

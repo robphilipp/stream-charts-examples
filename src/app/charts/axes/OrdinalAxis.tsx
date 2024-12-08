@@ -2,11 +2,11 @@ import * as axes from "./axes"
 import {AxesLabelFont, AxisLocation, defaultAxesLabelFont} from "./axes"
 import * as d3 from "d3";
 import {ScaleBand} from "d3";
-import {useChart} from "./hooks/useChart";
+import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
-import {Dimensions, Margin} from "./margins";
-import {SvgSelection} from "./d3types";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {Dimensions, Margin} from "../styling/margins";
+import {SvgSelection} from "../d3types";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
 
 interface Props {
     // the unique ID of the axis
@@ -31,7 +31,7 @@ interface Props {
  * @return null
  * @constructor
  */
-export function CategoryAxis(props: Props): null {
+export function OrdinalAxis(props: Props): null {
     const {
         chartId,
         container,

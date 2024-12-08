@@ -1,30 +1,31 @@
-import React, {useCallback, useEffect, useMemo, useRef} from 'react'
-import {useChart} from "./hooks/useChart";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {AxesAssignment, setClipPath, Series} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {AxesAssignment, setClipPath, Series} from "./plot";
-import {Datum, TimeSeries} from "./timeSeries";
+import {noop} from "../utils";
+import {useChart} from "../hooks/useChart";
+import React, {useCallback, useEffect, useMemo, useRef} from "react";
+import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
+import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
     BaseAxis,
+    CategoryAxis,
     ContinuousNumericAxis,
     defaultLineStyle,
     panHandler,
     SeriesLineStyle,
-    timeIntervals,
-    timeRanges,
+    continuousAxisIntervals,
+    continuousAxisRanges,
     axisZoomHandler
-} from "./axes";
-import {GSelection} from "./d3types";
+} from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
-import {noop} from "./utils";
-import {Dimensions, Margin} from "./margins";
-import {subscriptionFor, subscriptionWithCadenceFor, TimeWindowBehavior} from "./subscriptions";
-import {useDataObservable} from "./hooks/useDataObservable";
-import {TimeSeriesChartData} from "./timeSeriesChartData";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
-import {useInitialData} from "./hooks/useInitialData";
+import {Dimensions, Margin} from "../styling/margins";
+import {subscriptionTimeSeriesFor, subscriptionTimeSeriesWithCadenceFor} from "../subscriptions/subscriptions";
+import {useDataObservable} from "../hooks/useDataObservable";
+import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {useInitialData} from "../hooks/useInitialData";
 
 interface Props {
     /**
@@ -33,11 +34,6 @@ interface Props {
      * object holding the ID of the assigned x-axis and y-axis.
      */
     axisAssignments?: Map<string, AxesAssignment>
-    /**
-     * The line interpolation curve factory. See the d3 documentation for curves at
-     * {@link https://github.com/d3/d3-shape#curves} for information on available interpolations
-     */
-    interpolation?: d3.CurveFactory
     /**
      * The number of milliseconds of data to hold in memory before dropping it. Defaults to
      * infinity (i.e. no data is dropped)
@@ -65,31 +61,35 @@ interface Props {
      * to the current time.
      */
     withCadenceOf?: number
-    timeWindowBehavior?: TimeWindowBehavior
-    // initialTimes?: Map<string, number>
+    /**
+     * The (optional, default = 2 pixels) top and bottom margin (in pixels) for the spike lines in the plot.
+     * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
+     */
+    spikeMargin?: number
 }
 
 /**
- * Renders a streaming scatter plot for the series in the initial data and those sourced by the
+ * Renders a streaming neuron raster plot for the series in the initial data and those sourced by the
  * observable specified as a property in the {@link Chart}. This component uses the {@link useChart}
  * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
  * chart ecosystem (axes, tracker, tooltip).
  *
- * @param props The properties associated with the scatter plot
+ * @param props The properties associated with the raster plot
  * @constructor
  * @example
- <ScatterPlot
-     interpolation={interpolation}
+ <RasterPlot
      axisAssignments={new Map([
-        ['test2', assignAxes("x-axis-2", "y-axis-2")],
+        ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+        ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
      ])}
-     dropDataAfter={10000}
+     spikeMargin={1}
+     dropDataAfter={5000}
      panEnabled={true}
      zoomEnabled={true}
      zoomKeyModifiersRequired={true}
  />
  */
-export function ScatterPlot(props: Props): null {
+export function RasterPlot(props: Props): null {
     const {
         chartId,
         container,
@@ -98,21 +98,16 @@ export function ScatterPlot(props: Props): null {
         color,
         seriesStyles,
         seriesFilter,
-
         mouse
     } = useChart()
 
     const {
-        initialData
-    } = useInitialData<Datum>()
-
-    const {
         xAxesState,
         yAxesState,
+        setAxisAssignments,
         setAxisBoundsFor,
         updateAxesBounds = noop,
         onUpdateAxesBounds,
-        originalAxisBounds
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -128,21 +123,17 @@ export function ScatterPlot(props: Props): null {
         onUpdateData,
     } = useDataObservable()
 
+    const {initialData} = useInitialData<Datum>()
+
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
-        interpolation = d3.curveLinear,
         dropDataAfter = Infinity,
         panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
         withCadenceOf,
-        timeWindowBehavior = TimeWindowBehavior.SCROLL,
+        spikeMargin = 2,
     } = props
-
-    const initialTimes = new Map<string, number>(
-            Array.from(originalAxisBounds().entries())
-                .map(([axisId, [start, ]]) => ([axisId, start]))
-        )
 
     // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
     // are by reference, so the seriesRef, also holds on to the same Series. When the Series in seriesRef
@@ -156,9 +147,10 @@ export function ScatterPlot(props: Props): null {
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
     const subscriptionRef = useRef<Subscription>()
+
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
-    const allowTooltip = useRef<boolean>(isSubscriptionClosed())
+    const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
 
     useEffect(
         () => {
@@ -167,14 +159,22 @@ export function ScatterPlot(props: Props): null {
         [xAxesState]
     )
 
+    // set the axis assignments needed if a tooltip is being used
+    useEffect(
+        () => {
+            setAxisAssignments(axisAssignments)
+        },
+        [axisAssignments, setAxisAssignments]
+    )
+
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
+        () => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 
     // updates the timing using the onUpdateTime and updatePlot references. This and the references
-    // defined above allow the axes' times to be updated properly by avoid stale reference to these
+    // defined above allow the axes' times to be update properly by avoid stale reference to these
     // functions.
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
             if (mainG !== null) {
@@ -197,18 +197,18 @@ export function ScatterPlot(props: Props): null {
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
         () => {
-            dataRef.current = initialData.slice()
+            dataRef.current = initialData.slice() as Array<TimeSeries>
             seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot(new Map(Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+            updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
                         const [start, end] = range.original
-                        const minTime = initialData
+                        const minTime = (initialData as Array<TimeSeries>)
                             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
                             .reduce(
-                                (tMin, series) => Math.min(
+                                (tMin: number, series: TimeSeries) => Math.min(
                                     tMin,
                                     !series.isEmpty() ? series.data[0].time : tMin
                                 ),
@@ -228,6 +228,26 @@ export function ScatterPlot(props: Props): null {
     )
 
     /**
+     * Calculates the upper and lower y-coordinate for the spike line
+     * @param categorySize The size of the category (i.e. plot_height / num_series)
+     * @param lineWidth The width of the series line
+     * @param margin The margin applied to the top and bottom of the spike line (vertical spacing)
+     * @return An object with two functions, that when handed a y-coordinate, return the location
+     * for the start (yUpper) or end (yLower) of the spikes line.
+     */
+    function yCoordsFn(categorySize: number, lineWidth: number, margin: number):
+        { yUpper: (y: number) => number, yLower: (y: number) => number } {
+        if (categorySize <= margin) return {
+            yUpper: y => y,
+            yLower: y => y + lineWidth
+        }
+        return {
+            yUpper: y => y + margin,
+            yLower: y => y + categorySize - margin
+        }
+    }
+
+    /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
      * @param deltaX The amount that the plot is dragged
      * @param plotDimensions The dimensions of the plot
@@ -238,7 +258,7 @@ export function ScatterPlot(props: Props): null {
         (x: number,
          plotDimensions: Dimensions,
          series: Array<string>,
-         ranges: Map<string, ContinuousAxisRange>,
+         ranges: Map<string, ContinuousAxisRange>
         ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
@@ -258,59 +278,36 @@ export function ScatterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)
-            (transform, x, plotDimensions, ranges),
+        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
+    /**
+     * @param timeRanges
+     * @param mainGElem
+     */
     const updatePlot = useCallback(
-        /**
-         * Updates the plot data for the specified time-range, which may have changed due to zoom or pan
-         * @param timeRanges The current time range
-         * @param mainGElem The main <g> element selection for that holds the plot
-         */
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
-
-                // create a map associating series-names to their time-series.
-                //
-                // performance-related confusion: wondering where the dataRef is updated? well it isn't
-                // directly. The dataRef holds on to an array of references to the Series. And so does the
-                // seriesRef, though is uses a map(series_name -> series). The seriesRef is use to append
-                // data to the underlying Series, and the dataRef is used so that we can just use
-                // dataRef.current and don't have to do Array.from(seriesRef.current.values()) which
-                // creates a temporary array
-                const boundedSeries = new Map(dataRef.current.map(series => [
-                    series.name,
-                    series.data.map(datum => [datum.time, datum.value]) as Series<[number, number]>
-                ]))
 
                 // set up panning
                 if (panEnabled) {
                     const drag = d3.drag<SVGSVGElement, Datum>()
                         .on("start", () => {
                             d3.select(container).style("cursor", "move")
-                            // during panning, we need to disable viewing the tooltip to prevent
-                            // tooltips from rendering but not getting removed
-                            allowTooltip.current = false;
+                            allowTooltipRef.current = false
                         })
-                        .on("drag", (event) => {
-                            onPan(
-                                event.dx,
-                                plotDimensions,
-                                Array.from(boundedSeries.keys()),
-                                timeRanges,
-                            )
+                        .on("drag", (event: any) => {
+                            const names = dataRef.current.map(series => series.name)
+                            onPan(event.dx, plotDimensions, names, timeRanges)
+                            // need to update the plot with the new time-ranges
                             updatePlotRef.current(timeRanges, mainGElem)
                         })
                         .on("end", () => {
                             d3.select(container).style("cursor", "auto")
-                            // during panning, we disabled viewing the tooltip to prevent
-                            // tooltips from rendering but not getting removed, now that panning
-                            // is over, allow tooltips to render again
-                            allowTooltip.current = isSubscriptionClosed();
+                            allowTooltipRef.current = isSubscriptionClosed()
                         })
 
                     svg.call(drag)
@@ -319,10 +316,10 @@ export function ScatterPlot(props: Props): null {
                 // set up for zooming
                 if (zoomEnabled) {
                     const zoom = d3.zoom<SVGSVGElement, Datum>()
-                        .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                        .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
                         .scaleExtent([0, 10])
                         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", event => {
+                        .on("zoom", (event: any) => {
                                 onZoom(
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
@@ -336,94 +333,127 @@ export function ScatterPlot(props: Props): null {
                     svg.call(zoom)
                 }
 
-                // define the clip-path so that the series lines don't go beyond the plot area
-                const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
+                // enter, update, delete the raster data
+                dataRef.current.forEach(series => {
+                    const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
 
-                boundedSeries.forEach((data, name) => {
-                    // grab the x and y axes assigned to the series, and if either or both
-                    // axes aren't found, then give up and return
-                    const [xAxisLinear, yAxisLinear] = axesFor(name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
-                    if (xAxisLinear === undefined || yAxisLinear === undefined) return
-
-                    // grab the style for the series
-                    const {color, lineWidth} = seriesStyles.get(name) || {
+                    // grab the series styles, or the defaults if none exist
+                    const {color, lineWidth, margin: spikeLineMargin = spikeMargin} = seriesStyles.get(series.name) || {
                         ...defaultLineStyle,
                         highlightColor: defaultLineStyle.color
                     }
 
-                    // only show the data for which the filter matches
-                    const plotData = (name.match(seriesFilter)) ? data : []
+                    // only show the data for which the regex filter matches
+                    const plotData = (series.name.match(seriesFilter)) ? series.data : []
 
-                    // create the time-series paths
-                    mainGElem
-                        .selectAll(`#${name}-${chartId}-scatter`)
-                        .data([[], plotData], () => `${name}`)
-                        .join(
-                            enter => enter
-                                .append("path")
-                                .attr("class", 'time-series-lines')
-                                .attr("id", `${name}-${chartId}-scatter`)
-                                .attr(
-                                    "d",
-                                    d3.line()
-                                        .x((d: [number, number]) => xAxisLinear.scale(d[0]) || 0)
-                                        .y((d: [number, number]) => yAxisLinear.scale(d[1]) || 0)
-                                        .curve(interpolation)
+                    const seriesContainer = svg
+                        .select<SVGGElement>(`#${series.name}-${chartId}-raster`)
+                        .selectAll<SVGLineElement, PixelDatum>('line')
+                        .data(plotData as PixelDatum[])
+
+                    //
+                    // enter new elements
+                    const {yUpper, yLower} = yCoordsFn(yAxis.categorySize, lineWidth, spikeLineMargin)
+
+                    // grab the value (index) associated with the series name (this is a category axis)
+                    const y = yAxis.scale(series.name) || 0
+                    // enter
+                    seriesContainer
+                        .enter()
+                        .append<SVGLineElement>('line')
+                        .attr('x1', datum => datum.x)
+                        .attr('x2', datum => datum.x)
+                        .attr('y1', _ => yUpper(y))
+                        .attr('y2', _ => yLower(y))
+                        .attr('stroke', color)
+                        .attr('stroke-width', lineWidth)
+                        .attr('class', 'spikes-lines')
+                        .on(
+                            "mouseover",
+                            (event, datumArray) =>
+                                handleMouseOverSeries(
+                                    container,
+                                    xAxis,
+                                    series.name,
+                                    [datumArray.time, datumArray.value],
+                                    event,
+                                    margin,
+                                    seriesStyles,
+                                    allowTooltipRef.current,
+                                    mouseOverHandlerFor(`tooltip-${chartId}`)
                                 )
-                                .attr("fill", "none")
-                                .attr("stroke", color)
-                                .attr("stroke-width", lineWidth)
-                                .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                                .attr("clip-path", `url(#${clipPathId})`)
-                                .on(
-                                    "mouseover",
-                                    (event, datumArray) =>
-                                        // recall that this handler is passed down via the "useChart" hook
-                                        handleMouseOverSeries(
-                                            container,
-                                            xAxisLinear,
-                                            name,
-                                            datumArray,
-                                            event,
-                                            margin,
-                                            seriesStyles,
-                                            allowTooltip.current,
-                                            mouseOverHandlerFor(`tooltip-${chartId}`)
-                                        )
-                                )
-                                .on(
-                                    "mouseleave",
-                                    event => handleMouseLeaveSeries(
-                                        name,
-                                        event.currentTarget,
-                                        seriesStyles,
-                                        mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                                    )
-                                ),
-                            update => update,
-                            exit => exit.remove()
                         )
+                        .on(
+                            "mouseleave",
+                            event => handleMouseLeaveSeries(
+                                series.name,
+                                event.currentTarget,
+                                seriesStyles,
+                                mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                            )
+                        )
+                        .each(datum => datum.x = xAxis.scale(datum.time))
+
+                    // update
+                    seriesContainer
+                        .each(datum => datum.x = xAxis.scale(datum.time))
+                        .attr('x1', datum => datum.x)
+                        .attr('x2', datum => datum.x)
+                        .attr('y1', _ => yUpper(y))
+                        .attr('y2', _ => yLower(y))
+                        .attr('stroke', color)
+
+                    // exit old elements
+                    seriesContainer.exit().remove()
                 })
             }
         },
         [
-            container, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
-            zoomKeyModifiersRequired, onZoom, axisAssignments, xAxesState.axisFor,
-            yAxesState.axisFor, seriesStyles, seriesFilter, interpolation,
-            mouseOverHandlerFor, mouseLeaveHandlerFor
+            axisAssignments, chartId, container, margin,
+            mouseLeaveHandlerFor, mouseOverHandlerFor, onPan, onZoom,
+            panEnabled,
+            plotDimensions,
+            seriesFilter, seriesStyles,
+            xAxesState.axisFor, yAxesState.axisFor,
+            zoomEnabled, zoomKeyModifiersRequired,
+            spikeMargin
         ]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef(updatePlot)
+    const updatePlotRef = useRef<(r: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
     useEffect(
         () => {
-            updatePlotRef.current = updatePlot
+            if (mainG !== null && container !== null) {
+                // when the update plot function doesn't yet exist, then create the container holding the plot
+                const svg = d3.select<SVGSVGElement, any>(container)
+                const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
+                if (updatePlotRef.current === noop) {
+                    mainG
+                        .selectAll<SVGGElement, TimeSeries>('g')
+                        .attr("clip-path", `url(#${clipPathId})`)
+                        .data<TimeSeries>(dataRef.current)
+                        .enter()
+                        .append('g')
+                        .attr('class', 'spikes-series')
+                        .attr('id', series => `${series.name}-${chartId}-raster`)
+                        .attr('transform', `translate(${margin.left}, ${margin.top})`)
+
+                } else {
+                    mainG
+                        .selectAll<SVGGElement, TimeSeries>('g')
+                        .attr("clip-path", `url(#${clipPathId})`)
+                }
+                updatePlotRef.current = updatePlot
+            }
         },
-        [updatePlot]
+        [chartId, container, mainG, margin, plotDimensions, updatePlot]
     )
+
+    // grab a reference to the function used to update the time ranges and update that reference
+    // if the function changes (solve for stale closures)
     const onUpdateTimeRef = useRef(updateAxesBounds)
     useEffect(
         () => {
@@ -437,7 +467,7 @@ export function ScatterPlot(props: Props): null {
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
             if (withCadenceOf !== undefined) {
-                return subscriptionWithCadenceFor(
+                return subscriptionTimeSeriesWithCadenceFor(
                     seriesObservable as Observable<TimeSeriesChartData>,
                     onSubscribe,
                     windowingTime,
@@ -452,7 +482,7 @@ export function ScatterPlot(props: Props): null {
                     withCadenceOf
                 )
             }
-            return subscriptionFor(
+            return subscriptionTimeSeriesFor(
                 seriesObservable as Observable<TimeSeriesChartData>,
                 onSubscribe,
                 windowingTime,
@@ -463,9 +493,7 @@ export function ScatterPlot(props: Props): null {
                 // as new data flows into the subscription, the subscription
                 // updates this map directly (for performance)
                 seriesRef.current,
-                (axisId, end) => currentTimeRef.current.set(axisId, end),
-                timeWindowBehavior,
-                initialTimes,
+                (axisId, end) => currentTimeRef.current.set(axisId, end)
             )
         },
         [
@@ -489,11 +517,11 @@ export function ScatterPlot(props: Props): null {
                 if (timeRangesRef.current.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    timeRangesRef.current = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
-                    const intervals = timeIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                     timeRangesRef.current
                         .forEach((range, id, rangesMap) => {
                             const [start, end] = intervals.get(id) || [NaN, NaN]
@@ -518,11 +546,11 @@ export function ScatterPlot(props: Props): null {
         () => {
             if (shouldSubscribe && subscriptionRef.current === undefined) {
                 subscriptionRef.current = subscribe()
-                allowTooltip.current = false
+                allowTooltipRef.current = false
             } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
                 subscriptionRef.current?.unsubscribe()
                 subscriptionRef.current = undefined
-                allowTooltip.current = true
+                allowTooltipRef.current = true
             }
         },
         [shouldSubscribe, subscribe]
@@ -533,32 +561,34 @@ export function ScatterPlot(props: Props): null {
 
 /**
  * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
- * series name, then uses the default returned by the useChart() hook
+ * series name, then uses the default returned by the useChart() hook.
  * @param seriesName Name of the series for which to retrieve the axis
  * @param axisAssignments A map holding the series name and the associated x- and y-axes assigned
  * to that series. Note that the series in the axis-assignment map is merely a subset of the set
  * of series names.
  * @param xAxisFor The function that accepts an axis ID and returns the corresponding x-axis
  * @param yAxisFor The function that accepts an axis ID and returns the corresponding y-axis
+ * @return A 2d tuple holding the linear x-axis as its first element and the category y-axis as
+ * the second element.
  */
 function axesFor(
     seriesName: string,
     axisAssignments: Map<string, AxesAssignment>,
     xAxisFor: (id: string) => BaseAxis | undefined,
     yAxisFor: (id: string) => BaseAxis | undefined,
-): [xAxis: ContinuousNumericAxis, yAxis: ContinuousNumericAxis] {
+): [xAxis: ContinuousNumericAxis, yAxis: CategoryAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
     const xAxisLinear = xAxis as ContinuousNumericAxis
-    const yAxis = yAxisFor(axes?.yAxis || "")
-    const yAxisLinear = yAxis as ContinuousNumericAxis
     if (xAxis && !xAxisLinear) {
-        throw Error("Scatter plot requires that x-axis be of type LinearAxis")
+        throw Error("Raster plot requires that x-axis be of type LinearAxis")
     }
-    if (yAxis && !yAxisLinear) {
-        throw Error("Scatter plot requires that y-axis be of type LinearAxis")
+    const yAxis = yAxisFor(axes?.yAxis || "")
+    const yAxisCategory = yAxis as CategoryAxis
+    if (yAxis && !yAxisCategory) {
+        throw Error("Raster plot requires that y-axis be of type CategoryAxis")
     }
-    return [xAxisLinear, yAxisLinear]
+    return [xAxisLinear, yAxisCategory]
 }
 
 /**
@@ -566,7 +596,7 @@ function axesFor(
  * @param container The chart container
  * @param xAxis The x-axis
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param series The time series
+ * @param selectedDatum The selected datum
  * @param event The mouse-over series event
  * @param margin The plot margin
  * @param seriesStyles The series style information (needed for (un)highlighting)
@@ -577,7 +607,7 @@ function handleMouseOverSeries(
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
-    series: Series<[number, number]>,
+    selectedDatum: [x: number, y: number],
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
@@ -596,7 +626,11 @@ function handleMouseOverSeries(
         .attr('stroke-width', highlightWidth)
 
     if (mouseOverHandlerFor && allowTooltip) {
-        mouseOverHandlerFor(seriesName, time, series, [x, y])
+        // the contract for the mouse over handler is for a time-series, but here we only
+        // need one point, the selected datum, and so we convert it into an array of point
+        // (i.e. a time-series). The category tooltip is (and custom ones, must) be
+        // written to expect only the selected point
+        mouseOverHandlerFor(seriesName, time, [selectedDatum], [x, y])
     }
 }
 

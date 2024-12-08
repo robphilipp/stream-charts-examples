@@ -1,4 +1,4 @@
-import {Series} from "../plot";
+import {Series} from "../plots/plot";
 import {createContext, JSX, useContext, useRef} from "react";
 
 /**

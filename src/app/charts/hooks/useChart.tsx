@@ -1,10 +1,10 @@
 import {createContext, JSX, useContext} from "react";
 import {GSelection} from "../d3types";
-import {SeriesLineStyle} from "../axes";
+import {SeriesLineStyle} from "../axes/axes";
 import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
 import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
 import {defaultTooltipValues, useTooltip, UseTooltipValues} from "./useTooltip";
-import {SvgStyle} from "../svgStyle";
+import {SvgStyle} from "../styling/svgStyle";
 
 /**
  * The values exposed through the {@link useChart} react hook

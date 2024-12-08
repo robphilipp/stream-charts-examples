@@ -46,7 +46,7 @@ export type IterateSeries = BaseSeries<IterateDatum>
  * Creates a series from the name and the optional array of (x, y) pairs (tuples)
  * @param name The name of the series
  * @param data The optional array of (x, y) pairs (tuples)
- * @return A `Series` for object that can be used by the `RasterChart`
+ * @return A `Series` for object that can be used by the `PoincarePlot`
  * @see seriesFrom
  * @see emptySeries
  */

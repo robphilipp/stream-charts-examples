@@ -1,5 +1,5 @@
-import {Series} from "../plot";
-import {TooltipDimensions} from "../tooltipUtils";
+import {Series} from "../plots/plot";
+import {TooltipDimensions} from "../tooltips/tooltipUtils";
 import {createContext, JSX, useContext, useRef} from "react";
 
 /**

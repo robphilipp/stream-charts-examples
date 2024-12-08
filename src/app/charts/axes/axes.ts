@@ -1,13 +1,13 @@
-import {Dimensions, Margin} from "./margins";
+import {Dimensions, Margin} from "../styling/margins";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import * as d3 from "d3";
 import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
-import {AxisElementSelection, SvgSelection} from "./d3types";
+import {AxisElementSelection, SvgSelection} from "../d3types";
 import {addContinuousNumericXAxis, addContinuousNumericYAxis} from "./ContinuousAxis";
-import {noop} from "./utils";
-import {AxesState} from "./hooks/AxesState";
-import {AxesAssignment} from "./plot";
-import {BaseSeries} from "./baseSeries";
+import {noop} from "../utils";
+import {AxesState} from "../hooks/AxesState";
+import {AxesAssignment} from "../plots/plot";
+import {BaseSeries} from "../series/baseSeries";
 
 export interface AxesLabelFont {
     size: number
@@ -590,21 +590,21 @@ export function axesZoomHandler(
 }
 
 /**
- * Calculates the time-ranges for each of the axes in the map
- * @param xAxes The map containing the axes and their associated IDs
- * @return a map associating the axis IDs to their time-range
+ * Calculates the axis-ranges for each of the continuous numeric axes in the map
+ * @param axes The map containing the axes and their associated IDs
+ * @return a map associating the axis IDs to their continuous axis-range
  */
-export function timeRanges(xAxes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
-    return continuousRange(xAxes)
+export function continuousAxisRanges(axes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
+    return continuousRange(axes)
 }
 
 /**
- * Calculates the time-intervals (start, end) for each of the x-axis
- * @param xAxes The x-axes representing the time
- * @return A map associating each x-axis with a (start, end) interval
+ * Calculates the axis interval (start, end) for each of the axis
+ * @param axes The axes representing the time
+ * @return A map associating each axis with a (start, end) interval
  */
-export function timeIntervals(xAxes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
-    return new Map(Array.from(xAxes.entries())
+export function continuousAxisIntervals(axes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
+    return new Map(Array.from(axes.entries())
         .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
 }
 

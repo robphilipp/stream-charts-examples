@@ -1,4 +1,4 @@
-import {BaseAxis} from "../axes";
+import {BaseAxis} from "../axes/axes";
 
 /**
  * Holds the information to allow mapping axes names to the underlying axes objects.

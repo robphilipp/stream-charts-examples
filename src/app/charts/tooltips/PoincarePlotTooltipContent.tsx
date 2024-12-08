@@ -1,5 +1,5 @@
-import {Series} from "./plot";
-import {Dimensions, Margin} from "./margins";
+import {Series} from "../plots/plot";
+import {Dimensions, Margin} from "../styling/margins";
 import {
     boundingPoints,
     defaultTooltipStyle,
@@ -10,12 +10,12 @@ import {
     tooltipY
 } from "./tooltipUtils";
 import * as d3 from "d3";
-import {formatTime, formatTimeChange, formatValue, formatValueChange} from "./utils";
-import {TextSelection} from "./d3types";
+import {formatTime, formatTimeChange, formatValue, formatValueChange} from "../utils";
+import {TextSelection} from "../d3types";
 import {useEffect, useMemo} from "react";
-import {useChart} from "./hooks/useChart";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
-import {emptyIterateDatum, IterateDatum} from "./iterateSeries";
+import {useChart} from "../hooks/useChart";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {emptyIterateDatum, IterateDatum} from "../series/iterateSeries";
 
 /**
 # Want to write your own tooltip-content component?

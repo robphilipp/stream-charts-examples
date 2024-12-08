@@ -1,10 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
-import {useChart} from "./hooks/useChart";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {useChart} from "../hooks/useChart";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import * as d3 from "d3";
 import {CurveFactory, ZoomTransform} from "d3";
 import {Series, setClipPath} from "./plot";
-import {Datum} from "./timeSeries";
+import {Datum} from "../series/timeSeries";
 import {
     axesZoomHandler,
     BaseAxis,
@@ -12,18 +12,18 @@ import {
     defaultLineStyle,
     panHandler2D,
     SeriesLineStyle
-} from "./axes";
-import {GSelection} from "./d3types";
+} from "../axes/axes";
+import {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
-import {formatTime, noop, textDimensions} from "./utils";
-import {Dimensions, Margin} from "./margins";
-import {subscriptionIteratesFor} from "./subscriptions";
-import {useDataObservable} from "./hooks/useDataObservable";
-import {IterateChartData} from "./iterates";
-import {emptyIterateDatum, IterateDatum, IterateSeries} from "./iterateSeries";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
-import {useInitialData} from "./hooks/useInitialData";
-import {useTooltip} from "./hooks/useTooltip";
+import {formatTime, noop, textDimensions} from "../utils";
+import {Dimensions, Margin} from "../styling/margins";
+import {subscriptionIteratesFor} from "../subscriptions/subscriptions";
+import {useDataObservable} from "../hooks/useDataObservable";
+import {IterateChartData} from "../observables/iterates";
+import {emptyIterateDatum, IterateDatum, IterateSeries} from "../series/iterateSeries";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {useInitialData} from "../hooks/useInitialData";
+import {useTooltip} from "../hooks/useTooltip";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
 type IteratePointSeries = Array<IteratePoint>

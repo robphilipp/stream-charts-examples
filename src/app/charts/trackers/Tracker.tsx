@@ -1,6 +1,6 @@
-import {noop} from "./utils";
-import {useChart} from "./hooks/useChart";
-import {TrackerSelection} from "./d3types";
+import {noop} from "../utils";
+import {useChart} from "../hooks/useChart";
+import {TrackerSelection} from "../d3types";
 import {
     defaultTrackerLabelFont,
     defaultTrackerStyle,
@@ -11,8 +11,8 @@ import {
 } from "./trackerUtils";
 import * as d3 from "d3";
 import {useEffect, useMemo, useRef} from "react";
-import {AxisLocation, ContinuousNumericAxis} from "./axes";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {AxisLocation, ContinuousNumericAxis} from "../axes/axes";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
 
 export interface TrackerAxisInfo {
     x: number

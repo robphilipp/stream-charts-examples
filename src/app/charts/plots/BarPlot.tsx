@@ -1,12 +1,12 @@
 import {AxesAssignment, setClipPath, Series} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {noop} from "./utils";
-import {useChart} from "./hooks/useChart";
+import {noop} from "../utils";
+import {useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
-import {Datum, PixelDatum, TimeSeries} from "./timeSeries";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
-import {GSelection} from "./d3types";
+import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
+import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
     BaseAxis,
@@ -15,17 +15,17 @@ import {
     defaultLineStyle,
     panHandler,
     SeriesLineStyle,
-    timeIntervals,
-    timeRanges,
+    continuousAxisIntervals,
+    continuousAxisRanges,
     axisZoomHandler
-} from "./axes";
+} from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
-import {Dimensions, Margin} from "./margins";
-import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
-import {useDataObservable} from "./hooks/useDataObservable";
-import {TimeSeriesChartData} from "./timeSeriesChartData";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
-import {useInitialData} from "./hooks/useInitialData";
+import {Dimensions, Margin} from "../styling/margins";
+import {subscriptionTimeSeriesFor, subscriptionTimeSeriesWithCadenceFor} from "../subscriptions/subscriptions";
+import {useDataObservable} from "../hooks/useDataObservable";
+import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {useInitialData} from "../hooks/useInitialData";
 
 interface Props {
     /**
@@ -89,7 +89,7 @@ interface Props {
      zoomKeyModifiersRequired={true}
  />
  */
-export function RasterPlot(props: Props): null {
+export function BarPlot(props: Props): null {
     const {
         chartId,
         container,
@@ -200,7 +200,7 @@ export function RasterPlot(props: Props): null {
             dataRef.current = initialData.slice() as Array<TimeSeries>
             seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot(new Map(Array.from(timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+            updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
@@ -467,7 +467,7 @@ export function RasterPlot(props: Props): null {
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
             if (withCadenceOf !== undefined) {
-                return subscriptionWithCadenceFor(
+                return subscriptionTimeSeriesWithCadenceFor(
                     seriesObservable as Observable<TimeSeriesChartData>,
                     onSubscribe,
                     windowingTime,
@@ -482,7 +482,7 @@ export function RasterPlot(props: Props): null {
                     withCadenceOf
                 )
             }
-            return subscriptionFor(
+            return subscriptionTimeSeriesFor(
                 seriesObservable as Observable<TimeSeriesChartData>,
                 onSubscribe,
                 windowingTime,
@@ -517,11 +517,11 @@ export function RasterPlot(props: Props): null {
                 if (timeRangesRef.current.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    timeRangesRef.current = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
-                    const intervals = timeIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                     timeRangesRef.current
                         .forEach((range, id, rangesMap) => {
                             const [start, end] = intervals.get(id) || [NaN, NaN]

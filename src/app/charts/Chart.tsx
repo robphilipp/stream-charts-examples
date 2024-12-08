@@ -1,19 +1,19 @@
 import {JSX, useEffect, useMemo, useRef} from 'react'
-import {Dimensions, Margin, plotDimensionsFrom} from "./margins";
-import {initialSvgStyle, SvgStyle} from "./svgStyle";
+import {Dimensions, Margin, plotDimensionsFrom} from "./styling/margins";
+import {initialSvgStyle, SvgStyle} from "./styling/svgStyle";
 import {GSelection} from "./d3types";
 import ChartProvider from "./hooks/useChart";
 import PlotDimensionsProvider, {defaultMargin} from "./hooks/usePlotDimensions";
 import * as d3 from "d3";
-import {SeriesLineStyle} from "./axes";
-import {createPlotContainer} from "./plot";
+import {SeriesLineStyle} from "./axes/axes";
+import {createPlotContainer} from "./plots/plot";
 import {noop} from "./utils";
 import AxesProvider from "./hooks/useAxes";
 import MouseProvider from "./hooks/useMouse";
 import TooltipProvider from "./hooks/useTooltip";
 import {Observable, Subscription} from "rxjs";
 import DataObservableProvider from './hooks/useDataObservable';
-import {BaseSeries} from "./baseSeries";
+import {BaseSeries} from "./series/baseSeries";
 import InitialDataProvider from "./hooks/useInitialData";
 
 const defaultBackground = '#202020';

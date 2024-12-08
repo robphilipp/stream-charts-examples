@@ -8,10 +8,10 @@
  * 2. Accepts that chart-data observable and converts that observable to an iterate-chart-data observable
  */
 import {Observable} from "rxjs";
-import {TimeSeriesChartData} from "./timeSeriesChartData";
+import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {filter, map, scan} from "rxjs/operators";
-import {Datum, emptyDatum} from "./timeSeries";
-import {emptyIterateDatum, IterateDatum, iterateDatumOf, nonEmptyIterateDatum} from "./iterateSeries";
+import {Datum, emptyDatum} from "../series/timeSeries";
+import {emptyIterateDatum, IterateDatum, iterateDatumOf, nonEmptyIterateDatum} from "../series/iterateSeries";
 
 
 export interface IterateChartData {
@@ -26,7 +26,7 @@ export interface IterateChartData {
     maxIterate: IterateDatum
 
     /**
-     * Holds the association of the series name to the current max time for that series
+     * Holds the association of the series name to the current min time for that series
      */
     minIterates: Map<string, IterateDatum>
 

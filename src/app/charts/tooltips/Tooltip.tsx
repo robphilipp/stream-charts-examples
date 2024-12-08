@@ -1,8 +1,8 @@
 import {cloneElement, useEffect, useMemo, JSX} from "react";
 import {defaultTooltipStyle, removeTooltip, TooltipStyle} from "./tooltipUtils";
 import * as d3 from "d3";
-import {useChart} from "./hooks/useChart";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {useChart} from "../hooks/useChart";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
 
 export interface Props {
     visible: boolean

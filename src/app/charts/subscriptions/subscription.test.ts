@@ -1,8 +1,8 @@
 import {filter, map, scan} from 'rxjs/operators';
 import {Observable, range} from 'rxjs';
-import {IterateChartData, iteratesObservable as iterateObservable} from './iterates'
-import {TimeSeriesChartData} from "./timeSeriesChartData";
-import {datumOf} from "./timeSeries";
+import {IterateChartData, iteratesObservable as iterateObservable} from '../observables/iterates'
+import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {datumOf} from "../series/timeSeries";
 
 
 type Point = {

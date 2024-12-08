@@ -1,13 +1,13 @@
 import {AxesLabelFont, AxisLocation, ContinuousNumericAxis, defaultAxesLabelFont} from "./axes";
-import {useChart} from "./hooks/useChart";
+import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
 import {ScaleContinuousNumeric} from "d3";
-import {SvgSelection} from "./d3types";
-import {Dimensions, Margin} from "./margins";
-import {noop} from "./utils";
+import {SvgSelection} from "../d3types";
+import {Dimensions, Margin} from "../styling/margins";
+import {noop} from "../utils";
 import {ContinuousAxisRange} from "./continuousAxisRangeFor";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
 
 interface Props {
     // the unique ID of the axis

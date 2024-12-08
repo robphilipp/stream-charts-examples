@@ -1,14 +1,14 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {ContinuousNumericAxis, timeRanges} from "./axes";
-import {Datum, TimeSeries} from "./timeSeries";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {ContinuousNumericAxis, continuousAxisRanges} from "../axes/axes";
+import {Datum, TimeSeries} from "../series/timeSeries";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
-import {TimeSeriesChartData} from "./timeSeriesChartData";
-import {AxesAssignment} from "./plot";
-import {AxesState} from "./hooks/AxesState";
-import {emptySeries} from "./baseSeries";
-import {IterateChartData} from "./iterates";
-import {IterateDatum, IterateSeries} from "./iterateSeries";
+import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {AxesAssignment} from "../plots/plot";
+import {AxesState} from "../hooks/AxesState";
+import {emptySeries} from "../series/baseSeries";
+import {IterateChartData} from "../observables/iterates";
+import {IterateDatum, IterateSeries} from "../series/iterateSeries";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -26,9 +26,11 @@ export enum TimeWindowBehavior { SCROLL, SQUEEZE }
  * @param updateTimingAndPlot The callback function to update the plot and timing
  * @param seriesMap The series-name and the associated series
  * @param setCurrentTime Callback to update the current time based on the streamed data
+ * @param timeWindowBehavior Whether to scroll the time axis or squeeze it
+ * @param initialTimes The initial times for each axis, a map(axis_id -> initial_time)
  * @return A subscription to the observable (for cancelling and the likes)
  */
-export function subscriptionFor(
+export function subscriptionTimeSeriesFor(
     seriesObservable: Observable<TimeSeriesChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
@@ -47,14 +49,14 @@ export function subscriptionFor(
         .subscribe(dataList => {
             dataList.forEach(data => {
                 // grab the time-windows for the x-axes
-                const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>);
+                const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>);
 
                 //
                 // calculate the max times for each x-axis, which is the max time over all the
                 // series assigned to an x-axis
 
                 // get the series associated with each axis (Map<axis_id, [series_names]>)
-                const axesSeries = determineAssociatedSeries(data, axisAssignments, xAxesState)
+                const axesSeries = associatedSeriesForXAxes(data, axisAssignments, xAxesState)
 
                 // add each new point to it's corresponding series, the new points
                 // is a map(series_name -> new_point[])
@@ -134,7 +136,7 @@ export function subscriptionFor(
  * @param cadencePeriod The number of milliseconds between time updates
  * @return A subscription to the observable (for cancelling and the likes)
  */
-export function subscriptionWithCadenceFor(
+export function subscriptionTimeSeriesWithCadenceFor(
     seriesObservable: Observable<TimeSeriesChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
@@ -171,7 +173,7 @@ export function subscriptionWithCadenceFor(
         )
         .subscribe(data => {
             // grab the time-windows for the x-axes
-            const timesWindows = timeRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+            const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
             if (data.currentTime !== undefined) {
                 xAxesState.axisIds().forEach(axisId => {
@@ -194,7 +196,7 @@ export function subscriptionWithCadenceFor(
             }
 
             // determine which series belong to each x-axis
-            const axesSeries = determineAssociatedSeries(data, axisAssignments, xAxesState)
+            const axesSeries = associatedSeriesForXAxes(data, axisAssignments, xAxesState)
 
             // add each new point to it's corresponding series, the new points
             // is a map(series_name -> new_point[])
@@ -261,7 +263,7 @@ export function subscriptionIteratesFor(
     seriesMap: Map<string, IterateSeries>,
     updateCurrentTime: (time: number) => void
 ): Subscription {
-    // maintains the x and y axis ranges based on the original domain of the axes
+    // maintains the x and y-axis ranges based on the original domain of the axes
     const xAxesRanges = new Map<string, ContinuousAxisRange>(Array.from(xAxesState.axes.entries())
         .map(([id, axis]) => {
             const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
@@ -274,7 +276,7 @@ export function subscriptionIteratesFor(
         }))
 
     /**
-     * Updates the original axis range with new domain values, while maintaining the orginal
+     * Updates the original axis range with new domain values, while maintaining the original
      * domain values.
      * @param originals The original axis ranges
      * @param axes The current axes
@@ -343,6 +345,111 @@ export function subscriptionIteratesFor(
 }
 
 /**
+ * Creates a subscription to the series observable with the data stream. The common code is
+ * shared by the plots.
+ * @param seriesObservable The series observable holding the stream of chart data
+ * @param onSubscribe Callback for when the observable is subscribed to
+ * @param windowingTime Basically the update time when data is collected and then rendered
+ * @param axisAssignments The assignment of the series to their x- and y-axes
+ * @param yAxesState The current state of the x-axis
+ * @param onUpdateData Callback for when data is updated
+ * @param dropDataAfter Limits the amount of data stored. Any data older than this value (ms) will
+ * be dropped on the next update
+ * @param updateTimingAndPlot The callback function to update the plot and timing
+ * @param seriesMap The series-name and the associated series
+ * @param setCurrentTime Callback to update the current time based on the streamed data
+ * @param timeWindowBehavior Whether to scroll the time axis or squeeze it
+ * @param initialTimes The initial times for each axis, a map(axis_id -> initial_time)
+ * @return A subscription to the observable (for cancelling and the likes)
+ */
+export function subscriptionOrdinalXFor(
+    seriesObservable: Observable<TimeSeriesChartData>,
+    onSubscribe: (subscription: Subscription) => void,
+    windowingTime: number,
+    axisAssignments: Map<string, AxesAssignment>,
+    yAxesState: AxesState,
+    onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
+    dropDataAfter: number,
+    updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
+    seriesMap: Map<string, TimeSeries>,
+    setCurrentTime: (axisId: string, end: number) => void,
+    timeWindowBehavior: TimeWindowBehavior = TimeWindowBehavior.SCROLL,
+    initialTimes: Map<string, number> = new Map<string, number>(),
+): Subscription {
+    const subscription = seriesObservable
+        .pipe(bufferTime(windowingTime))
+        .subscribe(dataList => {
+            dataList.forEach(data => {
+                // grab the axis ranges for the y-axes
+                const yAxisRanges = continuousAxisRanges(yAxesState.axes as Map<string, ContinuousNumericAxis>);
+
+                //
+                // calculate the max times for each x-axis, which is the max time over all the
+                // series assigned to an x-axis
+
+                // get the series associated with each y-axis (Map<axis_id, [series_names]>)
+                const axesSeries = associatedSeriesForYAxes(data, axisAssignments, yAxesState)
+
+                // add each new point to it's corresponding series, the new points
+                // is a map(series_name -> new_point[])
+                data.newPoints.forEach((newData, name) => {
+                    // grab the current series associated with the new data
+                    const series = seriesMap.get(name) || emptySeries(name)
+
+                    // update the handler with the new data point
+                    if (onUpdateData) onUpdateData(name, newData)
+
+                    // add the new data to the series
+                    series.data.push(...newData)
+
+                    // calculate the current value for the series' assigned y-axis (which may end up
+                    // just being the default) based on the max time for the series, and the overall
+                    // max time
+                    const axisId = axisAssignments.get(name)?.yAxis || yAxesState.axisDefaultId();
+                    const currentAxisTime = axesSeries.get(axisId)
+                        ?.reduce(
+                            (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
+                            -Infinity
+                        ) || data.maxTime
+
+                    if (currentAxisTime !== undefined) {
+                        // drop data that is older than the max time-window
+                        while (currentAxisTime - series.data[0].time > dropDataAfter) {
+                            series.data.shift()
+                        }
+
+                        // update the time range for the x-axis, and if the time range
+                        // needs to be updated, then recalculate the time range for the
+                        // axis, update the time windows, and call the setCurrentTime
+                        // callback to update the current time for the caller
+                        const range = yAxisRanges.get(axisId)
+                        if (range !== undefined && range.end < currentAxisTime) {
+                            const timeWindow = range.end - range.start
+                            const timeRange = continuousAxisRangeFor(
+                                // 0,
+                                timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
+                                    initialTimes.get(axisId)! :
+                                    Math.max(0, currentAxisTime - timeWindow),
+                                Math.max(currentAxisTime, timeWindow)
+                            )
+                            yAxisRanges.set(axisId, timeRange)
+                            setCurrentTime(axisId, timeRange.end) // callback
+                        }
+                    }
+                })
+
+                // update the data
+                updateTimingAndPlot(yAxisRanges)  // callback
+            })
+        })
+
+    // provide the subscription to the caller
+    onSubscribe(subscription)   // callback
+
+    return subscription
+}
+
+/**
  * Determines which series are assigned to which x-axes, and returns a map holding the
  * x-axis names and their associated list of series
  * @param data The chart data
@@ -350,72 +457,63 @@ export function subscriptionIteratesFor(
  * @param xAxesState Holds information about the axis and how it is displayed
  * @return A map holding the x-axis names the names of the series associated with the axis.
  */
-function determineAssociatedSeries(data: TimeSeriesChartData, axisAssignments: Map<string, AxesAssignment>, xAxesState: AxesState): Map<string, Array<string>> {
+function associatedSeriesForXAxes(
+    data: TimeSeriesChartData,
+    axisAssignments: Map<string, AxesAssignment>,
+    xAxesState: AxesState
+): Map<string, Array<string>> {
+    return associatedSeriesFor(
+        assignment => assignment?.xAxis || xAxesState.axisDefaultId(),
+        data,
+        axisAssignments
+    )
+}
+
+/**
+ * Determines which series are assigned to which y-axes, and returns a map holding the
+ * x-axis names and their associated list of series
+ * @param data The chart data
+ * @param axisAssignments A map holding the  series names and its associated x-axis and y-axis names
+ * @param yAxesState Holds information about the axis and how it is displayed
+ * @return A map holding the y-axis names the names of the series associated with the axis.
+ */
+function associatedSeriesForYAxes(
+    data: TimeSeriesChartData,
+    axisAssignments: Map<string, AxesAssignment>,
+    yAxesState: AxesState
+): Map<string, Array<string>> {
+    return associatedSeriesFor(
+        assignment => assignment?.yAxis || yAxesState.axisDefaultId(),
+        data,
+        axisAssignments
+    )
+}
+
+/**
+ * Determines which series are assigned to which axes, and returns a map holding the
+ * axis names and their associated list of series. The extractor function returns the axis ID
+ * for the series and is responsible for return the x-axis ID or the y-axis ID depending
+ * on the context of the call.
+ * @param axisIdExtractor A function that accepts the {@link AxesAssignment} and returns the axis ID
+ * @param data The chart data
+ * @param axisAssignments A map holding the  series names and its associated x-axis and y-axis names
+ * @return A map holding the axis names the names of the series associated with the axis.
+ */
+function associatedSeriesFor(
+    axisIdExtractor: (assignment?: AxesAssignment) => string,
+    data: TimeSeriesChartData,
+    axisAssignments: Map<string, AxesAssignment>
+): Map<string, Array<string>> {
     return Array
         .from(data.maxTimes.entries())
         .reduce(
             (assignedSeries, [seriesName,]) => {
-                const id = axisAssignments.get(seriesName)?.xAxis || xAxesState.axisDefaultId()
-                const as = assignedSeries.get(id) || []
-                as.push(seriesName)
-                assignedSeries.set(id, as)
+                const id = axisIdExtractor(axisAssignments.get(seriesName))
+                const series = assignedSeries.get(id) || []
+                series.push(seriesName)
+                assignedSeries.set(id, series)
                 return assignedSeries
             },
             new Map<string, Array<string>>()
         )
 }
-
-// /**
-//  * Higher-order function that returns a function which maps a series name to its x-axis
-//  * ID by forming a closure over the x-axis state and the axis assignments
-//  * @param axesState The x-axis state
-//  * @param axisAssignments The axis assignments
-//  * @return a function that accepts a series name and returns the corresponding axis ID
-//  */
-// function xAxisIdFrom(
-//     axesState: AxesState,
-//     axisAssignments: Map<string, AxesAssignment>
-// ): (seriesName: string) => string {
-//     return seriesName => axisAssignments.get(seriesName)?.xAxis || axesState.axisDefaultId()
-// }
-//
-// /**
-//  * Higher-order function that returns a function which maps a series name to its y-axis
-//  * ID by forming a closure over the y-axis state and the axis assignments
-//  * @param axesState The y-axis state
-//  * @param axisAssignments The axis assignments
-//  * @return a function that accepts a series name and returns the corresponding axis ID
-//  */
-// function yAxisIdFrom(
-//     axesState: AxesState,
-//     axisAssignments: Map<string, AxesAssignment>
-// ): (seriesName: string) => string {
-//     return seriesName => axisAssignments.get(seriesName)?.yAxis || axesState.axisDefaultId()
-// }
-//
-// /**
-//  * Generates a map that associates an axis-id with an array of iterate-series names that are
-//  * assigned to that axis
-//  * @param data The iterate chart data
-//  * @param axisIdFromSeriesNameFn Function that accepts a series name and returns that ID of the axis to
-//  * which the series is assigned.
-//  * @return A map that associates an axis-id with an array of iterate-series names that are
-//  * assigned to that axis
-//  */
-// function iterateSeriesToAxesMapping(
-//     data: IterateChartData,
-//     axisIdFromSeriesNameFn: (seriesName: string) => string
-// ): Map<string, Array<string>> {
-//     return Array
-//         .from(data.maxIterates.entries())
-//         .reduce(
-//             (assignedSeries, [seriesName,]) => {
-//                 const id = axisIdFromSeriesNameFn(seriesName)
-//                 const as = assignedSeries.get(id) || []
-//                 as.push(seriesName)
-//                 assignedSeries.set(id, as)
-//                 return assignedSeries
-//             },
-//             new Map<string, Array<string>>()
-//         )
-// }

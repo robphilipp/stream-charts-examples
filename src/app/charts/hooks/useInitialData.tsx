@@ -1,5 +1,5 @@
 import {createContext, JSX, useContext} from "react";
-import {BaseSeries} from "../baseSeries";
+import {BaseSeries} from "../series/baseSeries";
 
 
 /**

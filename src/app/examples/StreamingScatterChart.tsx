@@ -14,19 +14,19 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {TimeSeries} from "../charts/timeSeries";
-import {TimeSeriesChartData} from "../charts/timeSeriesChartData";
-import {regexFilter} from "../charts/regexFilter";
+import {TimeSeries} from "../charts/series/timeSeries";
+import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation, defaultLineStyle} from '../charts/axes';
-import {ContinuousAxis} from "../charts/ContinuousAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
-import {Tooltip} from "../charts/Tooltip";
-import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
+import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
+import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
+import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
+import {Tooltip} from "../charts/tooltips/Tooltip";
+import {ScatterPlotTooltipContent} from "../charts/tooltips/ScatterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
-import {ScatterPlot} from "../charts/ScatterPlot";
-import {assignAxes} from "../charts/plot";
+import {ScatterPlot} from "../charts/plots/ScatterPlot";
+import {assignAxes} from "../charts/plots/plot";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -47,9 +47,9 @@ import {assignAxes} from "../charts/plot";
 // } from "stream-charts";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
-import {seriesFrom} from "../charts/baseSeries";
+import {seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
-import {TimeWindowBehavior} from "../charts/subscriptions";
+import {TimeWindowBehavior} from "../charts/subscriptions/subscriptions";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],

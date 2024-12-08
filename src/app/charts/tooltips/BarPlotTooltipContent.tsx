@@ -1,12 +1,12 @@
-import {Series} from "./plot";
-import {Dimensions, Margin} from "./margins";
+import {Series} from "../plots/plot";
+import {Dimensions, Margin} from "../styling/margins";
 import {categoryTooltipY, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX} from "./tooltipUtils";
 import * as d3 from "d3";
-import {formatTime, formatValue} from "./utils";
+import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
-import {useChart} from "./hooks/useChart";
-import {CategoryAxis} from "./axes";
-import {usePlotDimensions} from "./hooks/usePlotDimensions";
+import {useChart} from "../hooks/useChart";
+import {CategoryAxis} from "../axes/axes";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
 
 /**
  # Want to write your own tooltip-content component?
@@ -109,7 +109,7 @@ interface Props {
  * @return null
  * @constructor
  */
-export function RasterPlotTooltipContent(props: Props): null {
+export function BarPlotTooltipContent(props: Props): null {
     const {
         chartId,
         container,

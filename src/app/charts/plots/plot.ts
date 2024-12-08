@@ -1,10 +1,8 @@
-import {Dimensions, Margin} from "./margins";
+import {Dimensions, Margin} from "../styling/margins";
 import * as d3 from "d3";
-import {GSelection, SvgSelection} from "./d3types";
+import {GSelection, SvgSelection} from "../d3types";
 
 export type Series<D> = Array<D>
-// export type Series<D = [number, number]> = Array<D>
-// export type Series = Array<[number, number]>
 
 /**
  * Creates the main SVG for holding the plot.

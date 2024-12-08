@@ -1,8 +1,8 @@
 import {scan} from 'rxjs/operators';
 import {Observable, range} from 'rxjs';
-import {initialChartData, TimeSeriesChartData} from "./timeSeriesChartData";
-import {Datum, datumOf, TimeSeries} from "./timeSeries";
-import {seriesFrom} from "./baseSeries";
+import {initialChartData, TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {Datum, datumOf, TimeSeries} from "../series/timeSeries";
+import {seriesFrom} from "../series/baseSeries";
 
 /**
  * Higher-order function that forms a closure on the tent-map parameter, mu,

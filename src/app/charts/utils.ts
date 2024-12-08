@@ -1,8 +1,8 @@
-import {Dimensions, Margin} from "./margins"
+import {Dimensions, Margin} from "./styling/margins"
 import * as d3 from "d3";
 import {Selection, ZoomTransform} from "d3";
-import {calculateZoomFor, ContinuousNumericAxis} from "./axes";
-import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {calculateZoomFor, ContinuousNumericAxis} from "./axes/axes";
+import {ContinuousAxisRange} from "./axes/continuousAxisRangeFor";
 
 /**
  * No operation function for use when a default function is needed

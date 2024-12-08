@@ -1,10 +1,10 @@
-import {SvgSelection, TrackerSelection} from "./d3types";
+import {SvgSelection, TrackerSelection} from "../d3types";
 import * as d3 from "d3";
 import {Selection} from "d3";
-import {Datum} from "./timeSeries";
-import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "./margins";
-import {mouseInPlotAreaFor, textWidthOf} from "./utils";
-import {AxisLocation, ContinuousNumericAxis} from "./axes";
+import {Datum} from "../series/timeSeries";
+import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "../styling/margins";
+import {mouseInPlotAreaFor, textWidthOf} from "../utils";
+import {AxisLocation, ContinuousNumericAxis} from "../axes/axes";
 import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelLocation} from "./Tracker";
 import React from "react";
 
