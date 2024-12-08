@@ -270,17 +270,17 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     /**
      * Updates the plot, axis bounds, and clears the data when the user selects a different
      * iterate function from the select dropdown
-     * @param selectedIterateFunction The name of the iterate function to use
+     * @param iterateFunction The name of the iterate function to use
      */
-    function handleIterateFunctionChange(selectedIterateFunction: string): void {
-        setSelectedIterateFunction(selectedIterateFunction)
+    function handleIterateFunctionChange(iterateFunction: string): void {
+        setSelectedIterateFunction(iterateFunction)
 
         handleClearChart()
 
-        const componentFactory = ITERATE_FUNCTIONS.get(selectedIterateFunction)!.inputFn
+        const componentFactory = ITERATE_FUNCTIONS.get(iterateFunction)!.inputFn
         setIterateFunctionInputGen(() => componentFactory)
 
-        const [start, end] = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.range || [0, 1]
+        const [start, end] = ITERATE_FUNCTIONS.get(iterateFunction)?.range || [0, 1]
         setAxesRange([start, end])
     }
 
@@ -290,6 +290,9 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     function handleClearChart(): void {
         initialDataRef.current = initialDataFrom(initialData)
         setElapsed(0)
+
+        const [start, end] = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.range || [0, 1]
+        setAxesRange([start, end])
     }
 
     /**

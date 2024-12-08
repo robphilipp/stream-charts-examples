@@ -20,7 +20,7 @@ import {GSelection} from "./d3types";
 import {Observable, Subscription} from "rxjs";
 import {noop} from "./utils";
 import {Dimensions, Margin} from "./margins";
-import {subscriptionFor, subscriptionWithCadenceFor} from "./subscriptions";
+import {subscriptionFor, subscriptionWithCadenceFor, TimeWindowBehavior} from "./subscriptions";
 import {useDataObservable} from "./hooks/useDataObservable";
 import {TimeSeriesChartData} from "./timeSeriesChartData";
 import {usePlotDimensions} from "./hooks/usePlotDimensions";
@@ -65,6 +65,8 @@ interface Props {
      * to the current time.
      */
     withCadenceOf?: number
+    timeWindowBehavior?: TimeWindowBehavior
+    // initialTimes?: Map<string, number>
 }
 
 /**
@@ -110,6 +112,7 @@ export function ScatterPlot(props: Props): null {
         setAxisBoundsFor,
         updateAxesBounds = noop,
         onUpdateAxesBounds,
+        originalAxisBounds
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -133,7 +136,13 @@ export function ScatterPlot(props: Props): null {
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
         withCadenceOf,
+        timeWindowBehavior = TimeWindowBehavior.SCROLL,
     } = props
+
+    const initialTimes = new Map<string, number>(
+            Array.from(originalAxisBounds().entries())
+                .map(([axisId, [start, ]]) => ([axisId, start]))
+        )
 
     // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
     // are by reference, so the seriesRef, also holds on to the same Series. When the Series in seriesRef
@@ -454,7 +463,9 @@ export function ScatterPlot(props: Props): null {
                 // as new data flows into the subscription, the subscription
                 // updates this map directly (for performance)
                 seriesRef.current,
-                (axisId, end) => currentTimeRef.current.set(axisId, end)
+                (axisId, end) => currentTimeRef.current.set(axisId, end),
+                timeWindowBehavior,
+                initialTimes,
             )
         },
         [

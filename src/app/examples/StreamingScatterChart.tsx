@@ -49,6 +49,7 @@ import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {seriesFrom} from "../charts/baseSeries";
 import {Button} from "../ui/Button";
+import {TimeWindowBehavior} from "../charts/subscriptions";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -372,6 +373,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
                         // withCadenceOf={30}
+                        // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
                     />
                 </Chart>
             </GridItem>

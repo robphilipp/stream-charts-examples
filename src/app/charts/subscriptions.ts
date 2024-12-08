@@ -1,5 +1,5 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {ContinuousNumericAxis, continuousRange, continuousRangeForDefaultAxis, timeRanges} from "./axes";
+import {ContinuousNumericAxis, timeRanges} from "./axes";
 import {Datum, TimeSeries} from "./timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
@@ -8,7 +8,9 @@ import {AxesAssignment} from "./plot";
 import {AxesState} from "./hooks/AxesState";
 import {emptySeries} from "./baseSeries";
 import {IterateChartData} from "./iterates";
-import {emptyIterateDatum, IterateDatum, IterateSeries} from "./iterateSeries";
+import {IterateDatum, IterateSeries} from "./iterateSeries";
+
+export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
 /**
  * Creates a subscription to the series observable with the data stream. The common code is
@@ -36,7 +38,9 @@ export function subscriptionFor(
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
     seriesMap: Map<string, TimeSeries>,
-    setCurrentTime: (axisId: string, end: number) => void
+    setCurrentTime: (axisId: string, end: number) => void,
+    timeWindowBehavior: TimeWindowBehavior = TimeWindowBehavior.SCROLL,
+    initialTimes: Map<string, number> = new Map<string, number>(),
 ): Subscription {
     const subscription = seriesObservable
         .pipe(bufferTime(windowingTime))
@@ -88,7 +92,10 @@ export function subscriptionFor(
                         if (range !== undefined && range.end < currentAxisTime) {
                             const timeWindow = range.end - range.start
                             const timeRange = continuousAxisRangeFor(
-                                Math.max(0, currentAxisTime - timeWindow),
+                                // 0,
+                                timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
+                                    initialTimes.get(axisId)! :
+                                    Math.max(0, currentAxisTime - timeWindow),
                                 Math.max(currentAxisTime, timeWindow)
                             )
                             timesWindows.set(axisId, timeRange)
