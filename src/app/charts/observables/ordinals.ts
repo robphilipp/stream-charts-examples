@@ -8,7 +8,7 @@ import {Observable} from "rxjs";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {map, scan} from "rxjs/operators";
 import {Datum} from "../series/timeSeries";
-import {nonEmptyOrdinalDatum, OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
+import {copyOrdinalDatum, nonEmptyOrdinalDatum, OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
 
 export type OrdinalDatumExtremum = {
     // holds the ordinal datum with the minimum or maximum time
@@ -18,14 +18,21 @@ export type OrdinalDatumExtremum = {
 }
 
 const initialMinOrdinalDatum = (): OrdinalDatumExtremum => ({
-    time: {time: Infinity, ordinal: "", value: NaN},
-    value: {time: NaN, ordinal: "", value: Infinity}
+    time: ordinalDatumOf(Infinity, "", NaN),
+    value: ordinalDatumOf(NaN, "", Infinity)
 })
 
 const initialMaxOrdinalDatum = (): OrdinalDatumExtremum => ({
-    time: {time: -Infinity, ordinal: "", value: NaN},
-    value: {time: NaN, ordinal: "", value: -Infinity}
+    time: ordinalDatumOf(-Infinity, "", NaN),
+    value: ordinalDatumOf(NaN, "", -Infinity)
 })
+
+function copyOrdinalDatumExtemum(datum: OrdinalDatumExtremum): OrdinalDatumExtremum {
+    return {
+        time: copyOrdinalDatum(datum.time),
+        value: copyOrdinalDatum(datum.value)
+    }
+}
 
 export interface OrdinalChartData {
     /**
@@ -68,10 +75,10 @@ const emptyOrdinalData = (): OrdinalChartData => ({
  * @param data The ordinal chart data to copy
  */
 export const copyOrdinalDataFrom = (data: OrdinalChartData): OrdinalChartData => ({
-    minDatum: data.minDatum,
-    maxDatum: data.maxDatum,
-    minCategory: new Map<string, OrdinalDatumExtremum>(data.minCategory),
-    maxCategory: new Map<string, OrdinalDatumExtremum>(data.maxCategory),
+    minDatum: copyOrdinalDatumExtemum(data.minDatum),
+    maxDatum: copyOrdinalDatumExtemum(data.maxDatum),
+    minCategory: new Map(Array.from(data.minCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatumExtemum(extremum)])),
+    maxCategory: new Map(Array.from(data.maxCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatumExtemum(extremum)])),
     newPoints: new Map<string, Array<OrdinalDatum>>(Array.from(data.newPoints.entries()).map(([name, points]) => [name, points.slice()])),
 })
 
@@ -114,44 +121,52 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                         // all the data series
                         series.forEach(({time, value}: Datum, ) => {
                             // calculate the min and max times over all series
-                            if (time < accumulated.minDatum.time.time) {
+                            if (time < accum.minDatum.time.time) {
+                                // accum.minDatum.time = accum.minDatum.time.updateTime(time)
                                 accum.minDatum.time = ordinalDatumOf(time, name, value)
                             }
-                            if (time > accumulated.maxDatum.time.time) {
+                            if (time > accum.maxDatum.time.time) {
+                                // accum.maxDatum.time = accum.maxDatum.time.updateTime(time)
                                 accum.maxDatum.time = ordinalDatumOf(time, name, value)
                             }
                             // calculate the min and max values over all series
-                            if (value < accumulated.minDatum.value.value) {
+                            if (value < accum.minDatum.value.value) {
+                                // accum.minDatum.value = accum.minDatum.value.updateValue(value)
                                 accum.minDatum.value = ordinalDatumOf(time, name, value)
                             }
-                            if (value > accumulated.maxDatum.value.value) {
+                            if (value > accum.maxDatum.value.value) {
+                                // accum.maxDatum.value = accum.maxDatum.value.updateValue(value)
                                 accum.maxDatum.value = ordinalDatumOf(time, name, value)
                             }
 
                             // calculate the min, max of the time and value for each series
-                            let minCategory = accumulated.minCategory.get(name) || initialMinOrdinalDatum()
+                            let minCategory = accum.minCategory.get(name) || initialMinOrdinalDatum()
                             if (time < minCategory.time.time) {
                                 minCategory = {...minCategory, time: ordinalDatumOf(time, name, value)}
+                                // minCategory = {...minCategory, time: minCategory.time.updateTime(time)}
                                 accum.minCategory.set(name, minCategory)
                             }
                             if (value < minCategory.value.value) {
                                 minCategory = {...minCategory, value: ordinalDatumOf(time, name, value)}
+                                // minCategory = {...minCategory, value: minCategory.value.updateValue(value)}
                                 accum.minCategory.set(name, minCategory)
                             }
 
-                            let maxCategory = accumulated.maxCategory.get(name) || initialMaxOrdinalDatum()
+                            let maxCategory = accum.maxCategory.get(name) || initialMaxOrdinalDatum()
                             if (time > maxCategory.time.time) {
                                 maxCategory = {...maxCategory, time: ordinalDatumOf(time, name, value)}
+                                // maxCategory = {...maxCategory, time: maxCategory.time.updateTime(time)}
                                 accum.maxCategory.set(name, maxCategory)
                             }
                             if (value > maxCategory.value.value) {
                                 maxCategory = {...maxCategory, value: ordinalDatumOf(time, name, value)}
+                                // maxCategory = {...maxCategory, value: maxCategory.value.updateValue(value)}
                                 accum.maxCategory.set(name, maxCategory)
                             }
-
-                            // convert the new points to ordinal datum
-                            accum.newPoints.set(name, series.map(({time, value}: Datum) => ordinalDatumOf(time, name, value)))
                         })
+
+                        // convert the new points to ordinal datum
+                        accum.newPoints.set(name, series.map(({time, value}: Datum) => ordinalDatumOf(time, name, value)))
                     })
                 return {previous, accumulated: accum}
             }, initialAccumulate()),

@@ -12,10 +12,21 @@ export interface OrdinalDatum {
     readonly value: number
 }
 
+
 /**
  * Creates an empty ordinal datum
  */
-export const emptyOrdinalDatum: OrdinalDatum = {time: NaN, ordinal: "", value: NaN}
+export const emptyOrdinalDatum: OrdinalDatum = {
+    time: NaN,
+    ordinal: "",
+    value: NaN,
+}
+
+export const copyOrdinalDatum = (datum: OrdinalDatum): OrdinalDatum => ({
+    time: datum.time,
+    ordinal: datum.ordinal,
+    value: datum.value,
+})
 
 /**
  * Creates an iterate datum
@@ -27,8 +38,9 @@ export const emptyOrdinalDatum: OrdinalDatum = {time: NaN, ordinal: "", value: N
 export const ordinalDatumOf = (time: number, ordinal: string, value: number): OrdinalDatum => ({
     time,
     ordinal,
-    value
+    value,
 })
+
 
 /**
  * Returns whether the ordinal datum is empty. An ordinal datum is considered empty

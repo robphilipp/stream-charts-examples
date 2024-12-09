@@ -1,12 +1,13 @@
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {Datum, datumOf, TimeSeries} from "../series/timeSeries";
 import {seriesFrom} from "../series/baseSeries";
-import {interval, Observable, range} from "rxjs";
+import {Observable, range} from "rxjs";
 import {map, scan} from "rxjs/operators";
 import {OrdinalChartData, ordinalsObservable} from "./ordinals";
 
+
 /**
- * Creates random weight data
+ * Creates random data
  * @param sequenceTime The current time
  * @param series The list of series names (identifiers) to update
  * @param seriesMaxTimes The maximum time for each series
@@ -14,7 +15,7 @@ import {OrdinalChartData, ordinalsObservable} from "./ordinals";
  * @param delta The largest change in weight
  * @return The random chart data
  */
-function randomWeightData(
+function randomData(
     sequenceTime: number,
     series: Array<string>,
     seriesMaxTimes: Map<string, number>,
@@ -27,12 +28,13 @@ function randomWeightData(
     return {
         maxTime: sequenceTime,
         maxTimes,
-        newPoints: new Map(series.map(name => {
-            const maxTime = seriesMaxTimes.get(name) || 0
+        newPoints: new Map(series.map((name, index) => {
+            // const maxTime = seriesMaxTimes.get(name) || 0
             return [
                 name,
                 [{
-                    time: sequenceTime + maxTime - Math.ceil(Math.random() * updatePeriod),
+                    // time: sequenceTime + maxTime - Math.ceil(Math.random() * updatePeriod),
+                    time: sequenceTime + index + 1,
                     value: (Math.random() - 0.5) * 2 * delta
                 }]
             ]
@@ -113,26 +115,28 @@ export function initialChartData(seriesList: Array<TimeSeries>, currentTime: num
  * Creates random set of time-series data, essentially creating a random walk for each series
  * @param series The number of time-series for which to generate data (i.e. one for each neuron)
  * @param delta The max change in weight
+ * @param numPoints The number of points to generate
  * @param [updatePeriod=25] The time-interval between the generation of subsequent data points
  * @param [min=-1] The minimum allowed value
  * @param [max=1] The maximum allowed value
  * @return An observable that produces data.
  */
-export function randomWeightDataObservable(
+export function randomDataObservable(
     series: Array<TimeSeries>,
     delta: number,
+    numPoints: number = 10,
     updatePeriod: number = 25,
     min: number = -1,
     max: number = 1
 ): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
     const initialData = initialChartData(series)
-    return range(series.length, 10).pipe(
+    return range(0, numPoints).pipe(
         // convert the number sequence to a time
-        map(sequence => (sequence + 1) * updatePeriod),
+        map(sequence => sequence * updatePeriod),
 
         // create a new (time, value) for each series
-        map(time => randomWeightData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
+        map(time => randomData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
 
         // add the random value to the previous random value in succession to create a random walk for each series
         scan((acc, value) => accumulateChartData(acc, value, min, max), initialData)
@@ -140,26 +144,41 @@ export function randomWeightDataObservable(
 }
 
 describe('ordinals', () => {
+    const seriesData: Array<[string, number]> = [["test1", 0.66], ["test2", 0.36], ["test3", 0.96]]
+
+    const initialData: Array<TimeSeries> = seriesData
+        .map(([name, value], index) => seriesFrom(name, [datumOf(index, value)]))
+
     test('should be able to generate ordinals', done => {
+        const numPoints = 10
+        const updatePeriod = 25
         let results: Array<OrdinalChartData> = []
-        const initialData: Array<TimeSeries> = [
-            seriesFrom("test1", [datumOf(1, 0.66)]),
-            seriesFrom("test2", [datumOf(2, 0.36)]),
-            seriesFrom("test3", [datumOf(3, 0.96)]),
-        ]
         ordinalsObservable(
-            randomWeightDataObservable(initialData, 0.05)
+            randomDataObservable(initialData, 0.05, numPoints, updatePeriod)
         ).subscribe(chartData => results.push(chartData))
+
+        // blocks until done is called
         done()
 
-        expect(results).toHaveLength(10)
+        expect(results).toHaveLength(numPoints)
 
-        results.forEach((result, index) => {
-            const newPoints = result.newPoints
-            const test1_np = newPoints.get("test1")
-            expect(test1_np).toBeDefined()
-            expect(test1_np!.length).toBe(1)
-            // expect(result.newPoints).toEqual(initialData)
+        results.forEach((result, timeIndex) => {
+            Array.from(result.newPoints.entries()).forEach(([seriesName, ordinalDatum], index) => {
+                expect(seriesName).toEqual(seriesData[index][0])
+
+                // check the time for the datum (only one new-point datum)
+                expect(ordinalDatum).toBeDefined()
+                expect(ordinalDatum.length).toBe(1)
+                expect(ordinalDatum[0].time).toEqual(index + 1 + timeIndex * updatePeriod)
+
+                // should be bounded (data is bounded)
+                expect(ordinalDatum[0].value).toBeLessThanOrEqual(1)
+                expect(ordinalDatum[0].value).toBeGreaterThanOrEqual(-1)
+            })
+
+            // the min time should be 1 and the max time should be (3 + timeIndex + updatePeriod)
+            expect(result.minDatum.time.time).toBe(1)
+            expect(result.maxDatum.time.time).toBe(3 + timeIndex * updatePeriod)
         })
 
     })
