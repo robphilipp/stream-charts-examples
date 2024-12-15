@@ -258,46 +258,46 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={new Map([
-                        ['neuron1', {
-                            ...defaultLineStyle,
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron2', {
-                            ...defaultLineStyle,
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron3', {
-                            ...defaultLineStyle,
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron4', {
-                            ...defaultLineStyle,
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron5', {
-                            ...defaultLineStyle,
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron6', {
-                            ...defaultLineStyle,
-                            color: theme.name === 'light' ? 'blue' : 'gray',
-                            lineWidth: 3,
-                            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                            highlightWidth: 5
-                        }],
-                        // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
-                    ])}
+                    // seriesStyles={new Map([
+                    //     ['neuron1', {
+                    //         ...defaultLineStyle,
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron2', {
+                    //         ...defaultLineStyle,
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron3', {
+                    //         ...defaultLineStyle,
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron4', {
+                    //         ...defaultLineStyle,
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron5', {
+                    //         ...defaultLineStyle,
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron6', {
+                    //         ...defaultLineStyle,
+                    //         color: theme.name === 'light' ? 'blue' : 'gray',
+                    //         lineWidth: 3,
+                    //         highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                    //         highlightWidth: 5
+                    //     }],
+                    //     // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
+                    // ])}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
@@ -306,33 +306,32 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     windowingTime={150}
                     // onSubscribe={subscription => console.log("subscribed raster")}
                 >
-                    <ContinuousAxis
+                    <OrdinalAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[0, 5000]}
-                        label="t (ms)"
-                        // font={{color: theme.color}}
+                        categories={initialDataRef.current.map(series => series.name)}
+                        label="neuron"
                     />
-                    <ContinuousAxis
+                    <OrdinalAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[0, 5000]}
-                        label="t (ms)"
-                        // font={{color: theme.color}}
+                        categories={initialDataRef.current.map(series => series.name)}
+                        label="neuron"
                     />
-                    <OrdinalAxis
+                    <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
-                        categories={initialDataRef.current.map(series => series.name)}
-                        label="neuron"
+                        domain={[-1, 1]}
+                        label="t (ms)"
                     />
-                    <OrdinalAxis
+                    <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
-                        categories={initialDataRef.current.map(series => series.name)}
-                        label="neuron"
+                        domain={[-1, 1]}
+                        label="t (ms)"
                     />
                     <Tracker
+                        // todo add horizontal/vertical for track, or both, maybe a mode
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}
                         style={{color: theme.color}}
@@ -355,16 +354,14 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     </Tooltip>
                     <BarPlot
                         axisAssignments={new Map([
-                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                            ['neuron1', assignAxes("x-axis-1", "y-axis-1")],
+                            ['neuron2', assignAxes("x-axis-1", "y-axis-1")],
+                            ['neuron3', assignAxes("x-axis-1", "y-axis-1")],
+                            ['neuron4', assignAxes("x-axis-1", "y-axis-1")],
+                            ['neuron5', assignAxes("x-axis-1", "y-axis-1")],
+                            ['neuron6', assignAxes("x-axis-1", "y-axis-1")],
                         ])}
-                        spikeMargin={1}
+                        barMargin={1}
                         dropDataAfter={5000}
                         panEnabled={true}
                         zoomEnabled={true}

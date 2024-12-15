@@ -1,4 +1,4 @@
-import {AxesAssignment, setClipPath, Series} from "./plot";
+import {AxesAssignment, Series, setClipPath} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {noop} from "../utils";
@@ -9,19 +9,19 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxi
 import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
+    axisZoomHandler,
     BaseAxis,
     CategoryAxis,
+    continuousAxisIntervals,
+    continuousAxisRanges,
     ContinuousNumericAxis,
     defaultLineStyle,
     panHandler,
-    SeriesLineStyle,
-    continuousAxisIntervals,
-    continuousAxisRanges,
-    axisZoomHandler
+    SeriesLineStyle
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
 import {Dimensions, Margin} from "../styling/margins";
-import {subscriptionTimeSeriesFor, subscriptionTimeSeriesWithCadenceFor} from "../subscriptions/subscriptions";
+import {subscriptionOrdinalXFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
@@ -65,7 +65,7 @@ interface Props {
      * The (optional, default = 2 pixels) top and bottom margin (in pixels) for the spike lines in the plot.
      * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
      */
-    spikeMargin?: number
+    barMargin?: number
 }
 
 /**
@@ -131,8 +131,7 @@ export function BarPlot(props: Props): null {
         panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
-        withCadenceOf,
-        spikeMargin = 2,
+        barMargin = 2,
     } = props
 
     // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
@@ -235,15 +234,15 @@ export function BarPlot(props: Props): null {
      * @return An object with two functions, that when handed a y-coordinate, return the location
      * for the start (yUpper) or end (yLower) of the spikes line.
      */
-    function yCoordsFn(categorySize: number, lineWidth: number, margin: number):
-        { yUpper: (y: number) => number, yLower: (y: number) => number } {
+    function xCoordsFn(categorySize: number, lineWidth: number, margin: number):
+        { xUpper: (x: number) => number, xLower: (x: number) => number } {
         if (categorySize <= margin) return {
-            yUpper: y => y,
-            yLower: y => y + lineWidth
+            xUpper: x => x,
+            xLower: x => x + lineWidth
         }
         return {
-            yUpper: y => y + margin,
-            yLower: y => y + categorySize - margin
+            xUpper: x => x + margin,
+            xLower: x => x + categorySize - margin
         }
     }
 
@@ -338,7 +337,7 @@ export function BarPlot(props: Props): null {
                     const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
 
                     // grab the series styles, or the defaults if none exist
-                    const {color, lineWidth, margin: spikeLineMargin = spikeMargin} = seriesStyles.get(series.name) || {
+                    const {color, lineWidth, margin: spikeLineMargin = barMargin} = seriesStyles.get(series.name) || {
                         ...defaultLineStyle,
                         highlightColor: defaultLineStyle.color
                     }
@@ -353,27 +352,27 @@ export function BarPlot(props: Props): null {
 
                     //
                     // enter new elements
-                    const {yUpper, yLower} = yCoordsFn(yAxis.categorySize, lineWidth, spikeLineMargin)
+                    const {xUpper, xLower} = xCoordsFn(xAxis.categorySize, lineWidth, spikeLineMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
-                    const y = yAxis.scale(series.name) || 0
+                    const x = xAxis.scale(series.name) || 0
                     // enter
                     seriesContainer
                         .enter()
                         .append<SVGLineElement>('line')
                         .attr('x1', datum => datum.x)
                         .attr('x2', datum => datum.x)
-                        .attr('y1', _ => yUpper(y))
-                        .attr('y2', _ => yLower(y))
+                        .attr('y1', _ => xUpper(x))
+                        .attr('y2', _ => xLower(x))
                         .attr('stroke', color)
                         .attr('stroke-width', lineWidth)
                         .attr('class', 'spikes-lines')
                         .on(
                             "mouseover",
                             (event, datumArray) =>
-                                handleMouseOverSeries(
+                                handleMouseOverBar(
                                     container,
-                                    xAxis,
+                                    yAxis,
                                     series.name,
                                     [datumArray.time, datumArray.value],
                                     event,
@@ -392,15 +391,15 @@ export function BarPlot(props: Props): null {
                                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
                             )
                         )
-                        .each(datum => datum.x = xAxis.scale(datum.time))
+                        .each(datum => datum.y = yAxis.scale(datum.time))
 
                     // update
                     seriesContainer
-                        .each(datum => datum.x = xAxis.scale(datum.time))
-                        .attr('x1', datum => datum.x)
-                        .attr('x2', datum => datum.x)
-                        .attr('y1', _ => yUpper(y))
-                        .attr('y2', _ => yLower(y))
+                        .each(datum => datum.x = yAxis.scale(datum.time))
+                        .attr('x1', _ => xLower(x))
+                        .attr('x2', _ => xUpper(x))
+                        .attr('y1', datum => datum.y)
+                        .attr('y2', datum => datum.y)
                         .attr('stroke', color)
 
                     // exit old elements
@@ -416,7 +415,7 @@ export function BarPlot(props: Props): null {
             seriesFilter, seriesStyles,
             xAxesState.axisFor, yAxesState.axisFor,
             zoomEnabled, zoomKeyModifiersRequired,
-            spikeMargin
+            barMargin
         ]
     )
 
@@ -466,27 +465,12 @@ export function BarPlot(props: Props): null {
     const subscribe = useCallback(
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
-            if (withCadenceOf !== undefined) {
-                return subscriptionTimeSeriesWithCadenceFor(
-                    seriesObservable as Observable<TimeSeriesChartData>,
-                    onSubscribe,
-                    windowingTime,
-                    axisAssignments, xAxesState,
-                    onUpdateData,
-                    dropDataAfter,
-                    updateTimingAndPlot,
-                    // as new data flows into the subscription, the subscription
-                    // updates this map directly (for performance)
-                    seriesRef.current,
-                    (axisId, end) => currentTimeRef.current.set(axisId, end),
-                    withCadenceOf
-                )
-            }
-            return subscriptionTimeSeriesFor(
+            return subscriptionOrdinalXFor(
                 seriesObservable as Observable<TimeSeriesChartData>,
                 onSubscribe,
                 windowingTime,
-                axisAssignments, xAxesState,
+                axisAssignments,
+                yAxesState,
                 onUpdateData,
                 dropDataAfter,
                 updateTimingAndPlot,
@@ -499,8 +483,7 @@ export function BarPlot(props: Props): null {
         [
             axisAssignments, dropDataAfter, mainG,
             onSubscribe, onUpdateData,
-            seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
-            withCadenceOf
+            seriesObservable, updateTimingAndPlot, windowingTime, yAxesState,
         ]
     )
 
@@ -576,49 +559,49 @@ function axesFor(
     axisAssignments: Map<string, AxesAssignment>,
     xAxisFor: (id: string) => BaseAxis | undefined,
     yAxisFor: (id: string) => BaseAxis | undefined,
-): [xAxis: ContinuousNumericAxis, yAxis: CategoryAxis] {
+): [xAxis: CategoryAxis, yAxis: ContinuousNumericAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
-    const xAxisLinear = xAxis as ContinuousNumericAxis
-    if (xAxis && !xAxisLinear) {
-        throw Error("Raster plot requires that x-axis be of type LinearAxis")
+    const xAxisCategory = xAxis as CategoryAxis
+    if (xAxis && !xAxisCategory) {
+        throw Error("Raster plot requires that x-axis be of type CategoryAxis")
     }
     const yAxis = yAxisFor(axes?.yAxis || "")
-    const yAxisCategory = yAxis as CategoryAxis
-    if (yAxis && !yAxisCategory) {
-        throw Error("Raster plot requires that y-axis be of type CategoryAxis")
+    const yAxisContinuous = yAxis as ContinuousNumericAxis
+    if (yAxis && !yAxisContinuous) {
+        throw Error("Raster plot requires that y-axis be of type ContinuousNumericAxis")
     }
-    return [xAxisLinear, yAxisCategory]
+    return [xAxisCategory, yAxisContinuous]
 }
 
 /**
- * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
+ * Renders a tooltip showing for the bar in the bar chart (see {@link BarPlotTooltipContent})
  * @param container The chart container
- * @param xAxis The x-axis
- * @param seriesName The name of the series (i.e. the neuron ID)
+ * @param yAxis The y-axis
+ * @param categoryName The name of the category
  * @param selectedDatum The selected datum
  * @param event The mouse-over series event
  * @param margin The plot margin
- * @param seriesStyles The series style information (needed for (un)highlighting)
+ * @param barStyles The series style information (needed for (un)highlighting)
  * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
  */
-function handleMouseOverSeries(
+function handleMouseOverBar(
     container: SVGSVGElement,
-    xAxis: ContinuousNumericAxis,
-    seriesName: string,
+    yAxis: ContinuousNumericAxis,
+    categoryName: string,
     selectedDatum: [x: number, y: number],
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
-    seriesStyles: Map<string, SeriesLineStyle>,
+    barStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, value: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)
-    const time = Math.round(xAxis.scale.invert(x - margin.left))
+    const value = Math.round(yAxis.scale.invert(y - margin.top))
 
-    const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+    const {highlightColor, highlightWidth} = barStyles.get(categoryName) || defaultLineStyle
 
     // Use d3 to select element, change color and size
     d3.select<SVGPathElement, Datum>(event.currentTarget)
@@ -628,9 +611,9 @@ function handleMouseOverSeries(
     if (mouseOverHandlerFor && allowTooltip) {
         // the contract for the mouse over handler is for a time-series, but here we only
         // need one point, the selected datum, and so we convert it into an array of point
-        // (i.e. a time-series). The category tooltip is (and custom ones, must) be
+        // (i.e. a time-series). The category tooltip is (and custom ones, must be)
         // written to expect only the selected point
-        mouseOverHandlerFor(seriesName, time, [selectedDatum], [x, y])
+        mouseOverHandlerFor(categoryName, value, [selectedDatum], [x, y])
     }
 }
 

@@ -337,7 +337,6 @@ export function initialRandomWeightData(
 ): Array<BaseSeries<Datum>> {
     return seriesNames.map(name => {
         const data: Array<Datum> = []
-        // let prevTime = Math.max(0, initialTime - Math.ceil(Math.random() * updatePeriod))
         let prevValue = initialValue + (Math.random() - 0.5) * 2 * delta
         for(let i = 0; i < numTimes; ++i) {
             const time = initialTime + i * updatePeriod + Math.ceil(Math.random() * updatePeriod)
@@ -345,6 +344,38 @@ export function initialRandomWeightData(
             data.push({time: time, value})
             // prevTime = time
             prevValue = value
+        }
+        return seriesFrom<Datum>(name, data)
+    })
+}
+
+/*
+ * for the StreamingBarChart
+ */
+
+export function sinFn(x: number, period: number): number {
+    return Math.sin(2 * Math.PI * x / period)
+}
+
+/**
+ * Creates the initial data for the sine function
+ * @param seriesNames The names of the series
+ * @param timeInterval The time between points (the x-values)
+ * @param period The period of the sine function (the time for one complete
+ * cycle of the sin function)
+ * @param numPoints The number of points to create
+ * @return An array holding the series for each of the specified series names
+ */
+export function initialSineFnData(
+    seriesNames: Array<string>,
+    timeInterval: number,
+    period: number,
+    numPoints: number
+): Array<BaseSeries<Datum>> {
+    return seriesNames.map(name => {
+        const data: Array<Datum> = []
+        for(let x = 0; x < numPoints; x++) {
+            data.push(datumOf(x * timeInterval, sinFn(x * timeInterval, period)))
         }
         return seriesFrom<Datum>(name, data)
     })

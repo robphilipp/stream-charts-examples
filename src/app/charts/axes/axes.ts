@@ -105,28 +105,53 @@ export function addLinearAxis(
     }
 }
 
+/*
+        category axes
+ */
+
 export function addCategoryAxis(
     chartId: number,
     axisId: string,
     svg: SvgSelection,
-    location: AxisLocation,
     plotDimensions: Dimensions,
     categories: Array<string>,
     axesLabelFont: AxesLabelFont,
     margin: Margin,
     axisLabel: string,
+    location: AxisLocation
 ): CategoryAxis {
     switch (location) {
         case AxisLocation.Left:
         case AxisLocation.Right:
             return addCategoryYAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
-
-        case AxisLocation.Bottom:
         case AxisLocation.Top:
-            //todo should be the x axis
-            return addCategoryYAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
+        case AxisLocation.Bottom:
+            return addCategoryXAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
+
     }
 }
+// export function addCategoryAxis(
+//     chartId: number,
+//     axisId: string,
+//     svg: SvgSelection,
+//     location: AxisLocation,
+//     plotDimensions: Dimensions,
+//     categories: Array<string>,
+//     axesLabelFont: AxesLabelFont,
+//     margin: Margin,
+//     axisLabel: string,
+// ): CategoryAxis {
+//     switch (location) {
+//         case AxisLocation.Left:
+//         case AxisLocation.Right:
+//             return addCategoryYAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
+//
+//         case AxisLocation.Bottom:
+//         case AxisLocation.Top:
+//             //todo should be the x axis
+//             return addCategoryXAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
+//     }
+// }
 
 function addCategoryYAxis(
     chartId: number,
@@ -194,6 +219,122 @@ function updateCategoryYAxis(
         .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom) / 2}) rotate(-90)`)
 
     return categorySize
+}
+
+function addCategoryXAxis(
+    chartId: number,
+    axisId: string,
+    svg: SvgSelection,
+    plotDimensions: Dimensions,
+    categories: Array<string>,
+    axesLabelFont: AxesLabelFont,
+    margin: Margin,
+    axisLabel: string,
+    location: AxisLocation.Bottom | AxisLocation.Top,
+): CategoryAxis {
+    const categorySize = categorySizeFor(plotDimensions, margin, categories.length)
+    const scale = d3.scaleBand()
+        .domain(categories)
+        .range([0, categorySize * categories.length]);
+
+    // create and add the axes
+    const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
+
+    const selection = svg
+        .append<SVGGElement>('g')
+        .attr('id', `y-axis-selection-${chartId}`)
+        .attr('class', 'y-axis')
+        .attr('transform', `translate(${yTranslation(location, plotDimensions, margin)}, ${margin.top})`)
+        .call(generator);
+
+    svg
+        .append<SVGTextElement>('text')
+        .attr('id', labelIdFor(chartId, location))
+        .attr('text-anchor', 'middle')
+        .attr('font-size', axesLabelFont.size)
+        .attr('fill', axesLabelFont.color)
+        .attr('font-family', axesLabelFont.family)
+        .attr('font-weight', axesLabelFont.weight)
+        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(plotDimensions, margin)}) rotate(-90)`)
+        .text(axisLabel)
+
+    const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
+
+    return {
+        ...axis,
+        update: (categoryNames, unfilteredSize, dimensions) =>
+            updateCategoryXAxis(chartId, svg, axis, dimensions, unfilteredSize, categoryNames, axesLabelFont, margin, location)
+    }
+}
+
+function updateCategoryXAxis(
+    chartId: number,
+    svg: SvgSelection,
+    axis: CategoryAxis,
+    plotDimensions: Dimensions,
+    unfilteredSize: number,
+    names: Array<string>,
+    axesLabelFont: AxesLabelFont,
+    margin: Margin,
+    location: AxisLocation.Bottom | AxisLocation.Top,
+): number {
+    const categorySize = categorySizeFor(plotDimensions, margin, unfilteredSize)
+    axis.scale
+        .domain(names)
+        .range([0, categorySize * names.length])
+    axis.selection
+        .attr('transform', `translate(${margin.top}, ${yTranslation(location, plotDimensions, margin)})`)
+        .call(axis.generator)
+
+    svg
+        .select(`#${labelIdFor(chartId, location)}`)
+        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(plotDimensions, margin)}) rotate(-90)`)
+
+    return categorySize
+}
+
+function categorySizeFor(dimensions: Dimensions, margin: Margin, numCategories: number): number {
+    return Math.max(margin.bottom, dimensions.height - margin.bottom) / numCategories
+}
+
+export function labelIdFor(chartId: number, location: AxisLocation): string {
+    switch (location) {
+        case AxisLocation.Left:
+        case AxisLocation.Right:
+            return `stream-chart-y-axis-${location}-label-${chartId}`
+        case AxisLocation.Top:
+        case AxisLocation.Bottom:
+            return `stream-chart-x-axis-${location}-label-${chartId}`
+    }
+}
+
+function labelXTranslation(
+    location: AxisLocation,
+    plotDimensions: Dimensions,
+    margin: Margin,
+    axesLabelFont: AxesLabelFont,
+): number {
+    switch (location) {
+        case AxisLocation.Left:
+        case AxisLocation.Right:
+            return location === AxisLocation.Left ?
+                axesLabelFont.size :
+                margin.left + plotDimensions.width + margin.right - axesLabelFont.size
+        case AxisLocation.Top:
+        case AxisLocation.Bottom:
+            return location === AxisLocation.Bottom ?
+                plotDimensions.height + margin.top + margin.bottom / 3 :
+                margin.top / 3
+    }
+
+}
+
+function labelYTranslation(plotDimensions: Dimensions, margin: Margin): number {
+    return (margin.top + margin.bottom + plotDimensions.height) / 2
+}
+
+function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
+    return location === AxisLocation.Bottom ? margin.bottom + plotDimensions.width : margin.top
 }
 
 /**
