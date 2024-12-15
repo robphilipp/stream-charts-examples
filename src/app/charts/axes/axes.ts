@@ -109,130 +109,55 @@ export function addLinearAxis(
         category axes
  */
 
+/**
+ * Adds a category axis to the specified location. When the location is top or bottom,
+ * the category axis represents the x-axis. When the location is left or right, then the
+ * category axis represents the y-axis.
+ * @param chartId The unique ID of the chart to which this axis belongs
+ * @param axisId A unique ID for the axis
+ * @param svg The SVG selection (d3)
+ * @param location The location of the axis
+ * @param categories An array holding the category names
+ * @param axisLabel The axis label
+ * @param axesLabelFont The font for the axis label
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margin
+ * @return A category axis
+ */
 export function addCategoryAxis(
     chartId: number,
     axisId: string,
     svg: SvgSelection,
-    plotDimensions: Dimensions,
+    location: AxisLocation,
     categories: Array<string>,
-    axesLabelFont: AxesLabelFont,
-    margin: Margin,
     axisLabel: string,
-    location: AxisLocation
+    axesLabelFont: AxesLabelFont,
+    plotDimensions: Dimensions,
+    margin: Margin
 ): CategoryAxis {
     switch (location) {
-        case AxisLocation.Left:
-        case AxisLocation.Right:
-            return addCategoryYAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
         case AxisLocation.Top:
         case AxisLocation.Bottom:
-            return addCategoryXAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
+            return addCategoryXAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, plotDimensions, margin)
+        case AxisLocation.Left:
+        case AxisLocation.Right:
+            return addCategoryYAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, plotDimensions, margin)
 
     }
-}
-// export function addCategoryAxis(
-//     chartId: number,
-//     axisId: string,
-//     svg: SvgSelection,
-//     location: AxisLocation,
-//     plotDimensions: Dimensions,
-//     categories: Array<string>,
-//     axesLabelFont: AxesLabelFont,
-//     margin: Margin,
-//     axisLabel: string,
-// ): CategoryAxis {
-//     switch (location) {
-//         case AxisLocation.Left:
-//         case AxisLocation.Right:
-//             return addCategoryYAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
-//
-//         case AxisLocation.Bottom:
-//         case AxisLocation.Top:
-//             //todo should be the x axis
-//             return addCategoryXAxis(chartId, axisId, svg, plotDimensions, categories, axesLabelFont, margin, axisLabel, location)
-//     }
-// }
-
-function addCategoryYAxis(
-    chartId: number,
-    axisId: string,
-    svg: SvgSelection,
-    plotDimensions: Dimensions,
-    categories: Array<string>,
-    axesLabelFont: AxesLabelFont,
-    margin: Margin,
-    axisLabel: string,
-    location: AxisLocation,
-): CategoryAxis {
-    const categorySize = (plotDimensions.height - margin.top) / categories.length;
-    const scale = d3.scaleBand()
-        .domain(categories)
-        .range([0, categorySize * categories.length]);
-
-    // create and add the axes
-    const generator = d3.axisLeft(scale);
-
-    const selection = svg
-        .append<SVGGElement>('g')
-        .attr('id', `y-axis-selection-${chartId}`)
-        .attr('class', 'y-axis')
-        .attr('transform', `translate(${margin.left}, ${margin.top})`)
-        .call(generator);
-
-    svg
-        .append<SVGTextElement>('text')
-        .attr('id', `stream-chart-y-axis-label-${chartId}`)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', axesLabelFont.size)
-        .attr('fill', axesLabelFont.color)
-        .attr('font-family', axesLabelFont.family)
-        .attr('font-weight', axesLabelFont.weight)
-        .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom) / 2}) rotate(-90)`)
-        .text(axisLabel)
-
-    const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
-
-    return {
-        ...axis,
-        update: (categoryNames, unfilteredSize, plotDimensions) => updateCategoryYAxis(chartId, svg, axis, plotDimensions, unfilteredSize, categoryNames, axesLabelFont, margin)
-    }
-}
-
-function updateCategoryYAxis(
-    chartId: number,
-    svg: SvgSelection,
-    axis: CategoryAxis,
-    plotDimensions: Dimensions,
-    unfilteredSize: number,
-    names: Array<string>,
-    axesLabelFont: AxesLabelFont,
-    margin: Margin,
-): number {
-    const categorySize = (plotDimensions.height - margin.top) / unfilteredSize
-    axis.scale
-        .domain(names)
-        .range([0, categorySize * names.length])
-    axis.selection.call(axis.generator)
-
-    svg
-        .select(`#stream-chart-y-axis-label-${chartId}`)
-        .attr('transform', `translate(${axesLabelFont.size}, ${margin.top + (plotDimensions.height - margin.top - margin.bottom) / 2}) rotate(-90)`)
-
-    return categorySize
 }
 
 function addCategoryXAxis(
     chartId: number,
     axisId: string,
     svg: SvgSelection,
-    plotDimensions: Dimensions,
-    categories: Array<string>,
-    axesLabelFont: AxesLabelFont,
-    margin: Margin,
-    axisLabel: string,
     location: AxisLocation.Bottom | AxisLocation.Top,
+    categories: Array<string>,
+    axisLabel: string,
+    axesLabelFont: AxesLabelFont,
+    plotDimensions: Dimensions,
+    margin: Margin,
 ): CategoryAxis {
-    const categorySize = categorySizeFor(plotDimensions, margin, categories.length)
+    const categorySize = categorySizeFor(location, plotDimensions, margin, categories.length)
     const scale = d3.scaleBand()
         .domain(categories)
         .range([0, categorySize * categories.length]);
@@ -242,9 +167,9 @@ function addCategoryXAxis(
 
     const selection = svg
         .append<SVGGElement>('g')
-        .attr('id', `y-axis-selection-${chartId}`)
-        .attr('class', 'y-axis')
-        .attr('transform', `translate(${yTranslation(location, plotDimensions, margin)}, ${margin.top})`)
+        .attr('id', `x-axis-selection-${chartId}`)
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .call(generator);
 
     svg
@@ -255,7 +180,7 @@ function addCategoryXAxis(
         .attr('fill', axesLabelFont.color)
         .attr('font-family', axesLabelFont.family)
         .attr('font-weight', axesLabelFont.weight)
-        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(plotDimensions, margin)}) rotate(-90)`)
+        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(location, plotDimensions, margin)})`)
         .text(axisLabel)
 
     const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
@@ -263,38 +188,117 @@ function addCategoryXAxis(
     return {
         ...axis,
         update: (categoryNames, unfilteredSize, dimensions) =>
-            updateCategoryXAxis(chartId, svg, axis, dimensions, unfilteredSize, categoryNames, axesLabelFont, margin, location)
+            updateCategoryXAxis(chartId, axis, svg, location, categoryNames, unfilteredSize, axesLabelFont, dimensions, margin)
+    }
+}
+
+function addCategoryYAxis(
+    chartId: number,
+    axisId: string,
+    svg: SvgSelection,
+    location: AxisLocation.Left | AxisLocation.Right,
+    categories: Array<string>,
+    axisLabel: string,
+    axesLabelFont: AxesLabelFont,
+    plotDimensions: Dimensions,
+    margin: Margin,
+): CategoryAxis {
+    const categorySize = categorySizeFor(location, plotDimensions, margin, categories.length)
+    const scale = d3.scaleBand()
+        .domain(categories)
+        .range([0, categorySize * categories.length]);
+
+    // create and add the axes
+    const generator = location === AxisLocation.Left ? d3.axisLeft(scale) : d3.axisRight(scale)
+
+    const selection = svg
+        .append<SVGGElement>('g')
+        .attr('id', `y-axis-selection-${chartId}`)
+        .attr('class', 'y-axis')
+        .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
+        .call(generator);
+
+    svg
+        .append<SVGTextElement>('text')
+        .attr('id', labelIdFor(chartId, location))
+        .attr('text-anchor', 'middle')
+        .attr('font-size', axesLabelFont.size)
+        .attr('fill', axesLabelFont.color)
+        .attr('font-family', axesLabelFont.family)
+        .attr('font-weight', axesLabelFont.weight)
+        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
+        .text(axisLabel)
+
+    const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
+
+    return {
+        ...axis,
+        update: (categoryNames, unfilteredSize, dimensions) =>
+            updateCategoryYAxis(chartId, axis, svg, location, categoryNames, unfilteredSize, axesLabelFont, dimensions, margin)
     }
 }
 
 function updateCategoryXAxis(
     chartId: number,
-    svg: SvgSelection,
     axis: CategoryAxis,
-    plotDimensions: Dimensions,
-    unfilteredSize: number,
-    names: Array<string>,
-    axesLabelFont: AxesLabelFont,
-    margin: Margin,
+    svg: SvgSelection,
     location: AxisLocation.Bottom | AxisLocation.Top,
+    names: Array<string>,
+    unfilteredSize: number,
+    axesLabelFont: AxesLabelFont,
+    plotDimensions: Dimensions,
+    margin: Margin,
 ): number {
-    const categorySize = categorySizeFor(plotDimensions, margin, unfilteredSize)
+    const categorySize = categorySizeFor(location, plotDimensions, margin, unfilteredSize)
     axis.scale
         .domain(names)
         .range([0, categorySize * names.length])
     axis.selection
-        .attr('transform', `translate(${margin.top}, ${yTranslation(location, plotDimensions, margin)})`)
+        .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .call(axis.generator)
 
     svg
         .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(plotDimensions, margin)}) rotate(-90)`)
+        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(location, plotDimensions, margin)})`)
 
     return categorySize
 }
 
-function categorySizeFor(dimensions: Dimensions, margin: Margin, numCategories: number): number {
-    return Math.max(margin.bottom, dimensions.height - margin.bottom) / numCategories
+function updateCategoryYAxis(
+    chartId: number,
+    axis: CategoryAxis,
+    svg: SvgSelection,
+    location: AxisLocation.Left | AxisLocation.Right,
+    names: Array<string>,
+    unfilteredSize: number,
+    axesLabelFont: AxesLabelFont,
+    plotDimensions: Dimensions,
+    margin: Margin,
+): number {
+    const categorySize = categorySizeFor(location, plotDimensions, margin, unfilteredSize)
+    axis.scale
+        .domain(names)
+        .range([0, categorySize * names.length])
+    axis.selection
+        .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
+        .call(axis.generator)
+
+    svg
+        .select(`#${labelIdFor(chartId, location)}`)
+        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
+
+    return categorySize
+}
+
+function categorySizeFor(location: AxisLocation, dimensions: Dimensions, margin: Margin, numCategories: number): number {
+    switch (location) {
+        case AxisLocation.Left:
+        case AxisLocation.Right:
+            return Math.max(margin.bottom, dimensions.height - margin.bottom) / numCategories
+        case AxisLocation.Top:
+        case AxisLocation.Bottom:
+            return Math.max(margin.right, dimensions.width) / numCategories
+    }
 }
 
 export function labelIdFor(chartId: number, location: AxisLocation): string {
@@ -322,19 +326,28 @@ function labelXTranslation(
                 margin.left + plotDimensions.width + margin.right - axesLabelFont.size
         case AxisLocation.Top:
         case AxisLocation.Bottom:
-            return location === AxisLocation.Bottom ?
-                plotDimensions.height + margin.top + margin.bottom / 3 :
-                margin.top / 3
+                return (plotDimensions.width + margin.left + margin.right) / 2
     }
-
 }
 
-function labelYTranslation(plotDimensions: Dimensions, margin: Margin): number {
-    return (margin.top + margin.bottom + plotDimensions.height) / 2
+function labelYTranslation(location: AxisLocation, plotDimensions: Dimensions, margin: Margin): number {
+    switch (location) {
+        case AxisLocation.Left:
+        case AxisLocation.Right:
+            return (margin.top + margin.bottom + plotDimensions.height) / 2
+        case AxisLocation.Top:
+            return margin.top / 2
+        case AxisLocation.Bottom:
+            return margin.top + margin.bottom / 2 + plotDimensions.height
+    }
+}
+
+function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
+    return location === AxisLocation.Left ? margin.left : margin.left + plotDimensions.width
 }
 
 function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
-    return location === AxisLocation.Bottom ? margin.bottom + plotDimensions.width : margin.top
+    return location === AxisLocation.Bottom ? margin.bottom + plotDimensions.height : margin.top
 }
 
 /**

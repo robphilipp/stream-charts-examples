@@ -36,9 +36,6 @@ export function OrdinalAxis(props: Props): null {
     const {
         chartId,
         container,
-        // plotDimensions,
-        // margin,
-        // addYAxis,
         axes,
         color,
     } = useChart()
@@ -76,17 +73,7 @@ export function OrdinalAxis(props: Props): null {
                 const font: AxesLabelFont = {...defaultAxesLabelFont, color, ...props.font}
 
                 if (axisRef.current === undefined) {
-                    axisRef.current = addCategoryAxis(
-                        chartId,
-                        axisId,
-                        svg,
-                        plotDimensions,
-                        categories,
-                        font,
-                        margin,
-                        label,
-                        location
-                    )
+                    axisRef.current = addCategoryAxis(chartId, axisId, svg, location, categories, label, font, plotDimensions, margin)
 
                     // add the x-axis or y-axis to the chart context depending on its
                     // location
