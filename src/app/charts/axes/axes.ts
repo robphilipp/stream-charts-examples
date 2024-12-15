@@ -146,6 +146,19 @@ export function addCategoryAxis(
     }
 }
 
+/**
+ * Adds a category axis representing the x-axis.
+ * @param chartId The unique ID of the chart to which this axis belongs
+ * @param axisId A unique ID for the axis
+ * @param svg The SVG selection (d3)
+ * @param location The location of the axis
+ * @param categories An array holding the category names
+ * @param axisLabel The axis label
+ * @param axesLabelFont The font for the axis label
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margin
+ * @return A category axis
+ */
 function addCategoryXAxis(
     chartId: number,
     axisId: string,
@@ -192,6 +205,19 @@ function addCategoryXAxis(
     }
 }
 
+/**
+ * Adds a category axis representing the y-axis.
+ * @param chartId The unique ID of the chart to which this axis belongs
+ * @param axisId A unique ID for the axis
+ * @param svg The SVG selection (d3)
+ * @param location The location of the axis
+ * @param categories An array holding the category names
+ * @param axisLabel The axis label
+ * @param axesLabelFont The font for the axis label
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margin
+ * @return A category axis
+ */
 function addCategoryYAxis(
     chartId: number,
     axisId: string,
@@ -238,6 +264,23 @@ function addCategoryYAxis(
     }
 }
 
+/**
+ * Updates the category axis representing the x-axis, calculates and returns the
+ * number of pixels for each category on the x-axis.
+ * @param chartId The unique ID of the chart to which this axis belongs
+ * @param axis The category axis to be updated
+ * @param svg The SVG selection (d3)
+ * @param location The location of the axis
+ * @param names An array holding the category names
+ * @param axesLabelFont The font for the axis label
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margin
+ * @param unfilteredSize The number of categories before any filtering has been applied
+ * @param axesLabelFont The font for the axis label
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margin
+ * @return The number of pixels for each category
+ */
 function updateCategoryXAxis(
     chartId: number,
     axis: CategoryAxis,
@@ -264,6 +307,23 @@ function updateCategoryXAxis(
     return categorySize
 }
 
+/**
+ * Updates the category axis representing the y-axis, calculates and returns the
+ * number of pixels for each category on the y-axis.
+ * @param chartId The unique ID of the chart to which this axis belongs
+ * @param axis The category axis to be updated
+ * @param svg The SVG selection (d3)
+ * @param location The location of the axis
+ * @param names An array holding the category names
+ * @param axesLabelFont The font for the axis label
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margin
+ * @param unfilteredSize The number of categories before any filtering has been applied
+ * @param axesLabelFont The font for the axis label
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The plot margin
+ * @return The number of pixels for each category
+ */
 function updateCategoryYAxis(
     chartId: number,
     axis: CategoryAxis,
@@ -290,6 +350,14 @@ function updateCategoryYAxis(
     return categorySize
 }
 
+/**
+ * Calculates the number of pixels each category occupies on the axis
+ * @param location The axis location (i.e. top, bottom, left, right)
+ * @param dimensions The dimensions of the plot
+ * @param margin The margins for the plot
+ * @param numCategories The number of categories
+ * @return the number of pixels each category occupies on the axis
+ */
 function categorySizeFor(location: AxisLocation, dimensions: Dimensions, margin: Margin, numCategories: number): number {
     switch (location) {
         case AxisLocation.Left:
@@ -301,6 +369,12 @@ function categorySizeFor(location: AxisLocation, dimensions: Dimensions, margin:
     }
 }
 
+/**
+ * Calculates a unique ID for the axis based on the location and chart ID
+ * @param chartId The unique ID of the chart
+ * @param location The axis location (i.e. top, bottom, left, right)
+ * @return A unique ID for the axis
+ */
 export function labelIdFor(chartId: number, location: AxisLocation): string {
     switch (location) {
         case AxisLocation.Left:
@@ -312,6 +386,16 @@ export function labelIdFor(chartId: number, location: AxisLocation): string {
     }
 }
 
+/**
+ * Calculates the number of pixels by which to translate the label in the x-direction for the axis.
+ * The calculation uses the dimensions and margins of the plot, the location of the
+ * axis, and the font for the label.
+ * @param location The axis location (i.e. top, bottom, left, right)
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins for the plot
+ * @param axesLabelFont The font for the axis label
+ * @return The number of pixels to translate the label in the x-direction
+ */
 function labelXTranslation(
     location: AxisLocation,
     plotDimensions: Dimensions,
@@ -330,6 +414,15 @@ function labelXTranslation(
     }
 }
 
+/**
+ * Calculates the number of pixels by which to translate the label in the y-direction the axis.
+ * The calculation uses the dimensions and margins of the plot, the location of the
+ * axis, and the font for the label.
+ * @param location The axis location (i.e. top, bottom, left, right)
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins for the plot
+ * @return The number of pixels to translate the label for the y-direction
+ */
 function labelYTranslation(location: AxisLocation, plotDimensions: Dimensions, margin: Margin): number {
     switch (location) {
         case AxisLocation.Left:
@@ -342,13 +435,31 @@ function labelYTranslation(location: AxisLocation, plotDimensions: Dimensions, m
     }
 }
 
+/**
+ * Calculates the number pixels by which to translate the x-axis.
+ * @param location The axis location (i.e. top, bottom, left, right)
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins for the plot
+ * @return The number of pixels to translate the x-axis
+ */
 function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Left ? margin.left : margin.left + plotDimensions.width
 }
 
+/**
+ * Calculates the number pixels by which to translate the y-axis.
+ * @param location The axis location (i.e. top, bottom, left, right)
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins for the plot
+ * @return The number of pixels to translate the y-axis
+ */
 function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ? margin.bottom + plotDimensions.height : margin.top
 }
+
+/*
+    zooming
+ */
 
 /**
  * The result of a zoom action
@@ -406,6 +517,10 @@ export function calculateConstrainedZoomFor(
     }
 }
 
+/*
+    panning
+ */
+
 /**
  * Adjusts the range and updates the plot when the plot is dragged to the left or right
  * @param delta The amount that the plot is dragged
@@ -435,9 +550,13 @@ export function calculatePanFor(
     return range
 }
 
+/*
+
+ */
+
 /**
  * Accepts the series, the assignment of the series to axes, and the current x-axes state, and
- * returns a an array of the distinct axis IDs that cover all the series in the plot.
+ * returns an array of the distinct axis IDs that cover all the series in the plot.
  *
  * @param series The array of series
  * @param axisAssignments A map association a series name with its axis assignments
