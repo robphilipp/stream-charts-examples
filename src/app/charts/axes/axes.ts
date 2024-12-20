@@ -3,24 +3,38 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRange
 import * as d3 from "d3";
 import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
 import {AxisElementSelection, SvgSelection} from "../d3types";
-import {addContinuousNumericXAxis, addContinuousNumericYAxis} from "./ContinuousAxis";
-import {noop} from "../utils";
 import {AxesState} from "../hooks/AxesState";
 import {AxesAssignment} from "../plots/plot";
 import {BaseSeries} from "../series/baseSeries";
 
-export interface AxesLabelFont {
+export type AxisTickStyle = {
+    font: AxesFont
+    rotation: number
+    useAutoRotation: boolean
+}
+
+export function defaultAxisTickStyle(): AxisTickStyle {
+    return {
+        font: defaultAxesFont(),
+        rotation: 0,
+        useAutoRotation: false
+    }
+}
+
+export interface AxesFont {
     size: number
     color: string
     family: string
     weight: number
 }
 
-export const defaultAxesLabelFont: AxesLabelFont = {
-    size: 12,
-    color: '#d2933f',
-    weight: 300,
-    family: 'sans-serif'
+export function defaultAxesFont(): AxesFont {
+    return {
+        size: 12,
+        color: '#d2933f',
+        weight: 300,
+        family: 'sans-serif'
+    }
 }
 
 export interface SeriesLineStyle {
@@ -31,17 +45,19 @@ export interface SeriesLineStyle {
     margin?: number
 }
 
-export const defaultLineStyle: SeriesLineStyle = {
-    color: '#008aad',
-    lineWidth: 1,
-    highlightColor: '#008aad',
-    highlightWidth: 3,
+export function defaultLineStyle(): SeriesLineStyle {
+    return {
+        color: '#008aad',
+        lineWidth: 1,
+        highlightColor: '#008aad',
+        highlightWidth: 3,
+    }
 }
 
-export interface Axes<X extends BaseAxis, Y extends BaseAxis> {
-    xAxis: X
-    yAxis: Y
-}
+// export interface Axes<X extends BaseAxis, Y extends BaseAxis> {
+//     xAxis: X
+//     yAxis: Y
+// }
 
 export interface BaseAxis {
     axisId: string
@@ -69,41 +85,41 @@ export enum AxisLocation {
     Top
 }
 
-export function addLinearAxis(
-    chartId: number,
-    axisId: string,
-    svg: SvgSelection,
-    location: AxisLocation,
-    plotDimensions: Dimensions,
-    domain: [minValue: number, maxValue: number],
-    axesLabelFont: AxesLabelFont,
-    margin: Margin,
-    axisLabel: string,
-): ContinuousNumericAxis {
-    switch (location) {
-        // y-axis
-        case AxisLocation.Left:
-        case AxisLocation.Right:
-            return addContinuousNumericYAxis(
-                chartId,
-                axisId,
-                svg,
-                plotDimensions,
-                location,
-                d3.scaleLinear(),
-                domain,
-                axesLabelFont,
-                margin,
-                axisLabel,
-                noop,
-            )
-
-        // x-axis
-        case AxisLocation.Bottom:
-        case AxisLocation.Top:
-            return addContinuousNumericXAxis(chartId, "", svg, plotDimensions, location, d3.scaleLinear(), domain, axesLabelFont, margin, axisLabel, noop)
-    }
-}
+// export function addLinearAxis(
+//     chartId: number,
+//     axisId: string,
+//     svg: SvgSelection,
+//     location: AxisLocation,
+//     plotDimensions: Dimensions,
+//     domain: [minValue: number, maxValue: number],
+//     axesLabelFont: AxesLabelFont,
+//     margin: Margin,
+//     axisLabel: string,
+// ): ContinuousNumericAxis {
+//     switch (location) {
+//         // y-axis
+//         case AxisLocation.Left:
+//         case AxisLocation.Right:
+//             return addContinuousNumericYAxis(
+//                 chartId,
+//                 axisId,
+//                 svg,
+//                 plotDimensions,
+//                 location,
+//                 d3.scaleLinear(),
+//                 domain,
+//                 axesLabelFont,
+//                 margin,
+//                 axisLabel,
+//                 noop,
+//             )
+//
+//         // x-axis
+//         case AxisLocation.Bottom:
+//         case AxisLocation.Top:
+//             return addContinuousNumericXAxis(chartId, "", svg, plotDimensions, location, d3.scaleLinear(), domain, axesLabelFont, margin, axisLabel, noop)
+//     }
+// }
 
 /*
         category axes
@@ -120,6 +136,7 @@ export function addLinearAxis(
  * @param categories An array holding the category names
  * @param axisLabel The axis label
  * @param axesLabelFont The font for the axis label
+ * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
  * @return A category axis
@@ -131,17 +148,18 @@ export function addCategoryAxis(
     location: AxisLocation,
     categories: Array<string>,
     axisLabel: string,
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
+    axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin
 ): CategoryAxis {
     switch (location) {
         case AxisLocation.Top:
         case AxisLocation.Bottom:
-            return addCategoryXAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, plotDimensions, margin)
+            return addCategoryXAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin)
         case AxisLocation.Left:
         case AxisLocation.Right:
-            return addCategoryYAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, plotDimensions, margin)
+            return addCategoryYAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin)
 
     }
 }
@@ -155,6 +173,7 @@ export function addCategoryAxis(
  * @param categories An array holding the category names
  * @param axisLabel The axis label
  * @param axesLabelFont The font for the axis label
+ * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
  * @return A category axis
@@ -166,7 +185,8 @@ function addCategoryXAxis(
     location: AxisLocation.Bottom | AxisLocation.Top,
     categories: Array<string>,
     axisLabel: string,
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
+    axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin,
 ): CategoryAxis {
@@ -181,19 +201,44 @@ function addCategoryXAxis(
     const selection = svg
         .append<SVGGElement>('g')
         .attr('id', `x-axis-selection-${chartId}`)
-        .attr('class', 'x-axis')
+        .classed('x-axis', true)
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .call(generator);
 
+    // rotate the tick-labels by the specified amount (in degrees)
+    let maxTickLabelHeight = 0
+    const {font, rotation, useAutoRotation} = axisTickStyle
+    selection
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .each(function()  {
+            const degrees = location === AxisLocation.Bottom ? -rotation : rotation
+            const radians = degrees * Math.PI / 180
+            const {width, height, x, y} = (this as SVGTextElement).getBBox()
+            const xOrigin = x + width
+            const yOrigin = location === AxisLocation.Bottom ? y + height / 2: y + height / 2
+
+            d3.select(this)
+                .attr("transform", () => `translate(${width * Math.cos(radians) / 2}, 0) rotate(${degrees}, ${xOrigin}, ${yOrigin})`)
+
+            const newHeight = Math.abs(width * Math.sin(radians))
+            if (newHeight > maxTickLabelHeight) {
+                maxTickLabelHeight = newHeight
+            }
+        })
+    console.log("maxHeight", maxTickLabelHeight, "location", location)
+
+    // const xLabelTranslate = labelXTranslation(location, plotDimensions, margin, axesLabelFont)
+    // const yLabelTranslation = labelYTranslation(location, plotDimensions, margin)
     svg
         .append<SVGTextElement>('text')
         .attr('id', labelIdFor(chartId, location))
         .attr('text-anchor', 'middle')
-        .attr('font-size', axesLabelFont.size)
-        .attr('fill', axesLabelFont.color)
-        .attr('font-family', axesLabelFont.family)
-        .attr('font-weight', axesLabelFont.weight)
-        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(location, plotDimensions, margin)})`)
+        .attr('font-size', font.size)
+        .attr('fill', font.color)
+        .attr('font-family', font.family)
+        .attr('font-weight', font.weight)
+        // .attr('transform', `translate(${xLabelTranslate}, ${yLabelTranslation})`)
         .text(axisLabel)
 
     const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
@@ -201,7 +246,7 @@ function addCategoryXAxis(
     return {
         ...axis,
         update: (categoryNames, unfilteredSize, dimensions) =>
-            updateCategoryXAxis(chartId, axis, svg, location, categoryNames, unfilteredSize, axesLabelFont, dimensions, margin)
+            updateCategoryXAxis(chartId, axis, svg, location, categoryNames, unfilteredSize, axesLabelFont, dimensions, margin, maxTickLabelHeight)
     }
 }
 
@@ -214,6 +259,7 @@ function addCategoryXAxis(
  * @param categories An array holding the category names
  * @param axisLabel The axis label
  * @param axesLabelFont The font for the axis label
+ * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
  * @return A category axis
@@ -225,7 +271,8 @@ function addCategoryYAxis(
     location: AxisLocation.Left | AxisLocation.Right,
     categories: Array<string>,
     axisLabel: string,
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
+    axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin,
 ): CategoryAxis {
@@ -244,14 +291,30 @@ function addCategoryYAxis(
         .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
         .call(generator);
 
+    // rotate the tick-labels by the specified amount (in degrees)
+    const {font, rotation} = axisTickStyle
+    selection
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .each(function()  {
+            const degrees = location === AxisLocation.Left ? -rotation : rotation
+            const {width, height, x, y} = (this as SVGTextElement).getBBox()
+            const xTranslation = location === AxisLocation.Left ? 0: width
+            const xOrigin = x + width
+            const yOrigin = location === AxisLocation.Left ? y + height / 2: y + height / 2
+
+            d3.select(this)
+                .attr("transform", () => `translate(${xTranslation}, 0) rotate(${degrees}, ${xOrigin}, ${yOrigin})`)
+        })
+
     svg
         .append<SVGTextElement>('text')
         .attr('id', labelIdFor(chartId, location))
         .attr('text-anchor', 'middle')
-        .attr('font-size', axesLabelFont.size)
-        .attr('fill', axesLabelFont.color)
-        .attr('font-family', axesLabelFont.family)
-        .attr('font-weight', axesLabelFont.weight)
+        .attr('font-size', font.size)
+        .attr('fill', font.color)
+        .attr('font-family', font.family)
+        .attr('font-weight', font.weight)
         .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
         .text(axisLabel)
 
@@ -279,6 +342,8 @@ function addCategoryYAxis(
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
+ * @param tickHeight The maximum height of the tick labels (which can be rotated) used to
+ * adjust the axis label location when needed
  * @return The number of pixels for each category
  */
 function updateCategoryXAxis(
@@ -288,9 +353,10 @@ function updateCategoryXAxis(
     location: AxisLocation.Bottom | AxisLocation.Top,
     names: Array<string>,
     unfilteredSize: number,
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
     margin: Margin,
+    tickHeight: number
 ): number {
     const categorySize = categorySizeFor(location, plotDimensions, margin, unfilteredSize)
     axis.scale
@@ -302,7 +368,7 @@ function updateCategoryXAxis(
 
     svg
         .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(location, plotDimensions, margin)})`)
+        .attr('transform', `translate(${labelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${labelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)})`)
 
     return categorySize
 }
@@ -331,7 +397,7 @@ function updateCategoryYAxis(
     location: AxisLocation.Left | AxisLocation.Right,
     names: Array<string>,
     unfilteredSize: number,
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
     margin: Margin,
 ): number {
@@ -400,7 +466,7 @@ function labelXTranslation(
     location: AxisLocation,
     plotDimensions: Dimensions,
     margin: Margin,
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
 ): number {
     switch (location) {
         case AxisLocation.Left:
@@ -421,17 +487,25 @@ function labelXTranslation(
  * @param location The axis location (i.e. top, bottom, left, right)
  * @param plotDimensions The dimensions of the plot
  * @param margin The margins for the plot
+ * @param [tickLabelHeight=0] The height of the tick labels (which takes rotation into account)
+ * @param [axisLabelHeight=0] The axis label height for adjusting the location of the label
  * @return The number of pixels to translate the label for the y-direction
  */
-function labelYTranslation(location: AxisLocation, plotDimensions: Dimensions, margin: Margin): number {
+function labelYTranslation(
+    location: AxisLocation,
+    plotDimensions: Dimensions,
+    margin: Margin,
+    tickLabelHeight: number = 0,
+    axisLabelHeight: number = 0
+): number {
     switch (location) {
         case AxisLocation.Left:
         case AxisLocation.Right:
             return (margin.top + margin.bottom + plotDimensions.height) / 2
         case AxisLocation.Top:
-            return margin.top / 2
+            return tickLabelHeight === 0 ? margin.top / 2 : Math.max(margin.top - tickLabelHeight - axisLabelHeight - 5, axisLabelHeight)
         case AxisLocation.Bottom:
-            return margin.top + margin.bottom / 2 + plotDimensions.height
+            return margin.top + plotDimensions.height + (tickLabelHeight === 0 ? margin.bottom / 2 : tickLabelHeight - axisLabelHeight)
     }
 }
 
@@ -454,7 +528,7 @@ function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDime
  * @return The number of pixels to translate the y-axis
  */
 function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
-    return location === AxisLocation.Bottom ? margin.bottom + plotDimensions.height : margin.top
+    return location === AxisLocation.Bottom ? margin.top + plotDimensions.height - margin.bottom: margin.top
 }
 
 /*
@@ -894,7 +968,7 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
         }))
 }
 
-export function continuousRangeForDefaultAxis(axis: ContinuousNumericAxis): ContinuousAxisRange {
-    const [start, end] = axis.scale.domain()
-    return continuousAxisRangeFor(start, end)
-}
+// export function continuousRangeForDefaultAxis(axis: ContinuousNumericAxis): ContinuousAxisRange {
+//     const [start, end] = axis.scale.domain()
+//     return continuousAxisRangeFor(start, end)
+// }

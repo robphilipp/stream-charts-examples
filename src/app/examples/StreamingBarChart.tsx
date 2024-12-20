@@ -254,7 +254,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 60, right: 75, left: 70}}
+                    margin={{...defaultMargin, top: 70, bottom: 40, right: 75, left: 70}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
@@ -311,12 +311,14 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         location={AxisLocation.Bottom}
                         categories={initialDataRef.current.map(series => series.name)}
                         label="neuron"
+                        axisTickStyle={{rotation: 90}}
                     />
                     <OrdinalAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
                         categories={initialDataRef.current.map(series => series.name)}
                         label="neuron"
+                        axisTickStyle={{rotation: 40}}
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"

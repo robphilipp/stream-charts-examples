@@ -32,7 +32,7 @@ for (let i = 0; i < 50; ++i) {
     spikeSeriesNames.push(`neuron${i + 1}`)
 }
 const initialSpikeData = initialRandomWeightData(spikeSeriesNames, 10, 500, 50, 20, 10)
-const initialBarData = initialSineFnData(spikeSeriesNames, 1000, 25, 4)
+const initialBarData = initialSineFnData(spikeSeriesNames.slice(0, 50), 1000, 25, 4)
 
 const App: React.FC = () => {
     const [theme, setTheme] = useState<Theme>(lightTheme)

@@ -339,8 +339,8 @@ export function RasterPlot(props: Props): null {
 
                     // grab the series styles, or the defaults if none exist
                     const {color, lineWidth, margin: spikeLineMargin = spikeMargin} = seriesStyles.get(series.name) || {
-                        ...defaultLineStyle,
-                        highlightColor: defaultLineStyle.color
+                        ...defaultLineStyle(),
+                        highlightColor: defaultLineStyle().color
                     }
 
                     // only show the data for which the regex filter matches
@@ -618,7 +618,7 @@ function handleMouseOverSeries(
     const [x, y] = d3.pointer(event, container)
     const time = Math.round(xAxis.scale.invert(x - margin.left))
 
-    const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+    const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
 
     // Use d3 to select element, change color and size
     d3.select<SVGPathElement, Datum>(event.currentTarget)
@@ -647,7 +647,7 @@ function handleMouseLeaveSeries(
     seriesStyles: Map<string, SeriesLineStyle>,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
     d3.select<SVGPathElement, Datum>(segment)
         .attr('stroke', color)
         .attr('stroke-width', lineWidth)

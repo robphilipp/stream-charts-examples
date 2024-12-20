@@ -286,20 +286,20 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
                         ['test1', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 1,
                             highlightColor: 'orange'
                         }],
                         ['test2', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: theme.name === 'light' ? 'blue' : 'gray',
                             lineWidth: 3,
                             highlightColor: theme.name === 'light' ? 'blue' : 'gray',
                             highlightWidth: 5
                         }],
                         ['test3', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: theme.name === 'light' ? 'dodgerblue' : 'gray',
                             lineWidth: 3,
                             highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',

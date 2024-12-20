@@ -20,7 +20,7 @@ import {Dimensions, Margin} from "../styling/margins";
 import {subscriptionIteratesFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {IterateChartData} from "../observables/iterates";
-import {emptyIterateDatum, IterateDatum, IterateSeries} from "../series/iterateSeries";
+import {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {useTooltip} from "../hooks/useTooltip";
@@ -470,8 +470,8 @@ export function PoincarePlot(props: Props): null {
 
                     // grab the style for the series
                     const seriesLineStyle: SeriesLineStyle = seriesStyles.get(name) || {
-                        ...defaultLineStyle,
-                        highlightColor: defaultLineStyle.color
+                        ...defaultLineStyle(),
+                        highlightColor: defaultLineStyle().color
                     }
 
                     // only show the data for which the filter matches

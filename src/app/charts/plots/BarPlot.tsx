@@ -338,8 +338,8 @@ export function BarPlot(props: Props): null {
 
                     // grab the series styles, or the defaults if none exist
                     const {color, lineWidth, margin: spikeLineMargin = barMargin} = seriesStyles.get(series.name) || {
-                        ...defaultLineStyle,
-                        highlightColor: defaultLineStyle.color
+                        ...defaultLineStyle(),
+                        highlightColor: defaultLineStyle().color
                     }
 
                     // only show the data for which the regex filter matches
@@ -601,7 +601,7 @@ function handleMouseOverBar(
     const [x, y] = d3.pointer(event, container)
     const value = Math.round(yAxis.scale.invert(y - margin.top))
 
-    const {highlightColor, highlightWidth} = barStyles.get(categoryName) || defaultLineStyle
+    const {highlightColor, highlightWidth} = barStyles.get(categoryName) || defaultLineStyle()
 
     // Use d3 to select element, change color and size
     d3.select<SVGPathElement, Datum>(event.currentTarget)
@@ -630,7 +630,7 @@ function handleMouseLeaveSeries(
     seriesStyles: Map<string, SeriesLineStyle>,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle
+    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
     d3.select<SVGPathElement, Datum>(segment)
         .attr('stroke', color)
         .attr('stroke-width', lineWidth)

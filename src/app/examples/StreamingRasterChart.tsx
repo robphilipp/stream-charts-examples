@@ -258,37 +258,37 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
                         ['neuron1', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron2', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron3', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron4', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron5', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron6', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: theme.name === 'light' ? 'blue' : 'gray',
                             lineWidth: 3,
                             highlightColor: theme.name === 'light' ? 'blue' : 'gray',
@@ -323,6 +323,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         location={AxisLocation.Left}
                         categories={initialDataRef.current.map(series => series.name)}
                         label="neuron"
+                        axisTickStyle={{rotation: 25}}
                     />
                     <OrdinalAxis
                         axisId="y-axis-2"

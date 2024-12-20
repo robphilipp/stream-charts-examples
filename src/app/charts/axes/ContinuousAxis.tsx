@@ -1,4 +1,4 @@
-import {AxesLabelFont, AxisLocation, ContinuousNumericAxis, defaultAxesLabelFont} from "./axes";
+import {AxesFont, AxisLocation, ContinuousNumericAxis, defaultAxesFont} from "./axes";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
@@ -20,7 +20,7 @@ interface Props {
     // the min and max values for the axis
     domain: [min: number, max: number]
     // the font for drawing the axis ticks and labels
-    font?: Partial<AxesLabelFont>
+    font?: Partial<AxesFont>
     // the axis label
     label: string
     // The domain prop holds the axis bounds as a (min, max) tuple. The default
@@ -101,7 +101,7 @@ export function ContinuousAxis(props: Props): null {
         () => {
             if (container) {
                 const svg = d3.select<SVGSVGElement, any>(container)
-                const font: AxesLabelFont = {...defaultAxesLabelFont, color, ...props.font}
+                const font: AxesFont = {...defaultAxesFont(), color, ...props.font}
 
                 const handleRangeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
                     if (rangeUpdateHandlerIdRef.current && axisRef.current) {
@@ -220,7 +220,7 @@ export function addContinuousNumericXAxis(
     location: AxisLocation.Bottom | AxisLocation.Top,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
     domain: [minValue: number, maxValue: number],
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
     margin: Margin,
     axisLabel: string,
     setAxisRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
@@ -340,7 +340,7 @@ export function addContinuousNumericYAxis(
     location: AxisLocation.Left | AxisLocation.Right,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
     domain: [minValue: number, maxValue: number],
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
     margin: Margin,
     axisLabel: string,
     setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
@@ -402,7 +402,7 @@ function updateLinearYAxis(
     axis: ContinuousNumericAxis,
     plotDimensions: Dimensions,
     margin: Margin,
-    axesLabelFont: AxesLabelFont,
+    axesLabelFont: AxesFont,
     location: AxisLocation.Left | AxisLocation.Right,
 ): void {
     axis.scale.domain(domain).range([Math.max(margin.bottom, plotDimensions.height - margin.bottom), 0])
@@ -437,7 +437,7 @@ function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDime
  * @param axesLabelFont The font for the axis label
  * @return The number of pixels to translate the y-axis label down
  */
-function labelXTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesLabelFont): number {
+function labelXTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesFont): number {
     return location === AxisLocation.Left ?
         axesLabelFont.size :
         margin.left + plotDimensions.width + margin.right - axesLabelFont.size
