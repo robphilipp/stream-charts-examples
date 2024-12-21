@@ -50,7 +50,10 @@ interface UseObservableValues<CD, D> {
      * @see UseChartValues.windowingTime
      */
     onUpdateData?: (seriesName: string, data: Array<D>) => void
-    // onUpdateData?: (seriesName: string, data: Data) => void
+    /**
+     * todo
+     * @param time
+     */
     onUpdateChartTime?: (time: number) => void
 }
 

@@ -22,6 +22,7 @@ import {useDataObservable} from "../hooks/useDataObservable";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
+import {OrdinalChartData} from "../observables/ordinals";
 
 interface Props {
     /**
@@ -437,7 +438,7 @@ export function BarPlot(props: Props): null {
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
             return subscriptionOrdinalXFor(
-                seriesObservable as Observable<TimeSeriesChartData>,
+                seriesObservable as Observable<OrdinalChartData>,
                 onSubscribe,
                 windowingTime,
                 axisAssignments,

@@ -6,9 +6,11 @@ import {interval, Observable, Subscription} from "rxjs";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {AxesAssignment} from "../plots/plot";
 import {AxesState} from "../hooks/AxesState";
-import {emptySeries} from "../series/baseSeries";
+import {BaseSeries, emptySeries} from "../series/baseSeries";
 import {IterateChartData} from "../observables/iterates";
 import {IterateDatum, IterateSeries} from "../series/iterateSeries";
+import {OrdinalChartData} from "../observables/ordinals";
+import {ChartData} from "../observables/ChartData";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -363,7 +365,7 @@ export function subscriptionIteratesFor(
  * @return A subscription to the observable (for cancelling and the likes)
  */
 export function subscriptionOrdinalXFor(
-    seriesObservable: Observable<TimeSeriesChartData>,
+    seriesObservable: Observable<OrdinalChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
@@ -408,9 +410,9 @@ export function subscriptionOrdinalXFor(
                     const axisId = axisAssignments.get(name)?.yAxis || yAxesState.axisDefaultId();
                     const currentAxisTime = axesSeries.get(axisId)
                         ?.reduce(
-                            (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
+                            (tMax, seriesName) => Math.max(data.maxDatum.time.time, tMax),
                             -Infinity
-                        ) || data.maxTime
+                        )
 
                     if (currentAxisTime !== undefined) {
                         // drop data that is older than the max time-window
@@ -478,7 +480,7 @@ function associatedSeriesForXAxes(
  * @return A map holding the y-axis names the names of the series associated with the axis.
  */
 function associatedSeriesForYAxes(
-    data: TimeSeriesChartData,
+    data: ChartData,
     axisAssignments: Map<string, AxesAssignment>,
     yAxesState: AxesState
 ): Map<string, Array<string>> {
@@ -501,13 +503,13 @@ function associatedSeriesForYAxes(
  */
 function associatedSeriesFor(
     axisIdExtractor: (assignment?: AxesAssignment) => string,
-    data: TimeSeriesChartData,
+    data: ChartData,
     axisAssignments: Map<string, AxesAssignment>
 ): Map<string, Array<string>> {
     return Array
-        .from(data.maxTimes.entries())
+        .from(data.seriesNames)
         .reduce(
-            (assignedSeries, [seriesName,]) => {
+            (assignedSeries, seriesName) => {
                 const id = axisIdExtractor(axisAssignments.get(seriesName))
                 const series = assignedSeries.get(id) || []
                 series.push(seriesName)

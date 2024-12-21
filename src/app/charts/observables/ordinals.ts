@@ -9,6 +9,7 @@ import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {map, scan} from "rxjs/operators";
 import {Datum} from "../series/timeSeries";
 import {copyOrdinalDatum, nonEmptyOrdinalDatum, OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
+import {ChartData, copyChartData, defaultChartData} from "./ChartData";
 
 export type OrdinalDatumExtremum = {
     // holds the ordinal datum with the minimum or maximum time
@@ -37,7 +38,7 @@ function copyOrdinalDatumExtremum(datum: OrdinalDatumExtremum): OrdinalDatumExtr
     }
 }
 
-export interface OrdinalChartData {
+export interface OrdinalChartData extends ChartData {
     /**
      * The min values for (time, value) for the data in the newPoints map
      */
@@ -71,6 +72,7 @@ export interface OrdinalChartData {
 }
 
 const emptyOrdinalData = (): OrdinalChartData => ({
+    ...defaultChartData(),
     minDatum: initialMinOrdinalDatum(),
     maxDatum: initialMaxOrdinalDatum(),
     minValueInCategory: new Map<string, OrdinalDatum>(),
@@ -87,6 +89,7 @@ const emptyOrdinalData = (): OrdinalChartData => ({
  * @param data The ordinal chart data to copy
  */
 export const copyOrdinalDataFrom = (data: OrdinalChartData): OrdinalChartData => ({
+    ...copyChartData(data),
     minDatum: copyOrdinalDatumExtremum(data.minDatum),
     maxDatum: copyOrdinalDatumExtremum(data.maxDatum),
     minValueInCategory: new Map(Array.from(data.minValueInCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatum(extremum)])),
@@ -131,6 +134,9 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                             previous.set(name, updated)
                         }
                         updated.push(...series)
+
+                        // add the series name to the list of all
+                        accum.seriesNames.add(name)
 
                         // calculate the max-time, min-time, max-value, and min-value for
                         // all the data series

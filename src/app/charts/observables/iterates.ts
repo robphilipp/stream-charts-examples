@@ -12,9 +12,10 @@ import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {filter, map, scan} from "rxjs/operators";
 import {Datum, emptyDatum} from "../series/timeSeries";
 import {emptyIterateDatum, IterateDatum, iterateDatumOf, nonEmptyIterateDatum} from "../series/iterateSeries";
+import {ChartData, copyChartData, defaultChartData} from "./ChartData";
 
 
-export interface IterateChartData {
+export interface IterateChartData extends ChartData {
     /**
      * The min values for (time, iterate n, and iterate n+1) for the data in the newPoints map
      */
@@ -43,6 +44,7 @@ export interface IterateChartData {
 }
 
 const emptyIterateData = (): IterateChartData => ({
+    ...defaultChartData(),
     minIterate: emptyIterateDatum,
     maxIterate: emptyIterateDatum,
     minIterates: new Map<string, IterateDatum>(),
@@ -55,6 +57,7 @@ const emptyIterateData = (): IterateChartData => ({
  * @param data The iterate chart data to copy
  */
 export const copyIterateDataFrom = (data: IterateChartData): IterateChartData => ({
+    ...copyChartData(data),
     minIterate: data.minIterate,
     maxIterate: data.maxIterate,
     minIterates: new Map<string, IterateDatum>(data.minIterates),

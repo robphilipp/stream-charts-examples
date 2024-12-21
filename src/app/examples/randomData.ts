@@ -26,6 +26,7 @@ function randomSpikeData(
         Array.from(seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
     )
     return {
+        seriesNames: new Set(series),
         maxTime: sequenceTime,
         maxTimes,
         newPoints: new Map(series
@@ -203,6 +204,7 @@ function accumulateIterateData(
     })
 
     return {
+        seriesNames: previous.seriesNames,
         maxTime: previous.maxTime + updatePeriod,
         maxTimes,
         newPoints,
@@ -237,6 +239,7 @@ function randomWeightData(
         seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
     )
     return {
+        seriesNames: new Set(series),
         maxTime: sequenceTime,
         maxTimes,
         newPoints: new Map(series.map(name => {
@@ -262,6 +265,7 @@ function randomWeightData(
  */
 function accumulateChartData(accum: TimeSeriesChartData, currentData: TimeSeriesChartData, min: number, max: number): TimeSeriesChartData {
     return {
+        seriesNames: new Set(accum.seriesNames),
         maxTime: currentData.maxTime,
         maxTimes: currentData.maxTimes,
         newPoints: mergeSeries(accum.newPoints, currentData.newPoints, min, max)

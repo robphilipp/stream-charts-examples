@@ -1,9 +1,10 @@
 import {Datum, TimeSeries} from "./timeSeries";
+import {ChartData, defaultChartData} from "../observables/ChartData";
 
 /**
  * The spike-chart data produced by the rxjs observable that is pushed to a streaming chart
  */
-export interface TimeSeriesChartData {
+export interface TimeSeriesChartData extends ChartData {
     /**
      * The max (latest) time for the data in the newPoints map
      */
@@ -33,6 +34,7 @@ export interface TimeSeriesChartData {
  */
 export function emptyTimeSeriesChartData(series: Array<string>): TimeSeriesChartData {
     return {
+        ...defaultChartData(),
         maxTime: 0,
         maxTimes: new Map(series.map(name => [name, 0])),
         newPoints: new Map<string, Array<Datum>>(series.map(name => [name, [{time: 0, value: 0}]]))
@@ -51,6 +53,7 @@ export function initialChartData(seriesList: Array<TimeSeries>, currentTime: num
         -Infinity
     )
     return {
+        seriesNames: new Set(seriesList.map(series => series.name)),
         maxTime,
         maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [

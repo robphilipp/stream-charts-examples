@@ -32,10 +32,11 @@ import {RasterPlotTooltipContent} from "../charts/tooltips/RasterPlotTooltipCont
 import {formatNumber, formatTime} from '../charts/utils';
 import {RasterPlot} from "../charts/plots/RasterPlot";
 import {Button} from "../ui/Button";
-import {seriesFrom} from "../charts/series/baseSeries";
+import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {assignAxes} from "../charts/plots/plot";
 import {BarPlot} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
+import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -75,7 +76,7 @@ const initialVisibility: Visibility = {
 interface Props {
     theme?: Theme
     timeWindow?: number;
-    initialData: Array<TimeSeries>;
+    initialData: Array<BaseSeries<Datum>>;
     seriesHeight?: number;
     plotWidth?: number;
 }
@@ -108,7 +109,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
+    const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 25)));
+    // const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -192,7 +194,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         }}
                         onClick={() => {
                             if (!running) {
-                                observableRef.current = randomSpikeDataObservable(initialDataRef.current, 50, 0.1)
+                                observableRef.current = ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 50, 0.1))
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
                                 intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
