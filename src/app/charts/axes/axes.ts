@@ -226,7 +226,6 @@ function addCategoryXAxis(
                 maxTickLabelHeight = newHeight
             }
         })
-    console.log("maxHeight", maxTickLabelHeight, "location", location)
 
     // const xLabelTranslate = labelXTranslation(location, plotDimensions, margin, axesLabelFont)
     // const yLabelTranslation = labelYTranslation(location, plotDimensions, margin)

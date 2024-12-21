@@ -1,26 +1,22 @@
 import {AxesAssignment, Series, setClipPath} from "./plot";
 import * as d3 from "d3";
-import {ZoomTransform} from "d3";
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
-import React, {useCallback, useEffect, useMemo, useRef} from "react";
+import React, {useCallback, useEffect, useRef} from "react";
 import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
+import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
 import {GSelection} from "../d3types";
 import {
-    axesForSeriesGen,
-    axisZoomHandler,
     BaseAxis,
     CategoryAxis,
     continuousAxisIntervals,
     continuousAxisRanges,
     ContinuousNumericAxis,
     defaultLineStyle,
-    panHandler,
     SeriesLineStyle
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
-import {Dimensions, Margin} from "../styling/margins";
+import {Margin} from "../styling/margins";
 import {subscriptionOrdinalXFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
@@ -69,15 +65,15 @@ interface Props {
 }
 
 /**
- * Renders a streaming neuron raster plot for the series in the initial data and those sourced by the
+ * Renders a streaming neuron bar plot for the series in the initial data and those sourced by the
  * observable specified as a property in the {@link Chart}. This component uses the {@link useChart}
  * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
  * chart ecosystem (axes, tracker, tooltip).
  *
- * @param props The properties associated with the raster plot
+ * @param props The properties associated with the bar plot
  * @constructor
  * @example
- <RasterPlot
+ <BarPlot
      axisAssignments={new Map([
         ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
         ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
@@ -105,9 +101,9 @@ export function BarPlot(props: Props): null {
         xAxesState,
         yAxesState,
         setAxisAssignments,
-        setAxisBoundsFor,
-        updateAxesBounds = noop,
-        onUpdateAxesBounds,
+        // setAxisBoundsFor,
+        // updateAxesBounds = noop,
+        // onUpdateAxesBounds,
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -128,9 +124,9 @@ export function BarPlot(props: Props): null {
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
         dropDataAfter = Infinity,
-        panEnabled = false,
-        zoomEnabled = false,
-        zoomKeyModifiersRequired = true,
+        // panEnabled = false,
+        // zoomEnabled = false,
+        // zoomKeyModifiersRequired = true,
         barMargin = 2,
     } = props
 
@@ -166,29 +162,33 @@ export function BarPlot(props: Props): null {
         [axisAssignments, setAxisAssignments]
     )
 
-    // calculates the distinct series IDs that cover all the series in the plot
-    const axesForSeries = useMemo(
-        () => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
-        [initialData, axisAssignments, xAxesState]
-    )
+    // // calculates the distinct series IDs that cover all the series in the plot
+    // const axesForSeries = useMemo(
+    //     () => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
+    //     [initialData, axisAssignments, xAxesState]
+    // )
 
     // updates the timing using the onUpdateTime and updatePlot references. This and the references
-    // defined above allow the axes' times to be update properly by avoid stale reference to these
+    // defined above allow the axes' times to be updated properly by avoid stale reference to these
     // functions.
-    const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
+    const updateTimingAndPlot = useCallback(
+        // (ranges: Map<string, ContinuousAxisRange>): void => {
+        (): void => {
             if (mainG !== null) {
-                onUpdateTimeRef.current(ranges)
-                updatePlotRef.current(ranges, mainG)
-                if (onUpdateAxesBounds) {
-                    setTimeout(() => {
-                        const times = new Map<string, [number, number]>()
-                        ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
-                        onUpdateAxesBounds(times)
-                    }, 0)
-                }
+                // onUpdateTimeRef.current(ranges)
+                updatePlotRef.current(mainG)
+                // updatePlotRef.current(ranges, mainG)
+                // if (onUpdateAxesBounds) {
+                //     setTimeout(() => {
+                //         const times = new Map<string, [number, number]>()
+                //         ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
+                //         onUpdateAxesBounds(times)
+                //     }, 0)
+                // }
             }
         },
-        [mainG, onUpdateAxesBounds]
+        [mainG]
+        // [mainG, onUpdateAxesBounds]
     )
 
     // todo find better way
@@ -199,25 +199,26 @@ export function BarPlot(props: Props): null {
             dataRef.current = initialData.slice() as Array<TimeSeries>
             seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-                    .map(([id, range]) => {
-                        // grab the current range, then calculate the minimum time from the initial data, and
-                        // set that as the start, and then add the range to it for the end time
-                        const [start, end] = range.original
-                        const minTime = (initialData as Array<TimeSeries>)
-                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-                            .reduce(
-                                (tMin: number, series: TimeSeries) => Math.min(
-                                    tMin,
-                                    !series.isEmpty() ? series.data[0].time : tMin
-                                ),
-                                Infinity
-                            )
-                        const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
-                    })
-                )
-            )
+            updateTimingAndPlot()
+            // updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+            //         .map(([id, range]) => {
+            //             // grab the current range, then calculate the minimum time from the initial data, and
+            //             // set that as the start, and then add the range to it for the end time
+            //             const [start, end] = range.original
+            //             const minTime = (initialData as Array<TimeSeries>)
+            //                 .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+            //                 .reduce(
+            //                     (tMin: number, series: TimeSeries) => Math.min(
+            //                         tMin,
+            //                         !series.isEmpty() ? series.data[0].time : tMin
+            //                     ),
+            //                     Infinity
+            //                 )
+            //             const startTime = minTime === Infinity ? 0 : minTime
+            //             return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
+            //         })
+            //     )
+            // )
         },
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
@@ -226,147 +227,138 @@ export function BarPlot(props: Props): null {
         [initialData]
     )
 
-    /**
-     * Calculates the upper and lower y-coordinate for the spike line
-     * @param categorySize The size of the category (i.e. plot_height / num_series)
-     * @param lineWidth The width of the series line
-     * @param margin The margin applied to the top and bottom of the spike line (vertical spacing)
-     * @return An object with two functions, that when handed a y-coordinate, return the location
-     * for the start (yUpper) or end (yLower) of the spikes line.
-     */
-    function xCoordsFn(categorySize: number, lineWidth: number, margin: number):
-        { xUpper: (x: number) => number, xLower: (x: number) => number } {
-        if (categorySize <= margin) return {
-            xUpper: x => x,
-            xLower: x => x + lineWidth
-        }
-        return {
-            xUpper: x => x + margin,
-            xLower: x => x + categorySize - margin
-        }
-    }
-
-    /**
-     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param deltaX The amount that the plot is dragged
-     * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
-     * @param ranges A map holding the axis ID and its associated time range
-     */
-    const onPan = useCallback(
-        (x: number,
-         plotDimensions: Dimensions,
-         series: Array<string>,
-         ranges: Map<string, ContinuousAxisRange>
-        ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
-    )
-
-    /**
-     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-     * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param transform The d3 zoom transformation information
-     * @param x The x-position of the mouse when the scroll wheel or gesture is used
-     * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
-     * @param ranges A map holding the axis ID and its associated time-range
-     */
-    const onZoom = useCallback(
-        (
-            transform: ZoomTransform,
-            x: number,
-            plotDimensions: Dimensions,
-            ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
-    )
+    // /**
+    //  * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+    //  * @param deltaX The amount that the plot is dragged
+    //  * @param plotDimensions The dimensions of the plot
+    //  * @param series An array of series names
+    //  * @param ranges A map holding the axis ID and its associated time range
+    //  */
+    // const onPan = useCallback(
+    //     (x: number,
+    //      plotDimensions: Dimensions,
+    //      series: Array<string>,
+    //      ranges: Map<string, ContinuousAxisRange>
+    //     ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
+    //     [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+    // )
+    //
+    // /**
+    //  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+    //  * at the location of the mouse when the scroll wheel or gesture was applied.
+    //  * @param transform The d3 zoom transformation information
+    //  * @param x The x-position of the mouse when the scroll wheel or gesture is used
+    //  * @param plotDimensions The dimensions of the plot
+    //  * @param series An array of series names
+    //  * @param ranges A map holding the axis ID and its associated time-range
+    //  */
+    // const onZoom = useCallback(
+    //     (
+    //         transform: ZoomTransform,
+    //         x: number,
+    //         plotDimensions: Dimensions,
+    //         ranges: Map<string, ContinuousAxisRange>,
+    //     ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
+    //     [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+    // )
 
     /**
      * @param timeRanges
      * @param mainGElem
      */
     const updatePlot = useCallback(
-        (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
+        // (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
+        (mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
                 const svg = d3.select<SVGSVGElement, any>(container)
 
-                // set up panning
-                if (panEnabled) {
-                    const drag = d3.drag<SVGSVGElement, Datum>()
-                        .on("start", () => {
-                            d3.select(container).style("cursor", "move")
-                            allowTooltipRef.current = false
-                        })
-                        .on("drag", (event: any) => {
-                            const names = dataRef.current.map(series => series.name)
-                            onPan(event.dx, plotDimensions, names, timeRanges)
-                            // need to update the plot with the new time-ranges
-                            updatePlotRef.current(timeRanges, mainGElem)
-                        })
-                        .on("end", () => {
-                            d3.select(container).style("cursor", "auto")
-                            allowTooltipRef.current = isSubscriptionClosed()
-                        })
+                // // set up panning
+                // if (panEnabled) {
+                //     const drag = d3.drag<SVGSVGElement, Datum>()
+                //         .on("start", () => {
+                //             d3.select(container).style("cursor", "move")
+                //             allowTooltipRef.current = false
+                //         })
+                //         .on("drag", (event: any) => {
+                //             const names = dataRef.current.map(series => series.name)
+                //             onPan(event.dx, plotDimensions, names, timeRanges)
+                //             // need to update the plot with the new time-ranges
+                //             updatePlotRef.current(timeRanges, mainGElem)
+                //         })
+                //         .on("end", () => {
+                //             d3.select(container).style("cursor", "auto")
+                //             allowTooltipRef.current = isSubscriptionClosed()
+                //         })
+                //
+                //     svg.call(drag)
+                // }
+                //
+                // // set up for zooming
+                // if (zoomEnabled) {
+                //     const zoom = d3.zoom<SVGSVGElement, Datum>()
+                //         .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                //         .scaleExtent([0, 10])
+                //         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                //         .on("zoom", (event: any) => {
+                //                 onZoom(
+                //                     event.transform,
+                //                     event.sourceEvent.offsetX - margin.left,
+                //                     plotDimensions,
+                //                     timeRanges,
+                //                 )
+                //                 updatePlotRef.current(timeRanges, mainGElem)
+                //             }
+                //         )
+                //
+                //     svg.call(zoom)
+                // }
 
-                    svg.call(drag)
-                }
-
-                // set up for zooming
-                if (zoomEnabled) {
-                    const zoom = d3.zoom<SVGSVGElement, Datum>()
-                        .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                        .scaleExtent([0, 10])
-                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", (event: any) => {
-                                onZoom(
-                                    event.transform,
-                                    event.sourceEvent.offsetX - margin.left,
-                                    plotDimensions,
-                                    timeRanges,
-                                )
-                                updatePlotRef.current(timeRanges, mainGElem)
-                            }
-                        )
-
-                    svg.call(zoom)
-                }
-
-                // enter, update, delete the raster data
+                // enter, update, delete the bar data
                 dataRef.current.forEach(series => {
                     const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
 
                     // grab the series styles, or the defaults if none exist
                     const {color, lineWidth, margin: spikeLineMargin = barMargin} = seriesStyles.get(series.name) || {
-                        ...defaultLineStyle(),
-                        highlightColor: defaultLineStyle().color
+                        ...defaultCurrentValueStyle(),
+                        highlightColor: defaultCurrentValueStyle().color
                     }
 
                     // only show the data for which the regex filter matches
                     const plotData = (series.name.match(seriesFilter)) ? series.data : []
 
-                    const seriesContainer = svg
-                        .select<SVGGElement>(`#${series.name}-${chartId}-raster`)
-                        .selectAll<SVGLineElement, PixelDatum>('line')
-                        .data(plotData as PixelDatum[])
-
-                    //
-                    // enter new elements
-                    const {xUpper, xLower} = xCoordsFn(xAxis.categorySize, lineWidth, spikeLineMargin)
+                    // grab the functions for determining the lower and upper bounds of the category
+                    const {lower, upper} = yCoordinateBoundsFn(xAxis.categorySize, lineWidth, spikeLineMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
                     // enter
-                    seriesContainer
-                        .enter()
-                        .append<SVGLineElement>('line')
-                        .attr('x1', datum => datum.x)
-                        .attr('x2', datum => datum.x)
-                        .attr('y1', _ => xUpper(x))
-                        .attr('y2', _ => xLower(x))
-                        .attr('stroke', color)
-                        .attr('stroke-width', lineWidth)
-                        .attr('class', 'spikes-lines')
+                    svg
+                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                        .selectAll<SVGLineElement, PixelDatum>('line')
+                        .data(plotData.slice(-1) as PixelDatum[])
+                        .join(
+                            enter => enter
+                                .append<SVGLineElement>('line')
+                                .attr('x1', _ => lower(x))
+                                .attr('x2', _ => upper(x))
+                                .attr('y1', datum => yAxis.scale(datum.value))
+                                .attr('y2', datum => yAxis.scale(datum.value))
+                                .attr('stroke', color)
+                                .attr('stroke-width', lineWidth)
+                                .attr('class', 'stream-charts-bar-lines')
+
+                                // .append<SVGRectElement>('rect')
+                                // .attr('x')
+                            ,
+                            update => update
+                                .attr('x1', _ => lower(x))
+                                .attr('x2', _ => upper(x))
+                                .attr('y1', datum => yAxis.scale(datum.value))
+                                .attr('y2', datum => yAxis.scale(datum.value))
+                                .attr('stroke', color),
+                            exit => exit.remove()
+                        )
                         .on(
                             "mouseover",
                             (event, datumArray) =>
@@ -391,38 +383,17 @@ export function BarPlot(props: Props): null {
                                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
                             )
                         )
-                        .each(datum => datum.y = yAxis.scale(datum.time))
-
-                    // update
-                    seriesContainer
-                        .each(datum => datum.x = yAxis.scale(datum.time))
-                        .attr('x1', _ => xLower(x))
-                        .attr('x2', _ => xUpper(x))
-                        .attr('y1', datum => datum.y)
-                        .attr('y2', datum => datum.y)
-                        .attr('stroke', color)
-
-                    // exit old elements
-                    seriesContainer.exit().remove()
                 })
             }
         },
-        [
-            axisAssignments, chartId, container, margin,
-            mouseLeaveHandlerFor, mouseOverHandlerFor, onPan, onZoom,
-            panEnabled,
-            plotDimensions,
-            seriesFilter, seriesStyles,
-            xAxesState.axisFor, yAxesState.axisFor,
-            zoomEnabled, zoomKeyModifiersRequired,
-            barMargin
-        ]
+        [axisAssignments, chartId, container, margin, mouseLeaveHandlerFor, mouseOverHandlerFor, seriesFilter, seriesStyles, xAxesState.axisFor, yAxesState.axisFor, barMargin]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef<(r: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
+    // const updatePlotRef = useRef<(r: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
+    const updatePlotRef = useRef<(g: GSelection) => void>(noop)
     useEffect(
         () => {
             if (mainG !== null && container !== null) {
@@ -437,7 +408,7 @@ export function BarPlot(props: Props): null {
                         .enter()
                         .append('g')
                         .attr('class', 'spikes-series')
-                        .attr('id', series => `${series.name}-${chartId}-raster`)
+                        .attr('id', series => `${series.name}-${chartId}-bar`)
                         .attr('transform', `translate(${margin.left}, ${margin.top})`)
 
                 } else {
@@ -451,15 +422,15 @@ export function BarPlot(props: Props): null {
         [chartId, container, mainG, margin, plotDimensions, updatePlot]
     )
 
-    // grab a reference to the function used to update the time ranges and update that reference
-    // if the function changes (solve for stale closures)
-    const onUpdateTimeRef = useRef(updateAxesBounds)
-    useEffect(
-        () => {
-            onUpdateTimeRef.current = updateAxesBounds
-        },
-        [updateAxesBounds]
-    )
+    // // grab a reference to the function used to update the time ranges and update that reference
+    // // if the function changes (solve for stale closures)
+    // const onUpdateTimeRef = useRef(updateAxesBounds)
+    // useEffect(
+    //     () => {
+    //         onUpdateTimeRef.current = updateAxesBounds
+    //     },
+    //     [updateAxesBounds]
+    // )
 
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
@@ -515,7 +486,8 @@ export function BarPlot(props: Props): null {
                             }
                         })
                 }
-                updatePlot(timeRangesRef.current, mainG)
+                updatePlot(mainG)
+                // updatePlot(timeRangesRef.current, mainG)
             }
         },
         [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
@@ -542,6 +514,30 @@ export function BarPlot(props: Props): null {
     return null
 }
 
+/*
+    Helper functions and types
+ */
+
+function defaultCurrentValueStyle(): SeriesLineStyle {
+    return {...defaultLineStyle(), lineWidth: 3, highlightWidth: 5}
+}
+
+export enum BarPlotOrientation {
+    VERTICAL = 0,
+    HORIZONTAL = 1,
+}
+
+/**
+ * Functions that return the bounds of the category. The {@link lower} function
+ * returns the lower bound of the category within which the value falls. The
+ * {@link upper} function returns the upper bound of the category within which the
+ * value falls
+ */
+type CoordinateBounds = {
+    lower: (value: number) => number
+    upper: (value: number) => number,
+}
+
 /**
  * Attempts to locate the x- and y-axes for the specified series. If no axis is found for the
  * series name, then uses the default returned by the useChart() hook.
@@ -564,14 +560,52 @@ function axesFor(
     const xAxis = xAxisFor(axes?.xAxis || "")
     const xAxisCategory = xAxis as CategoryAxis
     if (xAxis && !xAxisCategory) {
-        throw Error("Raster plot requires that x-axis be of type CategoryAxis")
+        throw Error("Bar plot requires that x-axis be of type CategoryAxis")
     }
     const yAxis = yAxisFor(axes?.yAxis || "")
     const yAxisContinuous = yAxis as ContinuousNumericAxis
     if (yAxis && !yAxisContinuous) {
-        throw Error("Raster plot requires that y-axis be of type ContinuousNumericAxis")
+        throw Error("Barbar plot requires that y-axis be of type ContinuousNumericAxis")
     }
     return [xAxisCategory, yAxisContinuous]
+}
+
+/**
+ * Calculates the upper and lower coordinate for the category
+ * @param categorySize The size of the category (i.e. plot_height / num_series)
+ * @param lineWidth The width of the series line
+ * @param margin The margin applied to the top and bottom of the spike line (vertical spacing)
+ * @return An object with two functions, that when handed a y-coordinate, return the location
+ * for the start (yUpper) or end (yLower) of the spikes line.
+ */
+function xCoordinateBoundsFn(categorySize: number, lineWidth: number, margin: number): CoordinateBounds {
+    if (categorySize <= margin) return {
+        upper: value => value,
+        lower: value => value + lineWidth
+    }
+    return {
+        upper: value => value + margin,
+        lower: value => value + categorySize - margin
+    }
+}
+
+/**
+ * Calculates the upper and lower coordinate for the category
+ * @param categorySize The size of the category (i.e. plot_height / num_series)
+ * @param lineWidth The width of the series line
+ * @param margin The margin applied to the top and bottom of the spike line (vertical spacing)
+ * @return An object with two functions, that when handed a y-coordinate, return the location
+ * for the start (yUpper) or end (yLower) of the spikes line.
+ */
+function yCoordinateBoundsFn(categorySize: number, lineWidth: number, margin: number): CoordinateBounds {
+    if (categorySize <= margin) return {
+        upper: value => value + lineWidth,
+        lower: value => value
+    }
+    return {
+        upper: value => value + categorySize - margin,
+        lower: value => value + margin
+    }
 }
 
 /**
@@ -601,7 +635,7 @@ function handleMouseOverBar(
     const [x, y] = d3.pointer(event, container)
     const value = Math.round(yAxis.scale.invert(y - margin.top))
 
-    const {highlightColor, highlightWidth} = barStyles.get(categoryName) || defaultLineStyle()
+    const {highlightColor, highlightWidth} = barStyles.get(categoryName) || defaultCurrentValueStyle()
 
     // Use d3 to select element, change color and size
     d3.select<SVGPathElement, Datum>(event.currentTarget)
@@ -630,7 +664,7 @@ function handleMouseLeaveSeries(
     seriesStyles: Map<string, SeriesLineStyle>,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
+    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultCurrentValueStyle()
     d3.select<SVGPathElement, Datum>(segment)
         .attr('stroke', color)
         .attr('stroke-width', lineWidth)

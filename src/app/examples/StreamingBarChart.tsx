@@ -303,7 +303,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
-                    windowingTime={150}
+                    windowingTime={25}
                     // onSubscribe={subscription => console.log("subscribed raster")}
                 >
                     <OrdinalAxis
@@ -368,7 +368,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
-                        withCadenceOf={50}
+                        // withCadenceOf={50}
                     />
                 </Chart>
             </GridItem>
