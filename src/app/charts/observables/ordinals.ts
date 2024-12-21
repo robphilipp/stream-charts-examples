@@ -11,6 +11,54 @@ import {Datum} from "../series/timeSeries";
 import {copyOrdinalDatum, nonEmptyOrdinalDatum, OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
 import {ChartData, copyChartData, defaultChartData} from "./ChartData";
 
+export interface OrdinalChartData extends ChartData {
+    stats: OrdinalStats
+    /**
+     * Map holding the name of the series (the time-series identifier) and the associated
+     * data points for that time-series (`map(series_name -> array(datum))`)
+     */
+    newPoints: Map<string, Array<OrdinalDatum>>
+}
+
+export interface OrdinalStats {
+    /**
+     * The min values for (time, value) for the data in the newPoints map
+     */
+    minDatum: OrdinalDatumExtremum
+
+    /**
+     * The max values for (time, iterate n, and iterate n+1) for the data in the newPoints map
+     */
+    maxDatum: OrdinalDatumExtremum
+
+    valueStatsForSeries: Map<string, OrdinalValueStats>
+
+    // forSeries: (seriesName: string) => OrdinalValueStats
+    // /**
+    //  * Holds the association of the series name to the ordinal-datum with current min value for that category
+    //  */
+    // minValueInCategory: Map<string, OrdinalDatum>
+    //
+    // /**
+    //  * Holds the association of the series name to the ordinal-datum with current max value for that category
+    //  */
+    // maxValueInCategory: Map<string, OrdinalDatum>
+    //
+    // countInCategory: Map<string, number>
+    // sumInCategory: Map<string, number>
+    // sumSquaredInCategory: Map<string, number>
+    // meanInCategory: Map<string, number>
+}
+
+export type OrdinalValueStats = {
+    min: OrdinalDatum
+    max: OrdinalDatum
+    count: number
+    sum: number
+    sumSquared: number
+    mean: number
+}
+
 export type OrdinalDatumExtremum = {
     // holds the ordinal datum with the minimum or maximum time
     time: OrdinalDatum
@@ -38,49 +86,42 @@ function copyOrdinalDatumExtremum(datum: OrdinalDatumExtremum): OrdinalDatumExtr
     }
 }
 
-export interface OrdinalChartData extends ChartData {
-    /**
-     * The min values for (time, value) for the data in the newPoints map
-     */
-    minDatum: OrdinalDatumExtremum
+export const defaultOrdinalStats = (): OrdinalStats => ({
+    minDatum: initialMinOrdinalDatum(),
+    maxDatum: initialMaxOrdinalDatum(),
+    valueStatsForSeries: new Map<string, OrdinalValueStats>()
+})
 
-    /**
-     * The max values for (time, iterate n, and iterate n+1) for the data in the newPoints map
-     */
-    maxDatum: OrdinalDatumExtremum
+const defaultOrdinalValueStats = (): OrdinalValueStats => ({
+    min: initialMinValueDatum(),
+    max: initialMaxValueDatum(),
+    count: 0,
+    sum: 0,
+    mean: NaN,
+    sumSquared: NaN,
+})
 
-    /**
-     * Holds the association of the series name to the ordinal-datum with current min value for that category
-     */
-    minValueInCategory: Map<string, OrdinalDatum>
+const copyOrdinalValueStats = (data: OrdinalValueStats) => ({...data})
 
-    /**
-     * Holds the association of the series name to the ordinal-datum with current max value for that category
-     */
-    maxValueInCategory: Map<string, OrdinalDatum>
-
-    countInCategory: Map<string, number>
-    sumInCategory: Map<string, number>
-    sumSquaredInCategory: Map<string, number>
-    meanInCategory: Map<string, number>
-
-    /**
-     * Map holding the name of the series (the time-series identifier) and the associated
-     * data points for that time-series (`map(series_name -> array(datum))`)
-     */
-    newPoints: Map<string, Array<OrdinalDatum>>
-}
+export const copyOrdinalStats = (data: OrdinalStats): OrdinalStats => ({
+    minDatum: copyOrdinalDatumExtremum(data.minDatum),
+    maxDatum: copyOrdinalDatumExtremum(data.maxDatum),
+    valueStatsForSeries: new Map<string, OrdinalValueStats>(Array.from(data.valueStatsForSeries.entries())
+        .map(([seriesName, valueStats]) => [seriesName, copyOrdinalValueStats(valueStats)])
+    ),
+})
 
 const emptyOrdinalData = (): OrdinalChartData => ({
     ...defaultChartData(),
-    minDatum: initialMinOrdinalDatum(),
-    maxDatum: initialMaxOrdinalDatum(),
-    minValueInCategory: new Map<string, OrdinalDatum>(),
-    maxValueInCategory: new Map<string, OrdinalDatum>(),
-    countInCategory: new Map<string, number>(),
-    sumInCategory: new Map<string, number>(),
-    sumSquaredInCategory: new Map<string, number>(),
-    meanInCategory: new Map<string, number>(),
+    stats: defaultOrdinalStats(),
+    // minDatum: initialMinOrdinalDatum(),
+    // maxDatum: initialMaxOrdinalDatum(),
+    // minValueInCategory: new Map<string, OrdinalDatum>(),
+    // maxValueInCategory: new Map<string, OrdinalDatum>(),
+    // countInCategory: new Map<string, number>(),
+    // sumInCategory: new Map<string, number>(),
+    // sumSquaredInCategory: new Map<string, number>(),
+    // meanInCategory: new Map<string, number>(),
     newPoints: new Map<string, Array<OrdinalDatum>>()
 })
 
@@ -90,14 +131,15 @@ const emptyOrdinalData = (): OrdinalChartData => ({
  */
 export const copyOrdinalDataFrom = (data: OrdinalChartData): OrdinalChartData => ({
     ...copyChartData(data),
-    minDatum: copyOrdinalDatumExtremum(data.minDatum),
-    maxDatum: copyOrdinalDatumExtremum(data.maxDatum),
-    minValueInCategory: new Map(Array.from(data.minValueInCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatum(extremum)])),
-    maxValueInCategory: new Map(Array.from(data.maxValueInCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatum(extremum)])),
-    countInCategory: new Map(data.countInCategory),
-    sumInCategory: new Map(data.sumInCategory),
-    sumSquaredInCategory: new Map(data.sumSquaredInCategory),
-    meanInCategory: new Map(data.meanInCategory),
+    stats: copyOrdinalStats(data.stats),
+    // minDatum: copyOrdinalDatumExtremum(data.minDatum),
+    // maxDatum: copyOrdinalDatumExtremum(data.maxDatum),
+    // minValueInCategory: new Map(Array.from(data.minValueInCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatum(extremum)])),
+    // maxValueInCategory: new Map(Array.from(data.maxValueInCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatum(extremum)])),
+    // countInCategory: new Map(data.countInCategory),
+    // sumInCategory: new Map(data.sumInCategory),
+    // sumSquaredInCategory: new Map(data.sumSquaredInCategory),
+    // meanInCategory: new Map(data.meanInCategory),
     newPoints: new Map<string, Array<OrdinalDatum>>(Array.from(data.newPoints.entries()).map(([name, points]) => [name, points.slice()])),
 })
 
@@ -142,41 +184,71 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                         // all the data series
                         series.forEach(({time, value}: Datum, ) => {
                             // calculate the min and max times over all series
-                            if (time < accum.minDatum.time.time) {
-                                accum.minDatum.time = ordinalDatumOf(time, name, value)
-                            } else if (time > accum.maxDatum.time.time) {
-                                accum.maxDatum.time = ordinalDatumOf(time, name, value)
+                            if (time < accum.stats.minDatum.time.time) {
+                                accum.stats.minDatum.time = ordinalDatumOf(time, name, value)
+                            } else if (time > accum.stats.maxDatum.time.time) {
+                                accum.stats.maxDatum.time = ordinalDatumOf(time, name, value)
                             }
                             // calculate the min and max values over all series
-                            if (value < accum.minDatum.value.value) {
-                                accum.minDatum.value = ordinalDatumOf(time, name, value)
-                            } else if (value > accum.maxDatum.value.value) {
-                                accum.maxDatum.value = ordinalDatumOf(time, name, value)
+                            if (value < accum.stats.minDatum.value.value) {
+                                accum.stats.minDatum.value = ordinalDatumOf(time, name, value)
+                            } else if (value > accum.stats.maxDatum.value.value) {
+                                accum.stats.maxDatum.value = ordinalDatumOf(time, name, value)
                             }
 
                             // calculate the min, max of the time and value for each series
-                            let minCategory: OrdinalDatum = accum.minValueInCategory.get(name) || initialMinValueDatum()
-                            if (value < minCategory.value) {
-                                minCategory = {...minCategory, value}
-                                accum.minValueInCategory.set(name, minCategory)
+                            let valueStats: OrdinalValueStats = accum.stats.valueStatsForSeries.get(name) || defaultOrdinalValueStats()
+                            // if (value < valueStats.min.value) {
+                            //     valueStats = {...valueStats, min: {...valueStats.min, value, time}}
+                            // }
+                            // if (value > valueStats.max.value) {
+                            //     valueStats = {...valueStats, max: {...valueStats.max, value, time}}
+                            // }
+
+                            const minValue = (value < valueStats.min.value) ?
+                                ordinalDatumOf(time, name, value) :
+                                copyOrdinalDatum(valueStats.min)
+                            const maxValue = (value > valueStats.max.value) ?
+                                ordinalDatumOf(time, name, value) :
+                                copyOrdinalDatum(valueStats.max)
+                            const count = valueStats.count + 1
+                            const sum = valueStats.sum + value
+                            valueStats = {
+                                // ...valueStats,
+                                // min: {...valueStats.min, value: minValue},
+                                // max: {...valueStats.max, value: maxValue},
+                                min: minValue,
+                                max: maxValue,
+                                count,
+                                sum,
+                                sumSquared: isNaN(valueStats.sumSquared) ? value * value : valueStats.sumSquared + value * value,
+                                mean: value / count
                             }
 
-                            let maxCategory: OrdinalDatum = accum.maxValueInCategory.get(name) || initialMaxValueDatum()
-                            if (value > maxCategory.value) {
-                                maxCategory = {...maxCategory, value}
-                                accum.maxValueInCategory.set(name, maxCategory)
-                            }
+                            accum.stats.valueStatsForSeries.set(name, valueStats)
 
-                            // update the statistics for the values in the category
-                            const count = (accum.countInCategory.get(name) || 0) + 1
-                            accum.countInCategory.set(name, count)
-
-                            const sum = (accum.sumInCategory.get(name) || 0) + value
-                            accum.sumInCategory.set(name, sum)
-                            accum.sumSquaredInCategory.set(name, (accum.sumSquaredInCategory.get(name) || 0) + value * value)
-
-                            const mean = sum / count
-                            accum.meanInCategory.set(name, mean)
+                            // // let minCategory: OrdinalDatum = accum.stats.valueStats.get(name)?.min || initialMinValueDatum()
+                            // if (value < minCategory.value) {
+                            //     minCategory = {...minCategory, value}
+                            //     accum.stats.valueStatsForSeries.set(name, minCategory)
+                            // }
+                            //
+                            // let maxCategory: OrdinalDatum = accum.stats.valueStatsForSeries.get(name)?.min || initialMaxValueDatum()
+                            // if (value > maxCategory.value) {
+                            //     maxCategory = {...maxCategory, value}
+                            //     accum.maxValueInCategory.set(name, maxCategory)
+                            // }
+                            //
+                            // // update the statistics for the values in the category
+                            // const count = (accum.countInCategory.get(name) || 0) + 1
+                            // accum.countInCategory.set(name, count)
+                            //
+                            // const sum = (accum.sumInCategory.get(name) || 0) + value
+                            // accum.sumInCategory.set(name, sum)
+                            // accum.sumSquaredInCategory.set(name, (accum.sumSquaredInCategory.get(name) || 0) + value * value)
+                            //
+                            // const mean = sum / count
+                            // accum.meanInCategory.set(name, mean)
                         })
 
                         // convert the new points to ordinal datum
@@ -186,7 +258,7 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
             }, initialAccumulate()),
 
             // remove new points from the map that are empty
-            map(accum => removeEmptyNewPoints(accum)),
+            // map(accum => removeEmptyNewPoints(accum)),
             map(accum => accum.accumulated === undefined ? emptyOrdinalData() : accum.accumulated)
         )
 }

@@ -1,5 +1,5 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {ContinuousNumericAxis, continuousAxisRanges} from "../axes/axes";
+import {continuousAxisRanges, ContinuousNumericAxis} from "../axes/axes";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
@@ -9,8 +9,16 @@ import {AxesState} from "../hooks/AxesState";
 import {BaseSeries, emptySeries} from "../series/baseSeries";
 import {IterateChartData} from "../observables/iterates";
 import {IterateDatum, IterateSeries} from "../series/iterateSeries";
-import {OrdinalChartData} from "../observables/ordinals";
+import {
+    copyOrdinalDataFrom,
+    copyOrdinalStats,
+    defaultOrdinalStats,
+    OrdinalChartData,
+    OrdinalStats
+} from "../observables/ordinals";
 import {ChartData} from "../observables/ChartData";
+import {OrdinalDatum} from "../series/ordinalSeries";
+import {MutableRefObject} from "react";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -346,6 +354,10 @@ export function subscriptionIteratesFor(
     return subscription
 }
 
+export type OrdinalStatsRef = {
+    stats: OrdinalStats
+}
+
 /**
  * Creates a subscription to the series observable with the data stream. The common code is
  * shared by the plots.
@@ -373,7 +385,9 @@ export function subscriptionOrdinalXFor(
     onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
-    seriesMap: Map<string, TimeSeries>,
+    seriesMap: Map<string, BaseSeries<OrdinalDatum>>,
+    ordinalStatsRef: MutableRefObject<OrdinalStats>,
+    // seriesStats: Map<string, OrdinalStats>,
     setCurrentTime: (axisId: string, end: number) => void,
     timeWindowBehavior: TimeWindowBehavior = TimeWindowBehavior.SCROLL,
     initialTimes: Map<string, number> = new Map<string, number>(),
@@ -381,7 +395,7 @@ export function subscriptionOrdinalXFor(
     const subscription = seriesObservable
         .pipe(bufferTime(windowingTime))
         .subscribe(dataList => {
-            dataList.forEach(data => {
+            dataList.forEach((data: OrdinalChartData) => {
                 // grab the axis ranges for the y-axes
                 const yAxisRanges = continuousAxisRanges(yAxesState.axes as Map<string, ContinuousNumericAxis>);
 
@@ -391,6 +405,10 @@ export function subscriptionOrdinalXFor(
 
                 // get the series associated with each y-axis (Map<axis_id, [series_names]>)
                 const axesSeries = associatedSeriesForYAxes(data, axisAssignments, yAxesState)
+
+                // todo need to get all the stats from the OrdinalChartData into plot; prob best to add another
+                //   reference that is updated (similar to the "seriesMap" argument, which is a reference to a
+                //   map, or, maybe a callback to update the stats
 
                 // add each new point to it's corresponding series, the new points
                 // is a map(series_name -> new_point[])
@@ -404,13 +422,22 @@ export function subscriptionOrdinalXFor(
                     // add the new data to the series
                     series.data.push(...newData)
 
+                    // // grab the stats
+                    // const stats = seriesStats.get(name) || defaultOrdinalStats()
+                    // const updatedStats: OrdinalStats = {
+                    //     ...stats,
+                    //     ...data.stats
+                    // }
+                    // seriesStats.set(name, updatedStats)
+
                     // calculate the current value for the series' assigned y-axis (which may end up
                     // just being the default) based on the max time for the series, and the overall
                     // max time
                     const axisId = axisAssignments.get(name)?.yAxis || yAxesState.axisDefaultId();
                     const currentAxisTime = axesSeries.get(axisId)
                         ?.reduce(
-                            (tMax, seriesName) => Math.max(data.maxDatum.time.time, tMax),
+                            (tMax, _) => Math.max(data.stats.maxDatum.time.time, tMax),
+                            // (tMax, _) => Math.max(data.maxDatum.time.time, tMax),
                             -Infinity
                         )
 
@@ -439,6 +466,17 @@ export function subscriptionOrdinalXFor(
                         }
                     }
                 })
+
+                // grab the stats
+                // seriesStats = copyOrdinalDataFrom(data.stats)
+                ordinalStatsRef.current = copyOrdinalStats(data.stats)
+                // const stats = seriesStats.get(name) || defaultOrdinalStats()
+                // const updatedStats: OrdinalStats = {
+                //     ...stats,
+                //     ...data.stats
+                // }
+                // seriesStats.set(name, updatedStats)
+
 
                 // update the data
                 updateTimingAndPlot(yAxisRanges)  // callback

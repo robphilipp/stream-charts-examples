@@ -17,12 +17,13 @@ import {
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
 import {Margin} from "../styling/margins";
-import {subscriptionOrdinalXFor} from "../subscriptions/subscriptions";
+import {OrdinalStatsRef, subscriptionOrdinalXFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {OrdinalChartData} from "../observables/ordinals";
+import {defaultOrdinalStats, OrdinalChartData, OrdinalStats} from "../observables/ordinals";
+import {BaseSeries} from "../series/baseSeries";
+import {emptyOrdinalDatum, OrdinalDatum} from "../series/ordinalSeries";
 
 interface Props {
     /**
@@ -137,8 +138,10 @@ export function BarPlot(props: Props): null {
     // changes as well. The dataRef is used for performance, so that in the updatePlot function we don't
     // need to create a temporary array to holds the series data, rather, we can just use the one held in
     // the dataRef.
-    const dataRef = useRef<Array<TimeSeries>>(initialData.slice() as Array<TimeSeries>)
-    const seriesRef = useRef<Map<string, TimeSeries>>(new Map(initialData.map(series => [series.name, series as TimeSeries])))
+    const dataRef = useRef<Array<BaseSeries<OrdinalDatum>>>(initialData.slice() as Array<BaseSeries<OrdinalDatum>>)
+    const seriesRef = useRef<Map<string, BaseSeries<OrdinalDatum>>>(new Map(initialData.map(series => [series.name, series as BaseSeries<OrdinalDatum>])))
+    // const statsRef = useRef<Map<string, OrdinalStats>>(new Map(initialData.map(series => [series.name, defaultOrdinalStats()])))
+    const statsRef = useRef<OrdinalStats>(defaultOrdinalStats())
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
@@ -197,8 +200,8 @@ export function BarPlot(props: Props): null {
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
         () => {
-            dataRef.current = initialData.slice() as Array<TimeSeries>
-            seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
+            dataRef.current = initialData.slice() as Array<BaseSeries<OrdinalDatum>>
+            seriesRef.current = new Map(initialData.map(series => [series.name, series as BaseSeries<OrdinalDatum>]))
             currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot()
             // updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
@@ -325,8 +328,16 @@ export function BarPlot(props: Props): null {
                         highlightColor: defaultCurrentValueStyle().color
                     }
 
+                    type PlotData = {
+                        data: OrdinalDatum,
+                        stats: OrdinalStats,
+                    }
+
                     // only show the data for which the regex filter matches
-                    const plotData = (series.name.match(seriesFilter)) ? series.data : []
+                    const plotData = (series.name.match(seriesFilter)) ? [series.data[series.data.length-1]] : []
+                    // const plotData: Array<PlotData> = (series.name.match(seriesFilter)) ?
+                    //     [{data: series.data[series.data.length-1], stats: statsRef.current.get(series.name) || defaultOrdinalStats()}] :
+                    //     []
 
                     // grab the functions for determining the lower and upper bounds of the category
                     const {lower, upper} = yCoordinateBoundsFn(xAxis.categorySize, lineWidth, spikeLineMargin)
@@ -336,8 +347,8 @@ export function BarPlot(props: Props): null {
                     // enter
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGLineElement, PixelDatum>('line')
-                        .data(plotData.slice(-1) as PixelDatum[])
+                        .selectAll<SVGLineElement, PlotData>('line')
+                        .data(plotData)
                         .join(
                             enter => enter
                                 .append<SVGLineElement>('line')
@@ -347,11 +358,7 @@ export function BarPlot(props: Props): null {
                                 .attr('y2', datum => yAxis.scale(datum.value))
                                 .attr('stroke', color)
                                 .attr('stroke-width', lineWidth)
-                                .attr('class', 'stream-charts-bar-lines')
-
-                                // .append<SVGRectElement>('rect')
-                                // .attr('x')
-                            ,
+                                .attr('class', 'stream-charts-bar-lines'),
                             update => update
                                 .attr('x1', _ => lower(x))
                                 .attr('x2', _ => upper(x))
@@ -383,6 +390,45 @@ export function BarPlot(props: Props): null {
                                 seriesStyles,
                                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
                             )
+                        )
+
+                    const midpoint = lower(x) + 3 * (upper(x) - lower(x)) / 8
+                    svg
+                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                        .selectAll<SVGRectElement, PlotData>('rect')
+                        .data(plotData)
+                        .join(
+                            enter => enter
+                                .append<SVGRectElement>('rect')
+                                .attr('x', _ => midpoint)
+                                .attr('y', datum => yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0))
+                                .attr('width', _ => (upper(x) - lower(x)) / 4)
+                                .attr('height', datum => {
+                                    const stats = statsRef.current.valueStatsForSeries.get(series.name)
+                                    if (stats === undefined) {
+                                        return 0
+                                    }
+                                    return Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
+                                })
+                                .attr('stroke', color)
+                                .attr('opacity', 0.6)
+                                .attr('fill', color)
+                                .attr('fill-opacity', 0.4)
+                                .attr('stroke-width', 1)
+                                // .attr('stroke-width', lineWidth)
+                                .attr('class', 'stream-charts-bar-min-max'),
+                            update => update
+                                .attr('x', _ => midpoint)
+                                .attr('y', datum => yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0))
+                                .attr('width', _ => (upper(x) - lower(x)) / 4)
+                                .attr('height', datum => {
+                                    const stats = statsRef.current.valueStatsForSeries.get(series.name)
+                                    if (stats === undefined) {
+                                        return 0
+                                    }
+                                    return Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
+                                }),
+                            exit => exit.remove()
                         )
                 })
             }
@@ -449,6 +495,7 @@ export function BarPlot(props: Props): null {
                 // as new data flows into the subscription, the subscription
                 // updates this map directly (for performance)
                 seriesRef.current,
+                statsRef,
                 (axisId, end) => currentTimeRef.current.set(axisId, end)
             )
         },

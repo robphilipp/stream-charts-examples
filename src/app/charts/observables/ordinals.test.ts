@@ -40,8 +40,8 @@ describe('when generating ordinal series', () => {
             })
 
             // the min time should be 1 and the max time should be (3 + timeIndex + updatePeriod)
-            expect(result.minDatum.time.time).toBe(0)
-            expect(result.maxDatum.time.time).toBe(2 + timeIndex * UPDATE_PERIOD)
+            expect(result.stats.minDatum.time.time).toBe(0)
+            expect(result.stats.maxDatum.time.time).toBe(2 + timeIndex * UPDATE_PERIOD)
         })
 
     })
@@ -66,6 +66,7 @@ function sineData(
         seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
     )
     return {
+        seriesNames: new Set(series),
         maxTime: sequenceTime,
         maxTimes,
         newPoints: new Map(series.map((name, index) => {
@@ -88,6 +89,7 @@ function initialChartData(seriesList: Array<TimeSeries>, currentTime: number = 0
         -Infinity
     )
     return {
+        seriesNames: new Set(seriesList.map(series => series.name)),
         maxTime,
         maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [

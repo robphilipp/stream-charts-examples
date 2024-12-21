@@ -384,3 +384,59 @@ export function initialSineFnData(
         return seriesFrom<Datum>(name, data)
     })
 }
+
+/**
+ * Creates random set of time-series data, essentially creating a random walk for each series
+ * @param series The number of time-series for which to generate data (i.e. one for each neuron)
+ * @param [updatePeriod=25] The time-interval between the generation of subsequent data points
+ * @param [min=-1] The minimum allowed value
+ * @param [max=1] The maximum allowed value
+ * @return An observable that produces data.
+ */
+export function sineDataObservable(
+    series: Array<TimeSeries>,
+    updatePeriod: number = 25,
+    min: number = -1,
+    max: number = 1
+): Observable<TimeSeriesChartData> {
+    const seriesNames = series.map(series => series.name)
+    const initialData = initialChartData(series)
+    return interval(updatePeriod).pipe(
+        // convert the number sequence to a time
+        map(sequence => (sequence + 1) * updatePeriod),
+
+        // create a new (time, value) for each series
+        map(time => sinData(time, seriesNames, initialData.maxTimes, updatePeriod)),
+        // map(time => randomWeightData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
+
+        // add the random value to the previous random value in succession to create a random walk for each series
+        scan((acc, value) => accumulateChartData(acc, value, min, max), initialData)
+    )
+}
+
+function sinData(
+    sequenceTime: number,
+    series: Array<string>,
+    seriesMaxTimes: Map<string, number>,
+    updatePeriod: number,
+): TimeSeriesChartData {
+    const maxTimes = new Map(Array.from(
+        seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
+    )
+    return {
+        seriesNames: new Set(series),
+        maxTime: sequenceTime,
+        maxTimes,
+        newPoints: new Map(series.map((name, index) => {
+            // const maxTime = seriesMaxTimes.get(name) || 0
+            return [
+                name,
+                [{
+                    time: sequenceTime * updatePeriod,
+                    value: Math.sin(index * Math.PI / series.length + sequenceTime * 25)
+                }]
+            ]
+        }))
+    };
+
+}

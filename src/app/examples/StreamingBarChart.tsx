@@ -1,9 +1,7 @@
-import React from 'react';
-import {JSX} from "react";
-import {useRef, useState} from 'react';
+import React, {JSX, useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {randomSpikeDataObservable} from "./randomData";
+import {sineDataObservable} from "./randomData";
 import {
     Grid,
     gridArea,
@@ -19,18 +17,15 @@ import {
 import {lightTheme, Theme} from "../ui/Themes";
 
 import {Datum, TimeSeries} from "../charts/series/timeSeries";
-import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
+import {AxisLocation} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
 import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
-import {RasterPlotTooltipContent} from "../charts/tooltips/RasterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
-import {RasterPlot} from "../charts/plots/RasterPlot";
 import {Button} from "../ui/Button";
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {assignAxes} from "../charts/plots/plot";
@@ -109,7 +104,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 25)));
+    const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(sineDataObservable(initialDataRef.current, 250)));
+    // const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 25)));
     // const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
 
@@ -194,7 +190,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         }}
                         onClick={() => {
                             if (!running) {
-                                observableRef.current = ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 50, 0.1))
+                                observableRef.current = ordinalsObservable(sineDataObservable(initialDataRef.current, 250))
+                                // observableRef.current = ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 50, 0.1))
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
                                 intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -325,13 +322,13 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
-                        domain={[-1, 1]}
+                        domain={[-1.1, 1.1]}
                         label="t (ms)"
                     />
                     <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
-                        domain={[-1, 1]}
+                        domain={[-1.1, 1.1]}
                         label="t (ms)"
                     />
                     <Tracker
