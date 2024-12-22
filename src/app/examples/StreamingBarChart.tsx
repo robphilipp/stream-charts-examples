@@ -1,7 +1,7 @@
 import React, {JSX, useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {sineDataObservable} from "./randomData";
+import {barDanceDataObservable} from "./randomData";
 import {
     Grid,
     gridArea,
@@ -20,7 +20,7 @@ import {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation} from '../charts/axes/axes';
+import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
 import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
@@ -84,6 +84,7 @@ export interface SpikesChartData {
     spikes: Array<{ index: number; spike: Datum }>
 }
 
+const UPDATE_PERIOD = 75;
 /**
  * An example wrapper to a bar chart, that accepts an rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
@@ -104,7 +105,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(sineDataObservable(initialDataRef.current, 250)));
+    const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialDataRef.current, UPDATE_PERIOD)));
     // const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 25)));
     // const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
@@ -190,7 +191,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         }}
                         onClick={() => {
                             if (!running) {
-                                observableRef.current = ordinalsObservable(sineDataObservable(initialDataRef.current, 250))
+                                observableRef.current = ordinalsObservable(barDanceDataObservable(initialDataRef.current, UPDATE_PERIOD))
                                 // observableRef.current = ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 50, 0.1))
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
@@ -257,46 +258,27 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    // seriesStyles={new Map([
-                    //     ['neuron1', {
-                    //         ...defaultLineStyle,
-                    //         color: 'orange',
-                    //         lineWidth: 2,
-                    //         highlightColor: 'orange'
-                    //     }],
-                    //     ['neuron2', {
-                    //         ...defaultLineStyle,
-                    //         color: 'orange',
-                    //         lineWidth: 2,
-                    //         highlightColor: 'orange'
-                    //     }],
-                    //     ['neuron3', {
-                    //         ...defaultLineStyle,
-                    //         color: 'orange',
-                    //         lineWidth: 2,
-                    //         highlightColor: 'orange'
-                    //     }],
-                    //     ['neuron4', {
-                    //         ...defaultLineStyle,
-                    //         color: 'orange',
-                    //         lineWidth: 2,
-                    //         highlightColor: 'orange'
-                    //     }],
-                    //     ['neuron5', {
-                    //         ...defaultLineStyle,
-                    //         color: 'orange',
-                    //         lineWidth: 2,
-                    //         highlightColor: 'orange'
-                    //     }],
-                    //     ['neuron6', {
-                    //         ...defaultLineStyle,
-                    //         color: theme.name === 'light' ? 'blue' : 'gray',
-                    //         lineWidth: 3,
-                    //         highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                    //         highlightWidth: 5
-                    //     }],
-                    //     // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
-                    // ])}
+                    seriesStyles={new Map([
+                        ['neuron1', {
+                            ...defaultLineStyle(),
+                            color: 'orange',
+                            lineWidth: 2,
+                            highlightColor: 'orange'
+                        }],
+                        ['neuron14', {
+                            ...defaultLineStyle,
+                            color: theme.name === 'light' ? 'blue' : 'gray',
+                            lineWidth: 3,
+                            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                            highlightWidth: 5
+                        }],
+                            ['neuron31', {
+                                ...defaultLineStyle(),
+                                color: 'green',
+                                lineWidth: 2,
+                                highlightColor: 'green'
+                            }],
+                    ])}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
@@ -323,13 +305,13 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         domain={[-1.1, 1.1]}
-                        label="t (ms)"
+                        label="ρ (mV)"
                     />
                     <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
                         domain={[-1.1, 1.1]}
-                        label="t (ms)"
+                        label="ρ (mV)"
                     />
                     <Tracker
                         // todo add horizontal/vertical for track, or both, maybe a mode

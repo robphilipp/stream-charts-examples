@@ -196,7 +196,7 @@ function accumulateIterateData(
     })
     // deep copy of the previous data points, and calculate the next point
     const newPoints = new Map(Array.from(previous.newPoints.entries()).map(([name, data]) => [name, data.slice()]))
-    newPoints.forEach((data, name) => {
+    newPoints.forEach((data, _) => {
         const lastDatum = data[data.length-1]
         const newDatum = iterateFunction(lastDatum.time + updatePeriod, lastDatum.value)
         data.shift()
@@ -386,14 +386,14 @@ export function initialSineFnData(
 }
 
 /**
- * Creates random set of time-series data, essentially creating a random walk for each series
+ * Creates random set of time-series data, designed to make the bar chart dance
  * @param series The number of time-series for which to generate data (i.e. one for each neuron)
  * @param [updatePeriod=25] The time-interval between the generation of subsequent data points
  * @param [min=-1] The minimum allowed value
  * @param [max=1] The maximum allowed value
  * @return An observable that produces data.
  */
-export function sineDataObservable(
+export function barDanceDataObservable(
     series: Array<TimeSeries>,
     updatePeriod: number = 25,
     min: number = -1,
@@ -406,37 +406,86 @@ export function sineDataObservable(
         map(sequence => (sequence + 1) * updatePeriod),
 
         // create a new (time, value) for each series
-        map(time => sinData(time, seriesNames, initialData.maxTimes, updatePeriod)),
-        // map(time => randomWeightData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
+        map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
 
         // add the random value to the previous random value in succession to create a random walk for each series
-        scan((acc, value) => accumulateChartData(acc, value, min, max), initialData)
+        scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
     )
 }
 
-function sinData(
+/**
+ * Adds the accumulated chart data to the current random one
+ * @param accum The accumulated chart data
+ * @param currentData The random chart data
+ * @param min The minimum allowed value
+ * @param max The maximum allowed value
+ * @return The accumulated chart data
+ */
+function accumulateOrdinalChartData(accum: TimeSeriesChartData, currentData: TimeSeriesChartData, min: number, max: number): TimeSeriesChartData {
+    return {
+        seriesNames: new Set(accum.seriesNames),
+        maxTime: currentData.maxTime,
+        maxTimes: currentData.maxTimes,
+        newPoints: mergeOrdinalSeries(accum.newPoints, currentData.newPoints, min, max)
+    }
+}
+
+/**
+ * *Side effect*
+ * Calculates the successive differences in the values to create a random walk for simulating neuron weights.
+ * Updates the specified `accum` parameter.
+ * @param accum The "position" in the random walk
+ * @param incoming The changes in position
+ * @param min The minimum allowed value
+ * @param max The maximum allowed value
+ * @return The merged map holding the new random walk segments
+ */
+function mergeOrdinalSeries(
+    accum: Map<string, Array<Datum>>,
+    incoming: Map<string, Array<Datum>>,
+    min: number,
+    max: number
+): Map<string, Array<Datum>> {
+    incoming.forEach((data, name) => {
+        const newData = data.map((datum, index) => ({
+            time: datum.time,
+            value: index === 0 ? Math.max(min, Math.min(max, datum.value)) : data[index - 1].value + datum.value
+        }))
+        accum.set(name, newData);
+    })
+    return accum;
+}
+
+
+/**
+ * Some complicated function to make the bars dance
+ * @param sequenceTime The current time
+ * @param seriesNames An array holding the names of the series
+ * @param seriesMaxTimes A map holding the maximum time for each series (map(series_name -> max_time))
+ * @return A time-series chart data
+ */
+function barDanceData(
     sequenceTime: number,
-    series: Array<string>,
+    seriesNames: Array<string>,
     seriesMaxTimes: Map<string, number>,
-    updatePeriod: number,
 ): TimeSeriesChartData {
     const maxTimes = new Map(Array.from(
         seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
     )
     return {
-        seriesNames: new Set(series),
+        seriesNames: new Set(seriesNames),
         maxTime: sequenceTime,
         maxTimes,
-        newPoints: new Map(series.map((name, index) => {
-            // const maxTime = seriesMaxTimes.get(name) || 0
+        newPoints: new Map(seriesNames.map((name, index) => {
             return [
                 name,
                 [{
-                    time: sequenceTime * updatePeriod,
-                    value: Math.sin(index * Math.PI / series.length + sequenceTime * 25)
+                    time: sequenceTime,
+                    // value: Math.random() / 1.2 *
+                    value: Math.cos(5 * index * Math.PI / seriesNames.length) *
+                        Math.sin((sequenceTime / 25 + index) * Math.PI / seriesNames.length /2)
                 }]
             ]
         }))
     };
-
 }

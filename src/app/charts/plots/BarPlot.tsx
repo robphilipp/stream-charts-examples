@@ -427,7 +427,14 @@ export function BarPlot(props: Props): null {
                                         return 0
                                     }
                                     return Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
-                                }),
+                                })
+                                .attr('stroke', color)
+                                .attr('opacity', 0.6)
+                                .attr('fill', color)
+                                .attr('fill-opacity', 0.4)
+                                .attr('stroke-width', 1)
+                            // .attr('stroke-width', lineWidth)
+                            ,
                             exit => exit.remove()
                         )
                 })
