@@ -481,9 +481,9 @@ function barDanceData(
                 name,
                 [{
                     time: sequenceTime,
-                    // value: Math.random() / 1.2 *
-                    value: Math.cos(5 * index * Math.PI / seriesNames.length) *
-                        Math.sin((sequenceTime / 25 + index) * Math.PI / seriesNames.length /2)
+                    value: Math.cos((6 * index) * Math.PI / seriesNames.length) * // envelope for index
+                        Math.min(1, (1.2 + Math.sin(sequenceTime * Math.PI / 1500)) / 2) * // time-evolving envelope
+                        Math.sin((sequenceTime / 25 + index) * Math.PI / seriesNames.length / 2) // series values
                 }]
             ]
         }))

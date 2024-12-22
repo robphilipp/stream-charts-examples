@@ -198,12 +198,6 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
 
                             // calculate the min, max of the time and value for each series
                             let valueStats: OrdinalValueStats = accum.stats.valueStatsForSeries.get(name) || defaultOrdinalValueStats()
-                            // if (value < valueStats.min.value) {
-                            //     valueStats = {...valueStats, min: {...valueStats.min, value, time}}
-                            // }
-                            // if (value > valueStats.max.value) {
-                            //     valueStats = {...valueStats, max: {...valueStats.max, value, time}}
-                            // }
 
                             const minValue = (value < valueStats.min.value) ?
                                 ordinalDatumOf(time, name, value) :
@@ -214,9 +208,6 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                             const count = valueStats.count + 1
                             const sum = valueStats.sum + value
                             valueStats = {
-                                // ...valueStats,
-                                // min: {...valueStats.min, value: minValue},
-                                // max: {...valueStats.max, value: maxValue},
                                 min: minValue,
                                 max: maxValue,
                                 count,
@@ -226,29 +217,6 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                             }
 
                             accum.stats.valueStatsForSeries.set(name, valueStats)
-
-                            // // let minCategory: OrdinalDatum = accum.stats.valueStats.get(name)?.min || initialMinValueDatum()
-                            // if (value < minCategory.value) {
-                            //     minCategory = {...minCategory, value}
-                            //     accum.stats.valueStatsForSeries.set(name, minCategory)
-                            // }
-                            //
-                            // let maxCategory: OrdinalDatum = accum.stats.valueStatsForSeries.get(name)?.min || initialMaxValueDatum()
-                            // if (value > maxCategory.value) {
-                            //     maxCategory = {...maxCategory, value}
-                            //     accum.maxValueInCategory.set(name, maxCategory)
-                            // }
-                            //
-                            // // update the statistics for the values in the category
-                            // const count = (accum.countInCategory.get(name) || 0) + 1
-                            // accum.countInCategory.set(name, count)
-                            //
-                            // const sum = (accum.sumInCategory.get(name) || 0) + value
-                            // accum.sumInCategory.set(name, sum)
-                            // accum.sumSquaredInCategory.set(name, (accum.sumSquaredInCategory.get(name) || 0) + value * value)
-                            //
-                            // const mean = sum / count
-                            // accum.meanInCategory.set(name, mean)
                         })
 
                         // convert the new points to ordinal datum
@@ -258,7 +226,7 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
             }, initialAccumulate()),
 
             // remove new points from the map that are empty
-            // map(accum => removeEmptyNewPoints(accum)),
+            map(accum => removeEmptyNewPoints(accum)),
             map(accum => accum.accumulated === undefined ? emptyOrdinalData() : accum.accumulated)
         )
 }
