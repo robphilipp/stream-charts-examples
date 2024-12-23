@@ -213,7 +213,7 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                                 count,
                                 sum,
                                 sumSquared: isNaN(valueStats.sumSquared) ? value * value : valueStats.sumSquared + value * value,
-                                mean: value / count
+                                mean: sum / count
                             }
 
                             accum.stats.valueStatsForSeries.set(name, valueStats)

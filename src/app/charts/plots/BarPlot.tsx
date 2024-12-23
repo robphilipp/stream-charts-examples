@@ -3,7 +3,7 @@ import * as d3 from "d3";
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useRef} from "react";
-import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
+import {Datum, TimeSeries} from "../series/timeSeries";
 import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
 import {GSelection} from "../d3types";
 import {
@@ -17,13 +17,13 @@ import {
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
 import {Margin} from "../styling/margins";
-import {OrdinalStatsRef, subscriptionOrdinalXFor} from "../subscriptions/subscriptions";
+import {subscriptionOrdinalXFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {defaultOrdinalStats, OrdinalChartData, OrdinalStats} from "../observables/ordinals";
 import {BaseSeries} from "../series/baseSeries";
-import {emptyOrdinalDatum, OrdinalDatum} from "../series/ordinalSeries";
+import {OrdinalDatum} from "../series/ordinalSeries";
 
 interface Props {
     /**
@@ -64,6 +64,9 @@ interface Props {
      * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
      */
     barMargin?: number
+    meanLineColor?: string
+    meanLineOpacity?: number
+    meanLineWidth?: number
 }
 
 /**
@@ -129,6 +132,9 @@ export function BarPlot(props: Props): null {
         // panEnabled = false,
         // zoomEnabled = false,
         // zoomKeyModifiersRequired = true,
+        meanLineColor = 'green',
+        meanLineOpacity = 0.5,
+        meanLineWidth = 1,
         barMargin = 2,
     } = props
 
@@ -340,31 +346,35 @@ export function BarPlot(props: Props): null {
                     //     []
 
                     // grab the functions for determining the lower and upper bounds of the category
-                    const {lower, upper} = yCoordinateBoundsFn(xAxis.categorySize, lineWidth, spikeLineMargin)
+                    const {lower, upper} = xAxisCategoryBoundsFn(xAxis.categorySize, lineWidth, spikeLineMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
-                    // enter
+
+                    // value lines
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGLineElement, PlotData>('line')
+                        .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-value-lines')
                         .data(plotData)
                         .join(
                             enter => enter
                                 .append<SVGLineElement>('line')
+                                .attr('class', 'stream-charts-bar-value-lines')
                                 .attr('x1', _ => lower(x))
                                 .attr('x2', _ => upper(x))
                                 .attr('y1', datum => yAxis.scale(datum.value))
                                 .attr('y2', datum => yAxis.scale(datum.value))
                                 .attr('stroke', color)
                                 .attr('stroke-width', lineWidth)
-                                .attr('class', 'stream-charts-bar-lines'),
+                            ,
                             update => update
                                 .attr('x1', _ => lower(x))
                                 .attr('x2', _ => upper(x))
                                 .attr('y1', datum => yAxis.scale(datum.value))
                                 .attr('y2', datum => yAxis.scale(datum.value))
-                                .attr('stroke', color),
+                                .attr('stroke', color)
+                                .attr('stroke-width', lineWidth)
+                            ,
                             exit => exit.remove()
                         )
                         .on(
@@ -392,55 +402,75 @@ export function BarPlot(props: Props): null {
                             )
                         )
 
-                    const midpoint = lower(x) + 3 * (upper(x) - lower(x)) / 8
+                    // mean line
+                    const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGRectElement, PlotData>('rect')
+                        .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-mean-lines')
+                        .data(plotData)
+                        .join(
+                            enter => enter
+                                .append<SVGLineElement>('line')
+                                .attr('class', 'stream-charts-bar-mean-lines')
+                                .attr('x1', _ => lower(x))
+                                .attr('x2', _ => upper(x))
+                                .attr('y1', () => meanLineY)
+                                .attr('y2', () => meanLineY)
+                                .attr('stroke', meanLineColor)
+                                .attr('stroke-opacity', meanLineOpacity)
+                                .attr('stroke-width', meanLineWidth)
+                            ,
+                            update => update
+                                .attr('x1', _ => lower(x))
+                                .attr('x2', _ => upper(x))
+                                .attr('y1', () => meanLineY)
+                                .attr('y2', () => meanLineY)
+                                .attr('stroke', meanLineColor)
+                                .attr('stroke-opacity', meanLineOpacity)
+                                .attr('stroke-width', meanLineWidth)
+                            ,
+                            exit => exit.remove()
+                        )
+
+                    const rectUpperX = lower(x) + 3 * (upper(x) - lower(x)) / 8
+                    const rectUpperY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0)
+                    const rectWidth = (upper(x) - lower(x)) / 4
+                    const stats = statsRef.current.valueStatsForSeries.get(series.name)
+                    const rectHeight = stats === undefined ? 0 : Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
+                    svg
+                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                        .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-min-max')
                         .data(plotData)
                         .join(
                             enter => enter
                                 .append<SVGRectElement>('rect')
-                                .attr('x', _ => midpoint)
-                                .attr('y', datum => yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0))
-                                .attr('width', _ => (upper(x) - lower(x)) / 4)
-                                .attr('height', datum => {
-                                    const stats = statsRef.current.valueStatsForSeries.get(series.name)
-                                    if (stats === undefined) {
-                                        return 0
-                                    }
-                                    return Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
-                                })
+                                .attr('x', () => rectUpperX)
+                                .attr('y', () => rectUpperY)
+                                .attr('width', () => rectWidth)
+                                .attr('height', () => rectHeight)
                                 .attr('stroke', color)
                                 .attr('opacity', 0.6)
                                 .attr('fill', color)
                                 .attr('fill-opacity', 0.4)
                                 .attr('stroke-width', 1)
-                                // .attr('stroke-width', lineWidth)
                                 .attr('class', 'stream-charts-bar-min-max'),
                             update => update
-                                .attr('x', _ => midpoint)
-                                .attr('y', datum => yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0))
-                                .attr('width', _ => (upper(x) - lower(x)) / 4)
-                                .attr('height', datum => {
-                                    const stats = statsRef.current.valueStatsForSeries.get(series.name)
-                                    if (stats === undefined) {
-                                        return 0
-                                    }
-                                    return Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
-                                })
+                                .attr('x',() => rectUpperX)
+                                .attr('y', () => rectUpperY)
+                                .attr('width', () => rectWidth)
+                                .attr('height', () => rectHeight)
                                 .attr('stroke', color)
                                 .attr('opacity', 0.6)
                                 .attr('fill', color)
                                 .attr('fill-opacity', 0.4)
                                 .attr('stroke-width', 1)
-                            // .attr('stroke-width', lineWidth)
                             ,
                             exit => exit.remove()
                         )
                 })
             }
         },
-        [axisAssignments, chartId, container, margin, mouseLeaveHandlerFor, mouseOverHandlerFor, seriesFilter, seriesStyles, xAxesState.axisFor, yAxesState.axisFor, barMargin]
+        [container, axisAssignments, xAxesState.axisFor, yAxesState.axisFor, barMargin, seriesStyles, seriesFilter, chartId, margin, mouseOverHandlerFor, mouseLeaveHandlerFor, meanLineColor, meanLineOpacity, meanLineWidth]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -588,7 +618,7 @@ export enum BarPlotOrientation {
  * {@link upper} function returns the upper bound of the category within which the
  * value falls
  */
-type CoordinateBounds = {
+type CategoryBounds = {
     lower: (value: number) => number
     upper: (value: number) => number,
 }
@@ -633,7 +663,7 @@ function axesFor(
  * @return An object with two functions, that when handed a y-coordinate, return the location
  * for the start (yUpper) or end (yLower) of the spikes line.
  */
-function xCoordinateBoundsFn(categorySize: number, lineWidth: number, margin: number): CoordinateBounds {
+function yAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: number): CategoryBounds {
     if (categorySize <= margin) return {
         upper: value => value,
         lower: value => value + lineWidth
@@ -652,7 +682,7 @@ function xCoordinateBoundsFn(categorySize: number, lineWidth: number, margin: nu
  * @return An object with two functions, that when handed a y-coordinate, return the location
  * for the start (yUpper) or end (yLower) of the spikes line.
  */
-function yCoordinateBoundsFn(categorySize: number, lineWidth: number, margin: number): CoordinateBounds {
+function xAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: number): CategoryBounds {
     if (categorySize <= margin) return {
         upper: value => value + lineWidth,
         lower: value => value

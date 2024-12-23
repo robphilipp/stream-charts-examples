@@ -472,6 +472,8 @@ function barDanceData(
     const maxTimes = new Map(Array.from(
         seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
     )
+    const intercept = 0.1
+    const slope = 0.3 / seriesNames.length
     return {
         seriesNames: new Set(seriesNames),
         maxTime: sequenceTime,
@@ -482,8 +484,9 @@ function barDanceData(
                 [{
                     time: sequenceTime,
                     value: Math.cos((6 * index) * Math.PI / seriesNames.length) * // envelope for index
-                        Math.min(1, (1.2 + Math.sin(sequenceTime * Math.PI / 1500)) / 2) * // time-evolving envelope
-                        Math.sin((sequenceTime / 25 + index) * Math.PI / seriesNames.length / 2) // series values
+                        Math.min(1, (1.2 + Math.sin(sequenceTime * Math.PI / 1513)) / 2) * // time-evolving envelope
+                        Math.sin((sequenceTime / 27 + index) * Math.PI / seriesNames.length / 2) + // series values
+                        slope * index - intercept,
                 }]
             ]
         }))
