@@ -403,7 +403,7 @@ export function barDanceDataObservable(
     const initialData = initialChartData(series)
     return interval(updatePeriod).pipe(
         // convert the number sequence to a time
-        map(sequence => (sequence + 1) * updatePeriod),
+        map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime),
 
         // create a new (time, value) for each series
         map(time => barDanceData(time, seriesNames, initialData.maxTimes)),

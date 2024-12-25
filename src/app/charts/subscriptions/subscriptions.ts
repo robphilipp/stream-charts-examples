@@ -10,14 +10,18 @@ import {BaseSeries, emptySeries} from "../series/baseSeries";
 import {IterateChartData} from "../observables/iterates";
 import {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {
-    copyOrdinalDataFrom,
-    copyOrdinalStats,
+    copyOrdinalDatumExtremum,
+    copyOrdinalStats, copyOrdinalValueStats, copyValueStatsForSeries,
     defaultOrdinalStats,
+    defaultOrdinalValueStats,
+    initialMaxValueDatum,
+    initialMinValueDatum,
     OrdinalChartData,
-    OrdinalStats
+    OrdinalStats,
+    OrdinalValueStats
 } from "../observables/ordinals";
 import {ChartData} from "../observables/ChartData";
-import {OrdinalDatum} from "../series/ordinalSeries";
+import {copyOrdinalDatum, OrdinalDatum} from "../series/ordinalSeries";
 import {MutableRefObject} from "react";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
@@ -354,8 +358,34 @@ export function subscriptionIteratesFor(
     return subscription
 }
 
-export type OrdinalStatsRef = {
-    stats: OrdinalStats
+
+// interface WindowedOrdinalValueStats {
+//     count: number
+//     sum: number
+//     mean: number
+//     sumSquared: number
+// }
+
+export interface WindowedOrdinalStats extends OrdinalStats {
+    /**
+     * A map associating each series to stats about that series (e.g. map(series_name -> stats))
+     */
+    windowedValueStatsForSeries: Map<string, OrdinalValueStats>
+}
+
+export function defaultWindowedOrdinalStats(): WindowedOrdinalStats {
+    return {
+        ...defaultOrdinalStats(),
+        windowedValueStatsForSeries: new Map<string, OrdinalValueStats>(),
+    }
+}
+
+function copyWindowedOrdinalStats(data: WindowedOrdinalStats): WindowedOrdinalStats {
+    return {
+        ...copyOrdinalStats(data),
+        windowedValueStatsForSeries: new Map<string, OrdinalValueStats>(
+            Array.from(data.windowedValueStatsForSeries.entries()))
+    }
 }
 
 /**
@@ -371,9 +401,8 @@ export type OrdinalStatsRef = {
  * be dropped on the next update
  * @param updateTimingAndPlot The callback function to update the plot and timing
  * @param seriesMap The series-name and the associated series
+ * @param ordinalStatsRef The statistics about the data in the chart and about each series
  * @param setCurrentTime Callback to update the current time based on the streamed data
- * @param timeWindowBehavior Whether to scroll the time axis or squeeze it
- * @param initialTimes The initial times for each axis, a map(axis_id -> initial_time)
  * @return A subscription to the observable (for cancelling and the likes)
  */
 export function subscriptionOrdinalXFor(
@@ -386,12 +415,81 @@ export function subscriptionOrdinalXFor(
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
     seriesMap: Map<string, BaseSeries<OrdinalDatum>>,
-    ordinalStatsRef: MutableRefObject<OrdinalStats>,
-    // seriesStats: Map<string, OrdinalStats>,
-    setCurrentTime: (axisId: string, end: number) => void,
-    timeWindowBehavior: TimeWindowBehavior = TimeWindowBehavior.SCROLL,
-    initialTimes: Map<string, number> = new Map<string, number>(),
+    ordinalStatsRef: MutableRefObject<WindowedOrdinalStats>,
+    setCurrentTime: (currentTime: number) => void,
 ): Subscription {
+
+    /**
+     * First of two functions to calculate the current ordinal stats for the current time window. This
+     * function updates the windowed stats for the new data.
+     * @param newData The new data for that series
+     * @param windowedStats The current windowed ordinal value status
+     * @return The windowed ordinal value stats updated for the new data
+     */
+    function updatedWindowedValueStatsForNewData(newData: Array<OrdinalDatum>, windowedStats: OrdinalValueStats): OrdinalValueStats {
+        const updatedStats = copyOrdinalValueStats(windowedStats)
+        updatedStats.count += newData.length
+        const newSum = newData.reduce((total, datum) => total + datum.value, 0)
+        updatedStats.sum += newSum
+        updatedStats.sumSquared += newSum * newSum
+        updatedStats.mean = (updatedStats.count > 0) ? updatedStats.sum / updatedStats.count : NaN
+        return updatedStats
+    }
+
+    /**
+     * Second of two functions to calculate the current ordinal stats for the current time window. This
+     * function updates the windowed stats by for the dropped data
+     * @param droppedData An array of datum that was dropped from the time window
+     * @param windowedStats The current windowed ordinal value stats
+     * @param lifetimeStats The lifetime ordinal value stats
+     * @param series An array of series holding all the current data in the time-window
+     * @return The windowed ordinal value stats updated for the dropped data
+     */
+    function updateWindowedValueStatsForDroppedData(
+        droppedData: Array<OrdinalDatum>,
+        windowedStats: OrdinalValueStats,
+        lifetimeStats: OrdinalValueStats,
+        series: BaseSeries<OrdinalDatum>
+    ): OrdinalValueStats {
+        const updatedStats = copyOrdinalValueStats(windowedStats)
+        // calculate the windowed stats based on the dropped data
+        updatedStats.count -= droppedData.length
+        const droppedSum = droppedData.reduce((total, datum) => total + datum.value, 0)
+        updatedStats.sum -= droppedSum
+        updatedStats.sumSquared += droppedSum * droppedSum
+        updatedStats.mean = (updatedStats.count > 0) ? updatedStats.sum / updatedStats.count : NaN
+
+        const droppedValues = droppedData.map(datum => datum.value)
+        const minDropped = Math.min(...droppedValues)
+        if (minDropped === lifetimeStats.min.value) {
+            updatedStats.min = series.data.reduce(
+                (minDatum: OrdinalDatum, datum: OrdinalDatum) => {
+                    if (datum.value < minDatum.value) {
+                        minDatum = copyOrdinalDatum(datum)
+                    }
+                    return minDatum
+                },
+                initialMinValueDatum()
+            )
+        }
+        const maxDropped = Math.max(...droppedValues)
+        if (maxDropped === lifetimeStats.max.value) {
+            updatedStats.max = series.data.reduce(
+                (maxDatum: OrdinalDatum, datum: OrdinalDatum) => {
+                    if (datum.value > maxDatum.value) {
+                        maxDatum = copyOrdinalDatum(datum)
+                    }
+                    return maxDatum
+                },
+                initialMaxValueDatum()
+            )
+        }
+        return updatedStats
+    }
+
+    //
+    // beginning of the subscription function
+    //
     const subscription = seriesObservable
         .pipe(bufferTime(windowingTime))
         .subscribe(dataList => {
@@ -406,10 +504,6 @@ export function subscriptionOrdinalXFor(
                 // get the series associated with each y-axis (Map<axis_id, [series_names]>)
                 const axesSeries = associatedSeriesForYAxes(data, axisAssignments, yAxesState)
 
-                // todo need to get all the stats from the OrdinalChartData into plot; prob best to add another
-                //   reference that is updated (similar to the "seriesMap" argument, which is a reference to a
-                //   map, or, maybe a callback to update the stats
-
                 // add each new point to it's corresponding series, the new points
                 // is a map(series_name -> new_point[])
                 data.newPoints.forEach((newData, name) => {
@@ -422,61 +516,76 @@ export function subscriptionOrdinalXFor(
                     // add the new data to the series
                     series.data.push(...newData)
 
-                    // // grab the stats
-                    // const stats = seriesStats.get(name) || defaultOrdinalStats()
-                    // const updatedStats: OrdinalStats = {
-                    //     ...stats,
-                    //     ...data.stats
-                    // }
-                    // seriesStats.set(name, updatedStats)
+                    // grab the stats
+                    ordinalStatsRef.current.minDatum = copyOrdinalDatumExtremum(data.stats.minDatum)
+                    ordinalStatsRef.current.maxDatum = copyOrdinalDatumExtremum(data.stats.maxDatum)
+                    ordinalStatsRef.current.valueStatsForSeries = copyValueStatsForSeries(data.stats.valueStatsForSeries)
+
+                    // set up for the windowed-stats
+                    const lifetimeValueStats = data.stats.valueStatsForSeries.get(name) || defaultOrdinalValueStats()
+                    if (!ordinalStatsRef.current.windowedValueStatsForSeries.has(name)) {
+                        ordinalStatsRef.current.windowedValueStatsForSeries.set(name, defaultOrdinalValueStats())
+                    }
+
+                    // update the windowed-stats for the new points (later will deal with datum
+                    // that were dropped)
+                    const updatedStats = ordinalStatsRef.current.windowedValueStatsForSeries.get(name)!
+                    const windowedValueStats = updatedWindowedValueStatsForNewData(newData, updatedStats)
+                    ordinalStatsRef.current.windowedValueStatsForSeries.set(name, windowedValueStats)
 
                     // calculate the current value for the series' assigned y-axis (which may end up
                     // just being the default) based on the max time for the series, and the overall
                     // max time
                     const axisId = axisAssignments.get(name)?.yAxis || yAxesState.axisDefaultId();
-                    const currentAxisTime = axesSeries.get(axisId)
+                    const currentTime = axesSeries.get(axisId)
                         ?.reduce(
                             (tMax, _) => Math.max(data.stats.maxDatum.time.time, tMax),
-                            // (tMax, _) => Math.max(data.maxDatum.time.time, tMax),
                             -Infinity
-                        )
+                        ) || NaN
+                    setCurrentTime(currentTime)
 
-                    if (currentAxisTime !== undefined) {
-                        // drop data that is older than the max time-window
-                        while (currentAxisTime - series.data[0].time > dropDataAfter) {
-                            series.data.shift()
+                    if (currentTime !== undefined) {
+                        // drop data that is older than the max time-window, holding on to the dropped ones
+                        let droppedData: Array<OrdinalDatum> = []
+                        while (currentTime - series.data[0].time > dropDataAfter) {
+                            const dropped = series.data.shift()
+                            if (dropped !== undefined) {
+                                droppedData.push(dropped)
+                            }
                         }
 
-                        // update the time range for the x-axis, and if the time range
-                        // needs to be updated, then recalculate the time range for the
-                        // axis, update the time windows, and call the setCurrentTime
-                        // callback to update the current time for the caller
-                        const range = yAxisRanges.get(axisId)
-                        if (range !== undefined && range.end < currentAxisTime) {
-                            const timeWindow = range.end - range.start
-                            const timeRange = continuousAxisRangeFor(
-                                // 0,
-                                timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
-                                    initialTimes.get(axisId)! :
-                                    Math.max(0, currentAxisTime - timeWindow),
-                                Math.max(currentAxisTime, timeWindow)
+                        // calculate the windowed stats based on the dropped data
+                        if (droppedData.length > 0 && lifetimeValueStats !== undefined) {
+                            ordinalStatsRef.current.windowedValueStatsForSeries.set(
+                                name,
+                                updateWindowedValueStatsForDroppedData(droppedData, windowedValueStats, lifetimeValueStats, series)
                             )
-                            yAxisRanges.set(axisId, timeRange)
-                            setCurrentTime(axisId, timeRange.end) // callback
                         }
+
+                        // // update the time range for the x-axis, and if the time range
+                        // // needs to be updated, then recalculate the time range for the
+                        // // axis, update the time windows, and call the setCurrentTime
+                        // // callback to update the current time for the caller
+                        // const range = yAxisRanges.get(axisId)
+                        // if (range !== undefined && range.end < currentAxisTime) {
+                        //     const timeWindow = range.end - range.start
+                        //     const timeRange = continuousAxisRangeFor(
+                        //         // 0,
+                        //         timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
+                        //             initialTimes.get(axisId)! :
+                        //             Math.max(0, currentAxisTime - timeWindow),
+                        //         Math.max(currentAxisTime, timeWindow)
+                        //     )
+                        //     yAxisRanges.set(axisId, timeRange)
+                        //     setCurrentTime(axisId, timeRange.end) // callback
+                        // }
                     }
                 })
 
-                // grab the stats
-                // seriesStats = copyOrdinalDataFrom(data.stats)
-                ordinalStatsRef.current = copyOrdinalStats(data.stats)
-                // const stats = seriesStats.get(name) || defaultOrdinalStats()
-                // const updatedStats: OrdinalStats = {
-                //     ...stats,
-                //     ...data.stats
-                // }
-                // seriesStats.set(name, updatedStats)
-
+                // // grab the stats
+                // ordinalStatsRef.current.minDatum = copyOrdinalDatumExtremum(data.stats.minDatum)
+                // ordinalStatsRef.current.maxDatum = copyOrdinalDatumExtremum(data.stats.maxDatum)
+                // ordinalStatsRef.current.valueStatsForSeries = copyValueStatsForSeries(data.stats.valueStatsForSeries)
 
                 // update the data
                 updateTimingAndPlot(yAxisRanges)  // callback

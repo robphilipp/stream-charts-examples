@@ -12,7 +12,12 @@ import {copyOrdinalDatum, nonEmptyOrdinalDatum, OrdinalDatum, ordinalDatumOf} fr
 import {ChartData, copyChartData, defaultChartData} from "./ChartData";
 
 export interface OrdinalChartData extends ChartData {
+    /**
+     * Statistics for the chart. Holds the overall minimum and maximum (across all
+     * the series), and statistics for each individual series.
+     */
     stats: OrdinalStats
+
     /**
      * Map holding the name of the series (the time-series identifier) and the associated
      * data points for that time-series (`map(series_name -> array(datum))`)
@@ -20,6 +25,10 @@ export interface OrdinalChartData extends ChartData {
     newPoints: Map<string, Array<OrdinalDatum>>
 }
 
+/**
+ * Statistics for the chart. Holds the overall minimum and maximum (across all
+ * the series), and statistics for each individual series.
+ */
 export interface OrdinalStats {
     /**
      * The min values for (time, value) for the data in the newPoints map
@@ -31,23 +40,10 @@ export interface OrdinalStats {
      */
     maxDatum: OrdinalDatumExtremum
 
+    /**
+     * A map associating each series to stats about that series (e.g. map(series_name -> stats))
+     */
     valueStatsForSeries: Map<string, OrdinalValueStats>
-
-    // forSeries: (seriesName: string) => OrdinalValueStats
-    // /**
-    //  * Holds the association of the series name to the ordinal-datum with current min value for that category
-    //  */
-    // minValueInCategory: Map<string, OrdinalDatum>
-    //
-    // /**
-    //  * Holds the association of the series name to the ordinal-datum with current max value for that category
-    //  */
-    // maxValueInCategory: Map<string, OrdinalDatum>
-    //
-    // countInCategory: Map<string, number>
-    // sumInCategory: Map<string, number>
-    // sumSquaredInCategory: Map<string, number>
-    // meanInCategory: Map<string, number>
 }
 
 export type OrdinalValueStats = {
@@ -66,8 +62,8 @@ export type OrdinalDatumExtremum = {
     value: OrdinalDatum
 }
 
-const initialMinValueDatum = (): OrdinalDatum => ordinalDatumOf(NaN, "", Infinity)
-const initialMaxValueDatum = (): OrdinalDatum => ordinalDatumOf(NaN, "", -Infinity)
+export const initialMinValueDatum = (): OrdinalDatum => ordinalDatumOf(NaN, "", Infinity)
+export const initialMaxValueDatum = (): OrdinalDatum => ordinalDatumOf(NaN, "", -Infinity)
 
 const initialMinOrdinalDatum = (): OrdinalDatumExtremum => ({
     time: ordinalDatumOf(Infinity, "", NaN),
@@ -79,7 +75,7 @@ const initialMaxOrdinalDatum = (): OrdinalDatumExtremum => ({
     value: initialMaxValueDatum()
 })
 
-function copyOrdinalDatumExtremum(datum: OrdinalDatumExtremum): OrdinalDatumExtremum {
+export function copyOrdinalDatumExtremum(datum: OrdinalDatumExtremum): OrdinalDatumExtremum {
     return {
         time: copyOrdinalDatum(datum.time),
         value: copyOrdinalDatum(datum.value)
@@ -92,7 +88,7 @@ export const defaultOrdinalStats = (): OrdinalStats => ({
     valueStatsForSeries: new Map<string, OrdinalValueStats>()
 })
 
-const defaultOrdinalValueStats = (): OrdinalValueStats => ({
+export const defaultOrdinalValueStats = (): OrdinalValueStats => ({
     min: initialMinValueDatum(),
     max: initialMaxValueDatum(),
     count: 0,
@@ -101,27 +97,26 @@ const defaultOrdinalValueStats = (): OrdinalValueStats => ({
     sumSquared: NaN,
 })
 
-const copyOrdinalValueStats = (data: OrdinalValueStats) => ({...data})
+export const copyOrdinalValueStats = (data: OrdinalValueStats) => ({...data})
+
+export function copyValueStatsForSeries(valueStats: Map<string, OrdinalValueStats>): Map<string, OrdinalValueStats> {
+    return new Map<string, OrdinalValueStats>(Array.from(valueStats.entries())
+        .map(([seriesName, valueStats]) => [seriesName, copyOrdinalValueStats(valueStats)])
+    )
+}
 
 export const copyOrdinalStats = (data: OrdinalStats): OrdinalStats => ({
     minDatum: copyOrdinalDatumExtremum(data.minDatum),
     maxDatum: copyOrdinalDatumExtremum(data.maxDatum),
-    valueStatsForSeries: new Map<string, OrdinalValueStats>(Array.from(data.valueStatsForSeries.entries())
-        .map(([seriesName, valueStats]) => [seriesName, copyOrdinalValueStats(valueStats)])
-    ),
+    valueStatsForSeries: copyValueStatsForSeries(data.valueStatsForSeries),
+    // valueStatsForSeries: new Map<string, OrdinalValueStats>(Array.from(data.valueStatsForSeries.entries())
+    //     .map(([seriesName, valueStats]) => [seriesName, copyOrdinalValueStats(valueStats)])
+    // ),
 })
 
 const emptyOrdinalData = (): OrdinalChartData => ({
     ...defaultChartData(),
     stats: defaultOrdinalStats(),
-    // minDatum: initialMinOrdinalDatum(),
-    // maxDatum: initialMaxOrdinalDatum(),
-    // minValueInCategory: new Map<string, OrdinalDatum>(),
-    // maxValueInCategory: new Map<string, OrdinalDatum>(),
-    // countInCategory: new Map<string, number>(),
-    // sumInCategory: new Map<string, number>(),
-    // sumSquaredInCategory: new Map<string, number>(),
-    // meanInCategory: new Map<string, number>(),
     newPoints: new Map<string, Array<OrdinalDatum>>()
 })
 
@@ -132,14 +127,6 @@ const emptyOrdinalData = (): OrdinalChartData => ({
 export const copyOrdinalDataFrom = (data: OrdinalChartData): OrdinalChartData => ({
     ...copyChartData(data),
     stats: copyOrdinalStats(data.stats),
-    // minDatum: copyOrdinalDatumExtremum(data.minDatum),
-    // maxDatum: copyOrdinalDatumExtremum(data.maxDatum),
-    // minValueInCategory: new Map(Array.from(data.minValueInCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatum(extremum)])),
-    // maxValueInCategory: new Map(Array.from(data.maxValueInCategory.entries()).map(([seriesName, extremum]) => [seriesName, copyOrdinalDatum(extremum)])),
-    // countInCategory: new Map(data.countInCategory),
-    // sumInCategory: new Map(data.sumInCategory),
-    // sumSquaredInCategory: new Map(data.sumSquaredInCategory),
-    // meanInCategory: new Map(data.meanInCategory),
     newPoints: new Map<string, Array<OrdinalDatum>>(Array.from(data.newPoints.entries()).map(([name, points]) => [name, points.slice()])),
 })
 

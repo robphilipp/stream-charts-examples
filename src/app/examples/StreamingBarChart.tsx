@@ -32,6 +32,7 @@ import {assignAxes} from "../charts/plots/plot";
 import {BarPlot} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
 import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
+import {OrdinalDatum} from "../charts/series/ordinalSeries";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -54,9 +55,9 @@ import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordina
 // } from "stream-charts"
 
 interface Visibility {
-    tooltip: boolean;
-    tracker: boolean;
-    magnifier: boolean;
+    tooltip: boolean
+    tracker: boolean
+    magnifier: boolean
 }
 
 const initialVisibility: Visibility = {
@@ -70,21 +71,22 @@ const initialVisibility: Visibility = {
  */
 interface Props {
     theme?: Theme
-    timeWindow?: number;
-    initialData: Array<BaseSeries<Datum>>;
-    seriesHeight?: number;
-    plotWidth?: number;
+    timeWindow?: number
+    initialData: Array<BaseSeries<Datum>>
+    seriesHeight?: number
+    plotWidth?: number
 }
 
 /**
  * The spike-chart data produced by the rxjs observable that is pushed to the `RasterChart`
  */
 export interface SpikesChartData {
-    maxTime: number;
+    maxTime: number
     spikes: Array<{ index: number; spike: Datum }>
 }
 
-const UPDATE_PERIOD = 75;
+const UPDATE_PERIOD = 75
+
 /**
  * An example wrapper to a bar chart, that accepts an rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
@@ -100,14 +102,12 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
         initialData,
-    } = props;
+    } = props
 
     const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
-    const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
+    const initialDataRef = useRef<Array<BaseSeries<OrdinalDatum>>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
     const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialDataRef.current, UPDATE_PERIOD)));
-    // const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 25)));
-    // const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -123,8 +123,12 @@ export function StreamingBarChart(props: Props): JSX.Element {
     // chart time
     const chartTimeRef = useRef<number>(0)
 
-    function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
-        return data.map(series => seriesFrom(series.name, series.data.slice()))
+    function initialDataFrom(data: Array<TimeSeries>): Array<BaseSeries<OrdinalDatum>> {
+        return data.map(series => seriesFrom<OrdinalDatum>(series.name, series.data.map(datum => ({
+            time: datum.time,
+            ordinal: series.name,
+            value: datum.value,
+        }))))
         // return data.map(series => seriesFrom(series.name))
     }
 

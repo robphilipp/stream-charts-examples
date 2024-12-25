@@ -17,7 +17,11 @@ import {
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
 import {Margin} from "../styling/margins";
-import {subscriptionOrdinalXFor} from "../subscriptions/subscriptions";
+import {
+    defaultWindowedOrdinalStats,
+    subscriptionOrdinalXFor,
+    WindowedOrdinalStats
+} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
@@ -64,8 +68,17 @@ interface Props {
      * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
      */
     barMargin?: number
+    /**
+     * The (optional, default = 'green') color of the mean line.
+     */
     meanLineColor?: string
+    /**
+     * The (optional, default = 0.5) opacity of the mean line.
+     */
     meanLineOpacity?: number
+    /**
+     * The (optional, default = 1) width of the mean line.
+     */
     meanLineWidth?: number
 }
 
@@ -147,9 +160,10 @@ export function BarPlot(props: Props): null {
     const dataRef = useRef<Array<BaseSeries<OrdinalDatum>>>(initialData.slice() as Array<BaseSeries<OrdinalDatum>>)
     const seriesRef = useRef<Map<string, BaseSeries<OrdinalDatum>>>(new Map(initialData.map(series => [series.name, series as BaseSeries<OrdinalDatum>])))
     // const statsRef = useRef<Map<string, OrdinalStats>>(new Map(initialData.map(series => [series.name, defaultOrdinalStats()])))
-    const statsRef = useRef<OrdinalStats>(defaultOrdinalStats())
+    const statsRef = useRef<WindowedOrdinalStats>(defaultWindowedOrdinalStats())
+    // const statsRef = useRef<OrdinalStats>(defaultOrdinalStats())
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
-    const currentTimeRef = useRef<Map<string, number>>(new Map())
+    const currentTimeRef = useRef<number>(0)
 
     const subscriptionRef = useRef<Subscription>()
 
@@ -159,7 +173,8 @@ export function BarPlot(props: Props): null {
 
     useEffect(
         () => {
-            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+            currentTimeRef.current = 0
+            // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
         },
         [xAxesState]
     )
@@ -208,7 +223,8 @@ export function BarPlot(props: Props): null {
         () => {
             dataRef.current = initialData.slice() as Array<BaseSeries<OrdinalDatum>>
             seriesRef.current = new Map(initialData.map(series => [series.name, series as BaseSeries<OrdinalDatum>]))
-            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+            currentTimeRef.current = 0
+            // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot()
             // updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
             //         .map(([id, range]) => {
@@ -351,6 +367,7 @@ export function BarPlot(props: Props): null {
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
 
+                    //
                     // value lines
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
@@ -402,6 +419,38 @@ export function BarPlot(props: Props): null {
                             )
                         )
 
+                    //
+                    // windowed-mean line
+                    const windowedMeanLineY = yAxis.scale(statsRef.current.windowedValueStatsForSeries.get(series.name)?.mean || 0)
+                    svg
+                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                        .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-windowed-mean-lines')
+                        .data(plotData)
+                        .join(
+                            enter => enter
+                                .append<SVGLineElement>('line')
+                                .attr('class', 'stream-charts-bar-windowed-mean-lines')
+                                .attr('x1', _ => lower(x))
+                                .attr('x2', _ => upper(x))
+                                .attr('y1', () => windowedMeanLineY)
+                                .attr('y2', () => windowedMeanLineY)
+                                .attr('stroke', meanLineColor)
+                                .attr('stroke-opacity', meanLineOpacity)
+                                .attr('stroke-width', meanLineWidth)
+                            ,
+                            update => update
+                                .attr('x1', _ => lower(x))
+                                .attr('x2', _ => upper(x))
+                                .attr('y1', () => windowedMeanLineY)
+                                .attr('y2', () => windowedMeanLineY)
+                                .attr('stroke', 'red')
+                                .attr('stroke-opacity', meanLineOpacity)
+                                .attr('stroke-width', meanLineWidth)
+                            ,
+                            exit => exit.remove()
+                        )
+
+                    //
                     // mean line
                     const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
                     svg
@@ -432,9 +481,11 @@ export function BarPlot(props: Props): null {
                             exit => exit.remove()
                         )
 
+                    //
+                    // min/max bar rectangle
                     const rectUpperX = lower(x) + 3 * (upper(x) - lower(x)) / 8
                     const rectUpperY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0)
-                    const rectWidth = (upper(x) - lower(x)) / 4
+                    const rectWidth = Math.max(0, (upper(x) - lower(x)) / 4)
                     const stats = statsRef.current.valueStatsForSeries.get(series.name)
                     const rectHeight = stats === undefined ? 0 : Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
                     svg
@@ -533,7 +584,7 @@ export function BarPlot(props: Props): null {
                 // updates this map directly (for performance)
                 seriesRef.current,
                 statsRef,
-                (axisId, end) => currentTimeRef.current.set(axisId, end)
+                (currentTime: number) => currentTimeRef.current = currentTime
             )
         },
         [
@@ -543,34 +594,34 @@ export function BarPlot(props: Props): null {
         ]
     )
 
-    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
+    // const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
     useEffect(
         () => {
             if (container && mainG) {
-                // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
-                // change. for example, as data is streamed in, the times change, and then we need to update the
-                // time-range. however, we want to keep the time-ranges to reflect their original scale so that
-                // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
-                // interpolation changes, then the update plot changes, and the time-ranges must maintain their
-                // original scale as well.
-                if (timeRangesRef.current.size === 0) {
-                    // when no time-ranges have yet been created, then create them and hold on to a mutable
-                    // reference to them
-                    timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                } else {
-                    // when the time-ranges already exist, then we want to update the time-ranges for each
-                    // existing time-range in a way that maintains the original scale.
-                    const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                    timeRangesRef.current
-                        .forEach((range, id, rangesMap) => {
-                            const [start, end] = intervals.get(id) || [NaN, NaN]
-                            if (!isNaN(start) && !isNaN(end)) {
-                                // update the reference map with the new (start, end) portion of the range,
-                                // while keeping the original scale intact
-                                rangesMap.set(id, range.update(start, end))
-                            }
-                        })
-                }
+                // // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
+                // // change. for example, as data is streamed in, the times change, and then we need to update the
+                // // time-range. however, we want to keep the time-ranges to reflect their original scale so that
+                // // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
+                // // interpolation changes, then the update plot changes, and the time-ranges must maintain their
+                // // original scale as well.
+                // if (timeRangesRef.current.size === 0) {
+                //     // when no time-ranges have yet been created, then create them and hold on to a mutable
+                //     // reference to them
+                //     timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                // } else {
+                //     // when the time-ranges already exist, then we want to update the time-ranges for each
+                //     // existing time-range in a way that maintains the original scale.
+                //     const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                //     timeRangesRef.current
+                //         .forEach((range, id, rangesMap) => {
+                //             const [start, end] = intervals.get(id) || [NaN, NaN]
+                //             if (!isNaN(start) && !isNaN(end)) {
+                //                 // update the reference map with the new (start, end) portion of the range,
+                //                 // while keeping the original scale intact
+                //                 rangesMap.set(id, range.update(start, end))
+                //             }
+                //         })
+                // }
                 updatePlot(mainG)
                 // updatePlot(timeRangesRef.current, mainG)
             }

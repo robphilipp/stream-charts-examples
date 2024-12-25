@@ -32,7 +32,7 @@ for (let i = 0; i < 50; ++i) {
     spikeSeriesNames.push(`neuron${i + 1}`)
 }
 const initialSpikeData = initialRandomWeightData(spikeSeriesNames, 10, 500, 50, 20, 10)
-const initialBarData = initialSineFnData(spikeSeriesNames.slice(0, 50), 1000, 25, 4)
+const initialBarData = initialSineFnData(spikeSeriesNames.slice(0, 50), 1000, 75, 4)
 
 const App: React.FC = () => {
     const [theme, setTheme] = useState<Theme>(lightTheme)
@@ -135,7 +135,7 @@ const App: React.FC = () => {
                     {/* tab 4: Bar */}
                     <StreamingBarChart
                         theme={theme}
-                        timeWindow={1000}
+                        timeWindow={100}
                         initialData={initialBarData}
                         seriesHeight={20}
                         plotWidth={900}
