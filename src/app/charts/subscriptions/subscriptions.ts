@@ -433,6 +433,8 @@ export function subscriptionOrdinalXFor(
         updatedStats.sum += newSum
         updatedStats.sumSquared += newSum * newSum
         updatedStats.mean = (updatedStats.count > 0) ? updatedStats.sum / updatedStats.count : NaN
+        updatedStats.min = newData.reduce((min, datum) => datum.value < min.value ? datum : min, updatedStats.min)
+        updatedStats.max = newData.reduce((max, datum) => datum.value > max.value ? datum : max, updatedStats.max)
         return updatedStats
     }
 
@@ -456,34 +458,29 @@ export function subscriptionOrdinalXFor(
         updatedStats.count -= droppedData.length
         const droppedSum = droppedData.reduce((total, datum) => total + datum.value, 0)
         updatedStats.sum -= droppedSum
-        updatedStats.sumSquared += droppedSum * droppedSum
+        updatedStats.sumSquared -= droppedSum * droppedSum
         updatedStats.mean = (updatedStats.count > 0) ? updatedStats.sum / updatedStats.count : NaN
+        updatedStats.min = series.data.reduce((min, datum) => datum.value < min.value ? datum : min, initialMinValueDatum())
+        updatedStats.max = series.data.reduce((max, datum) => datum.value > max.value ? datum : max, initialMaxValueDatum())
 
-        const droppedValues = droppedData.map(datum => datum.value)
-        const minDropped = Math.min(...droppedValues)
-        if (minDropped === lifetimeStats.min.value) {
-            updatedStats.min = series.data.reduce(
-                (minDatum: OrdinalDatum, datum: OrdinalDatum) => {
-                    if (datum.value < minDatum.value) {
-                        minDatum = copyOrdinalDatum(datum)
-                    }
-                    return minDatum
-                },
-                initialMinValueDatum()
-            )
-        }
-        const maxDropped = Math.max(...droppedValues)
-        if (maxDropped === lifetimeStats.max.value) {
-            updatedStats.max = series.data.reduce(
-                (maxDatum: OrdinalDatum, datum: OrdinalDatum) => {
-                    if (datum.value > maxDatum.value) {
-                        maxDatum = copyOrdinalDatum(datum)
-                    }
-                    return maxDatum
-                },
-                initialMaxValueDatum()
-            )
-        }
+        // updatedStats.min = series.data.reduce(
+        //     (minDatum: OrdinalDatum, datum: OrdinalDatum) => {
+        //         if (datum.value < minDatum.value) {
+        //             minDatum = copyOrdinalDatum(datum)
+        //         }
+        //         return minDatum
+        //     },
+        //     initialMinValueDatum()
+        // )
+        // updatedStats.max = series.data.reduce(
+        //     (maxDatum: OrdinalDatum, datum: OrdinalDatum) => {
+        //         if (datum.value > maxDatum.value) {
+        //             maxDatum = copyOrdinalDatum(datum)
+        //         }
+        //         return maxDatum
+        //     },
+        //     initialMaxValueDatum()
+        // )
         return updatedStats
     }
 
@@ -524,7 +521,8 @@ export function subscriptionOrdinalXFor(
                     // set up for the windowed-stats
                     const lifetimeValueStats = data.stats.valueStatsForSeries.get(name) || defaultOrdinalValueStats()
                     if (!ordinalStatsRef.current.windowedValueStatsForSeries.has(name)) {
-                        ordinalStatsRef.current.windowedValueStatsForSeries.set(name, defaultOrdinalValueStats())
+                        ordinalStatsRef.current.windowedValueStatsForSeries.set(name, copyOrdinalValueStats(lifetimeValueStats))
+                        // ordinalStatsRef.current.windowedValueStatsForSeries.set(name, defaultOrdinalValueStats())
                     }
 
                     // update the windowed-stats for the new points (later will deal with datum

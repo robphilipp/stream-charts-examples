@@ -104,7 +104,7 @@ export function ScatterPlot(props: Props): null {
 
     const {
         initialData
-    } = useInitialData<Datum>()
+    } = useInitialData<TimeSeriesChartData, Datum>()
 
     const {
         xAxesState,
@@ -472,7 +472,8 @@ export function ScatterPlot(props: Props): null {
             axisAssignments, dropDataAfter, mainG,
             onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
-            withCadenceOf
+            withCadenceOf,
+            initialTimes, timeWindowBehavior
         ]
     )
 

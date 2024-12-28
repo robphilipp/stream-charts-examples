@@ -4,17 +4,8 @@ import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useRef} from "react";
 import {Datum, TimeSeries} from "../series/timeSeries";
-import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
 import {GSelection} from "../d3types";
-import {
-    BaseAxis,
-    CategoryAxis,
-    continuousAxisIntervals,
-    continuousAxisRanges,
-    ContinuousNumericAxis,
-    defaultLineStyle,
-    SeriesLineStyle
-} from "../axes/axes";
+import {BaseAxis, CategoryAxis, ContinuousNumericAxis, defaultLineStyle, SeriesLineStyle} from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
 import {Margin} from "../styling/margins";
 import {
@@ -25,9 +16,15 @@ import {
 import {useDataObservable} from "../hooks/useDataObservable";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {defaultOrdinalStats, OrdinalChartData, OrdinalStats} from "../observables/ordinals";
+import {
+    isDefaultValueStatsDatum,
+    OrdinalChartData,
+    OrdinalStats, OrdinalValueStats,
+    valueStatusDatumOfDefault
+} from "../observables/ordinals";
 import {BaseSeries} from "../series/baseSeries";
 import {OrdinalDatum} from "../series/ordinalSeries";
+import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 
 interface Props {
     /**
@@ -137,7 +134,7 @@ export function BarPlot(props: Props): null {
         onUpdateData,
     } = useDataObservable()
 
-    const {initialData} = useInitialData<Datum>()
+    const {initialData} = useInitialData<TimeSeriesChartData, Datum>()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
@@ -420,35 +417,81 @@ export function BarPlot(props: Props): null {
                         )
 
                     //
-                    // windowed-mean line
-                    const windowedMeanLineY = yAxis.scale(statsRef.current.windowedValueStatsForSeries.get(series.name)?.mean || 0)
-                    svg
-                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-windowed-mean-lines')
-                        .data(plotData)
-                        .join(
-                            enter => enter
-                                .append<SVGLineElement>('line')
-                                .attr('class', 'stream-charts-bar-windowed-mean-lines')
-                                .attr('x1', _ => lower(x))
-                                .attr('x2', _ => upper(x))
-                                .attr('y1', () => windowedMeanLineY)
-                                .attr('y2', () => windowedMeanLineY)
-                                .attr('stroke', meanLineColor)
-                                .attr('stroke-opacity', meanLineOpacity)
-                                .attr('stroke-width', meanLineWidth)
-                            ,
-                            update => update
-                                .attr('x1', _ => lower(x))
-                                .attr('x2', _ => upper(x))
-                                .attr('y1', () => windowedMeanLineY)
-                                .attr('y2', () => windowedMeanLineY)
-                                .attr('stroke', 'red')
-                                .attr('stroke-opacity', meanLineOpacity)
-                                .attr('stroke-width', meanLineWidth)
-                            ,
-                            exit => exit.remove()
-                        )
+                    // windowed-mean line when the windowed status are defined for the series
+                    const seriesWindowedStats = statsRef.current.windowedValueStatsForSeries.get(series.name)
+                    if (seriesWindowedStats !== undefined) {
+                        const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
+                        svg
+                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                            .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-windowed-mean-lines')
+                            .data(plotData)
+                            .join(
+                                enter => enter
+                                    .append<SVGLineElement>('line')
+                                    .attr('class', 'stream-charts-bar-windowed-mean-lines')
+                                    .attr('x1', _ => lower(x))
+                                    .attr('x2', _ => upper(x))
+                                    .attr('y1', () => windowedMeanLineY)
+                                    .attr('y2', () => windowedMeanLineY)
+                                    .attr('stroke', meanLineColor)
+                                    .attr('stroke-opacity', meanLineOpacity)
+                                    .attr('stroke-width', meanLineWidth)
+                                ,
+                                update => update
+                                    .attr('x1', _ => lower(x))
+                                    .attr('x2', _ => upper(x))
+                                    .attr('y1', () => windowedMeanLineY)
+                                    .attr('y2', () => windowedMeanLineY)
+                                    .attr('stroke', 'red')
+                                    .attr('stroke-opacity', meanLineOpacity)
+                                    .attr('stroke-width', meanLineWidth)
+                                ,
+                                exit => exit.remove()
+                            )
+
+                        //
+                        // windowed min/max bar rectangle
+                        const windowedRectUpperX = lower(x) + (upper(x) - lower(x)) / 4
+                        const windowedStatsMaxValue = (isNaN(seriesWindowedStats.max.value) || seriesWindowedStats.max.value === -Infinity) ?
+                            0 :
+                            seriesWindowedStats.max.value
+                        const windowedRectUpperY = yAxis.scale(windowedStatsMaxValue)
+                        const windowedRectWidth = Math.max(0, (upper(x) - lower(x)) / 2)
+                        const windowedStatsMinValue = (isNaN(seriesWindowedStats.min.value) || seriesWindowedStats.min.value === Infinity) ?
+                            0 :
+                            seriesWindowedStats.min.value
+                        const windowedRectHeight = Math.max(0, yAxis.scale(windowedStatsMinValue) - yAxis.scale(windowedStatsMaxValue))
+                        svg
+                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                            .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-windowed-min-max')
+                            .data(plotData)
+                            .join(
+                                enter => enter
+                                    .append<SVGRectElement>('rect')
+                                    .attr('x', () => windowedRectUpperX)
+                                    .attr('y', () => windowedRectUpperY)
+                                    .attr('width', () => windowedRectWidth)
+                                    .attr('height', () => windowedRectHeight)
+                                    .attr('stroke', 'red')
+                                    .attr('opacity', 0.6)
+                                    .attr('fill', 'red')
+                                    .attr('fill-opacity', 0.4)
+                                    .attr('stroke-width', 1)
+                                    .attr('class', 'stream-charts-bar-windowed-min-max'),
+                                update => update
+                                    .attr('x', () => windowedRectUpperX)
+                                    .attr('y', () => windowedRectUpperY)
+                                    .attr('width', () => windowedRectWidth)
+                                    .attr('height', () => windowedRectHeight)
+                                    .attr('stroke', 'red')
+                                    .attr('opacity', 0.6)
+                                    .attr('fill', 'red')
+                                    .attr('fill-opacity', 0.4)
+                                    .attr('stroke-width', 1)
+                                ,
+                                exit => exit.remove()
+                            )
+                    }
 
                     //
                     // mean line

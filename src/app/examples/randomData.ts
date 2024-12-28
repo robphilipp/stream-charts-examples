@@ -1,5 +1,5 @@
-import {interval, Observable} from "rxjs";
-import {map, scan} from "rxjs/operators";
+import {concat, from, interval, Observable} from "rxjs";
+import {map, merge, mergeWith, scan} from "rxjs/operators";
 import {Datum, datumOf, TimeSeries} from "../charts/series/timeSeries";
 import {TimeSeriesChartData, initialChartData} from "../charts/series/timeSeriesChartData";
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
@@ -376,10 +376,20 @@ export function initialSineFnData(
     period: number,
     numPoints: number
 ): Array<BaseSeries<Datum>> {
+    const intercept = 0.1
+    const slope = 0.3 / seriesNames.length
     return seriesNames.map(name => {
         const data: Array<Datum> = []
-        for(let x = 0; x < numPoints; x++) {
-            data.push(datumOf(x * timeInterval, sinFn(x * timeInterval, period)))
+        for(let index = 0; index < numPoints; index++) {
+            const sequenceTime = index * timeInterval
+            data.push(datumOf(
+                sequenceTime,
+                Math.cos((6 * index) * Math.PI / seriesNames.length) * // envelope for index
+                Math.min(1, (1.2 + Math.sin(sequenceTime * Math.PI / 1513)) / 2) * // time-evolving envelope
+                Math.sin((sequenceTime / 27 + index) * Math.PI / seriesNames.length / 2) + // series values
+                slope * index - intercept
+                )
+            )
         }
         return seriesFrom<Datum>(name, data)
     })
@@ -401,6 +411,23 @@ export function barDanceDataObservable(
 ): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
     const initialData = initialChartData(series)
+    // const initialDataObservable = from([initialData])
+    // //     .pipe(
+    // //     scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
+    // // )
+    // const dataObservable = interval(updatePeriod).pipe(
+    //     // convert the number sequence to a time
+    //     map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime),
+    //
+    //     // create a new (time, value) for each series
+    //     map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
+    //
+    //     // accumulate the time-series chart data
+    //     // scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
+    // )
+    // return concat(initialDataObservable, dataObservable).pipe(
+    //     scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
+    // )
     return interval(updatePeriod).pipe(
         // convert the number sequence to a time
         map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime),
@@ -408,7 +435,7 @@ export function barDanceDataObservable(
         // create a new (time, value) for each series
         map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
 
-        // add the random value to the previous random value in succession to create a random walk for each series
+        //
         scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
     )
 }

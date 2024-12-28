@@ -24,6 +24,7 @@ import {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {useTooltip} from "../hooks/useTooltip";
+import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
 type IteratePointSeries = Array<IteratePoint>
@@ -156,7 +157,7 @@ export function PoincarePlot(props: Props): null {
         onUpdateChartTime = noop,
     } = useDataObservable<IterateChartData, IterateDatum>()
 
-    const {initialData} = useInitialData<IterateDatum>()
+    const {initialData} = useInitialData<TimeSeriesChartData, IterateDatum>()
 
     const {visibilityState: tooltipVisible} = useTooltip()
 

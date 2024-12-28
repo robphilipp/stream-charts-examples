@@ -123,7 +123,7 @@ export function RasterPlot(props: Props): null {
         onUpdateData,
     } = useDataObservable()
 
-    const {initialData} = useInitialData<Datum>()
+    const {initialData} = useInitialData<TimeSeriesChartData, Datum>()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),

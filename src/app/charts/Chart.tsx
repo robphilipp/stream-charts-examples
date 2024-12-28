@@ -15,6 +15,7 @@ import {Observable, Subscription} from "rxjs";
 import DataObservableProvider from './hooks/useDataObservable';
 import {BaseSeries} from "./series/baseSeries";
 import InitialDataProvider from "./hooks/useInitialData";
+import {ChartData} from "./observables/ChartData";
 
 const defaultBackground = '#202020';
 
@@ -60,6 +61,7 @@ interface Props<CD, D> {
      * Initial (static) data to plot before subscribing to the {@link TimeSeriesChartData} observable.
      */
     initialData: Array<BaseSeries<D>>
+    asChartData?: (initialData: Array<BaseSeries<D>>) => CD
     /**
      * Regular expression that filters which series to display on the plot. Can be update while streaming
      */
@@ -202,7 +204,7 @@ interface Props<CD, D> {
     />
 </Chart>
 */
-export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
+export function Chart<CD extends ChartData, D>(props: Props<CD, D>): JSX.Element {
     const {
         chartId,
 
@@ -212,6 +214,7 @@ export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
         backgroundColor = defaultBackground,
         seriesStyles = new Map(),
         initialData,
+        asChartData,
         seriesFilter = /./,
         seriesObservable,
         windowingTime = 100,
@@ -279,7 +282,7 @@ export function Chart<CD, D>(props: Props<CD, D>): JSX.Element {
                 <AxesProvider onUpdateAxesBounds={onUpdateAxesBounds}>
                     <MouseProvider<D>>
                         <TooltipProvider<D>>
-                            <InitialDataProvider<D> initialData={initialData}>
+                            <InitialDataProvider<CD, D> initialData={initialData} asChartData={asChartData}>
                                 <DataObservableProvider<CD, D>
                                     seriesObservable={seriesObservable}
                                     windowingTime={windowingTime}

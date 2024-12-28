@@ -65,6 +65,17 @@ export type OrdinalDatumExtremum = {
 export const initialMinValueDatum = (): OrdinalDatum => ordinalDatumOf(NaN, "", Infinity)
 export const initialMaxValueDatum = (): OrdinalDatum => ordinalDatumOf(NaN, "", -Infinity)
 
+export const initialMinTimeDatum = (): OrdinalDatum => ordinalDatumOf(Infinity, "", NaN)
+export const initialMaxTimeDatum = (): OrdinalDatum => ordinalDatumOf(-Infinity, "", NaN)
+
+export function valueStatusDatumOfDefault(datum: OrdinalDatum | undefined): OrdinalDatum {
+    return (datum === undefined) ? ordinalDatumOf(NaN, "", NaN) : datum
+}
+
+export function isDefaultValueStatsDatum(datum: OrdinalDatum): boolean {
+    return isNaN(datum.time) && datum.ordinal === "" && isNaN(datum.value)
+}
+
 const initialMinOrdinalDatum = (): OrdinalDatumExtremum => ({
     time: ordinalDatumOf(Infinity, "", NaN),
     value: initialMinValueDatum()
@@ -94,10 +105,16 @@ export const defaultOrdinalValueStats = (): OrdinalValueStats => ({
     count: 0,
     sum: 0,
     mean: NaN,
-    sumSquared: NaN,
+    sumSquared: 0,
 })
 
-export const copyOrdinalValueStats = (data: OrdinalValueStats) => ({...data})
+export function copyOrdinalValueStats(data: OrdinalValueStats): OrdinalValueStats {
+    return {
+        ...data,
+        min: copyOrdinalDatum(data.min),
+        max: copyOrdinalDatum(data.max),
+    }
+}
 
 export function copyValueStatsForSeries(valueStats: Map<string, OrdinalValueStats>): Map<string, OrdinalValueStats> {
     return new Map<string, OrdinalValueStats>(Array.from(valueStats.entries())
@@ -109,9 +126,6 @@ export const copyOrdinalStats = (data: OrdinalStats): OrdinalStats => ({
     minDatum: copyOrdinalDatumExtremum(data.minDatum),
     maxDatum: copyOrdinalDatumExtremum(data.maxDatum),
     valueStatsForSeries: copyValueStatsForSeries(data.valueStatsForSeries),
-    // valueStatsForSeries: new Map<string, OrdinalValueStats>(Array.from(data.valueStatsForSeries.entries())
-    //     .map(([seriesName, valueStats]) => [seriesName, copyOrdinalValueStats(valueStats)])
-    // ),
 })
 
 const emptyOrdinalData = (): OrdinalChartData => ({

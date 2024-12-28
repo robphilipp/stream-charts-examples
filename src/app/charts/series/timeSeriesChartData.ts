@@ -1,5 +1,6 @@
 import {Datum, TimeSeries} from "./timeSeries";
 import {ChartData, defaultChartData} from "../observables/ChartData";
+import {BaseSeries} from "./baseSeries";
 
 /**
  * The spike-chart data produced by the rxjs observable that is pushed to a streaming chart
@@ -44,7 +45,7 @@ export function emptyTimeSeriesChartData(series: Array<string>): TimeSeriesChart
 /**
  * Creates an empty chart data object with all the values set to 0
  * @param seriesList The list of series names (identifiers) to update
- * @param currentTime=0] The current time
+ * @param [currentTime=0] The current time
  * @return An empty chart data object
  */
 export function initialChartData(seriesList: Array<TimeSeries>, currentTime: number = 0): TimeSeriesChartData {

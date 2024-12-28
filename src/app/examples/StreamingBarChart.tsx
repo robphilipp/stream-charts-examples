@@ -32,7 +32,7 @@ import {assignAxes} from "../charts/plots/plot";
 import {BarPlot} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
 import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
-import {OrdinalDatum} from "../charts/series/ordinalSeries";
+import {initialChartData, OrdinalDatum} from "../charts/series/ordinalSeries";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -284,6 +284,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             }],
                     ])}
                     initialData={initialDataRef.current}
+                    asChartData={initialChartData}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
