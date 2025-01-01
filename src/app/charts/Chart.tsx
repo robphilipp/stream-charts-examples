@@ -282,7 +282,10 @@ export function Chart<CD extends ChartData, D>(props: Props<CD, D>): JSX.Element
                 <AxesProvider onUpdateAxesBounds={onUpdateAxesBounds}>
                     <MouseProvider<D>>
                         <TooltipProvider<D>>
-                            <InitialDataProvider<CD, D> initialData={initialData} asChartData={asChartData}>
+                            <InitialDataProvider<CD, D>
+                                initialData={initialData}
+                                asChartData={asChartData}
+                            >
                                 <DataObservableProvider<CD, D>
                                     seriesObservable={seriesObservable}
                                     windowingTime={windowingTime}

@@ -94,16 +94,16 @@ export function initialChartData(seriesList: Array<OrdinalSeries>): OrdinalChart
         stats: calculateOrdinalStats(seriesList),
         newPoints: new Map<string, Array<OrdinalDatum>>(seriesList.map(series => [
             series.name,
-            [{
-                time: series.last().map(datum => datum.time).getOrElse(0),
-                ordinal: series.name,
-                value: series.last().map(datum => datum.value).getOrElse(0)
-            }]
+            series.data.map(datum => ({
+                time: datum.time,
+                ordinal: datum.ordinal,
+                value: datum.value,
+            }))
         ]))
     }
 }
 
-function calculateOrdinalStats(seriesList: Array<OrdinalSeries>): OrdinalStats {
+export function calculateOrdinalStats(seriesList: Array<OrdinalSeries>): OrdinalStats {
     const ordinalValueStats = new Map<string, OrdinalValueStats>(seriesList.map(
         (series: OrdinalSeries) => {
             const seriesMin = series.data.reduce(
@@ -132,8 +132,8 @@ function calculateOrdinalStats(seriesList: Array<OrdinalSeries>): OrdinalStats {
         initialMinValueDatum()
     )
     const maxValueDatum: OrdinalDatum = Array.from(ordinalValueStats.values()).reduce(
-        (max: OrdinalDatum, value: OrdinalValueStats) => value.max.value > max.value ? value.min : max,
-        initialMinValueDatum()
+        (max: OrdinalDatum, value: OrdinalValueStats) => value.max.value > max.value ? value.max : max,
+        initialMaxValueDatum()
     )
     const minTimeDatum: OrdinalDatum = seriesList.reduce(
         (globalMin: OrdinalDatum, series: OrdinalSeries) => {

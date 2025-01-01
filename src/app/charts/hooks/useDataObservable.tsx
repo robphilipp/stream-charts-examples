@@ -118,7 +118,7 @@ export default function DataObservableProvider<CD extends ChartData, D>(props: P
     // the initial data into an object of type ChartData, and when there is a defined series
     // observable, then the initial data is prepended to the data observable.
     const {initialData, asChartData} = useInitialData<CD, D>()
-    const observable = allDataObservable<CD, D>(seriesObservable, initialData, asChartData)
+    const observable = dataObservable<CD, D>(seriesObservable, initialData, asChartData)
 
     return <DataObservableContext.Provider
         value={{
@@ -147,7 +147,7 @@ export default function DataObservableProvider<CD extends ChartData, D>(props: P
  * @param asChartData A function that converts the initial data series into chart data
  * @return An {@link Observable} of {@link ChartData}, or an `undefined`
  */
-function allDataObservable<CD extends ChartData, D>(
+function dataObservable<CD extends ChartData, D>(
     seriesObservable?: Observable<CD>,
     initialData?: Array<BaseSeries<D>>,
     asChartData?: (seriesList: Array<BaseSeries<D>>) => CD

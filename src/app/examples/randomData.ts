@@ -1,7 +1,7 @@
 import {concat, from, interval, Observable} from "rxjs";
-import {map, merge, mergeWith, scan} from "rxjs/operators";
+import {map, scan} from "rxjs/operators";
 import {Datum, datumOf, TimeSeries} from "../charts/series/timeSeries";
-import {TimeSeriesChartData, initialChartData} from "../charts/series/timeSeriesChartData";
+import {initialChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 // import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
 
@@ -33,12 +33,13 @@ function randomSpikeData(
             .filter(_ => Math.random() < spikeProbability)
             .map(name => {
                 return [
-                name,
-                [{
-                    time: sequenceTime + maxTime,
-                    value: Math.random()
-                }]
-            ]}))
+                    name,
+                    [{
+                        time: sequenceTime + maxTime,
+                        value: Math.random()
+                    }]
+                ]
+            }))
     };
 }
 
@@ -94,7 +95,7 @@ export function tentMapFn(mu: number): IterateFunction {
 export function initialTentMapData(updatePeriod: number, series: Map<string, number>): Array<TimeSeries> {
     return Array.from(series.entries())
         .map(([name, initialTime]) => seriesFrom(name, [datumOf(initialTime + Math.ceil(Math.random() * updatePeriod), Math.random())])
-    )
+        )
 }
 
 export function logisticMapFn(r: number): IterateFunction {
@@ -103,7 +104,7 @@ export function logisticMapFn(r: number): IterateFunction {
 }
 
 export function gaussMapFn(alpha: number, beta: number): IterateFunction {
-    return (time: number, xn: number): Datum =>  datumOf(time, Math.exp(-alpha * xn * xn) + beta)
+    return (time: number, xn: number): Datum => datumOf(time, Math.exp(-alpha * xn * xn) + beta)
 }
 
 // export function initialTentMapData(updatePeriod: number, series: Map<string, number>): Map<string, Datum> {
@@ -192,12 +193,12 @@ function accumulateIterateData(
     // make a copy of the current max times, which we'll update with new points
     const maxTimes = new Map(previous.maxTimes.entries())
     previous.newPoints.forEach((datum, name) => {
-        maxTimes.set(name, (datum[datum.length-1].time + updatePeriod))
+        maxTimes.set(name, (datum[datum.length - 1].time + updatePeriod))
     })
     // deep copy of the previous data points, and calculate the next point
     const newPoints = new Map(Array.from(previous.newPoints.entries()).map(([name, data]) => [name, data.slice()]))
     newPoints.forEach((data, _) => {
-        const lastDatum = data[data.length-1]
+        const lastDatum = data[data.length - 1]
         const newDatum = iterateFunction(lastDatum.time + updatePeriod, lastDatum.value)
         data.shift()
         data.push(newDatum)
@@ -213,8 +214,7 @@ function accumulateIterateData(
 }
 
 function accumulateIterateDataAt(updatePeriod: number):
-    (previous: TimeSeriesChartData, iterateNum: number, iterateFunction: IterateFunction) => TimeSeriesChartData
-{
+    (previous: TimeSeriesChartData, iterateNum: number, iterateFunction: IterateFunction) => TimeSeriesChartData {
     return (previous: TimeSeriesChartData, iterateNum: number, iterateFunction: IterateFunction) =>
         accumulateIterateData(previous, iterateNum, updatePeriod, iterateFunction)
 }
@@ -342,7 +342,7 @@ export function initialRandomWeightData(
     return seriesNames.map(name => {
         const data: Array<Datum> = []
         let prevValue = initialValue + (Math.random() - 0.5) * 2 * delta
-        for(let i = 0; i < numTimes; ++i) {
+        for (let i = 0; i < numTimes; ++i) {
             const time = initialTime + i * updatePeriod + Math.ceil(Math.random() * updatePeriod)
             const value = prevValue + (Math.random() - 0.5) * 2 * delta
             data.push({time: time, value})
@@ -378,21 +378,45 @@ export function initialSineFnData(
 ): Array<BaseSeries<Datum>> {
     const intercept = 0.1
     const slope = 0.3 / seriesNames.length
-    return seriesNames.map(name => {
+    return seriesNames.map((name, index) => {
         const data: Array<Datum> = []
-        for(let index = 0; index < numPoints; index++) {
-            const sequenceTime = index * timeInterval
+        for (let x = 0; x < numPoints; x++) {
+            const sequenceTime = x * timeInterval
             data.push(datumOf(
-                sequenceTime,
-                Math.cos((6 * index) * Math.PI / seriesNames.length) * // envelope for index
-                Math.min(1, (1.2 + Math.sin(sequenceTime * Math.PI / 1513)) / 2) * // time-evolving envelope
-                Math.sin((sequenceTime / 27 + index) * Math.PI / seriesNames.length / 2) + // series values
-                slope * index - intercept
+                    sequenceTime,
+                    Math.cos((6 * index) * Math.PI / seriesNames.length) * // envelope for x
+                    Math.min(1, (1.2 + Math.sin(sequenceTime * Math.PI / 1513)) / 2) * // time-evolving envelope
+                    Math.sin((sequenceTime / 27 + x) * Math.PI / seriesNames.length / 2) + // series values
+                    slope * index - intercept
                 )
             )
         }
         return seriesFrom<Datum>(name, data)
     })
+}
+
+
+/**
+ * Creates an time-series chart data object based on the values from the time-series
+ * @param seriesList The list of series names (identifiers) to update
+ * @param [currentTime=0] The current time
+ * @return An empty chart data object
+ */
+export function initialOrdinalChartData(seriesList: Array<TimeSeries>, currentTime: number = 0): TimeSeriesChartData {
+    const maxTime = seriesList.reduce(
+        (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(-Infinity)),
+        -Infinity
+    )
+    return {
+        seriesNames: new Set(seriesList.map(series => series.name)),
+        maxTime,
+        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
+        newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [
+            series.name,
+            series.data.map(datum => ({time: datum.time, value: datum.value})),
+        ])),
+        currentTime: currentTime
+    }
 }
 
 /**
@@ -410,35 +434,26 @@ export function barDanceDataObservable(
     max: number = 1
 ): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
-    const initialData = initialChartData(series)
-    // const initialDataObservable = from([initialData])
-    // //     .pipe(
-    // //     scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
-    // // )
-    // const dataObservable = interval(updatePeriod).pipe(
-    //     // convert the number sequence to a time
-    //     map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime),
-    //
-    //     // create a new (time, value) for each series
-    //     map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
-    //
-    //     // accumulate the time-series chart data
-    //     // scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
-    // )
-    // return concat(initialDataObservable, dataObservable).pipe(
-    //     scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
-    // )
-    return interval(updatePeriod).pipe(
-        // convert the number sequence to a time
-        map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime),
+    const initialData = initialOrdinalChartData(series)
+    // prepend the initial data to the observable created using the update period
+    return concat(
+        // create an observable from the initial data
+        from([initialData]),
+        // create and observable that issues data at each update period
+        interval(updatePeriod).pipe(
+            // convert the number sequence to a time
+            map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime + updatePeriod),
 
-        // create a new (time, value) for each series
-        map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
-
-        //
-        scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max), initialData)
+            // create a new (time, value) for each series
+            map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
+        )
+    ).pipe(
+        // create an observable for the ordinal chart data
+        scan((acc, value) => accumulateOrdinalChartData(acc, value, min, max))
     )
 }
+
+// todo these functions aren't needed and can be replaced by an inline call (they are from the random walk calc)
 
 /**
  * Adds the accumulated chart data to the current random one
@@ -459,7 +474,6 @@ function accumulateOrdinalChartData(accum: TimeSeriesChartData, currentData: Tim
 
 /**
  * *Side effect*
- * Calculates the successive differences in the values to create a random walk for simulating neuron weights.
  * Updates the specified `accum` parameter.
  * @param accum The "position" in the random walk
  * @param incoming The changes in position
@@ -483,6 +497,7 @@ function mergeOrdinalSeries(
     return accum;
 }
 
+// end of todo
 
 /**
  * Some complicated function to make the bars dance

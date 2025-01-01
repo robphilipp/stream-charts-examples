@@ -284,7 +284,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             }],
                     ])}
                     initialData={initialDataRef.current}
-                    asChartData={initialChartData}
+                    // asChartData={initialChartData}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}

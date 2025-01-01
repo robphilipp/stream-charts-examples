@@ -411,7 +411,7 @@ export function subscriptionOrdinalXFor(
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
     yAxesState: AxesState,
-    onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
+    onUpdateData: ((seriesName: string, data: Array<OrdinalDatum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
     seriesMap: Map<string, BaseSeries<OrdinalDatum>>,
@@ -462,25 +462,6 @@ export function subscriptionOrdinalXFor(
         updatedStats.mean = (updatedStats.count > 0) ? updatedStats.sum / updatedStats.count : NaN
         updatedStats.min = series.data.reduce((min, datum) => datum.value < min.value ? datum : min, initialMinValueDatum())
         updatedStats.max = series.data.reduce((max, datum) => datum.value > max.value ? datum : max, initialMaxValueDatum())
-
-        // updatedStats.min = series.data.reduce(
-        //     (minDatum: OrdinalDatum, datum: OrdinalDatum) => {
-        //         if (datum.value < minDatum.value) {
-        //             minDatum = copyOrdinalDatum(datum)
-        //         }
-        //         return minDatum
-        //     },
-        //     initialMinValueDatum()
-        // )
-        // updatedStats.max = series.data.reduce(
-        //     (maxDatum: OrdinalDatum, datum: OrdinalDatum) => {
-        //         if (datum.value > maxDatum.value) {
-        //             maxDatum = copyOrdinalDatum(datum)
-        //         }
-        //         return maxDatum
-        //     },
-        //     initialMaxValueDatum()
-        // )
         return updatedStats
     }
 

@@ -6,25 +6,15 @@ import React, {useCallback, useEffect, useRef} from "react";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {GSelection} from "../d3types";
 import {BaseAxis, CategoryAxis, ContinuousNumericAxis, defaultLineStyle, SeriesLineStyle} from "../axes/axes";
-import {Observable, Subscription} from "rxjs";
+import {Subscription} from "rxjs";
 import {Margin} from "../styling/margins";
-import {
-    defaultWindowedOrdinalStats,
-    subscriptionOrdinalXFor,
-    WindowedOrdinalStats
-} from "../subscriptions/subscriptions";
+import {subscriptionOrdinalXFor, WindowedOrdinalStats} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {
-    isDefaultValueStatsDatum,
-    OrdinalChartData,
-    OrdinalStats, OrdinalValueStats,
-    valueStatusDatumOfDefault
-} from "../observables/ordinals";
+import {copyValueStatsForSeries, OrdinalChartData, OrdinalStats} from "../observables/ordinals";
 import {BaseSeries} from "../series/baseSeries";
-import {OrdinalDatum} from "../series/ordinalSeries";
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {calculateOrdinalStats, OrdinalDatum, OrdinalSeries} from "../series/ordinalSeries";
 
 interface Props {
     /**
@@ -132,9 +122,9 @@ export function BarPlot(props: Props): null {
 
         onSubscribe = noop,
         onUpdateData,
-    } = useDataObservable()
+    } = useDataObservable<OrdinalChartData, OrdinalDatum>()
 
-    const {initialData} = useInitialData<TimeSeriesChartData, Datum>()
+    const {initialData} = useInitialData<OrdinalChartData, OrdinalDatum>()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
@@ -154,11 +144,12 @@ export function BarPlot(props: Props): null {
     // changes as well. The dataRef is used for performance, so that in the updatePlot function we don't
     // need to create a temporary array to holds the series data, rather, we can just use the one held in
     // the dataRef.
-    const dataRef = useRef<Array<BaseSeries<OrdinalDatum>>>(initialData.slice() as Array<BaseSeries<OrdinalDatum>>)
-    const seriesRef = useRef<Map<string, BaseSeries<OrdinalDatum>>>(new Map(initialData.map(series => [series.name, series as BaseSeries<OrdinalDatum>])))
-    // const statsRef = useRef<Map<string, OrdinalStats>>(new Map(initialData.map(series => [series.name, defaultOrdinalStats()])))
-    const statsRef = useRef<WindowedOrdinalStats>(defaultWindowedOrdinalStats())
-    // const statsRef = useRef<OrdinalStats>(defaultOrdinalStats())
+    const dataRef = useRef<Array<BaseSeries<OrdinalDatum>>>(initialData.slice())
+    const seriesRef = useRef<Map<string, BaseSeries<OrdinalDatum>>>(
+        new Map(initialData.map(series => [series.name, series]))
+    )
+    const statsRef = useRef<WindowedOrdinalStats>(initialOrdinalStats(dataRef.current))
+
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<number>(0)
 
@@ -218,8 +209,8 @@ export function BarPlot(props: Props): null {
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
         () => {
-            dataRef.current = initialData.slice() as Array<BaseSeries<OrdinalDatum>>
-            seriesRef.current = new Map(initialData.map(series => [series.name, series as BaseSeries<OrdinalDatum>]))
+            dataRef.current = initialData.slice()
+            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
             currentTimeRef.current = 0
             // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot()
@@ -451,16 +442,17 @@ export function BarPlot(props: Props): null {
 
                         //
                         // windowed min/max bar rectangle
-                        const windowedRectUpperX = lower(x) + (upper(x) - lower(x)) / 4
+                        const windowedRectUpperX = lower(x) + 3 * (upper(x) - lower(x)) / 8
                         const windowedStatsMaxValue = (isNaN(seriesWindowedStats.max.value) || seriesWindowedStats.max.value === -Infinity) ?
                             0 :
                             seriesWindowedStats.max.value
                         const windowedRectUpperY = yAxis.scale(windowedStatsMaxValue)
-                        const windowedRectWidth = Math.max(0, (upper(x) - lower(x)) / 2)
+                        const windowedRectWidth = Math.max(0, (upper(x) - lower(x)) / 4)
                         const windowedStatsMinValue = (isNaN(seriesWindowedStats.min.value) || seriesWindowedStats.min.value === Infinity) ?
                             0 :
                             seriesWindowedStats.min.value
                         const windowedRectHeight = Math.max(0, yAxis.scale(windowedStatsMinValue) - yAxis.scale(windowedStatsMaxValue))
+                        const windowedBarColor = d3.color(color)?.darker(0.3).toString() ?? color
                         svg
                             .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                             .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-windowed-min-max')
@@ -472,9 +464,9 @@ export function BarPlot(props: Props): null {
                                     .attr('y', () => windowedRectUpperY)
                                     .attr('width', () => windowedRectWidth)
                                     .attr('height', () => windowedRectHeight)
-                                    .attr('stroke', 'red')
+                                    // .attr('stroke', windowedBarColor)
                                     .attr('opacity', 0.6)
-                                    .attr('fill', 'red')
+                                    .attr('fill', windowedBarColor)
                                     .attr('fill-opacity', 0.4)
                                     .attr('stroke-width', 1)
                                     .attr('class', 'stream-charts-bar-windowed-min-max'),
@@ -483,9 +475,9 @@ export function BarPlot(props: Props): null {
                                     .attr('y', () => windowedRectUpperY)
                                     .attr('width', () => windowedRectWidth)
                                     .attr('height', () => windowedRectHeight)
-                                    .attr('stroke', 'red')
+                                    // .attr('stroke', windowedBarColor)
                                     .attr('opacity', 0.6)
-                                    .attr('fill', 'red')
+                                    .attr('fill', windowedBarColor)
                                     .attr('fill-opacity', 0.4)
                                     .attr('stroke-width', 1)
                                 ,
@@ -526,9 +518,9 @@ export function BarPlot(props: Props): null {
 
                     //
                     // min/max bar rectangle
-                    const rectUpperX = lower(x) + 3 * (upper(x) - lower(x)) / 8
+                    const rectUpperX = lower(x) + (upper(x) - lower(x)) / 4
                     const rectUpperY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0)
-                    const rectWidth = Math.max(0, (upper(x) - lower(x)) / 4)
+                    const rectWidth = Math.max(0, (upper(x) - lower(x)) / 2)
                     const stats = statsRef.current.valueStatsForSeries.get(series.name)
                     const rectHeight = stats === undefined ? 0 : Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
                     svg
@@ -615,7 +607,7 @@ export function BarPlot(props: Props): null {
         () => {
             if (seriesObservable === undefined || mainG === null) return undefined
             return subscriptionOrdinalXFor(
-                seriesObservable as Observable<OrdinalChartData>,
+                seriesObservable,
                 onSubscribe,
                 windowingTime,
                 axisAssignments,
@@ -704,6 +696,20 @@ function defaultCurrentValueStyle(): SeriesLineStyle {
 export enum BarPlotOrientation {
     VERTICAL = 0,
     HORIZONTAL = 1,
+}
+
+/**
+ * Calculates the ordinal stats for each of the ordinal series (generally, initial data) and
+ * returns a {@link WindowedOrdinalStats} object
+ * @param series The array of ordinal series
+ * @return A {@link WindowedOrdinalStats} object with the stats for each of the series
+ */
+function initialOrdinalStats(series: Array<OrdinalSeries>): WindowedOrdinalStats {
+    const ordinalStats = calculateOrdinalStats(series)
+    return {
+        ...ordinalStats,
+        windowedValueStatsForSeries: copyValueStatsForSeries(ordinalStats.valueStatsForSeries)
+    }
 }
 
 /**
