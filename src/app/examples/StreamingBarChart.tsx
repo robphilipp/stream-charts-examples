@@ -1,7 +1,7 @@
 import React, {JSX, useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {barDanceDataObservable} from "./randomData";
+import {barDanceDataObservable} from "./randomOrdinalData";
 import {
     Grid,
     gridArea,
@@ -32,7 +32,7 @@ import {assignAxes} from "../charts/plots/plot";
 import {BarPlot} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
 import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
-import {initialChartData, OrdinalDatum} from "../charts/series/ordinalSeries";
+import {OrdinalDatum} from "../charts/series/ordinalSeries";
 // import {
 //     AxisLocation,
 //     CategoryAxis,

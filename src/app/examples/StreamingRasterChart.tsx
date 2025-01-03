@@ -3,7 +3,7 @@ import {JSX} from "react";
 import {useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {randomSpikeDataObservable} from "./randomData";
+import {randomSpikeDataObservable} from "./randomSpikeData";
 import {
     Grid,
     gridArea,

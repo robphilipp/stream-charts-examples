@@ -66,6 +66,7 @@ function accumulateTentDataAt(updatePeriod: number):
         })
 
         return {
+            seriesNames: new Set<string>(previous.newPoints.keys()),
             maxTime: previous.maxTime + updatePeriod,
             maxTimes,
             newPoints,
@@ -103,60 +104,70 @@ describe('when calculating tent-map iterates', () => {
 
     const expected: Array<TimeSeriesChartData> = [
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 26,
             maxTimes: new Map([["test1", 26]]),
             newPoints: new Map([["test1", [datumOf(26, 0.578)]]]),
             currentTime: 26
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 51,
             maxTimes: new Map([["test1", 51]]),
             newPoints: new Map([["test1", [datumOf(51, 0.7174)]]]),
             currentTime: 51
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 76,
             maxTimes: new Map([["test1", 76]]),
             newPoints: new Map([["test1", [datumOf(76, 0.48042)]]]),
             currentTime: 76
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 101,
             maxTimes: new Map([["test1", 101]]),
             newPoints: new Map([["test1", [datumOf(101, 0.816714)]]]),
             currentTime: 101
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 126,
             maxTimes: new Map([["test1", 126]]),
             newPoints: new Map([["test1", [datumOf(126, 0.3115862)]]]),
             currentTime: 126
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 151,
             maxTimes: new Map([["test1", 151]]),
             newPoints: new Map([["test1", [datumOf(151, 0.52969654)]]]),
             currentTime: 151
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 176,
             maxTimes: new Map([["test1", 176]]),
             newPoints: new Map([["test1", [datumOf(176, 0.799515882)]]]),
             currentTime: 176
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 201,
             maxTimes: new Map([["test1", 201]]),
             newPoints: new Map([["test1", [datumOf(201, 0.3408230006)]]]),
             currentTime: 201
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 226,
             maxTimes: new Map([["test1", 226]]),
             newPoints: new Map([["test1", [datumOf(226, 0.5793991)]]]),
             currentTime: 226
         },
         {
+            seriesNames: new Set<string>(["test1"]),
             maxTime: 251,
             maxTimes: new Map([["test1", 251]]),
             newPoints: new Map([["test1", [datumOf(251, 0.7150215282659962)]]]),

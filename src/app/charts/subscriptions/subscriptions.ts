@@ -11,7 +11,9 @@ import {IterateChartData} from "../observables/iterates";
 import {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {
     copyOrdinalDatumExtremum,
-    copyOrdinalStats, copyOrdinalValueStats, copyValueStatsForSeries,
+    copyOrdinalStats,
+    copyOrdinalValueStats,
+    copyValueStatsForSeries,
     defaultOrdinalStats,
     defaultOrdinalValueStats,
     initialMaxValueDatum,
@@ -21,7 +23,7 @@ import {
     OrdinalValueStats
 } from "../observables/ordinals";
 import {ChartData} from "../observables/ChartData";
-import {copyOrdinalDatum, OrdinalDatum} from "../series/ordinalSeries";
+import {OrdinalDatum} from "../series/ordinalSeries";
 import {MutableRefObject} from "react";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }

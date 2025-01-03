@@ -20,7 +20,11 @@ import {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
 import {noop} from "../utils";
 import {Dimensions, Margin} from "../styling/margins";
-import {subscriptionTimeSeriesFor, subscriptionTimeSeriesWithCadenceFor, TimeWindowBehavior} from "../subscriptions/subscriptions";
+import {
+    subscriptionTimeSeriesFor,
+    subscriptionTimeSeriesWithCadenceFor,
+    TimeWindowBehavior
+} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
@@ -79,14 +83,14 @@ interface Props {
  * @constructor
  * @example
  <ScatterPlot
-     interpolation={interpolation}
-     axisAssignments={new Map([
-        ['test2', assignAxes("x-axis-2", "y-axis-2")],
-     ])}
-     dropDataAfter={10000}
-     panEnabled={true}
-     zoomEnabled={true}
-     zoomKeyModifiersRequired={true}
+ interpolation={interpolation}
+ axisAssignments={new Map([
+ ['test2', assignAxes("x-axis-2", "y-axis-2")],
+ ])}
+ dropDataAfter={10000}
+ panEnabled={true}
+ zoomEnabled={true}
+ zoomKeyModifiersRequired={true}
  />
  */
 export function ScatterPlot(props: Props): null {
@@ -139,10 +143,13 @@ export function ScatterPlot(props: Props): null {
         timeWindowBehavior = TimeWindowBehavior.SCROLL,
     } = props
 
-    const initialTimes = new Map<string, number>(
+    const initialTimes = useMemo(
+        () => new Map<string, number>(
             Array.from(originalAxisBounds().entries())
-                .map(([axisId, [start, ]]) => ([axisId, start]))
-        )
+                .map(([axisId, [start,]]) => ([axisId, start]))
+        ),
+        [originalAxisBounds]
+    )
 
     // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
     // are by reference, so the seriesRef, also holds on to the same Series. When the Series in seriesRef
@@ -259,7 +266,7 @@ export function ScatterPlot(props: Props): null {
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
         ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)
-            (transform, x, plotDimensions, ranges),
+        (transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 

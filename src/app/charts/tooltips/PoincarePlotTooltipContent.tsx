@@ -1,7 +1,6 @@
 import {Series} from "../plots/plot";
 import {Dimensions, Margin} from "../styling/margins";
 import {
-    boundingPoints,
     defaultTooltipStyle,
     findPointAndNeighbors,
     TooltipDimensions,

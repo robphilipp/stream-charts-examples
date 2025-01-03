@@ -452,7 +452,7 @@ describe('when calculating tent-map 1-iterates with two new data points for each
         expect(results[0].newPoints.get("test2")![0].iterateN_1).toBeCloseTo(0.035, 4)
 
         //
-        // check the last iterate datums
+        // check the last iterate datum
         expect(results[4].minIterate.time).toEqual(8)
         expect(results[4].minIterate.iterateN).toEqual(0)
         expect(results[4].minIterate.iterateN_1).toBeCloseTo(0.015, 4)

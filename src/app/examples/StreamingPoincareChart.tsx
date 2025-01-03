@@ -1,5 +1,5 @@
 import {default as React, JSX, useEffect, useRef, useState} from "react";
-import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomData";
+import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomIterateData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {

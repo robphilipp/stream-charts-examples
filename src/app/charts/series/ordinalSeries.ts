@@ -1,6 +1,6 @@
 import {BaseSeries, seriesFrom} from "./baseSeries";
 import {
-    defaultOrdinalValueStats, initialMaxTimeDatum,
+    initialMaxTimeDatum,
     initialMaxValueDatum, initialMinTimeDatum,
     initialMinValueDatum,
     OrdinalChartData,

@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useState, JSX} from "react";
 import {noop} from "../charts/utils";
 // import {noop} from "stream-charts";
 

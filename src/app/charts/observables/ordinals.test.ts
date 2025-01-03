@@ -4,7 +4,7 @@ import {seriesFrom} from "../series/baseSeries";
 import {Observable, range} from "rxjs";
 import {map} from "rxjs/operators";
 import {OrdinalChartData, ordinalsObservable} from "./ordinals";
-import {sinFn} from "../../examples/randomData";
+import {sinFn} from "../../examples/randomOrdinalData";
 
 describe('when generating ordinal series', () => {
     const NUM_POINTS = 10

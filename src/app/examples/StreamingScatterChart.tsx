@@ -1,5 +1,5 @@
 import {default as React, JSX, useRef, useState} from "react";
-import {randomWeightDataObservable} from "./randomData";
+import {randomWeightDataObservable} from "./randomWeightData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {
@@ -49,7 +49,6 @@ import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
-import {TimeWindowBehavior} from "../charts/subscriptions/subscriptions";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],

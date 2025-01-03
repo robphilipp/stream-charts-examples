@@ -13,7 +13,9 @@ import {
 import {Toggle, ToggleStatus} from "./ui/Toggle";
 import {darkTheme, lightTheme, Theme} from "./ui/Themes";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
-import {initialRandomWeightData, initialSineFnData, initialTentMapData} from "./examples/randomData";
+import {initialRandomWeightData} from "./examples/randomWeightData";
+import {initialTentMapData} from "./examples/randomIterateData";
+import {initialSineFnData} from "./examples/randomOrdinalData";
 import {Tabs} from "./ui/Tabs";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {StreamingPoincareChart} from "./examples/StreamingPoincareChart";
@@ -32,7 +34,7 @@ for (let i = 0; i < 50; ++i) {
     spikeSeriesNames.push(`neuron${i + 1}`)
 }
 const initialSpikeData = initialRandomWeightData(spikeSeriesNames, 10, 500, 50, 20, 10)
-const initialBarData = initialSineFnData(spikeSeriesNames.slice(0, 50), 1000, 75, 4)
+const initialBarData = initialSineFnData(spikeSeriesNames.slice(0, 50), 1000, 4)
 
 const App: React.FC = () => {
     const [theme, setTheme] = useState<Theme>(lightTheme)

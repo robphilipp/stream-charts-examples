@@ -101,7 +101,7 @@ export function trackerControlInstance(
 
 /**
  * Removes the tracker control from the chart
- * @param svg The svg selection holding the tracker contol
+ * @param svg The svg selection holding the tracker control
  */
 export function removeTrackerControl(svg: SvgSelection) {
     svg.on('mousemove', () => null)
