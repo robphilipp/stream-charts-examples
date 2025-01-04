@@ -495,7 +495,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateChartTime={handleChartTimeUpdate}
-                    windowingTime={150}
+                    windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"

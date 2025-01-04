@@ -1,3 +1,6 @@
+import * as d3 from "d3";
+import {BaseType} from "d3";
+
 export interface SvgStyle {
     height?: string | number;
     width?: string | number;
@@ -41,3 +44,55 @@ export function grabHeight(svg: SVGElement | null): number {
 }
 
 
+const STROKE_COLOR: string = "stroke"
+const STROKE_WIDTH: string = "stroke-width"
+const STROKE_OPACITY: string = "stroke-opacity"
+
+export interface SvgStrokeStyle {
+    readonly color: string
+    readonly width: number
+    readonly opacity: number
+}
+
+/**
+ *
+ * @param style
+ * @param selection
+ * @template E The SVG element (e.g. SVGRectElement, SVGLineElement, etc)
+ * @template D The datum type
+ * @template The SVG G element
+ */
+export function applyStrokeStylesTo<E extends BaseType, D, G extends BaseType = SVGGElement>(
+    selection: d3.Selection<E, D, G, any>,
+    style: Partial<SvgStrokeStyle>
+):  d3.Selection<E, D, G, any> {
+    if (style.color !== undefined) selection.style(STROKE_COLOR, style.color)
+    if (style.width !== undefined) selection.style(STROKE_WIDTH, style.width)
+    if (style.opacity !== undefined) selection.style(STROKE_OPACITY, style.opacity)
+    return selection
+}
+
+const FILL_COLOR: string = "fill"
+const FILL_OPACITY: string = "fill-opacity"
+
+export interface SvgFillStyle {
+    readonly color: string
+    readonly opacity: number
+}
+
+/**
+ *
+ * @param style
+ * @param selection
+ * @template E The SVG element (e.g. SVGRectElement, SVGLineElement, etc)
+ * @template D The datum type
+ * @template The SVG G element
+ */
+export function applyFillStylesTo<E extends BaseType, D, G extends BaseType = SVGGElement>(
+    selection: d3.Selection<E, D, G, any>,
+    style: Partial<SvgFillStyle>
+):  d3.Selection<E, D, G, any> {
+    if (style.color !== undefined) selection.style(FILL_COLOR, style.color)
+    if (style.opacity !== undefined) selection.style(FILL_OPACITY, style.opacity)
+    return selection
+}

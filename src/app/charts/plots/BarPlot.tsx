@@ -15,6 +15,7 @@ import {useInitialData} from "../hooks/useInitialData";
 import {copyValueStatsForSeries, OrdinalChartData, OrdinalStats} from "../observables/ordinals";
 import {BaseSeries} from "../series/baseSeries";
 import {calculateOrdinalStats, OrdinalDatum, OrdinalSeries} from "../series/ordinalSeries";
+import {applyFillStylesTo, applyStrokeStylesTo, SvgFillStyle, SvgStrokeStyle} from "../styling/svgStyle";
 
 interface Props {
     /**
@@ -69,6 +70,10 @@ interface Props {
     meanLineWidth?: number
 }
 
+export interface BarPlotStyles {
+
+}
+
 /**
  * Renders a streaming neuron bar plot for the series in the initial data and those sourced by the
  * observable specified as a property in the {@link Chart}. This component uses the {@link useChart}
@@ -79,15 +84,15 @@ interface Props {
  * @constructor
  * @example
  <BarPlot
-     axisAssignments={new Map([
-        ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
-        ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
-     ])}
-     spikeMargin={1}
-     dropDataAfter={5000}
-     panEnabled={true}
-     zoomEnabled={true}
-     zoomKeyModifiersRequired={true}
+ axisAssignments={new Map([
+ ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+ ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+ ])}
+ spikeMargin={1}
+ dropDataAfter={5000}
+ panEnabled={true}
+ zoomEnabled={true}
+ zoomKeyModifiersRequired={true}
  />
  */
 export function BarPlot(props: Props): null {
@@ -333,7 +338,7 @@ export function BarPlot(props: Props): null {
                     const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
 
                     // grab the series styles, or the defaults if none exist
-                    const {color, lineWidth, margin: spikeLineMargin = barMargin} = seriesStyles.get(series.name) || {
+                    const {color, lineWidth, margin: categoryMargin = barMargin} = seriesStyles.get(series.name) || {
                         ...defaultCurrentValueStyle(),
                         highlightColor: defaultCurrentValueStyle().color
                     }
@@ -344,13 +349,10 @@ export function BarPlot(props: Props): null {
                     }
 
                     // only show the data for which the regex filter matches
-                    const plotData = (series.name.match(seriesFilter)) ? [series.data[series.data.length-1]] : []
-                    // const plotData: Array<PlotData> = (series.name.match(seriesFilter)) ?
-                    //     [{data: series.data[series.data.length-1], stats: statsRef.current.get(series.name) || defaultOrdinalStats()}] :
-                    //     []
+                    const plotData = (series.name.match(seriesFilter)) ? [series.data[series.data.length - 1]] : []
 
                     // grab the functions for determining the lower and upper bounds of the category
-                    const {lower, upper} = xAxisCategoryBoundsFn(xAxis.categorySize, lineWidth, spikeLineMargin)
+                    const {lower, upper} = xAxisCategoryBoundsFn(xAxis.categorySize, lineWidth, categoryMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
@@ -362,24 +364,29 @@ export function BarPlot(props: Props): null {
                         .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-value-lines')
                         .data(plotData)
                         .join(
-                            enter => enter
-                                .append<SVGLineElement>('line')
-                                .attr('class', 'stream-charts-bar-value-lines')
-                                .attr('x1', _ => lower(x))
-                                .attr('x2', _ => upper(x))
-                                .attr('y1', datum => yAxis.scale(datum.value))
-                                .attr('y2', datum => yAxis.scale(datum.value))
-                                .attr('stroke', color)
-                                .attr('stroke-width', lineWidth)
-                            ,
-                            update => update
-                                .attr('x1', _ => lower(x))
-                                .attr('x2', _ => upper(x))
-                                .attr('y1', datum => yAxis.scale(datum.value))
-                                .attr('y2', datum => yAxis.scale(datum.value))
-                                .attr('stroke', color)
-                                .attr('stroke-width', lineWidth)
-                            ,
+                            enter => {
+                                const selection = enter
+                                    .append<SVGLineElement>('line')
+                                    .attr('class', 'stream-charts-bar-value-lines')
+                                    .attr('x1', _ => lower(x))
+                                    .attr('x2', _ => upper(x))
+                                    .attr('y1', datum => yAxis.scale(datum.value))
+                                    .attr('y2', datum => yAxis.scale(datum.value))
+                                    // .style('stroke', color)
+                                    // .style('stroke-width', lineWidth)
+                                return applyStrokeStylesTo(selection, {color, width: lineWidth})
+                            },
+                            update => {
+                                const selection = update
+                                    .attr('x1', _ => lower(x))
+                                    .attr('x2', _ => upper(x))
+                                    .attr('y1', datum => yAxis.scale(datum.value))
+                                    .attr('y2', datum => yAxis.scale(datum.value))
+
+                                return applyStrokeStylesTo(selection, {color, width: lineWidth})
+                                // .style('stroke', color)
+                                // .style('stroke-width', lineWidth)
+                            },
                             exit => exit.remove()
                         )
                         .on(
@@ -417,70 +424,56 @@ export function BarPlot(props: Props): null {
                             .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-windowed-mean-lines')
                             .data(plotData)
                             .join(
-                                enter => enter
-                                    .append<SVGLineElement>('line')
-                                    .attr('class', 'stream-charts-bar-windowed-mean-lines')
-                                    .attr('x1', _ => lower(x))
-                                    .attr('x2', _ => upper(x))
-                                    .attr('y1', () => windowedMeanLineY)
-                                    .attr('y2', () => windowedMeanLineY)
-                                    .attr('stroke', meanLineColor)
-                                    .attr('stroke-opacity', meanLineOpacity)
-                                    .attr('stroke-width', meanLineWidth)
-                                ,
-                                update => update
-                                    .attr('x1', _ => lower(x))
-                                    .attr('x2', _ => upper(x))
-                                    .attr('y1', () => windowedMeanLineY)
-                                    .attr('y2', () => windowedMeanLineY)
-                                    .attr('stroke', 'red')
-                                    .attr('stroke-opacity', meanLineOpacity)
-                                    .attr('stroke-width', meanLineWidth)
-                                ,
+                                enter => {
+                                    const selection = enter
+                                        .append<SVGLineElement>('line')
+                                        .attr('class', 'stream-charts-bar-windowed-mean-lines')
+                                        .attr('x1', _ => lower(x))
+                                        .attr('x2', _ => upper(x))
+                                        .attr('y1', () => windowedMeanLineY)
+                                        .attr('y2', () => windowedMeanLineY)
+                                        // .style('stroke', meanLineColor)
+                                        // .style('stroke-opacity', meanLineOpacity)
+                                        // .style('stroke-width', meanLineWidth)
+                                    return applyStrokeStylesTo(selection, {color: meanLineColor, width: meanLineWidth, opacity: meanLineOpacity})
+                                },
+                                update => {
+                                    const selection = update
+                                        .attr('x1', _ => lower(x))
+                                        .attr('x2', _ => upper(x))
+                                        .attr('y1', () => windowedMeanLineY)
+                                        .attr('y2', () => windowedMeanLineY)
+                                        // .style('stroke', 'red')
+                                        // .style('stroke-opacity', meanLineOpacity)
+                                        // .style('stroke-width', meanLineWidth)
+                                    return applyStrokeStylesTo(selection, {color: 'red', width: meanLineWidth, opacity: meanLineOpacity})
+                                },
                                 exit => exit.remove()
                             )
 
-                        //
-                        // windowed min/max bar rectangle
-                        const windowedRectUpperX = lower(x) + 3 * (upper(x) - lower(x)) / 8
-                        const windowedStatsMaxValue = (isNaN(seriesWindowedStats.max.value) || seriesWindowedStats.max.value === -Infinity) ?
-                            0 :
-                            seriesWindowedStats.max.value
-                        const windowedRectUpperY = yAxis.scale(windowedStatsMaxValue)
-                        const windowedRectWidth = Math.max(0, (upper(x) - lower(x)) / 4)
-                        const windowedStatsMinValue = (isNaN(seriesWindowedStats.min.value) || seriesWindowedStats.min.value === Infinity) ?
-                            0 :
-                            seriesWindowedStats.min.value
-                        const windowedRectHeight = Math.max(0, yAxis.scale(windowedStatsMinValue) - yAxis.scale(windowedStatsMaxValue))
+                        const windowedBar = barDimensions(
+                            0.2,
+                            lower(x), upper(x),
+                            seriesWindowedStats.min.value, seriesWindowedStats.max.value,
+                            yAxis
+                        )
+
+                        // todo these should come from the props (series styles for bars, see where the "color" is set)
                         const windowedBarColor = d3.color(color)?.darker(0.3).toString() ?? color
+                        const windowedBarStrokeStyle: Partial<SvgStrokeStyle> = {}
+                        const windowedBarFillStyle: Partial<SvgFillStyle> = {color: windowedBarColor, opacity: 0.6}
                         svg
                             .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                             .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-windowed-min-max')
                             .data(plotData)
                             .join(
-                                enter => enter
-                                    .append<SVGRectElement>('rect')
-                                    .attr('x', () => windowedRectUpperX)
-                                    .attr('y', () => windowedRectUpperY)
-                                    .attr('width', () => windowedRectWidth)
-                                    .attr('height', () => windowedRectHeight)
-                                    // .attr('stroke', windowedBarColor)
-                                    .attr('opacity', 0.6)
-                                    .attr('fill', windowedBarColor)
-                                    .attr('fill-opacity', 0.4)
-                                    .attr('stroke-width', 1)
-                                    .attr('class', 'stream-charts-bar-windowed-min-max'),
-                                update => update
-                                    .attr('x', () => windowedRectUpperX)
-                                    .attr('y', () => windowedRectUpperY)
-                                    .attr('width', () => windowedRectWidth)
-                                    .attr('height', () => windowedRectHeight)
-                                    // .attr('stroke', windowedBarColor)
-                                    .attr('opacity', 0.6)
-                                    .attr('fill', windowedBarColor)
-                                    .attr('fill-opacity', 0.4)
-                                    .attr('stroke-width', 1)
-                                ,
+                                enter => barFor(
+                                    enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-windowed-min-max'),
+                                    windowedBar,
+                                    windowedBarStrokeStyle,
+                                    windowedBarFillStyle
+                                ),
+                                update => barFor(update, windowedBar, windowedBarStrokeStyle, windowedBarFillStyle),
                                 exit => exit.remove()
                             )
                     }
@@ -493,70 +486,67 @@ export function BarPlot(props: Props): null {
                         .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-mean-lines')
                         .data(plotData)
                         .join(
-                            enter => enter
-                                .append<SVGLineElement>('line')
-                                .attr('class', 'stream-charts-bar-mean-lines')
-                                .attr('x1', _ => lower(x))
-                                .attr('x2', _ => upper(x))
-                                .attr('y1', () => meanLineY)
-                                .attr('y2', () => meanLineY)
-                                .attr('stroke', meanLineColor)
-                                .attr('stroke-opacity', meanLineOpacity)
-                                .attr('stroke-width', meanLineWidth)
-                            ,
-                            update => update
-                                .attr('x1', _ => lower(x))
-                                .attr('x2', _ => upper(x))
-                                .attr('y1', () => meanLineY)
-                                .attr('y2', () => meanLineY)
-                                .attr('stroke', meanLineColor)
-                                .attr('stroke-opacity', meanLineOpacity)
-                                .attr('stroke-width', meanLineWidth)
-                            ,
+                            enter => {
+                                const selection = enter
+                                    .append<SVGLineElement>('line')
+                                    .attr('class', 'stream-charts-bar-mean-lines')
+                                    .attr('x1', _ => lower(x))
+                                    .attr('x2', _ => upper(x))
+                                    .attr('y1', () => meanLineY)
+                                    .attr('y2', () => meanLineY)
+                                return applyStrokeStylesTo(selection, {color: meanLineColor, opacity: meanLineOpacity, width: meanLineWidth})
+                            },
+                            update => {
+                                const selection = update
+                                    .attr('x1', _ => lower(x))
+                                    .attr('x2', _ => upper(x))
+                                    .attr('y1', () => meanLineY)
+                                    .attr('y2', () => meanLineY)
+                                return applyStrokeStylesTo(selection, {color: meanLineColor, opacity: meanLineOpacity, width: meanLineWidth})
+                            },
                             exit => exit.remove()
                         )
 
                     //
                     // min/max bar rectangle
-                    const rectUpperX = lower(x) + (upper(x) - lower(x)) / 4
-                    const rectUpperY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0)
-                    const rectWidth = Math.max(0, (upper(x) - lower(x)) / 2)
-                    const stats = statsRef.current.valueStatsForSeries.get(series.name)
-                    const rectHeight = stats === undefined ? 0 : Math.max(0, yAxis.scale(stats.min.value) - yAxis.scale(stats.max.value))
+                    const totalBar = barDimensions(
+                        0.75,
+                        lower(x), upper(x),
+                        statsRef.current.valueStatsForSeries.get(series.name)?.min.value || 0,
+                        statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0,
+                        yAxis
+                    )
+
+                    // todo these should come from the props (series styles for bars, see where the "color" is set)
+                    const totalsBarStrokeStyle: Partial<SvgStrokeStyle> = {color, opacity: 0.6, width: 1}
+                    const totalsBarFillStyle: Partial<SvgFillStyle> = {color, opacity: 0.4}
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                         .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-min-max')
                         .data(plotData)
                         .join(
-                            enter => enter
-                                .append<SVGRectElement>('rect')
-                                .attr('x', () => rectUpperX)
-                                .attr('y', () => rectUpperY)
-                                .attr('width', () => rectWidth)
-                                .attr('height', () => rectHeight)
-                                .attr('stroke', color)
-                                .attr('opacity', 0.6)
-                                .attr('fill', color)
-                                .attr('fill-opacity', 0.4)
-                                .attr('stroke-width', 1)
-                                .attr('class', 'stream-charts-bar-min-max'),
-                            update => update
-                                .attr('x',() => rectUpperX)
-                                .attr('y', () => rectUpperY)
-                                .attr('width', () => rectWidth)
-                                .attr('height', () => rectHeight)
-                                .attr('stroke', color)
-                                .attr('opacity', 0.6)
-                                .attr('fill', color)
-                                .attr('fill-opacity', 0.4)
-                                .attr('stroke-width', 1)
-                            ,
+                            enter => barFor(
+                                enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-min-max'),
+                                totalBar,
+                                totalsBarStrokeStyle,
+                                totalsBarFillStyle
+                            ),
+                            update => barFor(update, totalBar, totalsBarStrokeStyle, totalsBarFillStyle),
                             exit => exit.remove()
                         )
                 })
             }
         },
-        [container, axisAssignments, xAxesState.axisFor, yAxesState.axisFor, barMargin, seriesStyles, seriesFilter, chartId, margin, mouseOverHandlerFor, mouseLeaveHandlerFor, meanLineColor, meanLineOpacity, meanLineWidth]
+        [
+            container,
+            axisAssignments, xAxesState.axisFor, yAxesState.axisFor,
+            barMargin, seriesStyles,
+            seriesFilter,
+            chartId,
+            margin,
+            mouseOverHandlerFor, mouseLeaveHandlerFor,
+            meanLineColor, meanLineOpacity, meanLineWidth
+        ]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -688,6 +678,65 @@ export function BarPlot(props: Props): null {
 /*
     Helper functions and types
  */
+
+type BarDimensions = {
+    upperX: number
+    upperY: number
+    width: number
+    height: number
+}
+
+/**
+ * Sets the attributes for the bar based on the d3 selection
+ * @param selection The d3 selection (rect SVG element)
+ * @param dimensions The bar dimensions
+ * @param strokeStyle The stroke style
+ * @param fillStyle The fill style
+ * @return The updated SVG selection (rect SVG element)
+ */
+function barFor(
+    selection: d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, any>,
+    dimensions: BarDimensions,
+    strokeStyle: Partial<SvgStrokeStyle>,
+    fillStyle: Partial<SvgFillStyle>
+):  d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, any> {
+    selection
+        .attr('x', () => dimensions.upperX)
+        .attr('y', () => dimensions.upperY)
+        .attr('width', () => dimensions.width)
+        .attr('height', () => dimensions.height)
+    applyFillStylesTo(selection, fillStyle)
+    return applyStrokeStylesTo(selection, strokeStyle)
+}
+
+
+/**
+ * Calculates the upper (x, y) coordinates of the bar, and the width and height of the bar
+ * @param widthFraction The fraction of the category width that the bar should take
+ * @param lowerX (Scaled to the axis) The lower bounds of the bar on the x-axis
+ * @param upperX (Scaled to the axis) The upper bounds of the bar on the x-axis
+ * @param min The minimum value for the category (NOT scaled to the axis)
+ * @param max The maximum value for the category (NOT scaled to the axis)
+ * @param axis The axis (needed for scaling)
+ * @return The bar's upper (x, y) coordinates, the width, and height
+ */
+function barDimensions(widthFraction: number, lowerX: number, upperX: number, min: number, max: number, axis: ContinuousNumericAxis): BarDimensions {
+    const x = lowerX + Math.max(0, 0.5 - widthFraction / 2) * (upperX - lowerX)
+
+    const maxValue = (isNaN(max) || max === -Infinity) ? 0 : max
+    const y = axis.scale(maxValue)
+
+    const width = Math.max(0, widthFraction * (upperX - lowerX))
+
+    const minValue = (isNaN(min) || min === -Infinity) ? 0 : min
+    const height = Math.max(0, axis.scale(minValue) - axis.scale(maxValue))
+    return {
+        upperX: x,
+        upperY: y,
+        width,
+        height,
+    }
+}
 
 function defaultCurrentValueStyle(): SeriesLineStyle {
     return {...defaultLineStyle(), lineWidth: 3, highlightWidth: 5}

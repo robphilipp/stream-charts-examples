@@ -301,7 +301,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
-                    windowingTime={150}
+                    windowingTime={25}
                     // onSubscribe={subscription => console.log("subscribed raster")}
                 >
                     <ContinuousAxis

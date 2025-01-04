@@ -310,7 +310,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
-                    windowingTime={75}
+                    windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
