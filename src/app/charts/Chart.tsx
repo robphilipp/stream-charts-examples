@@ -5,7 +5,7 @@ import {GSelection} from "./d3types";
 import ChartProvider from "./hooks/useChart";
 import PlotDimensionsProvider, {defaultMargin} from "./hooks/usePlotDimensions";
 import * as d3 from "d3";
-import {SeriesLineStyle} from "./axes/axes";
+import {SeriesStyle} from "./axes/axes";
 import {createPlotContainer} from "./plots/plot";
 import {noop} from "./utils";
 import AxesProvider from "./hooks/useAxes";
@@ -23,7 +23,7 @@ const defaultBackground = '#202020';
  * @template CD refers to the chart-data that is used by the Observable that has the stream of data.
  * @template D refers to the datum in the data-series
  */
-interface Props<CD, D> {
+interface Props<CD, D, S extends SeriesStyle> {
     chartId: number
     /**
      * The width of the chart container
@@ -50,9 +50,9 @@ interface Props<CD, D> {
      */
     svgStyle?: Partial<SvgStyle>
     /**
-     * Map holding the series name to the {@link SeriesLineStyle} associated with that series.
+     * Map holding the series name to the series style associated with that series.
      */
-    seriesStyles?: Map<string, SeriesLineStyle>
+    seriesStyles?: Map<string, S>
 
     /*
      | INITIAL DATA
@@ -61,6 +61,11 @@ interface Props<CD, D> {
      * Initial (static) data to plot before subscribing to the {@link TimeSeriesChartData} observable.
      */
     initialData: Array<BaseSeries<D>>
+    /**
+     * Optional conversion function that converts an array of base-series with datum type D to a
+     * descendent of a {@link ChartData} object
+     * @param initialData The initial array of series
+     */
     asChartData?: (initialData: Array<BaseSeries<D>>) => CD
     /**
      * Regular expression that filters which series to display on the plot. Can be update while streaming
@@ -204,7 +209,7 @@ interface Props<CD, D> {
     />
 </Chart>
 */
-export function Chart<CD extends ChartData, D>(props: Props<CD, D>): JSX.Element {
+export function Chart<CD extends ChartData, D, S extends SeriesStyle>(props: Props<CD, D, S>): JSX.Element {
     const {
         chartId,
 

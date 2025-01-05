@@ -29,7 +29,7 @@ import {formatNumber, formatTime} from '../charts/utils';
 import {Button} from "../ui/Button";
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {assignAxes} from "../charts/plots/plot";
-import {BarPlot} from "../charts/plots/BarPlot";
+import {BarPlot, defaultBarSeriesStyle} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
 import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
 import {OrdinalDatum} from "../charts/series/ordinalSeries";
@@ -264,24 +264,25 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
                         ['neuron1', {
-                            ...defaultLineStyle(),
-                            color: 'orange',
+                            ...defaultBarSeriesStyle('orange'),
                             lineWidth: 2,
-                            highlightColor: 'orange'
+                            minMaxBar: {
+                                ...defaultBarSeriesStyle('orange').minMaxBar,
+                                stroke: {
+                                    ...defaultBarSeriesStyle('orange').minMaxBar.stroke,
+                                    width: 0
+                                }
+                            }
                         }],
                         ['neuron14', {
-                            ...defaultLineStyle(),
-                            color: theme.name === 'light' ? 'blue' : 'gray',
+                            ...defaultBarSeriesStyle(theme.name === 'light' ? 'blue' : 'gray'),
                             lineWidth: 3,
-                            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
                             highlightWidth: 5
                         }],
-                            ['neuron31', {
-                                ...defaultLineStyle(),
-                                color: 'green',
-                                lineWidth: 2,
-                                highlightColor: 'green'
-                            }],
+                        ['neuron31', {
+                            ...defaultBarSeriesStyle('green'),
+                            lineWidth: 2,
+                        }],
                     ])}
                     initialData={initialDataRef.current}
                     // asChartData={initialChartData}
