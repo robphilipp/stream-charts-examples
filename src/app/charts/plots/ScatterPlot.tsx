@@ -104,7 +104,7 @@ export function ScatterPlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart()
+    } = useChart<Datum, SeriesLineStyle>()
 
     const {
         initialData
@@ -291,7 +291,7 @@ export function ScatterPlot(props: Props): null {
                 // creates a temporary array
                 const boundedSeries = new Map(dataRef.current.map(series => [
                     series.name,
-                    series.data.map(datum => [datum.time, datum.value]) as Series<[number, number]>
+                    series.data
                 ]))
 
                 // set up panning
@@ -372,9 +372,9 @@ export function ScatterPlot(props: Props): null {
                                 .attr("id", `${name}-${chartId}-scatter`)
                                 .attr(
                                     "d",
-                                    d3.line()
-                                        .x((d: [number, number]) => xAxisLinear.scale(d[0]) || 0)
-                                        .y((d: [number, number]) => yAxisLinear.scale(d[1]) || 0)
+                                    d3.line<Datum>()
+                                        .x((d: Datum) => xAxisLinear.scale(d.time) || 0)
+                                        .y((d: Datum) => yAxisLinear.scale(d.value) || 0)
                                         .curve(interpolation)
                                 )
                                 .attr("fill", "none")
@@ -585,12 +585,12 @@ function handleMouseOverSeries(
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
-    series: Series<[number, number]>,
+    series: Series<Datum>,
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<Datum>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)

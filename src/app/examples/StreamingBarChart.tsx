@@ -270,7 +270,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             highlightColor: 'orange'
                         }],
                         ['neuron14', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: theme.name === 'light' ? 'blue' : 'gray',
                             lineWidth: 3,
                             highlightColor: theme.name === 'light' ? 'blue' : 'gray',

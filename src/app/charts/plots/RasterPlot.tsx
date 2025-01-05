@@ -99,7 +99,7 @@ export function RasterPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse
-    } = useChart()
+    } = useChart<Datum, SeriesLineStyle>()
 
     const {
         xAxesState,
@@ -375,7 +375,7 @@ export function RasterPlot(props: Props): null {
                                     container,
                                     xAxis,
                                     series.name,
-                                    [datumArray.time, datumArray.value],
+                                    datumArray,
                                     event,
                                     margin,
                                     seriesStyles,
@@ -607,12 +607,12 @@ function handleMouseOverSeries(
     container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
-    selectedDatum: [x: number, y: number],
+    selectedDatum: Datum,
     event: React.MouseEvent<SVGPathElement>,
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<Datum>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)

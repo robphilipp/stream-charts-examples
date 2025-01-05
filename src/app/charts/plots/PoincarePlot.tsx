@@ -125,7 +125,7 @@ export function PoincarePlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart()
+    } = useChart<IterateDatum, SeriesLineStyle>()
 
     const {
         xAxesState,

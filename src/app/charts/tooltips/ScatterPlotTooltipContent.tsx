@@ -7,6 +7,8 @@ import {TextSelection} from "../d3types";
 import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {SeriesLineStyle} from "../axes/axes";
+import {Datum, emptyDatum} from "../series/timeSeries";
 
 /**
 # Want to write your own tooltip-content component?
@@ -133,7 +135,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
         chartId,
         container,
         tooltip
-    } = useChart<[number, number]>()
+    } = useChart<Datum, SeriesLineStyle>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -179,7 +181,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
-                    (seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) =>
+                    (seriesName: string, time: number, series: Series<Datum>, mouseCoords: [x: number, y: number]) =>
                         addTooltipContent(
                             seriesName, time, series, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
@@ -204,20 +206,20 @@ export function ScatterPlotTooltipContent(props: Props): null {
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param time The time (x-coordinate value) corresponding to the mouse location
- * @param series The spike datum (t ms, s mV)
+ * @param series The datum (t ms, s mV)
  * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
  * @param chartId The ID of this chart
  * @param container The plot container (SVGSVGElement)
  * @param margin The plot margins
  * @param tooltipStyle The style properties for the tooltip
  * @param plotDimensions The dimensions of the plot
- * @param options The options passed through the the function that adds the tooltip content
+ * @param options The options passed through the function that adds the tooltip content
  * @return The width and text height of the tooltip content
  */
 function addTooltipContent(
     seriesName: string,
     time: number,
-    series: Series<[number, number]>,
+    series: Series<Datum>,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -228,7 +230,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {labels, formatters} = options
     const [x, y] = mouseCoords
-    const [lower, upper] = boundingPoints(series, time, value => value[0], () => [NaN, NaN])
+    const [lower, upper] = boundingPoints(series, time, value => value.time, () => emptyDatum())
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
@@ -260,14 +262,14 @@ function addTooltipContent(
     const hrDelta = headerRow.append<SVGTextElement>("text").text(() => options.headers.delta)
 
     const trHeader = table.append<SVGTextElement>("text").text(() => labels.x)
-    const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower[0]))
-    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper[0]))
-    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.change(lower[0], upper[0]))
+    const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower.time))
+    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper.time))
+    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.change(lower.time, upper.time))
 
     const vrHeader = table.append<SVGTextElement>("text").text(() => labels.y)
-    const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower[1]))
-    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper[1]))
-    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.change(lower[1], upper[1]))
+    const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower.value))
+    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper.value))
+    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.change(lower.value, upper.value))
 
     const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
     const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0

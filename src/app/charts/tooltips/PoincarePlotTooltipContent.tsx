@@ -15,6 +15,7 @@ import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {emptyIterateDatum, IterateDatum} from "../series/iterateSeries";
+import {SeriesLineStyle} from "../axes/axes";
 
 /**
 # Want to write your own tooltip-content component?
@@ -143,7 +144,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
         // margin,
         // plotDimensions,
         tooltip
-    } = useChart<IterateDatum>()
+    } = useChart<IterateDatum, SeriesLineStyle>()
 
     const {registerTooltipContentProvider} = tooltip
 

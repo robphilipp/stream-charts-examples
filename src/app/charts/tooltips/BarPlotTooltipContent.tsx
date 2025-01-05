@@ -5,8 +5,9 @@ import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
-import {CategoryAxis} from "../axes/axes";
+import {CategoryAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {OrdinalDatum} from "../series/ordinalSeries";
 
 /**
  # Want to write your own tooltip-content component?
@@ -115,7 +116,7 @@ export function BarPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<[number, number]>()
+    } = useChart<OrdinalDatum, SeriesLineStyle>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -165,7 +166,7 @@ export function BarPlotTooltipContent(props: Props): null {
                      * @param mouseCoords The coordinates of the mouse
                      * @return The tooltip contents
                      */
-                    (seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => {
+                    (seriesName: string, time: number, series: Series<OrdinalDatum>, mouseCoords: [x: number, y: number]) => {
                         const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
                         return addTooltipContent(
                             seriesName, time, series[0], mouseCoords,
@@ -207,7 +208,7 @@ export function BarPlotTooltipContent(props: Props): null {
 function addTooltipContent(
     seriesName: string,
     time: number,
-    selected: [time: number, value: number],
+    selected: OrdinalDatum,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -219,12 +220,12 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {formatters} = options
     const [x, ] = mouseCoords
-    const [spikeTime, value] = selected
+    const {time: datumTime, value} = selected
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
-        .attr('id', `tn${spikeTime}-${seriesName}-${chartId}`)
+        .attr('id', `tn${datumTime}-${seriesName}-${chartId}`)
         .attr('class', 'tooltip')
         .attr('fill', tooltipStyle.fontColor)
         .attr('font-family', 'sans-serif')
@@ -235,14 +236,13 @@ function addTooltipContent(
     // display the time (ms) and spike strength (mV) in the tooltip
     const text = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
-        .attr('id', `t${spikeTime}-${seriesName}-${chartId}`)
+        .attr('id', `t${datumTime}-${seriesName}-${chartId}`)
         .attr('class', 'tooltip')
         .attr('fill', tooltipStyle.fontColor)
         .attr('font-family', 'sans-serif')
         .attr('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
-        .text(() => `${formatters.x(spikeTime)}, ${formatters.y(value)}`)
-        // .text(() => `${d3.format(",.0f")(spikeTime)} ms, ${d3.format(",.2f")(value)} mV`)
+        .text(() => `${formatters.x(datumTime)}, ${formatters.y(value)}`)
 
     // calculate the max width and height of the text
     const tooltipWidth = Math.max(header.node()?.getBBox()?.width || 0, text.node()?.getBBox()?.width || 0);

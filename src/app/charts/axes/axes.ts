@@ -37,12 +37,15 @@ export function defaultAxesFont(): AxesFont {
     }
 }
 
-export interface SeriesLineStyle {
+export interface SeriesStyle {
     color: string
-    lineWidth: number
     highlightColor: string
-    highlightWidth: number
     margin?: number
+}
+
+export interface SeriesLineStyle extends SeriesStyle {
+    lineWidth: number
+    highlightWidth: number
 }
 
 export function defaultLineStyle(): SeriesLineStyle {

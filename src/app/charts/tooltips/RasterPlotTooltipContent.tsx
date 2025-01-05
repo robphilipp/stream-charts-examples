@@ -5,8 +5,9 @@ import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
-import {CategoryAxis} from "../axes/axes";
+import {CategoryAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {Datum} from "../series/timeSeries";
 
 /**
  # Want to write your own tooltip-content component?
@@ -115,7 +116,7 @@ export function RasterPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<[number, number]>()
+    } = useChart<Datum, SeriesLineStyle>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -165,7 +166,7 @@ export function RasterPlotTooltipContent(props: Props): null {
                      * @param mouseCoords The coordinates of the mouse
                      * @return The tooltip contents
                      */
-                    (seriesName: string, time: number, series: Series<[number, number]>, mouseCoords: [x: number, y: number]) => {
+                    (seriesName: string, time: number, series: Series<Datum>, mouseCoords: [x: number, y: number]) => {
                         const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
                         return addTooltipContent(
                             seriesName, time, series[0], mouseCoords,
@@ -207,7 +208,7 @@ export function RasterPlotTooltipContent(props: Props): null {
 function addTooltipContent(
     seriesName: string,
     time: number,
-    selected: [time: number, value: number],
+    selected: Datum,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -219,7 +220,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {formatters} = options
     const [x, ] = mouseCoords
-    const [spikeTime, value] = selected
+    const {time: spikeTime, value} = selected
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
