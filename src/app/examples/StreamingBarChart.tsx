@@ -77,14 +77,6 @@ interface Props {
     plotWidth?: number
 }
 
-/**
- * The spike-chart data produced by the rxjs observable that is pushed to the `RasterChart`
- */
-export interface SpikesChartData {
-    maxTime: number
-    spikes: Array<{ index: number; spike: Datum }>
-}
-
 const UPDATE_PERIOD = 75
 
 /**
@@ -203,7 +195,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         onClick={() => {
                             if (!running) {
                                 observableRef.current = ordinalsObservable(barDanceDataObservable(initialDataRef.current, UPDATE_PERIOD))
-                                // observableRef.current = ordinalsObservable(randomSpikeDataObservable(initialDataRef.current, 50, 0.1))
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
                                 intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -234,6 +225,17 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     >
                         Clear
                     </Button>
+                    <Checkbox
+                        key={7}
+                        checked={showValue}
+                        label="value"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
+                        onChange={() => setShowValue(!showValue)}
+                        marginLeft={0}
+                    />
                     <Checkbox
                         key={3}
                         checked={showMinMax}
