@@ -20,7 +20,7 @@ import {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
+import {AxisLocation} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
 import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
@@ -28,11 +28,11 @@ import {Tooltip} from "../charts/tooltips/Tooltip";
 import {formatNumber, formatTime} from '../charts/utils';
 import {Button} from "../ui/Button";
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
-import {assignAxes} from "../charts/plots/plot";
-import {BarPlot, defaultBarSeriesStyle} from "../charts/plots/BarPlot";
+import {BarPlot} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
 import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
 import {OrdinalDatum} from "../charts/series/ordinalSeries";
+import {BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -113,6 +113,12 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const [filterValue, setFilterValue] = useState<string>('');
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
+    const [showMinMax, setShowMinMax] = useState<boolean>(true);
+    const [showValue, setShowValue] = useState<boolean>(true);
+    const [showMean, setShowMean] = useState<boolean>(true);
+    const [showWinMinMax, setShowWinMinMax] = useState<boolean>(true);
+    const [showWinMean, setShowWinMean] = useState<boolean>(true);
+
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
 
     // elapsed time
@@ -185,13 +191,14 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         type="text"
                         value={filterValue}
                         onChange={event => handleUpdateRegex(event.currentTarget.value)}
-                        style={inputStyle}
+                        style={{...inputStyle,  marginRight: 10}}
                     /></label>
                     <Button
                         style={{
                             backgroundColor: theme.backgroundColor,
                             borderColor: theme.color,
-                            color: theme.color
+                            color: theme.color,
+                            marginRight: 0,
                         }}
                         onClick={() => {
                             if (!running) {
@@ -228,6 +235,50 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         Clear
                     </Button>
                     <Checkbox
+                        key={3}
+                        checked={showMinMax}
+                        label="min/max"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
+                        onChange={() => setShowMinMax(!showMinMax)}
+                        marginLeft={0}
+                    />
+                    <Checkbox
+                        key={4}
+                        checked={showMean}
+                        label="mean"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
+                        onChange={() => setShowMean(!showMean)}
+                        marginLeft={0}
+                    />
+                    <Checkbox
+                        key={5}
+                        checked={showWinMinMax}
+                        label="win min/max"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
+                        onChange={() => setShowWinMinMax(!showWinMinMax)}
+                        marginLeft={0}
+                    />
+                    <Checkbox
+                        key={6}
+                        checked={showWinMean}
+                        label="win mean"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
+                        onChange={() => setShowWinMean(!showWinMean)}
+                        marginLeft={0}
+                    />
+                    <Checkbox
                         key={1}
                         checked={visibility.tooltip}
                         label="tooltip"
@@ -236,6 +287,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                        marginLeft={0}
                     />
                     <Checkbox
                         key={2}
@@ -246,6 +298,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                        marginLeft={0}
                     />
                     <span style={{
                         color: theme.color,
@@ -254,7 +307,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
-                <Chart
+                <Chart<OrdinalChartData, OrdinalDatum, BarSeriesStyle>
                     chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
@@ -262,7 +315,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={new Map([
+                    seriesStyles={new Map<string, BarSeriesStyle>([
                         ['neuron1', {
                             ...defaultBarSeriesStyle('orange'),
                             lineWidth: 2,
@@ -273,19 +326,23 @@ export function StreamingBarChart(props: Props): JSX.Element {
                                     width: 0
                                 }
                             }
-                        }],
+                        } as BarSeriesStyle],
                         ['neuron14', {
                             ...defaultBarSeriesStyle(theme.name === 'light' ? 'blue' : 'gray'),
                             lineWidth: 3,
-                            highlightWidth: 5
-                        }],
+                            highlightWidth: 5,
+                            minMaxBar: {
+                                ...defaultBarSeriesStyle(theme.name === 'light' ? 'blue' : 'gray').minMaxBar,
+                                widthFraction: 1
+                            }
+
+                        } as BarSeriesStyle],
                         ['neuron31', {
                             ...defaultBarSeriesStyle('green'),
                             lineWidth: 2,
-                        }],
+                        } as BarSeriesStyle],
                     ])}
                     initialData={initialDataRef.current}
-                    // asChartData={initialChartData}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
@@ -342,20 +399,18 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         />
                     </Tooltip>
                     <BarPlot
-                        axisAssignments={new Map([
-                            ['neuron1', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron2', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron3', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron4', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron5', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron6', assignAxes("x-axis-1", "y-axis-1")],
-                        ])}
                         barMargin={1}
                         dropDataAfter={5000}
-                        panEnabled={true}
-                        zoomEnabled={true}
-                        zoomKeyModifiersRequired={true}
+                        // panEnabled={true}
+                        // zoomEnabled={true}
+                        // zoomKeyModifiersRequired={true}
                         // withCadenceOf={50}
+
+                        showMinMaxBars={showMinMax}
+                        showValueLines={showValue}
+                        showMeanValueLines={showMean}
+                        showWindowedMinMaxBars={showWinMinMax}
+                        showWindowedMeanValueLines={showWinMean}
                     />
                 </Chart>
             </GridItem>

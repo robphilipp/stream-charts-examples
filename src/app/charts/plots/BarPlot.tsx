@@ -23,6 +23,7 @@ import {copyValueStatsForSeries, OrdinalChartData, OrdinalStats} from "../observ
 import {BaseSeries} from "../series/baseSeries";
 import {calculateOrdinalStats, OrdinalDatum, OrdinalSeries} from "../series/ordinalSeries";
 import {applyFillStylesTo, applyStrokeStylesTo, SvgFillStyle, SvgStrokeStyle} from "../styling/svgStyle";
+import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 
 interface Props {
     /**
@@ -31,50 +32,43 @@ interface Props {
      * object holding the ID of the assigned x-axis and y-axis.
      */
     axisAssignments?: Map<string, AxesAssignment>
+    showMinMaxBars?: boolean
+    showWindowedMinMaxBars?: boolean
+    showValueLines?: boolean
+    showMeanValueLines?: boolean
+    showWindowedMeanValueLines?: boolean
     /**
      * The number of milliseconds of data to hold in memory before dropping it. Defaults to
      * infinity (i.e. no data is dropped)
      */
     dropDataAfter?: number
-    /**
-     * Enables panning (default is false)
-     */
-    panEnabled?: boolean
-    /**
-     * Enables zooming (default is false)
-     */
-    zoomEnabled?: boolean
-    /**
-     * When true, requires that the shift or control key be pressed while scrolling
-     * in order to activate the zoom
-     */
-    zoomKeyModifiersRequired?: boolean
-    /**
-     * When set, uses a cadence with the specified refresh period (in milliseconds). For plots
-     * where the updates are slow (> 100 ms) using a cadence of 10 to 25 ms smooths out the
-     * updates and makes the plot updates look cleaner. When updates are around 25 ms or less,
-     * then setting the cadence period too small will result in poor update performance. Generally
-     * at high update speeds, the cadence is unnecessary. Finally, using cadence, sets the max time
-     * to the current time.
-     */
-    withCadenceOf?: number
+    // /**
+    //  * Enables panning (default is false)
+    //  */
+    // panEnabled?: boolean
+    // /**
+    //  * Enables zooming (default is false)
+    //  */
+    // zoomEnabled?: boolean
+    // /**
+    //  * When true, requires that the shift or control key be pressed while scrolling
+    //  * in order to activate the zoom
+    //  */
+    // zoomKeyModifiersRequired?: boolean
+    // /**
+    //  * When set, uses a cadence with the specified refresh period (in milliseconds). For plots
+    //  * where the updates are slow (> 100 ms) using a cadence of 10 to 25 ms smooths out the
+    //  * updates and makes the plot updates look cleaner. When updates are around 25 ms or less,
+    //  * then setting the cadence period too small will result in poor update performance. Generally
+    //  * at high update speeds, the cadence is unnecessary. Finally, using cadence, sets the max time
+    //  * to the current time.
+    //  */
+    // withCadenceOf?: number
     /**
      * The (optional, default = 2 pixels) top and bottom margin (in pixels) for the spike lines in the plot.
      * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
      */
     barMargin?: number
-    /**
-     * The (optional, default = 'green') color of the mean line.
-     */
-    meanLineColor?: string
-    /**
-     * The (optional, default = 0.5) opacity of the mean line.
-     */
-    meanLineOpacity?: number
-    /**
-     * The (optional, default = 1) width of the mean line.
-     */
-    meanLineWidth?: number
 
     /**
      * The (optional) bar style for the lifetime min/max range bar. The style is for the width, fill,
@@ -164,6 +158,11 @@ export function BarPlot(props: Props): null {
         // panEnabled = false,
         // zoomEnabled = false,
         // zoomKeyModifiersRequired = true,
+        showMinMaxBars = true,
+        showWindowedMinMaxBars = true,
+        showValueLines = true,
+        showMeanValueLines = true,
+        showWindowedMeanValueLines = true,
         barMargin = 2,
     } = props
 
@@ -363,8 +362,6 @@ export function BarPlot(props: Props): null {
 
                     // grab the series styles, or the defaults if none exist
                     const {
-                        color,
-                        lineWidth,
                         margin: categoryMargin = barMargin,
                         valueLine: valueLineStyle,
                         meanValueLine: meanValueLineStyle,
@@ -385,7 +382,7 @@ export function BarPlot(props: Props): null {
                     const plotData = (series.name.match(seriesFilter)) ? [series.data[series.data.length - 1]] : []
 
                     // grab the functions for determining the lower and upper bounds of the category
-                    const {lower, upper} = xAxisCategoryBoundsFn(xAxis.categorySize, lineWidth, categoryMargin)
+                    const {lower, upper} = xAxisCategoryBoundsFn(xAxis.categorySize, valueLineStyle.regular.width, categoryMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
@@ -395,7 +392,7 @@ export function BarPlot(props: Props): null {
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                         .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-value-lines')
-                        .data(plotData)
+                        .data(showValueLines ? plotData : [])
                         .join(
                             enter => lineFor(
                                 enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-value-lines'),
@@ -441,14 +438,14 @@ export function BarPlot(props: Props): null {
                         )
 
                     //
-                    // windowed-mean line when the windowed status are defined for the series
+                    // windowed-mean line when the windowed stats are defined for the series
                     const seriesWindowedStats = statsRef.current.windowedValueStatsForSeries.get(series.name)
                     if (seriesWindowedStats !== undefined) {
                         const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
                         svg
                             .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                             .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-windowed-mean-lines')
-                            .data(plotData)
+                            .data(showWindowedMeanValueLines ? plotData : [])
                             .join(
                                 enter => lineFor(
                                     enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-windowed-mean-lines'),
@@ -470,7 +467,7 @@ export function BarPlot(props: Props): null {
                             )
 
                         const windowedBar = barDimensions(
-                            0.2,
+                            windowedBarStyle.widthFraction,
                             lower(x), upper(x),
                             seriesWindowedStats.min.value, seriesWindowedStats.max.value,
                             yAxis
@@ -479,7 +476,7 @@ export function BarPlot(props: Props): null {
                         svg
                             .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                             .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-windowed-min-max')
-                            .data(plotData)
+                            .data(showWindowedMinMaxBars ? plotData : [])
                             .join(
                                 enter => barFor(
                                     enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-windowed-min-max'),
@@ -498,7 +495,7 @@ export function BarPlot(props: Props): null {
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                         .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-mean-lines')
-                        .data(plotData)
+                        .data(showMeanValueLines ? plotData : [])
                         .join(
                             enter => lineFor(
                                 enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-mean-lines'),
@@ -522,7 +519,7 @@ export function BarPlot(props: Props): null {
                     //
                     // min/max bar rectangle
                     const totalBar = barDimensions(
-                        0.65,
+                        minMaxBarStyle.widthFraction,
                         lower(x), upper(x),
                         statsRef.current.valueStatsForSeries.get(series.name)?.min.value || 0,
                         statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0,
@@ -532,7 +529,7 @@ export function BarPlot(props: Props): null {
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                         .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-min-max')
-                        .data(plotData)
+                        .data(showMinMaxBars ? plotData : [])
                         .join(
                             enter => barFor(
                                 enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-min-max'),
@@ -554,6 +551,7 @@ export function BarPlot(props: Props): null {
             chartId,
             margin,
             mouseOverHandlerFor, mouseLeaveHandlerFor,
+            showMinMaxBars, showValueLines, showMeanValueLines, showWindowedMinMaxBars, showWindowedMeanValueLines,
         ]
     )
 
@@ -774,106 +772,6 @@ function barDimensions(widthFraction: number, lowerX: number, upperX: number, mi
     }
 }
 
-/*
-    STYLING
- */
-export interface BarSeriesStyle extends SeriesStyle {
-    lineWidth: number
-    highlightWidth: number
-
-    minMaxBar: BarStyle
-    windowedMinMaxBar: BarStyle
-    valueLine: LineStyle
-    meanValueLine: LineStyle
-    windowedMeanValueLine: LineStyle
-}
-
-export interface BarStyle {
-    widthFraction: number
-    fill: SvgFillStyle
-    stroke: SvgStrokeStyle
-}
-
-export interface LineStyle {
-    regular: SvgStrokeStyle
-    highlight: SvgStrokeStyle
-}
-
-export function defaultBarSeriesStyle(color: string = "#008aad"): BarSeriesStyle {
-    return {
-        color,
-        highlightColor: color,
-        lineWidth: 1,
-        highlightWidth: 3,
-
-        minMaxBar: {
-            widthFraction: 0.65,
-            fill: {
-                color,
-                opacity: 0.4
-            },
-            stroke: {
-                width: 1,
-                opacity: 0.6,
-                color,
-            }
-        },
-
-        windowedMinMaxBar: {
-            widthFraction: 0.25,
-            fill: {
-                color: d3.color(color)?.darker(0.3).toString() ?? color,
-                opacity: 0.6
-            },
-            stroke: {
-                width: 0,
-                opacity: 0,
-                color: d3.color(color)?.darker(0.3).toString() ?? color,
-            }
-        },
-
-        valueLine: {
-            regular: {
-                color,
-                opacity: 0.6,
-                width: 3
-            },
-            highlight: {
-                color,
-                opacity: 1,
-                width: 5
-            }
-        },
-
-        meanValueLine: {
-            regular: {
-                color,
-                opacity: 0.6,
-                width: 1
-            },
-            highlight: {
-                color,
-                opacity: 1,
-                width: 3
-            }
-        },
-
-        windowedMeanValueLine: {
-            regular: {
-                color: 'red',
-                opacity: 0.6,
-                width: 1
-            },
-            highlight: {
-                color,
-                opacity: 1,
-                width: 3
-            }
-        },
-
-    }
-}
-
 function defaultCurrentValueStyle(): SeriesLineStyle {
     return {...defaultLineStyle(), lineWidth: 3, highlightWidth: 5}
 }
@@ -1005,12 +903,12 @@ function handleMouseOverBar(
     const [x, y] = d3.pointer(event, container)
     const value = Math.round(yAxis.scale.invert(y - margin.top))
 
-    const {highlightColor, highlightWidth} = barStyles.get(categoryName) || defaultCurrentValueStyle()
+    const {valueLine} = barStyles.get(categoryName) || defaultBarSeriesStyle()
 
     // Use d3 to select element, change color and size
     d3.select<SVGPathElement, Datum>(event.currentTarget)
-        .attr('stroke', highlightColor)
-        .attr('stroke-width', highlightWidth)
+        .attr('stroke', valueLine.highlight.color)
+        .attr('stroke-width', valueLine.highlight.width)
 
     if (mouseOverHandlerFor && allowTooltip) {
         // the contract for the mouse over handler is for a time-series, but here we only
@@ -1031,13 +929,13 @@ function handleMouseOverBar(
 function handleMouseLeaveSeries(
     seriesName: string,
     segment: SVGPathElement,
-    seriesStyles: Map<string, SeriesLineStyle>,
+    seriesStyles: Map<string, BarSeriesStyle>,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultCurrentValueStyle()
+    const {color, valueLine} = seriesStyles.get(seriesName) || defaultBarSeriesStyle()
     d3.select<SVGPathElement, Datum>(segment)
         .attr('stroke', color)
-        .attr('stroke-width', lineWidth)
+        .attr('stroke-width', valueLine.regular.width)
 
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)

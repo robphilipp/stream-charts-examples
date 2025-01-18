@@ -54,6 +54,18 @@ export interface SvgStrokeStyle {
     readonly opacity: number
 }
 
+export function updateSvgStrokeColor(current: SvgStrokeStyle, color: string) {
+    return {...current, color};
+}
+
+export function updateSvgStrokeWidth(current: SvgStrokeStyle, width: number) {
+    return {...current, width};
+}
+
+export function updateSvgStrokeOpacity(current: SvgStrokeStyle, opacity: number) {
+    return {...current, opacity};
+}
+
 /**
  *
  * @param style
@@ -78,6 +90,14 @@ const FILL_OPACITY: string = "fill-opacity"
 export interface SvgFillStyle {
     readonly color: string
     readonly opacity: number
+}
+
+export function updateSvgFillColor(current: SvgFillStyle, color: string): SvgFillStyle {
+    return {...current, color}
+}
+
+export function updateSvgFillOpacity(current: SvgFillStyle, opacity: number): SvgFillStyle {
+    return {...current, opacity}
 }
 
 /**

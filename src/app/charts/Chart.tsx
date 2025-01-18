@@ -22,6 +22,7 @@ const defaultBackground = '#202020';
 /**
  * @template CD refers to the chart-data that is used by the Observable that has the stream of data.
  * @template D refers to the datum in the data-series
+ * @template S refers to the type for the series style
  */
 interface Props<CD, D, S extends SeriesStyle> {
     chartId: number
