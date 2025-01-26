@@ -176,7 +176,7 @@ export function BarPlotTooltipContent(props: Props): null {
                     (seriesName: string, time: number, series: Series<OrdinalDatum>, mouseCoords: [x: number, y: number]) => {
                         // const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
                         return addTooltipContent(
-                            seriesName, series[0], mouseCoords,
+                            seriesName, series, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
                             options
                         )
@@ -199,21 +199,19 @@ export function BarPlotTooltipContent(props: Props): null {
 /**
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param time The time (x-coordinate value) corresponding to the mouse location
  * @param selected The selected datum (time, value)
  * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
  * @param chartId The ID of this chart
  * @param container The plot container (SVGSVGElement)
  * @param margin The plot margins
  * @param tooltipStyle The style properties for the tooltip
- * @param axis The category axis to which the time-series is associated
  * @param plotDimensions The dimensions of the plot
  * @param options The options passed through the function that adds the tooltip content
  * @return The width and text height of the tooltip content
  */
 function addTooltipContent(
     seriesName: string,
-    selected: OrdinalDatum,
+    selected: Series<OrdinalDatum>,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -224,7 +222,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {formatters} = options
     const [x, y] = mouseCoords
-    const {time: datumTime, value} = selected
+    const {time: datumTime, value} = selected.length > 0 ? selected[selected.length - 1] : {time: NaN, value: NaN}
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)

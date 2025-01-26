@@ -497,8 +497,7 @@ export function BarPlot(props: Props): null {
                                 handleMouseOverBar(
                                     container,
                                     yAxis,
-                                    series.name,
-                                    datumArray,
+                                    series,
                                     event,
                                     margin,
                                     seriesStyles,
@@ -853,8 +852,7 @@ function xAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: 
  * Renders a tooltip showing for the bar in the bar chart (see {@link BarPlotTooltipContent})
  * @param container The chart container
  * @param yAxis The y-axis
- * @param categoryName The name of the category
- * @param selectedDatum The selected datum
+ * @param selectedSeries The selected series
  * @param event The mouse-over series event holding the line element
  * @param margin The plot margin
  * @param barStyles The series style information (needed for (un)highlighting)
@@ -865,8 +863,7 @@ function xAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: 
 function handleMouseOverBar(
     container: SVGSVGElement,
     yAxis: ContinuousNumericAxis,
-    categoryName: string,
-    selectedDatum: OrdinalDatum,
+    selectedSeries: BaseSeries<OrdinalDatum>,
     event: React.MouseEvent<SVGLineElement>,
     margin: Margin,
     barStyles: Map<string, BarSeriesStyle>,
@@ -878,6 +875,7 @@ function handleMouseOverBar(
     const [x, y] = d3.pointer(event, container)
     const value = yAxis.scale.invert(y - margin.top)
 
+    const {name: categoryName, data: selectedData} = selectedSeries
     const {valueLine} = barStyles.get(categoryName) || defaultBarSeriesStyle
 
     // Use d3 to select element, change color and size
@@ -887,11 +885,8 @@ function handleMouseOverBar(
         .style(STROKE_OPACITY, valueLine.highlight.opacity)
 
     if (mouseOverHandlerFor && allowTooltip) {
-        // the contract for the mouse over handler is for a time-series, but here we only
-        // need one point, the selected datum, and so we convert it into an array of point
-        // (i.e. a time-series). The category tooltip is (and custom ones, must be)
-        // written to expect only the selected point
-        mouseOverHandlerFor(categoryName, value, [selectedDatum], [x, y])
+        // the contract for the mouse over handler is for a series
+        mouseOverHandlerFor(categoryName, value, selectedData, [x, y])
     }
 }
 
