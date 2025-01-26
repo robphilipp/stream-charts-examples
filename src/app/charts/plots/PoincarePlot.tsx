@@ -1,9 +1,9 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
-import {useChart} from "../hooks/useChart";
+import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import * as d3 from "d3";
 import {CurveFactory, ZoomTransform} from "d3";
-import {Series, setClipPath} from "./plot";
+import {setClipPath} from "./plot";
 import {Datum} from "../series/timeSeries";
 import {
     axesZoomHandler,
@@ -23,7 +23,7 @@ import {IterateChartData} from "../observables/iterates";
 import {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {useTooltip} from "../hooks/useTooltip";
+import {TooltipData, useTooltip} from "../hooks/useTooltip";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
@@ -125,7 +125,7 @@ export function PoincarePlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart<IterateDatum, SeriesLineStyle>()
+    } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata>()
 
     const {
         xAxesState,
@@ -509,7 +509,6 @@ export function PoincarePlot(props: Props): null {
                                             chartId,
                                             name,
                                             container,
-                                            // svg,
                                             event,
                                             datum,
                                             plotData,
@@ -707,7 +706,7 @@ function handleMouseEnterPoint(
     seriesStyle: SeriesLineStyle,
     backgroundColor: string,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<IterateDatum>, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, tooltipData: TooltipData<IterateDatum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     const {color, highlightColor, lineWidth} = seriesStyle
 
@@ -785,7 +784,7 @@ function handleMouseEnterPoint(
         mouseOverHandlerFor(
             seriesName,
             currentDatum.time,
-            plotData.map(ip => ({iterateN: ip.n, iterateN_1: ip.n_1, time: ip.time})),
+            {series: plotData.map(ip => ({iterateN: ip.n, iterateN_1: ip.n_1, time: ip.time})), metadata: {}},
             [x, y]
         )
     }

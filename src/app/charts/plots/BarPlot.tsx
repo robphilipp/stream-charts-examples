@@ -1,4 +1,4 @@
-import {AxesAssignment, Series, setClipPath} from "./plot";
+import {AxesAssignment, setClipPath} from "./plot";
 import * as d3 from "d3";
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
@@ -17,12 +17,15 @@ import {BaseSeries} from "../series/baseSeries";
 import {calculateOrdinalStats, OrdinalDatum, OrdinalSeries} from "../series/ordinalSeries";
 import {
     applyFillStylesTo,
-    applyStrokeStylesTo, STROKE_COLOR,
-    STROKE_OPACITY, STROKE_WIDTH,
+    applyStrokeStylesTo,
+    STROKE_COLOR,
+    STROKE_OPACITY,
+    STROKE_WIDTH,
     SvgFillStyle,
     SvgStrokeStyle
 } from "../styling/svgStyle";
 import {BarSeriesStyle, defaultBarSeriesStyle} from "../styling/barPlotStyle";
+import {TooltipData} from "../hooks/useTooltip";
 
 interface Props {
     /**
@@ -105,7 +108,7 @@ export function BarPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse
-    } = useChart<OrdinalDatum, BarSeriesStyle>()
+    } = useChart<OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats>()
 
     const {
         xAxesState,
@@ -493,11 +496,12 @@ export function BarPlot(props: Props): null {
                         )
                         .on(
                             "mouseover",
-                            (event, datumArray) =>
+                            (event, ) =>
                                 handleMouseOverBar(
                                     container,
                                     yAxis,
                                     series,
+                                    statsRef.current,
                                     event,
                                     margin,
                                     seriesStyles,
@@ -853,6 +857,7 @@ function xAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: 
  * @param container The chart container
  * @param yAxis The y-axis
  * @param selectedSeries The selected series
+ * @param seriesStats The statistics about the current series
  * @param event The mouse-over series event holding the line element
  * @param margin The plot margin
  * @param barStyles The series style information (needed for (un)highlighting)
@@ -864,12 +869,13 @@ function handleMouseOverBar(
     container: SVGSVGElement,
     yAxis: ContinuousNumericAxis,
     selectedSeries: BaseSeries<OrdinalDatum>,
+    seriesStats: WindowedOrdinalStats,
     event: React.MouseEvent<SVGLineElement>,
     margin: Margin,
     barStyles: Map<string, BarSeriesStyle>,
     defaultBarSeriesStyle: BarSeriesStyle,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, value: number, series: Series<OrdinalDatum>, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, value: number, tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)
@@ -886,7 +892,7 @@ function handleMouseOverBar(
 
     if (mouseOverHandlerFor && allowTooltip) {
         // the contract for the mouse over handler is for a series
-        mouseOverHandlerFor(categoryName, value, selectedData, [x, y])
+        mouseOverHandlerFor(categoryName, value, {series: selectedData, metadata: seriesStats}, [x, y])
     }
 }
 

@@ -33,6 +33,7 @@ import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
 import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
 import {OrdinalDatum} from "../charts/series/ordinalSeries";
 import {BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
+import {WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -309,7 +310,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
-                <Chart<OrdinalChartData, OrdinalDatum, BarSeriesStyle>
+                <Chart<OrdinalChartData, OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats>
                     chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}

@@ -1,4 +1,3 @@
-import {Series} from "../plots/plot";
 import {Dimensions, Margin} from "../styling/margins";
 import {
     defaultTooltipStyle,
@@ -12,10 +11,11 @@ import * as d3 from "d3";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "../utils";
 import {TextSelection} from "../d3types";
 import {useEffect, useMemo} from "react";
-import {useChart} from "../hooks/useChart";
+import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {emptyIterateDatum, IterateDatum} from "../series/iterateSeries";
 import {SeriesLineStyle} from "../axes/axes";
+import {TooltipData} from "../hooks/useTooltip";
 
 /**
 # Want to write your own tooltip-content component?
@@ -144,7 +144,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
         // margin,
         // plotDimensions,
         tooltip
-    } = useChart<IterateDatum, SeriesLineStyle>()
+    } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -193,9 +193,9 @@ export function PoincarePlotTooltipContent(props: Props): null {
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
-                    (seriesName: string, time: number, series: Series<IterateDatum>, mouseCoords: [x: number, y: number]) =>
+                    (seriesName: string, time: number, tooltipData: TooltipData<IterateDatum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) =>
                         addTooltipContent(
-                            seriesName, time, series, mouseCoords,
+                            seriesName, time, tooltipData, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
                             options
                         )
@@ -218,7 +218,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param time The time (x-coordinate value) corresponding to the mouse location
- * @param series The spike datum (t ms, s mV)
+ * @param tooltipData The series data and metadata
  * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
  * @param chartId The ID of this chart
  * @param container The plot container (SVGSVGElement)
@@ -231,7 +231,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
 function addTooltipContent(
     seriesName: string,
     time: number,
-    series: Series<IterateDatum>,
+    tooltipData: TooltipData<IterateDatum, NoTooltipMetadata>,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -242,6 +242,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {labels, formatters} = options
     const [x, y] = mouseCoords
+    const {series} = tooltipData
     const [lower, point, upper, index] = findPointAndNeighbors(
         series, time, 0.1, value => value.time, () => emptyIterateDatum
     )

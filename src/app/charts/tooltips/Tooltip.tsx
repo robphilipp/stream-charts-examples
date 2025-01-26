@@ -3,6 +3,7 @@ import {defaultTooltipStyle, removeTooltip, TooltipStyle} from "./tooltipUtils";
 import * as d3 from "d3";
 import {useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {SeriesStyle} from "../axes/axes";
 
 export interface Props {
     visible: boolean
@@ -44,13 +45,13 @@ export interface Props {
  * @return null
  * @constructor
  */
-export function Tooltip(props: Props): JSX.Element {
+export function Tooltip<D, S extends SeriesStyle, TM>(props: Props): JSX.Element {
     const {
         chartId,
         container,
         tooltip,
         mouse
-    } = useChart()
+    } = useChart<D, S, TM>()
 
     const {
         tooltipContentProvider,
@@ -88,7 +89,7 @@ export function Tooltip(props: Props): JSX.Element {
                     // example, a mouse-over a time-series in the plot).
                     registerMouseOverHandler(
                         handlerId,
-                        ((seriesName, time, series, mouseCoords) => {
+                        ((seriesName, time, tooltipData, mouseCoords) => {
                                 // create the rounded rectangle for the tooltip's background
                                 const rect = d3.select<SVGSVGElement | null, any>(container)
                                     .append<SVGRectElement>('rect')
@@ -101,7 +102,7 @@ export function Tooltip(props: Props): JSX.Element {
                                     .attr('stroke-width', tooltipStyle.borderWidth)
 
                                 // call the callback to add the content
-                                const {x, y, contentWidth, contentHeight} = contentProvider(seriesName, time, series, mouseCoords)
+                                const {x, y, contentWidth, contentHeight} = contentProvider(seriesName, time, tooltipData, mouseCoords)
 
                                 // set the position, width, and height of the tooltip rect based on the text height and width and the padding
                                 rect.attr('x', () => x)

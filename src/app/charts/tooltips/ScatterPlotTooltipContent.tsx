@@ -5,10 +5,11 @@ import * as d3 from "d3";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "../utils";
 import {TextSelection} from "../d3types";
 import {useEffect, useMemo} from "react";
-import {useChart} from "../hooks/useChart";
+import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {SeriesLineStyle} from "../axes/axes";
 import {Datum, emptyDatum} from "../series/timeSeries";
+import {TooltipData} from "../hooks/useTooltip";
 
 /**
 # Want to write your own tooltip-content component?
@@ -135,7 +136,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
         chartId,
         container,
         tooltip
-    } = useChart<Datum, SeriesLineStyle>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -181,9 +182,9 @@ export function ScatterPlotTooltipContent(props: Props): null {
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
-                    (seriesName: string, time: number, series: Series<Datum>, mouseCoords: [x: number, y: number]) =>
+                    (seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) =>
                         addTooltipContent(
-                            seriesName, time, series, mouseCoords,
+                            seriesName, time, tooltipData.series, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
                             options
                         )

@@ -6,10 +6,18 @@ import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
 import {defaultTooltipValues, useTooltip, UseTooltipValues} from "./useTooltip";
 import {SvgStyle} from "../styling/svgStyle";
 
+export type NoTooltipMetadata = {}
+
 /**
  * The values exposed through the {@link useChart} react hook
+ * @param chartId The unique ID for the chart
+ * @param mainG The root <g> element for the chart
+ * @param container The SVG element which is the container for this chart
+ * @template D The type of the series' datum
+ * @template S The type of the series style
+ * @template TM The type of the tooltip's metadata (data about the series data)
  */
-interface UseChartValues<D, S extends SeriesStyle> {
+interface UseChartValues<D, S extends SeriesStyle, TM> {
     /**
      * Unique ID for the chart
      */
@@ -55,11 +63,11 @@ interface UseChartValues<D, S extends SeriesStyle> {
     /*
      | INTERNAL INTERACTION EVENT HANDLERS
      */
-    mouse: UseMouseValues<D>
-    tooltip: UseTooltipValues<D>
+    mouse: UseMouseValues<D, TM>
+    tooltip: UseTooltipValues<D, TM>
 }
 
-const defaultUseChartValues: UseChartValues<any, any> = {
+const defaultUseChartValues: UseChartValues<any, any, any> = {
     chartId: NaN,
     container: null,
     mainG: null,
@@ -79,7 +87,7 @@ const defaultUseChartValues: UseChartValues<any, any> = {
     tooltip: defaultTooltipValues()
 }
 
-const ChartContext = createContext<UseChartValues<any, any>>(defaultUseChartValues)
+const ChartContext = createContext<UseChartValues<any, any, any>>(defaultUseChartValues)
 
 interface Props {
     chartId: number
@@ -140,8 +148,8 @@ export default function ChartProvider(props: Props): JSX.Element {
  * React hook that sets up the React context for the chart values.
  * @return The {@link UseChartValues} held in the React context.
  */
-export function useChart<D, S extends SeriesStyle>(): UseChartValues<D, S> {
-    const context = useContext<UseChartValues<D, S>>(ChartContext)
+export function useChart<D, S extends SeriesStyle, TM>(): UseChartValues<D, S, TM> {
+    const context = useContext<UseChartValues<D, S, TM>>(ChartContext)
     const {chartId} = context
     if (isNaN(chartId)) {
         throw new Error("useChart can only be used when the parent is a <ChartProvider/>")

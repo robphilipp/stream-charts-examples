@@ -1,13 +1,13 @@
-import {Series} from "../plots/plot";
 import {Dimensions, Margin} from "../styling/margins";
 import {categoryTooltipY, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX} from "./tooltipUtils";
 import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
-import {useChart} from "../hooks/useChart";
+import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {CategoryAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
+import {TooltipData} from "../hooks/useTooltip";
 
 /**
  # Want to write your own tooltip-content component?
@@ -116,7 +116,7 @@ export function RasterPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<Datum, SeriesLineStyle>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -162,14 +162,14 @@ export function RasterPlotTooltipContent(props: Props): null {
                      *
                      * @param seriesName The name of the series
                      * @param time The mouse time
-                     * @param series One point that has the (time, value) of the selected element
+                     * @param tooltipData The tooltip data holding the series and metadata (data about the series)
                      * @param mouseCoords The coordinates of the mouse
                      * @return The tooltip contents
                      */
-                    (seriesName: string, time: number, series: Series<Datum>, mouseCoords: [x: number, y: number]) => {
+                    (seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => {
                         const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
                         return addTooltipContent(
-                            seriesName, time, series[0], mouseCoords,
+                            seriesName, time, tooltipData.series[0], mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
                             assignedAxis,
                             options

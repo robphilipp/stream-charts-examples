@@ -131,6 +131,11 @@ interface Props<CD, D, S extends SeriesStyle> {
  * The chart container that holds the axes, plot, tracker, and tooltip. The chart manages the
  * subscription, sets up the {@link useChart} hook via the {@link ChartProvider}.
  * @param props The properties of the chart
+ * @template CD Chart data
+ * @template D The type of the datum type held in a series
+ * @template S The type of the series style
+ * @template TM The type of the tooltip metadata (the data about the series). If not specified,
+ * defaults to an empty object
  * @constructor
  * @example
  *
@@ -210,7 +215,7 @@ interface Props<CD, D, S extends SeriesStyle> {
     />
 </Chart>
 */
-export function Chart<CD extends ChartData, D, S extends SeriesStyle>(props: Props<CD, D, S>): JSX.Element {
+export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM>(props: Props<CD, D, S>): JSX.Element {
     const {
         chartId,
 
@@ -286,8 +291,8 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle>(props: Pro
             <svg ref={containerRef}/>
             <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
                 <AxesProvider onUpdateAxesBounds={onUpdateAxesBounds}>
-                    <MouseProvider<D>>
-                        <TooltipProvider<D>>
+                    <MouseProvider<D, TM>>
+                        <TooltipProvider<D, TM>>
                             <InitialDataProvider<CD, D>
                                 initialData={initialData}
                                 asChartData={asChartData}

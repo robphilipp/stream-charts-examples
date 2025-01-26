@@ -1,20 +1,14 @@
-import {Series} from "../plots/plot";
 import {Dimensions, Margin} from "../styling/margins";
-import {
-    categoryTooltipY,
-    defaultTooltipStyle,
-    TooltipDimensions,
-    TooltipStyle,
-    tooltipX,
-    tooltipY
-} from "./tooltipUtils";
+import {defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
-import {CategoryAxis, SeriesLineStyle} from "../axes/axes";
+import {SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalDatum} from "../series/ordinalSeries";
+import {TooltipData} from "../hooks/useTooltip";
+import {WindowedOrdinalStats} from "../subscriptions/subscriptions";
 
 /**
  # Want to write your own tooltip-content component?
@@ -123,7 +117,7 @@ export function BarPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<OrdinalDatum, SeriesLineStyle>()
+    } = useChart<OrdinalDatum, SeriesLineStyle, WindowedOrdinalStats>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -169,14 +163,13 @@ export function BarPlotTooltipContent(props: Props): null {
                      *
                      * @param seriesName The name of the series
                      * @param time The mouse time
-                     * @param series One point that has the (time, value) of the selected element
+                     * @param tooltipData The series data and metadata
                      * @param mouseCoords The coordinates of the mouse
                      * @return The tooltip contents
                      */
-                    (seriesName: string, time: number, series: Series<OrdinalDatum>, mouseCoords: [x: number, y: number]) => {
-                        // const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
+                    (seriesName: string, time: number, tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>, mouseCoords: [x: number, y: number]) => {
                         return addTooltipContent(
-                            seriesName, series, mouseCoords,
+                            seriesName, tooltipData, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
                             options
                         )
@@ -199,7 +192,7 @@ export function BarPlotTooltipContent(props: Props): null {
 /**
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param selected The selected datum (time, value)
+ * @param tooltipData The series data and metadata
  * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
  * @param chartId The ID of this chart
  * @param container The plot container (SVGSVGElement)
@@ -211,7 +204,7 @@ export function BarPlotTooltipContent(props: Props): null {
  */
 function addTooltipContent(
     seriesName: string,
-    selected: Series<OrdinalDatum>,
+    tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
     mouseCoords: [x: number, y: number],
     chartId: number,
     container: SVGSVGElement,
@@ -222,6 +215,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {formatters} = options
     const [x, y] = mouseCoords
+    const {series: selected} = tooltipData
     const {time: datumTime, value} = selected.length > 0 ? selected[selected.length - 1] : {time: NaN, value: NaN}
 
     // display the neuron ID in the tooltip

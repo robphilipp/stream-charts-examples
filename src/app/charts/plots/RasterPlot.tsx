@@ -2,7 +2,7 @@ import {AxesAssignment, setClipPath, Series} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {noop} from "../utils";
-import {useChart} from "../hooks/useChart";
+import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
@@ -26,6 +26,7 @@ import {useDataObservable} from "../hooks/useDataObservable";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
+import {TooltipData} from "../hooks/useTooltip";
 
 interface Props {
     /**
@@ -99,7 +100,7 @@ export function RasterPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse
-    } = useChart<Datum, SeriesLineStyle>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata>()
 
     const {
         xAxesState,
@@ -612,7 +613,7 @@ function handleMouseOverSeries(
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<Datum>, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)
@@ -630,7 +631,7 @@ function handleMouseOverSeries(
         // need one point, the selected datum, and so we convert it into an array of point
         // (i.e. a time-series). The category tooltip is (and custom ones, must) be
         // written to expect only the selected point
-        mouseOverHandlerFor(seriesName, time, [selectedDatum], [x, y])
+        mouseOverHandlerFor(seriesName, time, {series: [selectedDatum], metadata: {}}, [x, y])
     }
 }
 

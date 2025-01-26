@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
-import {useChart} from "../hooks/useChart";
+import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
@@ -29,6 +29,7 @@ import {useDataObservable} from "../hooks/useDataObservable";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
+import {TooltipData} from "../hooks/useTooltip";
 
 interface Props {
     /**
@@ -104,7 +105,7 @@ export function ScatterPlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart<Datum, SeriesLineStyle>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata>()
 
     const {
         initialData
@@ -590,7 +591,7 @@ function handleMouseOverSeries(
     margin: Margin,
     seriesStyles: Map<string, SeriesLineStyle>,
     allowTooltip: boolean,
-    mouseOverHandlerFor: ((seriesName: string, time: number, series: Series<Datum>, mouseCoords: [x: number, y: number]) => void) | undefined,
+    mouseOverHandlerFor: ((seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)
@@ -604,7 +605,7 @@ function handleMouseOverSeries(
         .attr('stroke-width', highlightWidth)
 
     if (mouseOverHandlerFor && allowTooltip) {
-        mouseOverHandlerFor(seriesName, time, series, [x, y])
+        mouseOverHandlerFor(seriesName, time, {series,  metadata: {}}, [x, y])
     }
 }
 
