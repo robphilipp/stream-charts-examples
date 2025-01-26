@@ -44,9 +44,9 @@ export function grabHeight(svg: SVGElement | null): number {
 }
 
 
-const STROKE_COLOR: string = "stroke"
-const STROKE_WIDTH: string = "stroke-width"
-const STROKE_OPACITY: string = "stroke-opacity"
+export const STROKE_COLOR: string = "stroke"
+export const STROKE_WIDTH: string = "stroke-width"
+export const STROKE_OPACITY: string = "stroke-opacity"
 
 export interface SvgStrokeStyle {
     readonly color: string

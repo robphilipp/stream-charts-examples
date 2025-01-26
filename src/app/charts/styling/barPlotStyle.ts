@@ -3,10 +3,27 @@ import {SvgFillStyle, SvgStrokeStyle} from "./svgStyle";
 import * as d3 from "d3";
 
 export interface BarSeriesStyle extends SeriesStyle {
+    /**
+     * The bar style for the lifetime min/max range bar. The style is for the width, fill,
+     * and stroke.
+     */
     minMaxBar: BarStyle
+    /**
+     * The bar style for the windowed min/max range bar. The style is for the width, fill,
+     * and stroke.
+     */
     windowedMinMaxBar: BarStyle
+    /**
+     * The line style for the current value.
+     */
     valueLine: LineStyle
+    /**
+     * The line style for the mean value.
+     */
     meanValueLine: LineStyle
+    /**
+     * The line style for the windowed-mean value.
+     */
     windowedMeanValueLine: LineStyle
 }
 

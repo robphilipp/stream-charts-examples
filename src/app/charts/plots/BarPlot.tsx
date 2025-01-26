@@ -5,14 +5,7 @@ import {useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useRef} from "react";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {GSelection} from "../d3types";
-import {
-    BaseAxis,
-    CategoryAxis,
-    ContinuousNumericAxis,
-    defaultLineStyle,
-    SeriesLineStyle,
-    SeriesStyle
-} from "../axes/axes";
+import {BaseAxis, CategoryAxis, ContinuousNumericAxis} from "../axes/axes";
 import {Subscription} from "rxjs";
 import {Margin} from "../styling/margins";
 import {subscriptionOrdinalXFor, WindowedOrdinalStats} from "../subscriptions/subscriptions";
@@ -22,8 +15,14 @@ import {useInitialData} from "../hooks/useInitialData";
 import {copyValueStatsForSeries, OrdinalChartData, OrdinalStats} from "../observables/ordinals";
 import {BaseSeries} from "../series/baseSeries";
 import {calculateOrdinalStats, OrdinalDatum, OrdinalSeries} from "../series/ordinalSeries";
-import {applyFillStylesTo, applyStrokeStylesTo, SvgFillStyle, SvgStrokeStyle} from "../styling/svgStyle";
-import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
+import {
+    applyFillStylesTo,
+    applyStrokeStylesTo, STROKE_COLOR,
+    STROKE_OPACITY, STROKE_WIDTH,
+    SvgFillStyle,
+    SvgStrokeStyle
+} from "../styling/svgStyle";
+import {BarSeriesStyle, defaultBarSeriesStyle} from "../styling/barPlotStyle";
 
 interface Props {
     /**
@@ -69,30 +68,10 @@ interface Props {
      * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
      */
     barMargin?: number
-
     /**
-     * The (optional) bar style for the lifetime min/max range bar. The style is for the width, fill,
-     * and stroke.
+     * The (optional) default style for the bar series that are used if no other styles are specified
      */
-    minMaxBarStyle?: BarStyle
-    /**
-     * The (optional) bar style for the windowed min/max range bar. The style is for the width, fill,
-     * and stroke.
-     */
-    windowedMinMaxBarStyle?: BarStyle
-
-    /**
-     * The (optional) line style for the current value.
-     */
-    valueStyle?: LineStyle
-    /**
-     * The (optional) line style for the mean value.
-     */
-    meanValueStyle?: LineStyle
-    /**
-     * The (optional) line style for the windowed-mean value.
-     */
-    windowedMeanValueStyle?: LineStyle
+    barSeriesStyle?: BarSeriesStyle
 }
 
 /**
@@ -164,6 +143,7 @@ export function BarPlot(props: Props): null {
         showMeanValueLines = true,
         showWindowedMeanValueLines = true,
         barMargin = 2,
+        barSeriesStyle = defaultBarSeriesStyle()
     } = props
 
     // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
@@ -369,13 +349,8 @@ export function BarPlot(props: Props): null {
                         minMaxBar: minMaxBarStyle,
                         windowedMinMaxBar: windowedBarStyle
                     } = seriesStyles.get(series.name) || {
-                        ...defaultBarSeriesStyle(),
-                        highlightColor: defaultBarSeriesStyle().color
-                    }
-
-                    type PlotData = {
-                        data: OrdinalDatum,
-                        stats: OrdinalStats,
+                        ...barSeriesStyle,
+                        highlightColor: barSeriesStyle.color
                     }
 
                     // only show the data for which the regex filter matches
@@ -386,6 +361,110 @@ export function BarPlot(props: Props): null {
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
+
+                    //
+                    // min/max bar rectangle
+                    const totalBar = barDimensions(
+                        minMaxBarStyle.widthFraction,
+                        lower(x), upper(x),
+                        statsRef.current.valueStatsForSeries.get(series.name)?.min.value || 0,
+                        statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0,
+                        yAxis
+                    )
+
+                    svg
+                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                        .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-min-max')
+                        .data(showMinMaxBars ? plotData : [])
+                        .join(
+                            enter => barFor(
+                                enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-min-max'),
+                                totalBar,
+                                minMaxBarStyle.stroke,
+                                minMaxBarStyle.fill
+                            ),
+                            update => barFor(update, totalBar, minMaxBarStyle.stroke, minMaxBarStyle.fill),
+                            exit => exit.remove()
+                        )
+
+                    //
+                    // mean line
+                    const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
+                    svg
+                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                        .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-mean-lines')
+                        .data(showMeanValueLines ? plotData : [])
+                        .join(
+                            enter => lineFor(
+                                enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-mean-lines'),
+                                {
+                                    x1: () => lower(x), y1: () => meanLineY,
+                                    x2: () => upper(x), y2: () => meanLineY
+                                },
+                                meanValueLineStyle.regular
+                            ),
+                            update => lineFor(
+                                update,
+                                {
+                                    x1: () => lower(x), y1: () => meanLineY,
+                                    x2: () => upper(x), y2: () => meanLineY
+                                },
+                                meanValueLineStyle.regular
+                            ),
+                            exit => exit.remove()
+                        )
+
+                    //
+                    // windowed-mean line when the windowed stats are defined for the series
+                    const seriesWindowedStats = statsRef.current.windowedValueStatsForSeries.get(series.name)
+                    if (seriesWindowedStats !== undefined) {
+                        const windowedBar = barDimensions(
+                            windowedBarStyle.widthFraction,
+                            lower(x), upper(x),
+                            seriesWindowedStats.min.value, seriesWindowedStats.max.value,
+                            yAxis
+                        )
+
+                        svg
+                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                            .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-windowed-min-max')
+                            .data(showWindowedMinMaxBars ? plotData : [])
+                            .join(
+                                enter => barFor(
+                                    enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-windowed-min-max'),
+                                    windowedBar,
+                                    windowedBarStyle.stroke,
+                                    windowedBarStyle.fill
+                                ),
+                                update => barFor(update, windowedBar, windowedBarStyle.stroke, windowedBarStyle.fill),
+                                exit => exit.remove()
+                            )
+
+                        const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
+                        svg
+                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                            .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-windowed-mean-lines')
+                            .data(showWindowedMeanValueLines ? plotData : [])
+                            .join(
+                                enter => lineFor(
+                                    enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-windowed-mean-lines'),
+                                    {
+                                        x1: () => lower(x), y1: () => windowedMeanLineY,
+                                        x2: () => upper(x), y2: () => windowedMeanLineY
+                                    },
+                                    windowedMeanLineStyle.regular
+                                ),
+                                update => lineFor(
+                                    update,
+                                    {
+                                        x1: () => lower(x), y1: () => windowedMeanLineY,
+                                        x2: () => upper(x), y2: () => windowedMeanLineY
+                                    },
+                                    windowedMeanLineStyle.regular
+                                ),
+                                exit => exit.remove()
+                            )
+                    }
 
                     //
                     // value lines
@@ -423,6 +502,7 @@ export function BarPlot(props: Props): null {
                                     event,
                                     margin,
                                     seriesStyles,
+                                    barSeriesStyle,
                                     allowTooltipRef.current,
                                     mouseOverHandlerFor(`tooltip-${chartId}`)
                                 )
@@ -433,112 +513,9 @@ export function BarPlot(props: Props): null {
                                 series.name,
                                 event.currentTarget,
                                 seriesStyles,
+                                barSeriesStyle,
                                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
                             )
-                        )
-
-                    //
-                    // windowed-mean line when the windowed stats are defined for the series
-                    const seriesWindowedStats = statsRef.current.windowedValueStatsForSeries.get(series.name)
-                    if (seriesWindowedStats !== undefined) {
-                        const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
-                        svg
-                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                            .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-windowed-mean-lines')
-                            .data(showWindowedMeanValueLines ? plotData : [])
-                            .join(
-                                enter => lineFor(
-                                    enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-windowed-mean-lines'),
-                                    {
-                                        x1: () => lower(x), y1: () => windowedMeanLineY,
-                                        x2: () => upper(x), y2: () => windowedMeanLineY
-                                    },
-                                    windowedMeanLineStyle.regular
-                                ),
-                                update => lineFor(
-                                    update,
-                                    {
-                                        x1: () => lower(x), y1: () => windowedMeanLineY,
-                                        x2: () => upper(x), y2: () => windowedMeanLineY
-                                    },
-                                    windowedMeanLineStyle.regular
-                                ),
-                                exit => exit.remove()
-                            )
-
-                        const windowedBar = barDimensions(
-                            windowedBarStyle.widthFraction,
-                            lower(x), upper(x),
-                            seriesWindowedStats.min.value, seriesWindowedStats.max.value,
-                            yAxis
-                        )
-
-                        svg
-                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                            .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-windowed-min-max')
-                            .data(showWindowedMinMaxBars ? plotData : [])
-                            .join(
-                                enter => barFor(
-                                    enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-windowed-min-max'),
-                                    windowedBar,
-                                    windowedBarStyle.stroke,
-                                    windowedBarStyle.fill
-                                ),
-                                update => barFor(update, windowedBar, windowedBarStyle.stroke, windowedBarStyle.fill),
-                                exit => exit.remove()
-                            )
-                    }
-
-                    //
-                    // mean line
-                    const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
-                    svg
-                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-mean-lines')
-                        .data(showMeanValueLines ? plotData : [])
-                        .join(
-                            enter => lineFor(
-                                enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-mean-lines'),
-                                {
-                                    x1: () => lower(x), y1: () => meanLineY,
-                                    x2: () => upper(x), y2: () => meanLineY
-                                },
-                                meanValueLineStyle.regular
-                            ),
-                            update => lineFor(
-                                update,
-                                {
-                                    x1: () => lower(x), y1: () => meanLineY,
-                                    x2: () => upper(x), y2: () => meanLineY
-                                },
-                                meanValueLineStyle.regular
-                            ),
-                            exit => exit.remove()
-                        )
-
-                    //
-                    // min/max bar rectangle
-                    const totalBar = barDimensions(
-                        minMaxBarStyle.widthFraction,
-                        lower(x), upper(x),
-                        statsRef.current.valueStatsForSeries.get(series.name)?.min.value || 0,
-                        statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0,
-                        yAxis
-                    )
-
-                    svg
-                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-min-max')
-                        .data(showMinMaxBars ? plotData : [])
-                        .join(
-                            enter => barFor(
-                                enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-min-max'),
-                                totalBar,
-                                minMaxBarStyle.stroke,
-                                minMaxBarStyle.fill
-                            ),
-                            update => barFor(update, totalBar, minMaxBarStyle.stroke, minMaxBarStyle.fill),
-                            exit => exit.remove()
                         )
                 })
             }
@@ -546,7 +523,7 @@ export function BarPlot(props: Props): null {
         [
             container,
             axisAssignments, xAxesState.axisFor, yAxesState.axisFor,
-            barMargin, seriesStyles,
+            barMargin, seriesStyles, barSeriesStyle,
             seriesFilter,
             chartId,
             margin,
@@ -685,6 +662,11 @@ export function BarPlot(props: Props): null {
     Helper functions and types
  */
 
+type PlotData = {
+    data: OrdinalDatum,
+    stats: OrdinalStats,
+}
+
 type BarDimensions = {
     upperX: number
     upperY: number
@@ -772,15 +754,6 @@ function barDimensions(widthFraction: number, lowerX: number, upperX: number, mi
     }
 }
 
-function defaultCurrentValueStyle(): SeriesLineStyle {
-    return {...defaultLineStyle(), lineWidth: 3, highlightWidth: 5}
-}
-
-export enum BarPlotOrientation {
-    VERTICAL = 0,
-    HORIZONTAL = 1,
-}
-
 /**
  * Calculates the ordinal stats for each of the ordinal series (generally, initial data) and
  * returns a {@link WindowedOrdinalStats} object
@@ -833,7 +806,7 @@ function axesFor(
     const yAxis = yAxisFor(axes?.yAxis || "")
     const yAxisContinuous = yAxis as ContinuousNumericAxis
     if (yAxis && !yAxisContinuous) {
-        throw Error("Barbar plot requires that y-axis be of type ContinuousNumericAxis")
+        throw Error("Bar plot requires that y-axis be of type ContinuousNumericAxis")
     }
     return [xAxisCategory, yAxisContinuous]
 }
@@ -882,9 +855,10 @@ function xAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: 
  * @param yAxis The y-axis
  * @param categoryName The name of the category
  * @param selectedDatum The selected datum
- * @param event The mouse-over series event
+ * @param event The mouse-over series event holding the line element
  * @param margin The plot margin
  * @param barStyles The series style information (needed for (un)highlighting)
+ * @param defaultBarSeriesStyle The default bar series style that is used if no style is found for the series
  * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
  */
@@ -893,22 +867,24 @@ function handleMouseOverBar(
     yAxis: ContinuousNumericAxis,
     categoryName: string,
     selectedDatum: OrdinalDatum,
-    event: React.MouseEvent<SVGPathElement>,
+    event: React.MouseEvent<SVGLineElement>,
     margin: Margin,
     barStyles: Map<string, BarSeriesStyle>,
+    defaultBarSeriesStyle: BarSeriesStyle,
     allowTooltip: boolean,
     mouseOverHandlerFor: ((seriesName: string, value: number, series: Series<OrdinalDatum>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)
-    const value = Math.round(yAxis.scale.invert(y - margin.top))
+    const value = yAxis.scale.invert(y - margin.top)
 
-    const {valueLine} = barStyles.get(categoryName) || defaultBarSeriesStyle()
+    const {valueLine} = barStyles.get(categoryName) || defaultBarSeriesStyle
 
     // Use d3 to select element, change color and size
     d3.select<SVGPathElement, Datum>(event.currentTarget)
-        .attr('stroke', valueLine.highlight.color)
-        .attr('stroke-width', valueLine.highlight.width)
+        .style(STROKE_COLOR, valueLine.highlight.color)
+        .style(STROKE_WIDTH, valueLine.highlight.width)
+        .style(STROKE_OPACITY, valueLine.highlight.opacity)
 
     if (mouseOverHandlerFor && allowTooltip) {
         // the contract for the mouse over handler is for a time-series, but here we only
@@ -924,18 +900,21 @@ function handleMouseOverBar(
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param segment The SVG line element representing the spike, over which the mouse is hovering.
  * @param seriesStyles The styles for the series (for (un)highlighting)
+ * @param defaultBarSeriesStyle The default bar series style that is used if no style is found for the series
  * @param mouseLeaverHandlerFor Registered handler for the series when the mouse leaves
  */
 function handleMouseLeaveSeries(
     seriesName: string,
-    segment: SVGPathElement,
+    segment: SVGLineElement,
     seriesStyles: Map<string, BarSeriesStyle>,
+    defaultBarSeriesStyle: BarSeriesStyle,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    const {color, valueLine} = seriesStyles.get(seriesName) || defaultBarSeriesStyle()
-    d3.select<SVGPathElement, Datum>(segment)
-        .attr('stroke', color)
-        .attr('stroke-width', valueLine.regular.width)
+    const {color, valueLine} = seriesStyles.get(seriesName) || defaultBarSeriesStyle
+    d3.select<SVGLineElement, Datum>(segment)
+        .style(STROKE_COLOR, color)
+        .style(STROKE_WIDTH, valueLine.regular.width)
+        .style(STROKE_OPACITY, valueLine.regular.opacity)
 
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)

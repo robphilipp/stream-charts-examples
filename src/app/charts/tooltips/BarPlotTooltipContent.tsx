@@ -1,6 +1,13 @@
 import {Series} from "../plots/plot";
 import {Dimensions, Margin} from "../styling/margins";
-import {categoryTooltipY, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX} from "./tooltipUtils";
+import {
+    categoryTooltipY,
+    defaultTooltipStyle,
+    TooltipDimensions,
+    TooltipStyle,
+    tooltipX,
+    tooltipY
+} from "./tooltipUtils";
 import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
@@ -167,11 +174,10 @@ export function BarPlotTooltipContent(props: Props): null {
                      * @return The tooltip contents
                      */
                     (seriesName: string, time: number, series: Series<OrdinalDatum>, mouseCoords: [x: number, y: number]) => {
-                        const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
+                        // const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
                         return addTooltipContent(
-                            seriesName, time, series[0], mouseCoords,
+                            seriesName, series[0], mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
-                            assignedAxis,
                             options
                         )
                     }
@@ -202,12 +208,11 @@ export function BarPlotTooltipContent(props: Props): null {
  * @param tooltipStyle The style properties for the tooltip
  * @param axis The category axis to which the time-series is associated
  * @param plotDimensions The dimensions of the plot
- * @param options The options passed through the the function that adds the tooltip content
+ * @param options The options passed through the function that adds the tooltip content
  * @return The width and text height of the tooltip content
  */
 function addTooltipContent(
     seriesName: string,
-    time: number,
     selected: OrdinalDatum,
     mouseCoords: [x: number, y: number],
     chartId: number,
@@ -215,11 +220,10 @@ function addTooltipContent(
     margin: Margin,
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
-    axis: CategoryAxis,
     options: TooltipOptions
 ): TooltipDimensions {
     const {formatters} = options
-    const [x, ] = mouseCoords
+    const [x, y] = mouseCoords
     const {time: datumTime, value} = selected
 
     // display the neuron ID in the tooltip
@@ -253,7 +257,7 @@ function addTooltipContent(
     // set the header text location
     // const spikeHeight = plotDimensions.height / liveDataRef.current.size
     const xCoord = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin)
-    const yCoord = categoryTooltipY(seriesName, textHeight, axis, tooltipStyle, margin, axis.categorySize, plotDimensions)
+    const yCoord = tooltipY(y, textHeight, plotDimensions, tooltipStyle, margin)
     const xTooltip = xCoord + tooltipStyle.paddingLeft
     const yTooltip = yCoord + tooltipStyle.paddingTop
     header
