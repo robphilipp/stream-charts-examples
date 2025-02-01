@@ -252,10 +252,10 @@ function addTooltipContent(
         .append<SVGTextElement>("text")
         .attr('id', `tn${time}-${seriesName}-${chartId}`)
         .attr('class', 'tooltip')
-        .attr('fill', tooltipStyle.fontColor)
-        .attr('font-family', 'sans-serif')
-        .attr('font-size', tooltipStyle.fontSize)
-        .attr('font-weight', tooltipStyle.fontWeight)
+        .style('fill', tooltipStyle.fontColor)
+        .style('font-family', 'sans-serif')
+        .style('font-size', tooltipStyle.fontSize)
+        .style('font-weight', tooltipStyle.fontWeight)
         .text(() => seriesName)
 
 
@@ -265,9 +265,9 @@ function addTooltipContent(
         .append("g")
         .attr('id', `t${time}-${seriesName}-header-${chartId}`)
         .attr('class', 'tooltip')
-        .attr('fill', tooltipStyle.fontColor)
-        .attr('font-family', 'sans-serif')
-        .attr('font-size', tooltipStyle.fontSize + 2)
+        .style('fill', tooltipStyle.fontColor)
+        .style('font-family', 'sans-serif')
+        .style('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
 
 
