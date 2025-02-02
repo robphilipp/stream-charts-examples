@@ -22,6 +22,17 @@ export namespace SvgTable {
 
         /**
          *
+         */
+        export interface TableData {
+            readonly header: Array<HeaderElement>
+            readonly data: Array<Row>
+            readonly footer: Array<string>
+            readonly numColumns: () => number
+            readonly numRows: () => number
+        }
+
+        /**
+         *
          * @param columnInfo
          */
         export function withHeader(columnInfo: Array<string> | Array<HeaderElementWithNameRequired>): TableHeaderData {
@@ -62,15 +73,19 @@ export namespace SvgTable {
                 const numColumns: Array<number> = data.map(row => row.length)
                 const minColumns = Math.min(...numColumns)
                 if (minColumns !== Math.max(...numColumns)) {
-                    console.error("All rows must have the same number of columns. Cannot construct table data.")
-                    throw new Error("All rows must have the same number of columns. Cannot construct table data.")
+                    const message = `All rows must have the same number of columns. Cannot construct table data. ` +
+                        `num_columns: [${numColumns}]`
+                    console.error(message)
+                    throw new Error(message)
                 }
 
                 // make sure that when the header data is already set, the number of columns equals
                 // the number of columns of the data
                 if (this.header !== undefined && this.header.length !== minColumns) {
-                    console.error("The data must have the same number of columns as the header. Cannot construct table data.")
-                    throw new Error("The data must have the same number of columns as the header. Cannot construct table data.")
+                    const message = `The data must have the same number of columns as the header. Cannot construct table data.` +
+                        `num_header_columns: ${this.header.length}; num_data_columns: ${minColumns}`
+                    console.error(message)
+                    throw new Error(message)
                 }
 
                 const formattedData = data
@@ -89,16 +104,20 @@ export namespace SvgTable {
                 // make sure that when the header data is already set, the number of columns equals
                 // the number of columns of the data
                 if (this.header !== undefined && this.header.length !== data.length) {
-                    console.error("The data must have the same number of columns as the header. Cannot construct table data.")
-                    throw new Error("The data must have the same number of columns as the header. Cannot construct table data.")
+                    const message = "The data must have the same number of columns as the header. Cannot construct table data." +
+                        `num_header_columns: ${this.header.length}; num_data_columns: ${data.length}`
+                    console.error(message)
+                    throw new Error(message)
                 }
 
                 // ensure that each column has the same number of rows
                 const numRows = data.map(column => column.length)
                 const minRows = Math.min(...numRows)
                 if (minRows !== Math.max(...numRows)) {
-                    console.error("All data columns must have the same number of rows. Cannot construct table data.")
-                    throw new Error("All data columns must have the same number of rows. Cannot construct table data.")
+                    const message = "All data columns must have the same number of rows. Cannot construct table data." +
+                        `num_rows: [${numRows}]`
+                    console.error(message)
+                    throw new Error(message)
                 }
 
                 // transpose the data
@@ -140,7 +159,9 @@ export namespace SvgTable {
                 return {
                     header: this.header,
                     data: this.data,
-                    footer: []
+                    footer: [],
+                    numColumns: () => this.header.length,
+                    numRows: () => this.data.length,
                 }
             }
 
@@ -151,20 +172,27 @@ export namespace SvgTable {
             public withFooter(footer: Array<string>): TableData {
                 // make sure that when the header data is already set, the number of columns equals
                 // the number of columns of the data
-                if (this.data !== undefined && footer.length !== numColumns(this.data)) {
-                    console.error("The footer must have the same number of columns as the data. Cannot construct table data.")
-                    throw new Error("The footer must have the same number of columns as the data. Cannot construct table data.")
+                if (this.data !== undefined && footer.length !== numColumnsFromRows(this.data)) {
+                    const message = "The footer must have the same number of columns as the data. Cannot construct table data." +
+                        `num_data_columns: ${numColumnsFromRows(this.data)}; num_footer_columns: ${footer.length}`;
+                    console.error(message)
+                    throw new Error(message)
                 }
 
+                // not really needed (todo remove me)
                 if (this.header !== undefined && footer.length !== this.header.length) {
-                    console.error("The footer must have the same number of columns as the header. Cannot construct table data.")
-                    throw new Error("The footer must have the same number of columns as the header. Cannot construct table data.")
+                    const message = "The footer must have the same number of columns as the header. Cannot construct table data." +
+                        `num_header_columns: ${this.header.length}; num_footer_columns: ${footer.length}`;
+                    console.error(message)
+                    throw new Error(message)
                 }
 
                 return {
                     header: this.header,
                     data: this.data,
-                    footer
+                    footer,
+                    numColumns: () => this.header.length,
+                    numRows: () => this.data.length,
                 }
 
             }
@@ -172,18 +200,9 @@ export namespace SvgTable {
 
         /**
          *
-         */
-        export interface TableData {
-            readonly header: Array<HeaderElement>
-            readonly data: Array<Row>
-            readonly footer: Array<string>
-        }
-
-        /**
-         *
          * @param data
          */
-        export function numColumns(data: Array<Row>): number {
+        function numColumnsFromRows(data: Array<Row>): number {
             const numColumns: Array<number> = data.map(row => row.length)
             return Math.min(...numColumns)
         }
