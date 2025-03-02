@@ -1,5 +1,6 @@
 import {areTableDimensionsValid, validateTableDimensions} from "./tableUtils";
 import {createTableData} from "./tableData";
+import {render} from "@testing-library/react";
 
 describe('when creating svg-tables', () => {
 
@@ -23,15 +24,15 @@ describe('when creating svg-tables', () => {
             ).toThrow("All rows must have the same number of columns. Cannot construct table data. num_columns: [3,2]")
         })
 
-        // test('table info data with different numbers of columns should not be valid', () => {
-        //     // const elemInfo1 = elementInfoFrom()
-        //     const svgRoot = mount(
-        //         <svg>
-        //             <text>This is a test</text>
-        //         </svg>
-        //     )
-        //     expect(svgRoot.find('svg')).toBeDefined()
-        // })
+        test('table info data with different numbers of columns should not be valid', () => {
+            // const elemInfo1 = elementInfoFrom()
+            const svgRoot = render(
+                <svg data-testid="my-root-svg">
+                    <text>This is a test</text>
+                </svg>
+            )
+            expect(svgRoot.getByTestId('my-root-svg')).toBeDefined()
+        })
     })
 
 })
