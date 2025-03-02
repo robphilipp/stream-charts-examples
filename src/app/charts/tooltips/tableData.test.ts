@@ -1,4 +1,4 @@
-import {SvgTableData} from "./tableData";
+import {createTableData, TableData} from "./tableData";
 
 describe('creating and manipulating table data', () => {
 
@@ -11,7 +11,7 @@ describe('creating and manipulating table data', () => {
             ['a3', 'b3', 'c3', 'd3', 'e3'],
             ['a4', 'b4', 'c4', 'd4', 'e4'],
         ]
-        const tableData = SvgTableData.withColumnHeader(columnHeader).withRowHeader(rowHeader).withDataAsRow(data).withoutFooter()
+        const tableData = createTableData().withColumnHeader(columnHeader).withRowHeader(rowHeader).withDataAsRow(data).withoutFooter()
         expect(tableData.columnHeader).toHaveLength(5)
         expect(tableData.data).toHaveLength(4)
         expect(tableData.footer).toHaveLength(0)
@@ -33,7 +33,7 @@ describe('creating and manipulating table data', () => {
             ['a3', 'b3', 'c3', 'd3', 'e3'],
             ['a4', 'b4', 'c4', 'd4', 'e4'],
         ]
-        const tableData = SvgTableData
+        const tableData = createTableData()
             .withColumnHeader(columnHeader)
             .withRowHeader(rowHeader)
             .withDataAsColumns(data)
@@ -65,7 +65,11 @@ describe('creating and manipulating table data', () => {
             ['a3', 'b3', 'c3', 'd3', 'e3'],
             ['a4', 'b4', 'c4', 'd4', 'e4'],
         ]
-        const tableData = SvgTableData.withColumnHeader(header).withoutRowHeader().withDataAsColumns(data).withoutFooter()
+        const tableData = createTableData()
+            .withColumnHeader(header)
+            .withoutRowHeader()
+            .withDataAsColumns(data)
+            .withoutFooter()
         expect(tableData.columnHeader).toHaveLength(4)
         expect(tableData.data).toHaveLength(5)
         expect(tableData.footer).toHaveLength(0)
@@ -81,7 +85,7 @@ describe('creating and manipulating table data', () => {
 
     test('should throw error when the data dimensions are inconsistent with the header dimensions', () => {
         expect(
-            () => SvgTableData
+            () => createTableData()
                 .withColumnHeader(['a', 'b'])
                 .withoutRowHeader()
                 .withDataAsRow([['a1'], ['a2']])
@@ -89,7 +93,7 @@ describe('creating and manipulating table data', () => {
         ).toThrow("The data must have the same number of columns as the header. Cannot construct table data.num_header_columns: 2; num_data_columns: 1")
 
         expect(
-            () => SvgTableData
+            () => createTableData()
                 .withColumnHeader(['a', 'b'])
                 .withoutRowHeader()
                 .withDataAsColumns([['a1'], ['a2'], ['a3']])
@@ -99,7 +103,7 @@ describe('creating and manipulating table data', () => {
 
     test('should throw error when the rows do not all have the same number of columns', () => {
         expect(
-            () => SvgTableData
+            () => createTableData()
                 .withColumnHeader(['a', 'b'])
                 .withoutRowHeader()
                 .withDataAsRow([['a1', 'a2'], ['b2']])
@@ -107,11 +111,21 @@ describe('creating and manipulating table data', () => {
         ).toThrow("All rows must have the same number of columns. Cannot construct table data. num_columns: [2,1]")
 
         expect(
-            () => SvgTableData
+            () => createTableData()
                 .withColumnHeader(['a', 'b'])
                 .withoutRowHeader()
                 .withDataAsColumns([['a1'], ['a2', 'b2']])
                 .withoutFooter()
         ).toThrow("All data columns must have the same number of rows. Cannot construct table data.num_rows: [1,2]")
+    })
+
+    test('should be able to create a table of numbers when no formatter is specified', () => {
+        const tableData = createTableData()
+            .withoutHeaders()
+            .withDataAsRow([[11, 12, 13], [21, 22, 23]])
+            .withoutFooter()
+        expect(tableData.data.length).toEqual(2)
+        expect(tableData.data[0].length).toEqual(3)
+        expect(tableData.data[1].length).toEqual(3)
     })
 })
