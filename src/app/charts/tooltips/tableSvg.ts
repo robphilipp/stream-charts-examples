@@ -1,9 +1,9 @@
 import d3 from "d3";
 import {TextSelection} from "../d3types";
-import {Option} from "prelude-ts";
-import {areInfoDimensionsValid, ColumnWidthInfo, RowHeightInfo, validateTableDimensions} from "./tableUtils";
+import {ColumnWidthInfo, RowHeightInfo, validateInfoDimensions, validateTableDimensions} from "./tableUtils";
 import {textHeightOf, textWidthOf} from "../utils";
 import {Row, TableData} from "./tableData";
+import {Result} from "result-fn";
 
 export type TableFont = {
     size: number
@@ -137,18 +137,16 @@ export function tableInfoFrom(
     rowHeaderInfo: Array<ElementInfo>,
     columnHeaderInfo: Array<ElementInfo>,
     dataInfo: Array<Array<ElementInfo>>
-): Option<TableDataInfo> {
-    if (areInfoDimensionsValid({rowHeaders: rowHeaderInfo, columnHeaders: columnHeaderInfo, data: dataInfo})) {
-        return Option.some({
+): Result<TableDataInfo, string> {
+    return validateInfoDimensions({rowHeaders: rowHeaderInfo, columnHeaders: columnHeaderInfo, data: dataInfo})
+        .map(_ => ({
             rowHeaders: rowHeaderInfo,
             columnHeaders: columnHeaderInfo,
             data: dataInfo
-        })
-    }
-    return Option.none()
+        }))
 }
 
-function elementInfoFrom(selection: TextSelection): ElementInfo {
+export function elementInfoFrom(selection: TextSelection): ElementInfo {
     return {
         selection: selection,
         textWidth: textWidthOf(selection),
@@ -223,5 +221,5 @@ export function createTable(
         })
     })
 
-    const tableInfo: Option<TableDataInfo> = tableInfoFrom(rowHeaders, columnHeaders, data)
+    const tableInfo: Result<TableDataInfo, string> = tableInfoFrom(rowHeaders, columnHeaders, data)
 }

@@ -141,7 +141,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      */
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).ifSome((regex: RegExp) => setFilter(regex));
+        regexFilter(updatedFilter).onSuccess((regex: RegExp) => setFilter(regex));
     }
 
     /**

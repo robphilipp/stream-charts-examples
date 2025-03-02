@@ -167,7 +167,8 @@ export function subscriptionTimeSeriesWithCadenceFor(
 ): Subscription {
     const maxTime = Array.from(seriesMap.entries())
         .reduce(
-            (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(tMax)),
+            (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.time).getOrDefault(tMax)),
+            // (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(tMax)),
             -Infinity
         )
     const cadence = interval(cadencePeriod)

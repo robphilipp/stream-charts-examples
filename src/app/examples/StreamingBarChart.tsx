@@ -137,7 +137,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
      */
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).ifSome(regex => setFilter(regex));
+        regexFilter(updatedFilter).onSuccess(regex => setFilter(regex));
     }
 
     /**

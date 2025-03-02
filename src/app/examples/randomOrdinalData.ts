@@ -3,10 +3,11 @@
  */
 
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
-import {Datum, datumOf, TimeSeries} from "../charts/series/timeSeries";
+import {Datum, datumOf} from "../charts/series/timeSeries";
 import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {concat, from, interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
+import {OrdinalDatum} from "../charts/series/ordinalSeries";
 
 export function sinFn(x: number, period: number): number {
     return Math.sin(2 * Math.PI * x / period)
@@ -50,15 +51,15 @@ export function initialSineFnData(
  * @param [currentTime=0] The current time
  * @return An empty chart data object
  */
-export function initialOrdinalChartData(seriesList: Array<TimeSeries>, currentTime: number = 0): TimeSeriesChartData {
+export function initialOrdinalChartData(seriesList: Array<BaseSeries<OrdinalDatum>>, currentTime: number = 0): TimeSeriesChartData {
     const maxTime = seriesList.reduce(
-        (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(-Infinity)),
+        (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrDefault(-Infinity)),
         -Infinity
     )
     return {
         seriesNames: new Set(seriesList.map(series => series.name)),
         maxTime,
-        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
+        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrDefault(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [
             series.name,
             series.data.map(datum => ({time: datum.time, value: datum.value})),
@@ -76,7 +77,8 @@ export function initialOrdinalChartData(seriesList: Array<TimeSeries>, currentTi
  * @return An observable that produces data.
  */
 export function barDanceDataObservable(
-    series: Array<TimeSeries>,
+    series: Array<BaseSeries<OrdinalDatum>>,
+    // series: Array<TimeSeries>,
     updatePeriod: number = 25,
     min: number = -1,
     max: number = 1

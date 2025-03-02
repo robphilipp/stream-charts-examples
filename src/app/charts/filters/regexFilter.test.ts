@@ -1,7 +1,7 @@
 import {regexFilter} from "./regexFilter";
 
 test('option should contain a valid regex', () => {
-    expect(regexFilter("^[0-9]+$").isSome()).toEqual(true);
+    expect(regexFilter("^[0-9]+$").succeeded).toEqual(true);
 });
 
 test('should allow progression of building regex', () => {

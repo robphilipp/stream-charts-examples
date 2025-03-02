@@ -550,7 +550,7 @@ export function BarPlot(props: Props): null {
                     mainG
                         .selectAll<SVGGElement, TimeSeries>('g')
                         .attr("clip-path", `url(#${clipPathId})`)
-                        .data<TimeSeries>(dataRef.current)
+                        .data<BaseSeries<OrdinalDatum>>(dataRef.current)
                         .enter()
                         .append('g')
                         .attr('class', 'spikes-series')
