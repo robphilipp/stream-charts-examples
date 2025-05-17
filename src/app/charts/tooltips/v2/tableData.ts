@@ -2,6 +2,9 @@
  * To build
  */
 
+import {failureResult, Result, successResult} from "result-fn";
+import {DataFrame} from "./DataFrame";
+
 export interface HeaderElement {
     readonly name: string
     readonly label: string
@@ -20,15 +23,29 @@ type HeaderElementWithNameRequired = { name: string } & Partial<Omit<HeaderEleme
 /**
  * Represents the table data, row and column headers, data formatters,
  */
-export interface TableData {
-    readonly columnHeader: Array<HeaderElement>
-    readonly rowHeader: Array<HeaderElement>
-    readonly data: Array<Row>
-    readonly footer: Array<string>
-    readonly numColumns: number
-    readonly numRows: number
+export interface TableData<V> {
+// export interface TableData {
+    /**
+     * The matrix of data, including row and column headers, if they
+     * exist (see {@link hasRowHeaders}, {@link hasColumnHeaders}, {@link numRows}, {@link numColumns})
+     */
+    readonly data: DataFrame<V>
+    // readonly data: Array<Row>
+
     readonly hasColumnHeaders: boolean
     readonly hasRowHeaders: boolean
+    readonly hasFooter: boolean
+
+    /**
+     * Function that returns the total number of rows, including a row of column
+     * headers, if it exists (see {@link hasColumnHeaders})
+     */
+    readonly numRows: () => number
+    /**
+     * Function that returns the total number of columns, including column of row
+     * headers, if it exists (see {@link hasRowHeaders})
+     */
+    readonly numColumns: () => number
 }
 
 /**
@@ -107,7 +124,7 @@ class TableDataRowHeaderBuilder {
 /**
  *
  */
-class TableDataBuilder {
+class TableDataBuilder<V> {
     readonly columnHeader: Array<HeaderElement>
     readonly rowHeader: Array<HeaderElement>
 
@@ -207,10 +224,11 @@ class TableDataBuilder {
 /**
  *
  */
-class TableDataFooterBuilder {
+class TableDataFooterBuilder<V> {
     readonly columnHeader: Array<HeaderElement>
     readonly rowHeader: Array<HeaderElement>
-    readonly data: Array<Row>
+    readonly data: DataFrame<V>
+    // readonly data: Array<Row>
 
     /**
      *
@@ -218,7 +236,8 @@ class TableDataFooterBuilder {
      * @param rowHeader
      * @param data
      */
-    constructor(columnHeader: Array<HeaderElement>, rowHeader: Array<HeaderElement>, data: Array<Row>) {
+    constructor(columnHeader: Array<HeaderElement>, rowHeader: Array<HeaderElement>, data: DataFrame<V>) {
+    // constructor(columnHeader: Array<HeaderElement>, rowHeader: Array<HeaderElement>, data: Array<Row>) {
         this.columnHeader = columnHeader
         this.rowHeader = rowHeader
         this.data = data
@@ -227,16 +246,17 @@ class TableDataFooterBuilder {
     /**
      *
      */
-    public withoutFooter(): TableData {
+    public withoutFooter(): TableData<V> {
+        const data = makeHeadersPartOfTableData(this.columnHeader, this.rowHeader, this.data, []).getOrThrow()
         return {
-            columnHeader: this.columnHeader,
-            rowHeader: this.rowHeader,
-            data: this.data,
-            footer: [],
-            numColumns: numColumnsFromRows(this.data),
-            numRows: this.data.length,
-            hasColumnHeaders: this.columnHeader.length > 0,
+            data: data,
+
             hasRowHeaders: this.rowHeader.length > 0,
+            hasColumnHeaders: this.columnHeader.length > 0,
+            hasFooter: false,
+
+            numRows: () => data.length,
+            numColumns: () => numColumnsFromRows(data),
         }
     }
 
@@ -262,19 +282,86 @@ class TableDataFooterBuilder {
             throw new Error(message)
         }
 
+        const data = makeHeadersPartOfTableData(this.columnHeader, this.rowHeader, this.data, footer).getOrThrow()
+
         return {
-            columnHeader: this.columnHeader,
-            rowHeader: this.rowHeader,
-            data: this.data,
-            footer,
-            numColumns: numColumnsFromRows(this.data),
-            numRows: this.data.length,
-            hasColumnHeaders: this.columnHeader.length > 0,
+            data: data,
+
             hasRowHeaders: this.rowHeader.length > 0,
+            hasColumnHeaders: this.columnHeader.length > 0,
+            hasFooter: footer.length > 0,
+
+            numRows: () => this.data.length,
+            numColumns: () => numColumnsFromRows(data),
         }
 
     }
 }
+
+/**
+ * Creates a matrix by adding the column headers and row headers to the data matrix. Makes
+ * a copy of the data before modifying the structure.
+ * @param columnHeader The column headers (this is a row). The number of column header elements
+ * must equal the number of columns (not including the row-header column)
+ * @param rowHeader The row headers (this is a column). The number of row header elements must
+ * equal the number of rows (not including the column header or the footer)
+ * @param data The matrix of data, where each element in the array is a row, which is an array
+ * of elements.
+ * @param footer An array holding the footer elements. The number of footer elements must be
+ * equal to the number of columns (not including the row-header column).
+ * @return A matrix where the first row is the column headers, if specified, and the first
+ * column is a header for the rows, if specified.
+ */
+function makeHeadersPartOfTableData(
+    columnHeader: Array<HeaderElement>,
+    rowHeader: Array<HeaderElement>,
+    data: Array<Row>,
+    footer: Array<string>
+): Result<Array<Row>, string> {
+    if (rowHeader.length > 0 && data.length !== rowHeader.length) {
+        return failureResult("Cannot merge headers because the number of row-headers does not equal the number of rows; " +
+            `num_row_headers: ${rowHeader.length}; num_rows: ${data.length}`
+        )
+    }
+    if (columnHeader.length > 0 && numColumnsFromRows(data) !== columnHeader.length) {
+        return failureResult("Cannot merge headers because the number of column-headers does not equal the number of columns; " +
+            `num_column_headers: ${rowHeader.length}; num_columns: ${numColumnsFromRows(data)}`
+        )
+    }
+
+    const newData: Array<Row> = data.map(row => row.slice())
+
+    // when the table has a row representing the column headers, insert the converted
+    // header as the first row
+    if (columnHeader.length > 0) {
+        newData.unshift(columnHeader.map(elem => elem.label))
+    }
+
+    // when each row has a header, then insert the header for each row as the first
+    // element of the row, making a column of row headers. if a column header was also
+    // specified, then the first row header is empty
+    if (rowHeader.length > 0) {
+        const rowHeaders = rowHeader.map(elem => elem.label)
+        if (columnHeader.length > 0) {
+            rowHeaders.unshift("")
+        }
+        newData.forEach((row, index) => row.unshift(rowHeaders[index]))
+    }
+
+    // add the footer if it is specified, and if it has the correct number of elements
+    if (footer.length > 0) {
+        if (footer.length !== columnHeader.length) {
+            return failureResult("Cannot merge footer because the number of footer elements does not equal the number of columns; " +
+                `num_footer_elements: ${footer.length}; num_columns: ${columnHeader.length}`
+            )
+        }
+        const newFooter =  (rowHeader.length > 0) ? ["", ...footer] : footer.slice()
+        newData.push(newFooter)
+    }
+
+    return successResult(newData);
+}
+
 
 /**
  *

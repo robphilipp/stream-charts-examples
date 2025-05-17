@@ -32,6 +32,9 @@ export const textWidthOf =
     (elem: Selection<SVGTextElement, any, any, any>): number =>
         elem.node()?.getBBox()?.width || 0
 
+export function textWidthFor(textElem: SVGTextElement): number {
+    return textElem.getBBox().width || 0
+}
 /**
  * Calculates the height of an SVG text element, based on its bounding box
  * @param elem The SVG text element
