@@ -42,7 +42,7 @@ describe("Testing data-frame behavior", () => {
             const expected = DataFrame.from([
                 [1, 4, 7, 10],
                 [2, 5, 8, 11],
-
+                [3, 6, 9, 12]
             ]).getOrThrow()
             expect(result.equals(expected)).toBe(true)
             expect(result.rowCount()).toEqual(3)
