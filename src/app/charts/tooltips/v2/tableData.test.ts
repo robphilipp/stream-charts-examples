@@ -11,7 +11,7 @@ describe('creating and manipulating table data', () => {
             ['a3', 'b3', 'c3', 'd3', 'e3'],
             ['a4', 'b4', 'c4', 'd4', 'e4'],
         ]
-        const tableData = createTableData().withColumnHeader(columnHeader).withRowHeader(rowHeader).withDataAsRow(data).withoutFooter()
+        const tableData = createTableData().withColumnHeader(columnHeader).withRowHeader(rowHeader).withData(data).withoutFooter()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.numRows()).toBe(data.length + 1)
         expect(tableData.hasFooter).toBeFalsy()
@@ -87,7 +87,7 @@ describe('creating and manipulating table data', () => {
             () => createTableData()
                 .withColumnHeader(['a', 'b'])
                 .withoutRowHeader()
-                .withDataAsRow([['a1'], ['a2']])
+                .withData([['a1'], ['a2']])
                 .withoutFooter()
         ).toThrow("The data must have the same number of columns as the header. Cannot construct table data.num_header_columns: 2; num_data_columns: 1")
 
@@ -105,7 +105,7 @@ describe('creating and manipulating table data', () => {
             () => createTableData()
                 .withColumnHeader(['a', 'b'])
                 .withoutRowHeader()
-                .withDataAsRow([['a1', 'a2'], ['b2']])
+                .withData([['a1', 'a2'], ['b2']])
                 .withoutFooter()
         ).toThrow("All rows must have the same number of columns. Cannot construct table data. num_columns: [2,1]")
 
@@ -121,7 +121,7 @@ describe('creating and manipulating table data', () => {
     test('should be able to create a table of numbers when no formatter is specified', () => {
         const tableData = createTableData()
             .withoutHeaders()
-            .withDataAsRow([[11, 12, 13], [21, 22, 23]])
+            .withData([[11, 12, 13], [21, 22, 23]])
             .withoutFooter()
         expect(tableData.data.length).toEqual(2)
         expect(tableData.data[0].length).toEqual(3)

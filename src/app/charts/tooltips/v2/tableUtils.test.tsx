@@ -25,7 +25,7 @@ describe('when creating svg-tables', () => {
         test('table data with the same number of columns in each row should be valid', () => {
             const tableData = createTableData()
                 .withoutHeaders()
-                .withDataAsRow([[11, 12, 13], [21, 22, 23]])
+                .withData([[11, 12, 13], [21, 22, 23]])
                 .withoutFooter()
             expect(areTableDimensionsValid({}, tableData)).toBe(true);
             expect(validateTableDimensions({}, tableData).succeeded).toBe(true);
@@ -35,7 +35,7 @@ describe('when creating svg-tables', () => {
             expect(
                 () => createTableData()
                     .withoutHeaders()
-                    .withDataAsRow([[11, 12, 13], [21, 22]])
+                    .withData([[11, 12, 13], [21, 22]])
                     .withoutFooter()
             ).toThrow("All rows must have the same number of columns. Cannot construct table data. num_columns: [3,2]")
         })

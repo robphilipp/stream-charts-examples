@@ -363,16 +363,20 @@ export class DataFrame<V> {
      * or an error message if the operation fails (e.g., due to an out-of-bounds index).
      */
     public insertRowBefore(rowIndex: number, row: Array<V>): Result<DataFrame<V>, string> {
-        if (rowIndex >= 0 && rowIndex < this.numRows) {
-            const newRows: Array<V> =
-                // rows before the insert point
-                this.data.slice(0, rowIndex * this.numColumns)
-                .concat(row)
-                // rows after the insert point
-                .concat(this.data.slice(rowIndex * this.numColumns, this.data.length))
-            return successResult(new DataFrame(newRows, this.numRows+1, this.numColumns))
+        if (rowIndex < 0 && rowIndex >= this.numRows) {
+            return failureResult(`Index out of bounds; row: ${rowIndex}; range: (0, ${this.numRows})`)
         }
-        return failureResult(`Index out of bounds; row: ${rowIndex}; range: (0, ${this.numRows})`)
+        if (row.length !== this.numColumns) {
+            return failureResult(`The row must have the same number of columns as the data. ` +
+                `num_rows: ${this.numRows}; num_columns: ${row.length}`)
+        }
+        const newRows: Array<V> =
+            // rows before the insert point
+            this.data.slice(0, rowIndex * this.numColumns)
+            .concat(row)
+            // rows after the insert point
+            .concat(this.data.slice(rowIndex * this.numColumns, this.data.length))
+        return successResult(new DataFrame(newRows, this.numRows+1, this.numColumns))
     }
 
     public pushRow(row: Array<V>): Result<DataFrame<V>, string> {
@@ -482,7 +486,7 @@ export class DataFrame<V> {
     /*
         Tags
      */
-    public tagRow<T extends TagValue>(rowIndex: number, name: string, tag: T): Result<number, string> {
+    public tagRow<T extends TagValue>(rowIndex: number, name: string, tag: T): Result<DataFrame<V>, string> {
         if (rowIndex < 0 || rowIndex >= this.numRows) {
             return failureResult(
                 `Row index for row tag is out of bounds; row_index: ${rowIndex}; tag_name: ${name}; 
@@ -491,10 +495,10 @@ export class DataFrame<V> {
         }
         const rowCoordinate = RowCoordinate.of(rowIndex)
         this.rowTags.addTag(name, tag, rowCoordinate)
-        return successResult(this.rowTags.tagsFor(rowCoordinate).length)
+        return successResult(this as DataFrame<V>)
     }
 
-    public tagColumn<T extends TagValue>(columnIndex: number, name: string, tag: T): Result<number, string> {
+    public tagColumn<T extends TagValue>(columnIndex: number, name: string, tag: T): Result<DataFrame<V>, string> {
         if (columnIndex < 0 || columnIndex >= this.numColumns) {
             return failureResult(
                 `Column index for column tag is out of bounds; column_index: ${columnIndex}; tag_name: ${name}; 
@@ -503,7 +507,23 @@ export class DataFrame<V> {
         }
         const columnCoordinate = ColumnCoordinate.of(columnIndex)
         this.columnTags.addTag(name, tag, columnCoordinate)
-        return successResult(this.columnTags.tagsFor(columnCoordinate).length)
+        return successResult(this as DataFrame<V>)
+    }
+
+    public tagCell<T extends TagValue>(rowIndex: number, columnIndex: number, name: string, tag: T): Result<DataFrame<V>, string> {
+        if (rowIndex < 0 || rowIndex >= this.numRows) {
+            return failureResult(
+                `Row index for cell tag is out of bounds; row_index: ${rowIndex}; tag_name: ${name}; 
+                tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numRows-1}).`
+            )
+        }
+        if (columnIndex < 0 || columnIndex >= this.numColumns) {
+            return failureResult(
+                `Column index for cell tag is out of bounds; column_index: ${columnIndex}; tag_name: ${name}; `
+            )
+        }
+        this.cellTags.addTag(name, tag, CellCoordinate.of(rowIndex, columnIndex))
+        return successResult(this as DataFrame<V>)
     }
 }
 
