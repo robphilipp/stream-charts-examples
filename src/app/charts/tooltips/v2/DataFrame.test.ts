@@ -1,13 +1,7 @@
 import {
-    CellCoordinate,
-    ColumnCoordinate,
-    DataFrame,
-    newCellTag,
-    newColumnTag,
-    newRowTag,
-    newTag,
-    RowCoordinate
+    DataFrame
 } from "./DataFrame";
+import {CellCoordinate, ColumnCoordinate, newCellTag, newColumnTag, newRowTag, newTag, RowCoordinate} from "./tags";
 
 describe("Testing data-frame behavior", () => {
     describe("Creating data-frames", () => {

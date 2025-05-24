@@ -59,11 +59,6 @@ describe('creating and manipulating table data', () => {
 
     test('should be able to create a table from column data without a footer', () => {
         const header = ['A', 'B', 'C', 'D'];
-            // {name: 'a', label: 'A'},
-            // {name: 'b', label: 'B', formatter: (value: number) => `${value / 10}`},
-            // {name: 'c', label: 'C'},
-            // {name: 'd', label: 'D'},
-        // ];
         const data = DataFrame.fromColumnData<string | number>([
             ['a1', 'b1', 'c1', 'd1', 'e1'],
             [10, 20, 30, 40, 50],
