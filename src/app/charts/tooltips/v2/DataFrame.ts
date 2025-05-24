@@ -9,7 +9,7 @@ export interface TagValue {
     toString: () => string
 }
 
-export type Tag<V extends TagValue, C extends TagCoordinate>  = {
+export type Tag<V extends TagValue, C extends TagCoordinate> = {
     readonly id: string
     readonly name: string
     readonly value: V
@@ -34,10 +34,15 @@ export function newTag<V extends TagValue, C extends TagCoordinate>(name: string
 
 export interface Taggable<V extends TagValue, C extends TagCoordinate> {
     addTag(name: string, value: V, coordinate: C): string
+
     removeTag(id: string): void
+
     hasTag(name: string): boolean
+
     hasTagFor(name: string, coordinate: C): boolean
+
     uniqueTagFor(name: string, coordinate: C): Result<Tag<V, C>, string>
+
     tagsFor(coordinate: C): Array<Tag<V, C>>
 }
 
@@ -61,18 +66,21 @@ export class Tags<T extends TagValue, C extends TagCoordinate> {
         return this.tags.some(tag => tag.name === name)
     }
 
+    public tagFor(name: string, coordinate: C): Result<Tag<T, C>, string> {
+        return this.uniqueTagFor(name, coordinate).map(tag => tag)
+    }
+
     public idForTag(name: string, coordinate: C): Result<string, string> {
         return this.uniqueTagFor(name, coordinate).map(tag => tag.id)
     }
 
-    public addTag(name: string, value: T, coordinate: C): string {
-        return this.idForTag(name, coordinate)
-            .onFailure(() => {
+    public addTag(name: string, value: T, coordinate: C): Tag<T, C> {
+        return this.tagFor(name, coordinate)
+            .getOr(() => {
                 const tag = newTag(name, value, coordinate)
                 this.tags.push(tag)
-                return tag.id
+                return tag
             })
-            .getOrThrow()
     }
 
     public removeTag(id: string): void {
@@ -103,7 +111,8 @@ export type ColumnTags<T extends TagValue> = Tags<T, ColumnCoordinate>
 export type CellTags<T extends TagValue> = Tags<T, CellCoordinate>
 
 export class RowCoordinate implements TagCoordinate {
-    private constructor(private readonly row: number) {}
+    private constructor(private readonly row: number) {
+    }
 
     public static of(row: number): RowCoordinate {
         return new RowCoordinate(row)
@@ -123,7 +132,8 @@ export function newRowTag<T extends TagValue>(name: string, value: T, coordinate
 }
 
 export class ColumnCoordinate implements TagCoordinate {
-    private constructor(private readonly column: number) {}
+    private constructor(private readonly column: number) {
+    }
 
     public static of(column: number): ColumnCoordinate {
         return new ColumnCoordinate(column)
@@ -143,7 +153,8 @@ export function newColumnTag<T extends TagValue>(name: string, value: T, coordin
 }
 
 export class CellCoordinate implements TagCoordinate {
-    private constructor(private readonly row: number, private readonly column: number) {}
+    private constructor(private readonly row: number, private readonly column: number) {
+    }
 
     public static of(row: number, column: number): CellCoordinate {
         return new CellCoordinate(row, column)
@@ -373,10 +384,10 @@ export class DataFrame<V> {
         const newRows: Array<V> =
             // rows before the insert point
             this.data.slice(0, rowIndex * this.numColumns)
-            .concat(row)
-            // rows after the insert point
-            .concat(this.data.slice(rowIndex * this.numColumns, this.data.length))
-        return successResult(new DataFrame(newRows, this.numRows+1, this.numColumns))
+                .concat(row)
+                // rows after the insert point
+                .concat(this.data.slice(rowIndex * this.numColumns, this.data.length))
+        return successResult(new DataFrame(newRows, this.numRows + 1, this.numColumns))
     }
 
     public pushRow(row: Array<V>): Result<DataFrame<V>, string> {
@@ -490,7 +501,7 @@ export class DataFrame<V> {
         if (rowIndex < 0 || rowIndex >= this.numRows) {
             return failureResult(
                 `Row index for row tag is out of bounds; row_index: ${rowIndex}; tag_name: ${name}; 
-                tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numRows-1}).`
+                tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numRows - 1}).`
             )
         }
         const rowCoordinate = RowCoordinate.of(rowIndex)
@@ -502,7 +513,7 @@ export class DataFrame<V> {
         if (columnIndex < 0 || columnIndex >= this.numColumns) {
             return failureResult(
                 `Column index for column tag is out of bounds; column_index: ${columnIndex}; tag_name: ${name}; 
-                tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numColumns-1}).`
+                tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numColumns - 1}).`
             )
         }
         const columnCoordinate = ColumnCoordinate.of(columnIndex)
@@ -514,7 +525,7 @@ export class DataFrame<V> {
         if (rowIndex < 0 || rowIndex >= this.numRows) {
             return failureResult(
                 `Row index for cell tag is out of bounds; row_index: ${rowIndex}; tag_name: ${name}; 
-                tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numRows-1}).`
+                tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numRows - 1}).`
             )
         }
         if (columnIndex < 0 || columnIndex >= this.numColumns) {

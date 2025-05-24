@@ -28,8 +28,7 @@ export enum TableTagType {
  */
 export interface TableData<V> {
     /**
-     * The matrix of data, including row and column headers, if they
-     * exist (see {@link hasRowHeaders}, {@link hasColumnHeaders}, {@link numRows}, {@link numColumns})
+     * The matrix of data, including row and column headers, if they exist
      */
     readonly data: DataFrame<V>
 
@@ -174,26 +173,47 @@ class TableDataFooterBuilder<V> {
             throw new Error(message)
         }
         // add the column header
-        let result: Result<DataFrame<V>, string> = successResult(data);
-        if (columnHeader.length > 0) {
-            result = data.insertRowBefore(0, columnHeader)
-        }
-        // adjust the row header and add it, under the possibility that the adding the column
-        // header has failed
-        if (rowHeader.length > 0) {
-            if (columnHeader.length > 0) {
-                const updatedRowHeader = rowHeader.slice()
-                updatedRowHeader.unshift(undefined as V)
-                result = result.andThen(df => df.insertColumnBefore(0, updatedRowHeader))
-            } else {
-                result = result.andThen(df => df.insertColumnBefore(0, rowHeader))
-            }
-        }
-        // tag the row and column headers in the data frame
-        const updated = result
+        // todo update the "withFooter" function with this approach
+        const updated = successResult<DataFrame<V>, string>(data)
+            .andThen((df: DataFrame<V>) =>  (columnHeader.length > 0) ?
+                df.insertRowBefore(0, columnHeader) :
+                successResult(df)
+            )
+            .andThen((df: DataFrame<V>) => {
+                if (rowHeader.length > 0) {
+                    if (columnHeader.length > 0) {
+                        const updatedRowHeader = rowHeader.slice()
+                        updatedRowHeader.unshift(undefined as V)
+                        return df.insertColumnBefore(0, updatedRowHeader)
+                    } else {
+                        return df.insertColumnBefore(0, rowHeader)
+                    }
+                }
+                return successResult(df)
+            })
             .andThen(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
             .andThen(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
             .getOrThrow()
+        // let result: Result<DataFrame<V>, string> = successResult(data);
+        // if (columnHeader.length > 0) {
+        //     result = data.insertRowBefore(0, columnHeader)
+        // }
+        // adjust the row header and add it, under the possibility that the adding the column
+        // header has failed
+        // if (rowHeader.length > 0) {
+        //     if (columnHeader.length > 0) {
+        //         const updatedRowHeader = rowHeader.slice()
+        //         updatedRowHeader.unshift(undefined as V)
+        //         result = result.andThen(df => df.insertColumnBefore(0, updatedRowHeader))
+        //     } else {
+        //         result = result.andThen(df => df.insertColumnBefore(0, rowHeader))
+        //     }
+        // }
+        // tag the row and column headers in the data frame
+        // const updated = result
+        //     .andThen(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
+        //     .andThen(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
+        //     .getOrThrow()
 
         return {
             data: updated,
