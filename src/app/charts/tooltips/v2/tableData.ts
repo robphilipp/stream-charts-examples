@@ -304,7 +304,7 @@ class TableDataFormatter<V> {
             const column = this.tableData.data.columnSlice(i).getOrThrow()
             const adjustedColumn = this.tableData.hasColumnHeaders ? column.slice(1) : column
             const finalColumn = adjustedColumn.map(formatter)
-            if (this.tableData.hasRowHeaders) {
+            if (this.tableData.hasColumnHeaders) {
                 finalColumn.unshift(defaultFormatter(column[0]))
             }
             formatted.push(finalColumn)

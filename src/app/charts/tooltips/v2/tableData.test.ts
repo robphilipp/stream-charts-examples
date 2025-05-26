@@ -1,4 +1,4 @@
-import {createTableData, defaultFormatter} from "./tableData";
+import {createTableData, defaultFormatter, TableData} from "./tableData";
 import {DataFrame} from "./DataFrame";
 
 describe('creating and manipulating table data', () => {
@@ -206,6 +206,7 @@ describe('creating and manipulating table data', () => {
             ]).getOrThrow()
 
             const expected = DataFrame.from<string | number | Date>([
+                ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount'],
                 ['2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
                 ['2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
                 ['2/3/2021', '34567', 'gnm-h234',   '$ 3.65', '40'],
@@ -220,7 +221,7 @@ describe('creating and manipulating table data', () => {
                 [4, (value: number) => `${value.toFixed(0)}`],
             ])
 
-            const tableData = createTableData<string | number | Date>()
+            const tableData: TableData<string> = createTableData<string | number | Date>()
                 .withColumnHeader(columnHeader)
                 .withoutRowHeader()
                 .withData(data)
@@ -228,6 +229,11 @@ describe('creating and manipulating table data', () => {
                 .withFormattedData(formatters)
 
             expect(tableData.data).toEqual(expected)
+            expect(tableData.data.columnCount()).toEqual(5)
+            expect(tableData.data.rowCount()).toEqual(/*data*/4 + /*header*/ 1)
+            expect(tableData.hasColumnHeaders).toBeTruthy()
+            expect(tableData.hasRowHeaders).toBeFalsy()
+            expect(tableData.hasFooter).toBeFalsy()
         })
     })
 })
