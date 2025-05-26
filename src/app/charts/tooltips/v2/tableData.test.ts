@@ -1,4 +1,4 @@
-import {createTableData} from "./tableData";
+import {createTableData, defaultFormatter} from "./tableData";
 import {DataFrame} from "./DataFrame";
 
 describe('creating and manipulating table data', () => {
@@ -17,6 +17,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withoutFooter()
+            .withoutFormattedData()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(4 + 1)
         expect(tableData.hasFooter).toBeFalsy()
@@ -44,6 +45,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withFooter(footer)
+            .withoutFormattedData()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(/*data*/ 4 + /*header*/ 1 + /*footer*/ 1)
         expect(tableData.hasFooter).toBeTruthy()
@@ -72,6 +74,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withFooter(footer)
+            .withoutFormattedData()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(/*data*/ 4 + /*header*/ 1 + /*footer*/ 1)
         expect(tableData.hasFooter).toBeTruthy()
@@ -99,6 +102,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withoutFooter()
+            .withoutFormattedData()
         expect(tableData.hasRowHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toEqual(5 + 1) // the thing is transposed
         expect(tableData.hasFooter).toBeFalsy()
@@ -126,6 +130,7 @@ describe('creating and manipulating table data', () => {
             .withoutRowHeader()
             .withData(data)
             .withoutFooter()
+            .withoutFormattedData()
         expect(tableData.data.rowCount()).toBe(6)
         expect(tableData.hasFooter).toBeFalsy()
         expect(tableData.data.columnCount()).toEqual(4)
@@ -179,8 +184,50 @@ describe('creating and manipulating table data', () => {
             .withoutHeaders()
             .withData(DataFrame.from([[11, 12, 13], [21, 22, 23]]).getOrThrow())
             .withoutFooter()
+            .withoutFormattedData()
         expect(tableData.data.rowCount()).toEqual(2)
         expect(tableData.data.rowSlice(0).map(row => row.length).getOrDefault(-1)).toEqual(3)
         expect(tableData.data.rowSlice(1).map(row => row.length).getOrDefault(-1)).toEqual(3)
+    })
+
+    describe('creating tables with mixed data types', () => {
+        function dateTime(day: number, hour: number): Date {
+          return new Date(2021, 1, day, hour, 0, 0, 0);
+        }
+
+        test('should be able to create a table with string headers and numeric values', () => {
+            const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
+
+            const data = DataFrame.from<string | number | Date>([
+                [dateTime(1, 1), 12345, 'gnm-f234', 123.45,  4],
+                [dateTime(2, 2), 23456, 'gnm-g234',  23.45,  5],
+                [dateTime(3, 3), 34567, 'gnm-h234',   3.65, 40],
+                [dateTime(4, 4), 45678, 'gnm-i234', 314.15,  9],
+            ]).getOrThrow()
+
+            const expected = DataFrame.from<string | number | Date>([
+                ['2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
+                ['2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
+                ['2/3/2021', '34567', 'gnm-h234',   '$ 3.65', '40'],
+                ['2/4/2021', '45678', 'gnm-i234', '$ 314.15',  '9'],
+            ]).getOrThrow()
+
+            const formatters = new Map<number, (value: any) => string>([
+                [0, (value: Date) => value.toLocaleDateString()],
+                [1, (value: number) => defaultFormatter(value)],
+                [2, (value: string) => value],
+                [3, (value: number) => `$ ${value.toFixed(2)}`],
+                [4, (value: number) => `${value.toFixed(0)}`],
+            ])
+
+            const tableData = createTableData<string | number | Date>()
+                .withColumnHeader(columnHeader)
+                .withoutRowHeader()
+                .withData(data)
+                .withoutFooter()
+                .withFormattedData(formatters)
+
+            expect(tableData.data).toEqual(expected)
+        })
     })
 })

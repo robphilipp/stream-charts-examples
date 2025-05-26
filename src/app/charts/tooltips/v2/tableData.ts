@@ -154,7 +154,7 @@ class TableDataFooterBuilder<V> {
     /**
      *
      */
-    public withoutFooter(): TableData<V> {
+    public withoutFooter(): TableDataFormatter<V> {
         const {rowHeader, columnHeader, data} = this.headersAndData
         // convert the data-frame to a data-frame of strings using the column formatters
         if (rowHeader.length > 0 && this.headersAndData.rowHeader.length !== data.rowCount()) {
@@ -191,19 +191,21 @@ class TableDataFooterBuilder<V> {
             .flatMap(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
             .getOrThrow()
 
-        return {
+        const tableData: TableData<V> = {
             data: dataFrame,
             hasRowHeaders: rowHeader.length > 0,
             hasColumnHeaders: columnHeader.length > 0,
             hasFooter: false,
         }
+
+        return new TableDataFormatter<V>(tableData)
     }
 
     /**
      *
      * @param footer
      */
-    public withFooter(footer: Array<V>): TableData<V> {
+    public withFooter(footer: Array<V>): TableDataFormatter<V> {
         // wrong method called
         if (footer.length === 0) {
             return this.withoutFooter()
@@ -260,11 +262,61 @@ class TableDataFooterBuilder<V> {
             .flatMap(df => df.tagRow(df.rowCount()-1, "footer", TableTagType.FOOTER))
             .getOrThrow()
 
-        return {
+        const tableData: TableData<V> = {
             data: dataFrame,
             hasRowHeaders: rowHeader.length > 0,
             hasColumnHeaders: columnHeader.length > 0,
             hasFooter: tableFooter.length > 0,
         }
+
+        return new TableDataFormatter<V>(tableData)
+    }
+}
+
+class TableDataFormatter<V> {
+    readonly tableData: TableData<V>
+
+    constructor(tableData: TableData<V>) {
+        this.tableData = tableData
+    }
+
+
+    public withoutFormattedData(): TableData<V> {
+        return this.tableData
+    }
+
+    public withFormattedData(columnFormatters: Map<number, (value: V) => string>): TableData<string> {
+        const minValidIndex = this.tableData.hasRowHeaders ? 1 : 0
+        const maxValidIndex = this.tableData.data.columnCount()
+
+        const minIndex = Array.from(columnFormatters.keys()).reduce((min, index) => Math.min(min, index), Infinity)
+        const maxIndex = Array.from(columnFormatters.keys()).reduce((max, index) => Math.max(max, index), -Infinity)
+        if (minIndex < minValidIndex) {
+            throw Error(`Column formatter indexes must be in [${minValidIndex}, ${maxValidIndex}]; found index: ${minIndex}`)
+        }
+        if (maxIndex > maxValidIndex) {
+            throw Error(`Column formatter indexes must be in [${minValidIndex}, ${maxValidIndex}]; found index: ${maxIndex}`)
+        }
+
+        const formatted: Array<Array<string>> = []
+        for (let i = minIndex; i <= maxIndex; i++) {
+            const formatter: (value: V) => string = columnFormatters.get(i) || defaultFormatter<V>
+            const column = this.tableData.data.columnSlice(i).getOrThrow()
+            const adjustedColumn = this.tableData.hasColumnHeaders ? column.slice(1) : column
+            const finalColumn = adjustedColumn.map(formatter)
+            if (this.tableData.hasRowHeaders) {
+                finalColumn.unshift(defaultFormatter(column[0]))
+            }
+            formatted.push(finalColumn)
+        }
+        return DataFrame.fromColumnData<string>(formatted)
+            .map(df => ({
+                data: df,
+                hasRowHeaders: this.tableData.hasRowHeaders,
+                hasColumnHeaders: this.tableData.hasColumnHeaders,
+                hasFooter: this.tableData.hasFooter,
+            }))
+            .getOrThrow()
+
     }
 }
