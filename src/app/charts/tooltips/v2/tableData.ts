@@ -1,11 +1,8 @@
-/*
- * To build
- */
-
-import {Result, successResult} from "result-fn";
+import {successResult} from "result-fn";
 import {DataFrame} from "./DataFrame";
 
 export type Formatter<D> = (value: D) => string
+
 /**
  *
  * @param value
@@ -173,13 +170,12 @@ class TableDataFooterBuilder<V> {
             throw new Error(message)
         }
         // add the column header
-        // todo update the "withFooter" function with this approach
-        const updated = successResult<DataFrame<V>, string>(data)
-            .andThen((df: DataFrame<V>) =>  (columnHeader.length > 0) ?
+        const dataFrame = successResult<DataFrame<V>, string>(data)
+            .flatMap((df: DataFrame<V>) =>  (columnHeader.length > 0) ?
                 df.insertRowBefore(0, columnHeader) :
                 successResult(df)
             )
-            .andThen((df: DataFrame<V>) => {
+            .flatMap((df: DataFrame<V>) => {
                 if (rowHeader.length > 0) {
                     if (columnHeader.length > 0) {
                         const updatedRowHeader = rowHeader.slice()
@@ -191,32 +187,12 @@ class TableDataFooterBuilder<V> {
                 }
                 return successResult(df)
             })
-            .andThen(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
-            .andThen(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
+            .flatMap(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
+            .flatMap(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
             .getOrThrow()
-        // let result: Result<DataFrame<V>, string> = successResult(data);
-        // if (columnHeader.length > 0) {
-        //     result = data.insertRowBefore(0, columnHeader)
-        // }
-        // adjust the row header and add it, under the possibility that the adding the column
-        // header has failed
-        // if (rowHeader.length > 0) {
-        //     if (columnHeader.length > 0) {
-        //         const updatedRowHeader = rowHeader.slice()
-        //         updatedRowHeader.unshift(undefined as V)
-        //         result = result.andThen(df => df.insertColumnBefore(0, updatedRowHeader))
-        //     } else {
-        //         result = result.andThen(df => df.insertColumnBefore(0, rowHeader))
-        //     }
-        // }
-        // tag the row and column headers in the data frame
-        // const updated = result
-        //     .andThen(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
-        //     .andThen(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
-        //     .getOrThrow()
 
         return {
-            data: updated,
+            data: dataFrame,
             hasRowHeaders: rowHeader.length > 0,
             hasColumnHeaders: columnHeader.length > 0,
             hasFooter: false,
@@ -228,9 +204,13 @@ class TableDataFooterBuilder<V> {
      * @param footer
      */
     public withFooter(footer: Array<V>): TableData<V> {
+        // wrong method called
         if (footer.length === 0) {
             return this.withoutFooter()
         }
+
+        // make a copy of the footer so that we can adjust it without changing the input data
+        const tableFooter = footer.slice()
 
         const {rowHeader, columnHeader, data} = this.headersAndData
         // convert the data-frame to a data-frame of strings using the column formatters
@@ -246,118 +226,45 @@ class TableDataFooterBuilder<V> {
             console.error(message)
             throw new Error(message)
         }
-        if (footer.length !== data.columnCount()) {
+        if ((tableFooter.length !== data.columnCount() + (rowHeader.length > 0 ? 1 : 0) && tableFooter.length !== data.columnCount())) {
             const message = "The footer must have the same number of columns as the data. Cannot construct table data." +
-                `num_data_columns: ${data.columnCount()}; num_footer_columns: ${footer.length}`;
+                `num_data_columns: ${data.columnCount()}; row_header_columns: ${rowHeader.length > 0 ? 1 : 0}; `+
+                `num_footer_columns: ${tableFooter.length}`;
             console.error(message)
             throw new Error(message)
         }
+
+        // when the footer doesn't have a row header and it needs on, then add an undefined as a placeholder
+        if (tableFooter.length > 0 && rowHeader.length > 0 && (tableFooter.length === data.columnCount() - 1 || tableFooter.length === data.columnCount())) {
+            tableFooter.unshift(undefined as V)
+        }
+
         // add the column header
-        let result: Result<DataFrame<V>, string> = successResult(data);
-        if (columnHeader.length > 0) {
-            result = data.insertRowBefore(0, columnHeader)
-        }
-        // add the footer to the end
-        result = result.andThen(df => df.pushRow(footer))
-        // adjust the row header and add it, under the possibility that the adding the column
-        // header has failed
-        if (rowHeader.length > 0) {
-            if (columnHeader.length > 0) {
-                const updatedRowHeader = rowHeader.slice()
-                // add an empty element to the front
-                updatedRowHeader.unshift(undefined as V)
-                // add an empty element to the back
-                updatedRowHeader.push(undefined as V)
-                result = result.andThen(df => df.insertColumnBefore(0, updatedRowHeader))
-            } else {
-                result = result.andThen(df => df.insertColumnBefore(0, rowHeader))
-            }
-        }
-        const updated = result
-            .andThen(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
-            .andThen(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
-            .andThen(df => df.tagRow(df.rowCount()-1, "footer", TableTagType.FOOTER))
+        const dataFrame = successResult(data)
+            // when there is a column header, then insert the column header before the data
+            .conditionalFlatMap(() => columnHeader.length > 0, df => df.insertRowBefore(0, columnHeader))
+            // adjust the row header and add it, under the possibility that adding the column has failed
+            .conditionalFlatMap(() => rowHeader.length > 0, df => {
+                if (columnHeader.length > 0) {
+                    const updatedRowHeader = rowHeader.slice()
+                    updatedRowHeader.unshift(undefined as V)
+                    return df.insertColumnBefore(0, updatedRowHeader)
+                }
+                return df.insertColumnBefore(0, rowHeader)
+            })
+            // add the footer to the end
+            .flatMap(df => df.pushRow(tableFooter))
+            // add the tags to the data-frame for the column headers, row headers, and footer
+            .flatMap(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
+            .flatMap(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
+            .flatMap(df => df.tagRow(df.rowCount()-1, "footer", TableTagType.FOOTER))
             .getOrThrow()
 
         return {
-            data: updated,
+            data: dataFrame,
             hasRowHeaders: rowHeader.length > 0,
             hasColumnHeaders: columnHeader.length > 0,
-            hasFooter: false,
+            hasFooter: tableFooter.length > 0,
         }
     }
 }
-
-// /**
-//  * Creates a matrix by adding the column headers and row headers to the data matrix. Makes
-//  * a copy of the data before modifying the structure.
-//  * @param columnHeader The column headers (this is a row). The number of column header elements
-//  * must equal the number of columns (not including the row-header column)
-//  * @param rowHeader The row headers (this is a column). The number of row header elements must
-//  * equal the number of rows (not including the column header or the footer)
-//  * @param data The matrix of data, where each element in the array is a row, which is an array
-//  * of elements.
-//  * @param footer An array holding the footer elements. The number of footer elements must be
-//  * equal to the number of columns (not including the row-header column).
-//  * @return A matrix where the first row is the column headers, if specified, and the first
-//  * column is a header for the rows, if specified.
-//  */
-// function makeHeadersPartOfTableData(
-//     columnHeader: Array<HeaderElement>,
-//     rowHeader: Array<HeaderElement>,
-//     data: Array<Row>,
-//     footer: Array<string>
-// ): Result<Array<Row>, string> {
-//     if (rowHeader.length > 0 && data.length !== rowHeader.length) {
-//         return failureResult("Cannot merge headers because the number of row-headers does not equal the number of rows; " +
-//             `num_row_headers: ${rowHeader.length}; num_rows: ${data.length}`
-//         )
-//     }
-//     if (columnHeader.length > 0 && numColumnsFromRows(data) !== columnHeader.length) {
-//         return failureResult("Cannot merge headers because the number of column-headers does not equal the number of columns; " +
-//             `num_column_headers: ${rowHeader.length}; num_columns: ${numColumnsFromRows(data)}`
-//         )
-//     }
-//
-//     const newData: Array<Row> = data.map(row => row.slice())
-//
-//     // when the table has a row representing the column headers, insert the converted
-//     // header as the first row
-//     if (columnHeader.length > 0) {
-//         newData.unshift(columnHeader.map(elem => elem.label))
-//     }
-//
-//     // when each row has a header, then insert the header for each row as the first
-//     // element of the row, making a column of row headers. if a column header was also
-//     // specified, then the first row header is empty
-//     if (rowHeader.length > 0) {
-//         const rowHeaders = rowHeader.map(elem => elem.label)
-//         if (columnHeader.length > 0) {
-//             rowHeaders.unshift("")
-//         }
-//         newData.forEach((row, index) => row.unshift(rowHeaders[index]))
-//     }
-//
-//     // add the footer if it is specified, and if it has the correct number of elements
-//     if (footer.length > 0) {
-//         if (footer.length !== columnHeader.length) {
-//             return failureResult("Cannot merge footer because the number of footer elements does not equal the number of columns; " +
-//                 `num_footer_elements: ${footer.length}; num_columns: ${columnHeader.length}`
-//             )
-//         }
-//         const newFooter =  (rowHeader.length > 0) ? ["", ...footer] : footer.slice()
-//         newData.push(newFooter)
-//     }
-//
-//     return successResult(newData);
-// }
-//
-//
-// /**
-//  *
-//  * @param data
-//  */
-// function numColumnsFromRows(data: Array<Row>): number {
-//     const numColumns: Array<number> = data.map(row => row.length)
-//     return Math.min(...numColumns)
-// }

@@ -145,7 +145,7 @@ describe("Testing data-frame behavior", () => {
                 [7, 8, 9],
                 [10, 11, 12]
             ])
-            expect(result.andThen(df => df.columnsSlice(1)).getOrThrow()).toEqual([2, 5, 8, 11])
+            expect(result.andThen(df => df.columnSlice(1)).getOrThrow()).toEqual([2, 5, 8, 11])
         })
 
         test("should be able to retrieve all the columns as slices", () => {
@@ -377,40 +377,78 @@ describe("Testing data-frame behavior", () => {
             expect(transposed.equals(expected)).toBe(true)
         })
     })
-})
 
-describe("Testing tag classes", () => {
-    describe("Testing factory methods for creating tags of various types", () => {
-        test("should be able to create a new row tag", () => {
-            const tag = newRowTag<string>("headers-name", "header-value", RowCoordinate.of(3))
-            expect(tag.id).toEqual(`tag-headers-name-(3, *)`)
-            expect(tag.name).toEqual("headers-name")
-            expect(tag.value).toEqual("header-value")
+    describe("Row and column functions", () => {
+        test("should be able to map a row in the data-frame", () => {
+            const dataFrame = DataFrame.from([
+                [1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9],
+                [10, 11, 12]
+            ]).getOrThrow()
+            const expected = DataFrame.from([
+                [1, 2, 3],
+                [4, 5, 6],
+                [14, 16, 18],
+                [10, 11, 12]
+            ]).getOrThrow()
+            const updated = dataFrame.mapRow(2, value => value * 2).getOrThrow()
+            expect(updated).toEqual(expected)
+            expect(dataFrame).not.toEqual(expected)
         })
 
-        test("should be able to create a new column tag", () => {
-            const tag = newColumnTag<string>("headers-name", "header-value", ColumnCoordinate.of(3))
-            expect(tag.id).toEqual(`tag-headers-name-(*, 3)`)
-            expect(tag.name).toEqual("headers-name")
-            expect(tag.value).toEqual("header-value")
+        test("should be able to map a row in the data-frame in-place", () => {
+            const dataFrame = DataFrame.from([
+                [1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9],
+                [10, 11, 12]
+            ]).getOrThrow()
+            const expected = DataFrame.from([
+                [1, 2, 3],
+                [4, 5, 6],
+                [14, 16, 18],
+                [10, 11, 12]
+            ]).getOrThrow()
+            const updated = dataFrame.mapRowInPlace(2, value => value * 2).getOrThrow()
+            expect(updated).toEqual(expected)
+            expect(dataFrame).toEqual(updated)
         })
 
-        test("should be able to create a new cell tag", () => {
-            const tag = newTag<string, CellCoordinate>("headers-name", "header-value", CellCoordinate.of(3, 14))
-            expect(tag.id).toEqual(`tag-headers-name-(3, 14)`)
-            expect(tag.name).toEqual("headers-name")
-            expect(tag.value).toEqual("header-value")
+        test("should be able to map a column in the data-frame", () => {
+            const dataFrame = DataFrame.from([
+                [1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9],
+                [10, 11, 12]
+            ]).getOrThrow()
+            const expected = DataFrame.from([
+                [1, 4, 3],
+                [4, 10, 6],
+                [7, 16, 9],
+                [10, 22, 12]
+            ]).getOrThrow()
+            const updated = dataFrame.mapColumn(1, value => value * 2).getOrThrow()
+            expect(updated).toEqual(expected)
+            expect(dataFrame).not.toEqual(expected)
         })
 
-        test("should be able to create a new cell tag", () => {
-            const tag = newCellTag<string>("headers-name", "header-value", CellCoordinate.of(3, 14))
-            expect(tag.id).toEqual(`tag-headers-name-(3, 14)`)
-            expect(tag.name).toEqual("headers-name")
-            expect(tag.value).toEqual("header-value")
+        test("should be able to map a column in the data-frame in-place", () => {
+            const dataFrame = DataFrame.from([
+                [1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9],
+                [10, 11, 12]
+            ]).getOrThrow()
+            const expected = DataFrame.from([
+                [1, 4, 3],
+                [4, 10, 6],
+                [7, 16, 9],
+                [10, 22, 12]
+            ]).getOrThrow()
+            const updated = dataFrame.mapColumnInPlace(1, value => value * 2).getOrThrow()
+            expect(updated).toEqual(expected)
+            expect(dataFrame).toEqual(updated)
         })
-    })
-
-    describe("Testing adding tags to the Tags object", () => {
-
     })
 })

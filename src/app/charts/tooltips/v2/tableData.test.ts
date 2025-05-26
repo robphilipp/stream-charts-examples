@@ -29,6 +29,62 @@ describe('creating and manipulating table data', () => {
         expect(tableData.data.rowSlice(4).getOrThrow()).toEqual([ 'four', 'a4', 'b4', 'c4', 'd4', 'e4'])
     });
 
+    test('should be able to create a simple table from row data with a footer', () => {
+        const columnHeader = ['A', 'B', 'C', 'D', 'E']
+        const rowHeader = ['one', 'two', 'three', 'four']
+        const footer = ['total', 'a10', 'b10', 'c10', 'd10', 'e10']
+        const data = DataFrame.from([
+            ['a1', 'b1', 'c1', 'd1', 'e1'],
+            ['a2', 'b2', 'c2', 'd2', 'e2'],
+            ['a3', 'b3', 'c3', 'd3', 'e3'],
+            ['a4', 'b4', 'c4', 'd4', 'e4'],
+        ]).getOrThrow()
+        const tableData = createTableData<string>()
+            .withColumnHeader(columnHeader)
+            .withRowHeader(rowHeader)
+            .withData(data)
+            .withFooter(footer)
+        expect(tableData.hasColumnHeaders).toBeTruthy()
+        expect(tableData.data.rowCount()).toBe(/*data*/ 4 + /*header*/ 1 + /*footer*/ 1)
+        expect(tableData.hasFooter).toBeTruthy()
+        expect(tableData.data.columnCount()).toEqual(/*data*/ 5 + /*header*/ 1)
+
+        expect(tableData.data.rowSlice(0).getOrThrow()).toEqual([ undefined, 'A', 'B', 'C', 'D', 'E'])
+        expect(tableData.data.rowSlice(1).getOrThrow()).toEqual([     'one', 'a1', 'b1', 'c1', 'd1', 'e1'])
+        expect(tableData.data.rowSlice(2).getOrThrow()).toEqual([     'two', 'a2', 'b2', 'c2', 'd2', 'e2'])
+        expect(tableData.data.rowSlice(3).getOrThrow()).toEqual([   'three', 'a3', 'b3', 'c3', 'd3', 'e3'])
+        expect(tableData.data.rowSlice(4).getOrThrow()).toEqual([    'four', 'a4', 'b4', 'c4', 'd4', 'e4'])
+        expect(tableData.data.rowSlice(5).getOrThrow()).toEqual([   'total', 'a10', 'b10', 'c10', 'd10', 'e10'])
+    });
+
+    test('should be able to create a simple table from row data with a footer with no header', () => {
+        const columnHeader = ['A', 'B', 'C', 'D', 'E']
+        const rowHeader = ['one', 'two', 'three', 'four']
+        const footer = ['a10', 'b10', 'c10', 'd10', 'e10']
+        const data = DataFrame.from([
+            ['a1', 'b1', 'c1', 'd1', 'e1'],
+            ['a2', 'b2', 'c2', 'd2', 'e2'],
+            ['a3', 'b3', 'c3', 'd3', 'e3'],
+            ['a4', 'b4', 'c4', 'd4', 'e4'],
+        ]).getOrThrow()
+        const tableData = createTableData<string>()
+            .withColumnHeader(columnHeader)
+            .withRowHeader(rowHeader)
+            .withData(data)
+            .withFooter(footer)
+        expect(tableData.hasColumnHeaders).toBeTruthy()
+        expect(tableData.data.rowCount()).toBe(/*data*/ 4 + /*header*/ 1 + /*footer*/ 1)
+        expect(tableData.hasFooter).toBeTruthy()
+        expect(tableData.data.columnCount()).toEqual(/*data*/ 5 + /*header*/ 1)
+
+        expect(tableData.data.rowSlice(0).getOrThrow()).toEqual([ undefined, 'A', 'B', 'C', 'D', 'E'])
+        expect(tableData.data.rowSlice(1).getOrThrow()).toEqual([     'one', 'a1', 'b1', 'c1', 'd1', 'e1'])
+        expect(tableData.data.rowSlice(2).getOrThrow()).toEqual([     'two', 'a2', 'b2', 'c2', 'd2', 'e2'])
+        expect(tableData.data.rowSlice(3).getOrThrow()).toEqual([   'three', 'a3', 'b3', 'c3', 'd3', 'e3'])
+        expect(tableData.data.rowSlice(4).getOrThrow()).toEqual([    'four', 'a4', 'b4', 'c4', 'd4', 'e4'])
+        expect(tableData.data.rowSlice(5).getOrThrow()).toEqual([ undefined, 'a10', 'b10', 'c10', 'd10', 'e10'])
+    });
+
     test('should be able to create a simple table from column data without a footer', () => {
         const columnHeader = ['A', 'B', 'C', 'D'];
         const rowHeader = ['one', 'two', 'three', 'four', 'five']

@@ -107,7 +107,7 @@ export class DataFrame<V> {
         if (rowIndex >= 0 && rowIndex < this.numRows) {
             return successResult(this.data.slice(rowIndex * this.numColumns, (rowIndex + 1) * this.numColumns))
         }
-        return failureResult(`Row Index out of bounds; row_index: ${rowIndex}; range: (0, ${this.numRows})`)
+        return failureResult(`(DataFrame::rowSlice) Row Index out of bounds; row_index: ${rowIndex}; range: (0, ${this.numRows})`)
     }
 
     /**
@@ -131,7 +131,7 @@ export class DataFrame<V> {
      * @return Returns a success Result containing the extracted column as an array
      * if the columnIndex is valid. Otherwise, returns a failure Result with an error message.
      */
-    public columnsSlice(columnIndex: number): Result<Array<V>, string> {
+    public columnSlice(columnIndex: number): Result<Array<V>, string> {
         if (columnIndex >= 0 && columnIndex <= this.numColumns) {
             const column: Array<V> = []
             for (let i = columnIndex; i < this.data.length; i += this.numColumns) {
@@ -139,7 +139,7 @@ export class DataFrame<V> {
             }
             return successResult(column)
         }
-        return failureResult(`Column index out of bounds; column_index: ${columnIndex}; range: (0, ${this.numColumns})`)
+        return failureResult(`(DataFrame::columnSlice) Column index out of bounds; column_index: ${columnIndex}; range: (0, ${this.numColumns})`)
     }
 
     /**
@@ -151,7 +151,7 @@ export class DataFrame<V> {
     public columnSlices(): Array<Array<V>> {
         const columnSlices: Array<Array<V>> = []
         for (let i = 0; i < this.numColumns; i++) {
-            columnSlices.push(this.columnsSlice(i).getOrThrow())
+            columnSlices.push(this.columnSlice(i).getOrThrow())
         }
         return columnSlices
     }
@@ -168,7 +168,7 @@ export class DataFrame<V> {
         if (rowIndex >= 0 && rowIndex < this.numRows && columnIndex >= 0 && columnIndex <= this.numColumns) {
             return successResult(this.data[rowIndex * this.numColumns + columnIndex])
         }
-        return failureResult(`Index out of bounds; row: ${rowIndex}, column: ${columnIndex}; range: (${this.numRows}, ${this.numColumns})`)
+        return failureResult(`(DataFrame::elementAt) Index out of bounds; row: ${rowIndex}, column: ${columnIndex}; range: (${this.numRows}, ${this.numColumns})`)
     }
 
     /**
@@ -188,7 +188,7 @@ export class DataFrame<V> {
             updated[rowIndex * this.numColumns + columnIndex] = value
             return successResult(new DataFrame(updated, this.numRows, this.numColumns))
         }
-        return failureResult(`Index out of bounds; row: ${rowIndex}, column: ${columnIndex}; range: (${this.numRows}, ${this.numColumns})`)
+        return failureResult(`(DataFrame::setElementAt) Index out of bounds; row: ${rowIndex}, column: ${columnIndex}; range: (${this.numRows}, ${this.numColumns})`)
 
     }
 
@@ -203,10 +203,10 @@ export class DataFrame<V> {
      */
     public insertRowBefore(rowIndex: number, row: Array<V>): Result<DataFrame<V>, string> {
         if (rowIndex < 0 && rowIndex >= this.numRows) {
-            return failureResult(`Index out of bounds; row: ${rowIndex}; range: (0, ${this.numRows})`)
+            return failureResult(`(DataFrame::insertRowBefore) Index out of bounds; row: ${rowIndex}; range: (0, ${this.numRows})`)
         }
         if (row.length !== this.numColumns) {
-            return failureResult(`The row must have the same number of columns as the data. ` +
+            return failureResult(`(DataFrame::insertRowBefore) The row must have the same number of elements as the data has columns. ` +
                 `num_rows: ${this.numRows}; num_columns: ${row.length}`)
         }
         const newRows: Array<V> =
@@ -218,9 +218,16 @@ export class DataFrame<V> {
         return successResult(new DataFrame(newRows, this.numRows + 1, this.numColumns))
     }
 
+    /**
+     * Adds a new row to the data frame if the row has the correct number of columns.
+     *
+     * @param row - The new row to be added. It must have the same number of columns as the existing data structure.
+     * @return A `Result` object containing the updated `DataFrame` on success or an error message if the
+     * dimensions do not match.
+     */
     public pushRow(row: Array<V>): Result<DataFrame<V>, string> {
         if (row.length !== this.numColumns) {
-            return failureResult(`The row must have the same number of columns as the data. ` +
+            return failureResult(`(DataFrame::pushRow) The row must have the same number of elements as the data has columns. ` +
                 `num_rows: ${this.numRows}; num_columns: ${row.length}`)
         }
         return successResult(new DataFrame(this.data.concat(row), this.numRows + 1, this.numColumns))
@@ -237,10 +244,10 @@ export class DataFrame<V> {
     // todo may be faster to copy the whole array, and then splice based on the indexes of the array (starting at the back)
     public insertColumnBefore(columnIndex: number, column: Array<V>): Result<DataFrame<V>, string> {
         if (columnIndex < 0 && columnIndex >= this.numColumns) {
-            return failureResult(`Index out of bounds; column: ${columnIndex}; range: (0, ${this.numColumns})`)
+            return failureResult(`(DataFrame::insertColumnBefore) Index out of bounds; column: ${columnIndex}; range: (0, ${this.numColumns})`)
         }
         if (column.length !== this.numRows) {
-            return failureResult(`The column must have the same number of rows as the data. ` +
+            return failureResult(`(DataFrame::insertColumnBefore) The column must have the same number of rows as the data. ` +
                 `num_rows: ${this.numRows}; num_columns: ${column.length}`)
         }
 
@@ -259,7 +266,7 @@ export class DataFrame<V> {
      */
     public pushColumn(column: Array<V>): Result<DataFrame<V>, string> {
         if (column.length !== this.numRows) {
-            return failureResult(`The column must have the same number of rows as the data. ` +
+            return failureResult(`(DataFrame::pushColumn) The column must have the same number of rows as the data. ` +
                 `num_rows: ${this.numRows}; num_columns: ${column.length}`)
         }
         const rows: Array<Array<V>> = this.rowSlices()
@@ -277,10 +284,10 @@ export class DataFrame<V> {
      */
     public deleteRowAt(rowIndex: number): Result<DataFrame<V>, string> {
         if (this.numRows === 0) {
-            failureResult(`Cannot delete row from an empty DataFrame.`)
+            failureResult(`(DataFrame::deleteRowAt) Cannot delete row from an empty DataFrame.`)
         }
         if (rowIndex < 0 || rowIndex >= this.numRows) {
-            return failureResult(`Index out of bounds; row: ${rowIndex}; range: (0, ${this.numRows})`)
+            return failureResult(`(DataFrame::deleteRowAt) Index out of bounds; row: ${rowIndex}; range: (0, ${this.numRows})`)
         }
 
         const copy = this.data.slice()
@@ -297,10 +304,10 @@ export class DataFrame<V> {
      */
     public deleteColumnAt(columnIndex: number): Result<DataFrame<V>, string> {
         if (this.numColumns === 0) {
-            failureResult(`Cannot delete column from an empty DataFrame.`)
+            failureResult(`(DataFrame::deleteColumnAt) Cannot delete column from an empty DataFrame.`)
         }
         if (columnIndex < 0 || columnIndex >= this.numColumns) {
-            return failureResult(`Index out of bounds; column: ${columnIndex}; range: (0, ${this.numColumns})`)
+            return failureResult(`(DataFrame::deleteColumnAt) Index out of bounds; column: ${columnIndex}; range: (0, ${this.numColumns})`)
         }
         const rows = this.rowSlices()
         rows.forEach((row: Array<V>, rowIndex) => row.splice(columnIndex, 1))
@@ -313,7 +320,7 @@ export class DataFrame<V> {
      * @return {DataFrame<V>} A new DataFrame instance where rows and columns of the original DataFrame are swapped.
      */
     public transpose(): DataFrame<V> {
-        const transposed = new Array<V>(this.data.length)
+        const transposed = this.data.slice()
         for (let row = 0; row < this.numRows; row++) {
             for (let col = 0; col < this.numColumns; col++) {
                 transposed[col * this.numRows + row] = this.data[row * this.numColumns + col]
@@ -322,13 +329,97 @@ export class DataFrame<V> {
         return new DataFrame(transposed, this.numColumns, this.numRows)
     }
 
+    /**
+     * Maps the data of a specific row in the DataFrame using the provided mapper function and returns
+     * a new DataFrame. This method does not update the original DataFrame.
+     *
+     * @param rowIndex - The index of the row to be mapped. Must be within the bounds of the DataFrame (0 to numRows-1).
+     * @param mapper - A function applied to transform each cell value in the specified row.
+     * @return A success result containing the updated DataFrame if the operation is successful,
+     * or a failure result containing an error message if the row index is invalid.
+     * @see mapRowInPlace
+     */
+    public mapRow(rowIndex: number, mapper: (value: V) => V): Result<DataFrame<V>, string> {
+        if (rowIndex < 0 || rowIndex >= this.numRows) {
+            return failureResult(`(DataFrame::mapRow) Invalid row index. Row index must be in [0, ${this.numRows}); row_index: ${rowIndex}`)
+        }
+        const updated = this.data.slice()
+        for (let i = rowIndex * this.numColumns; i < (rowIndex + 1) * this.numColumns; i++) {
+            updated[i] = mapper(updated[i])
+        }
+        return successResult(new DataFrame(updated, this.numRows, this.numColumns))
+    }
+
+    /**
+     * **Has side-effect**
+     * <p>Maps the data of a specific row in the DataFrame using the provided mapper function and returns
+     * a new DataFrame. This method **DOES** update the original DataFrame.
+     *
+     * @param rowIndex - The index of the row to be mapped. Must be within the bounds of the DataFrame (0 to numRows-1).
+     * @param mapper - A function applied to transform each cell value in the specified row.
+     * @return A success result containing the updated DataFrame if the operation is successful,
+     * or a failure result containing an error message if the row index is invalid.
+     * @see mapRow
+     */
+    public mapRowInPlace(rowIndex: number, mapper: (value: V) => V): Result<DataFrame<V>, string> {
+        if (rowIndex < 0 || rowIndex >= this.numRows) {
+            return failureResult(`(DataFrame::mapRowInPlace) Invalid row index. Row index must be in [0, ${this.numRows}); row_index: ${rowIndex}`)
+        }
+        for (let i = rowIndex * this.numColumns; i < (rowIndex + 1) * this.numColumns; i++) {
+            this.data[i] = mapper(this.data[i])
+        }
+        return successResult(this)
+    }
+
+    /**
+     * Maps the values of a specified column in the DataFrame using a given function and returns
+     * a new DataFrame. This method does not update the original DataFrame.
+     *
+     * @param columnIndex - The index of the column to be mapped. Must be within the range [0, numColumns).
+     * @param mapper - A function that takes a column value and returns a new value.
+     * @return A success result containing the updated DataFrame if the column index is valid,
+     * or a failure result containing an error message if the column index is invalid.
+     * @see mapColumnInPlace
+     */
+    public mapColumn(columnIndex: number, mapper: (value: V) => V): Result<DataFrame<V>, string> {
+        if (columnIndex < 0 || columnIndex >= this.numColumns) {
+            return failureResult(`(DataFrame::mapColumn) Invalid column index. Column index must be in [0, ${this.numColumns}); row_index: ${columnIndex}`)
+        }
+        const updated = this.data.slice()
+        for (let i = columnIndex; i < this.data.length; i += this.numColumns) {
+            updated[i] = mapper(updated[i])
+        }
+        return successResult(new DataFrame(updated, this.numRows, this.numColumns))
+    }
+
+    /**
+     * **Has side-effect**
+     * Maps the values of a specified column in the DataFrame using a given function and returns
+     * a new DataFrame. This method **DOES** update the original DataFrame.
+     *
+     * @param columnIndex - The index of the column to be mapped. Must be within the range [0, numColumns).
+     * @param mapper - A function that takes a column value and returns a new value.
+     * @return A success result containing the updated DataFrame if the column index is valid,
+     * or a failure result containing an error message if the column index is invalid.
+     * @see mapColumn
+     */
+    public mapColumnInPlace(columnIndex: number, mapper: (value: V) => V): Result<DataFrame<V>, string> {
+        if (columnIndex < 0 || columnIndex >= this.numColumns) {
+            return failureResult(`(DataFrame::mapColumnInPlace) Invalid column index. Column index must be in [0, ${this.numColumns}); row_index: ${columnIndex}`)
+        }
+        for (let i = columnIndex; i < this.data.length; i += this.numColumns) {
+            this.data[i] = mapper(this.data[i])
+        }
+        return successResult(this)
+    }
+
     /*
         Tags
      */
     public tagRow<T extends TagValue>(rowIndex: number, name: string, tag: T): Result<DataFrame<V>, string> {
         if (rowIndex < 0 || rowIndex >= this.numRows) {
             return failureResult(
-                `Row index for row tag is out of bounds; row_index: ${rowIndex}; tag_name: ${name}; 
+                `(DataFrame::tagRow) Row index for row tag is out of bounds; row_index: ${rowIndex}; tag_name: ${name}; 
                 tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numRows - 1}).`
             )
         }
@@ -340,7 +431,7 @@ export class DataFrame<V> {
     public tagColumn<T extends TagValue>(columnIndex: number, name: string, tag: T): Result<DataFrame<V>, string> {
         if (columnIndex < 0 || columnIndex >= this.numColumns) {
             return failureResult(
-                `Column index for column tag is out of bounds; column_index: ${columnIndex}; tag_name: ${name}; 
+                `(DataFrame::tagColumn) Column index for column tag is out of bounds; column_index: ${columnIndex}; tag_name: ${name}; 
                 tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numColumns - 1}).`
             )
         }
@@ -352,13 +443,13 @@ export class DataFrame<V> {
     public tagCell<T extends TagValue>(rowIndex: number, columnIndex: number, name: string, tag: T): Result<DataFrame<V>, string> {
         if (rowIndex < 0 || rowIndex >= this.numRows) {
             return failureResult(
-                `Row index for cell tag is out of bounds; row_index: ${rowIndex}; tag_name: ${name}; 
+                `(DataFrame::tagCell) Row index for cell tag is out of bounds; row_index: ${rowIndex}; tag_name: ${name}; 
                 tag_value: ${tag.toString()}; valid_index_range: (0, ${this.numRows - 1}).`
             )
         }
         if (columnIndex < 0 || columnIndex >= this.numColumns) {
             return failureResult(
-                `Column index for cell tag is out of bounds; column_index: ${columnIndex}; tag_name: ${name}; `
+                `(DataFrame::tagCell) Column index for cell tag is out of bounds; column_index: ${columnIndex}; tag_name: ${name}; `
             )
         }
         this.cellTags.addTag(name, tag, CellCoordinate.of(rowIndex, columnIndex))
@@ -390,7 +481,7 @@ function validateDimensions<T>(data: Array<Array<T>>, rowForm: boolean = true): 
         return successResult(data)
     }
     const condition = rowForm ?
-        `All rows must have the same number of columns; min_num_columns: ${minMax.min}, maximum_columns: ${minMax.max}` :
-        `All columns must have the same number of rows; min_num_rows: ${minMax.min}, maximum_rows: ${minMax.max}`
+        `(DataFrame.validateDimensions) All rows must have the same number of columns; min_num_columns: ${minMax.min}, maximum_columns: ${minMax.max}` :
+        `(DataFrame.validateDimensions) All columns must have the same number of rows; min_num_rows: ${minMax.min}, maximum_rows: ${minMax.max}`
     return failureResult(condition)
 }
