@@ -17,7 +17,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withoutFooter()
-            .withoutFormattedData()
+            .withoutFormatData()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(4 + 1)
         expect(tableData.hasFooter).toBeFalsy()
@@ -45,7 +45,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withFooter(footer)
-            .withoutFormattedData()
+            .withoutFormatData()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(/*data*/ 4 + /*header*/ 1 + /*footer*/ 1)
         expect(tableData.hasFooter).toBeTruthy()
@@ -74,7 +74,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withFooter(footer)
-            .withoutFormattedData()
+            .withoutFormatData()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(/*data*/ 4 + /*header*/ 1 + /*footer*/ 1)
         expect(tableData.hasFooter).toBeTruthy()
@@ -102,7 +102,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withoutFooter()
-            .withoutFormattedData()
+            .withoutFormatData()
         expect(tableData.hasRowHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toEqual(5 + 1) // the thing is transposed
         expect(tableData.hasFooter).toBeFalsy()
@@ -130,7 +130,7 @@ describe('creating and manipulating table data', () => {
             .withoutRowHeader()
             .withData(data)
             .withoutFooter()
-            .withoutFormattedData()
+            .withoutFormatData()
         expect(tableData.data.rowCount()).toBe(6)
         expect(tableData.hasFooter).toBeFalsy()
         expect(tableData.data.columnCount()).toEqual(4)
@@ -184,7 +184,7 @@ describe('creating and manipulating table data', () => {
             .withoutHeaders()
             .withData(DataFrame.from([[11, 12, 13], [21, 22, 23]]).getOrThrow())
             .withoutFooter()
-            .withoutFormattedData()
+            .withoutFormatData()
         expect(tableData.data.rowCount()).toEqual(2)
         expect(tableData.data.rowSlice(0).map(row => row.length).getOrDefault(-1)).toEqual(3)
         expect(tableData.data.rowSlice(1).map(row => row.length).getOrDefault(-1)).toEqual(3)
@@ -216,7 +216,6 @@ describe('creating and manipulating table data', () => {
             const formatters = new Map<number, (value: any) => string>([
                 [0, (value: Date) => value.toLocaleDateString()],
                 [1, (value: number) => defaultFormatter(value)],
-                [2, (value: string) => value],
                 [3, (value: number) => `$ ${value.toFixed(2)}`],
                 [4, (value: number) => `${value.toFixed(0)}`],
             ])
@@ -226,13 +225,54 @@ describe('creating and manipulating table data', () => {
                 .withoutRowHeader()
                 .withData(data)
                 .withoutFooter()
-                .withFormattedData(formatters)
+                .withFormatData(formatters)
 
             expect(tableData.data).toEqual(expected)
             expect(tableData.data.columnCount()).toEqual(5)
             expect(tableData.data.rowCount()).toEqual(/*data*/4 + /*header*/ 1)
             expect(tableData.hasColumnHeaders).toBeTruthy()
             expect(tableData.hasRowHeaders).toBeFalsy()
+            expect(tableData.hasFooter).toBeFalsy()
+        })
+
+        test('should be able to create a table with string column and row headers and numeric values', () => {
+            const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
+            const rowHeader = [1, 2, 3, 4]
+
+            const data = DataFrame.from<string | number | Date>([
+                [dateTime(1, 1), 12345, 'gnm-f234', 123.45,  4],
+                [dateTime(2, 2), 23456, 'gnm-g234',  23.45,  5],
+                [dateTime(3, 3), 34567, 'gnm-h234',   3.65, 40],
+                [dateTime(4, 4), 45678, 'gnm-i234', 314.15,  9],
+            ]).getOrThrow()
+
+            const expected = DataFrame.from<string | number | Date>([
+                ['', 'Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount'],
+                ['1', '2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
+                ['2', '2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
+                ['3', '2/3/2021', '34567', 'gnm-h234',   '$ 3.65', '40'],
+                ['4', '2/4/2021', '45678', 'gnm-i234', '$ 314.15',  '9'],
+            ]).getOrThrow()
+
+            // the column index for the formatter must be adjusted for the row-header
+            const formatters = new Map<number, (value: any) => string>([
+                [1, (value: Date) => value.toLocaleDateString()],
+                [2, (value: number) => defaultFormatter(value)],
+                [4, (value: number) => `$ ${value.toFixed(2)}`],
+            ])
+
+            const tableData: TableData<string> = createTableData<string | number | Date>()
+                .withColumnHeader(columnHeader)
+                .withRowHeader(rowHeader)
+                .withData(data)
+                .withoutFooter()
+                .withFormatData(formatters)
+
+            expect(tableData.data).toEqual(expected)
+            expect(tableData.data.columnCount()).toEqual(/*data*/ 5 + /*row-header*/ 1)
+            expect(tableData.data.rowCount()).toEqual(/*data*/ 4 + /*column-header*/ 1)
+            expect(tableData.hasColumnHeaders).toBeTruthy()
+            expect(tableData.hasRowHeaders).toBeTruthy()
             expect(tableData.hasFooter).toBeFalsy()
         })
     })

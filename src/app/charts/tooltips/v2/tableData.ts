@@ -1,27 +1,41 @@
 import {successResult} from "result-fn";
 import {DataFrame} from "./DataFrame";
 
+/**
+ * Guided builders for constructing a {@link TableData} object. Supports row-headers and column-headers
+ * as tags on the underlying {@link DataFrame}.
+ */
+
+/**
+ * Type representing a formatter function
+ */
 export type Formatter<D> = (value: D) => string
 
 /**
- *
- * @param value
+ * Default formatter that converts a {@link value} of type `V` to a string
+ * @param value The value to convert
+ * @return a string representation of the {@link value}
  */
 export function defaultFormatter<D>(value: D): string {
-    return `${value}`
+    return value === undefined || value === null ? '' : `${value}`
 }
 
-export type Row = Array<any>
+/**
+ * Represents a row
+ */
+export type Row<V> = Array<V>
 
+/**
+ * The types of tags the {@link TableData} supports
+ */
 export enum TableTagType {
     COLUMN_HEADER = "column-header",
     ROW_HEADER = "row-header",
-    // DATA = "data",
     FOOTER = "footer"
 }
 
 /**
- * Represents the table data, row and column headers, data formatters,
+ * Represents the table data, row and column headers, and footers
  */
 export interface TableData<V> {
     /**
@@ -42,12 +56,24 @@ export function createTableData<V>(): TableDataColumnHeaderBuilder<V> {
     return new TableDataColumnHeaderBuilder<V>()
 }
 
+/**
+ * The second step in the guide build for creating the {@link TableData} object. This builder
+ * step allows the developer to specify whether to use column headers. As a convenience, the developer
+ * can also specify their desire not to use any headers.
+ */
 class TableDataColumnHeaderBuilder<V> {
 
+    // todo use the column-header formatter in the last "format" step
     /**
-     *
-     * @param header
-     * @param formatter
+     * Would like to use a column-header where each element in the column-header is the name of the column.
+     * Note that the specified column {@link header} determines the number of data columns in the table. This
+     * means that you must specify a header for each data column. No need to account for a possible column
+     * containing row-headers. The builder will take care of any adjustments needed for that.
+     * @param header An array describing the columns in the table.
+     * @param formatter The formatter for the row that represents the column-header. Note that the column
+     * header should not account for a possible column containing row-headers. The builder will take care
+     * of any adjustments needed for that.
+     * @return A {@link TableDataRowHeaderBuilder} which represents the next step in the guided builder
      */
     public withColumnHeader(header: Array<V>, formatter: Formatter<V> = defaultFormatter<V>): TableDataRowHeaderBuilder<V> {
         return new TableDataRowHeaderBuilder<V>({columnHeader: header, columnHeaderFormatter: formatter})
@@ -74,27 +100,31 @@ class TableDataColumnHeaderBuilder<V> {
             columnHeaderFormatter: defaultFormatter<V>
         })
     }
-
 }
 
+/**
+ * The bag of stuff created by the guided builder process
+ */
 type ColumnHeaders<V> = {
     columnHeader: Array<V>,
     columnHeaderFormatter: Formatter<V>
 }
 
+/**
+ * This is the next step in the
+ */
 class TableDataRowHeaderBuilder<V> {
     readonly headers: ColumnHeaders<V>
 
     /**
      *
      * @param header
-     * @param formatter
      */
     constructor(header: ColumnHeaders<V>) {
         this.headers = header
     }
 
-    public withRowHeader(header: Array<V>, formatter: (value: V) => string = defaultFormatter): TableDataBuilder<V> {
+    public withRowHeader(header: Array<V>, formatter: Formatter<V> = defaultFormatter<V>): TableDataBuilder<V> {
         return new TableDataBuilder({...this.headers, rowHeader: header, rowHeaderFormatter: formatter})
     }
 
@@ -154,7 +184,7 @@ class TableDataFooterBuilder<V> {
     /**
      *
      */
-    public withoutFooter(): TableDataFormatter<V> {
+    public withoutFooter(): TableDataFormatterBuilder<V> {
         const {rowHeader, columnHeader, data} = this.headersAndData
         // convert the data-frame to a data-frame of strings using the column formatters
         if (rowHeader.length > 0 && this.headersAndData.rowHeader.length !== data.rowCount()) {
@@ -171,7 +201,7 @@ class TableDataFooterBuilder<V> {
         }
         // add the column header
         const dataFrame = successResult<DataFrame<V>, string>(data)
-            .flatMap((df: DataFrame<V>) =>  (columnHeader.length > 0) ?
+            .flatMap((df: DataFrame<V>) => (columnHeader.length > 0) ?
                 df.insertRowBefore(0, columnHeader) :
                 successResult(df)
             )
@@ -198,14 +228,14 @@ class TableDataFooterBuilder<V> {
             hasFooter: false,
         }
 
-        return new TableDataFormatter<V>(tableData)
+        return new TableDataFormatterBuilder<V>(tableData)
     }
 
     /**
      *
      * @param footer
      */
-    public withFooter(footer: Array<V>): TableDataFormatter<V> {
+    public withFooter(footer: Array<V>): TableDataFormatterBuilder<V> {
         // wrong method called
         if (footer.length === 0) {
             return this.withoutFooter()
@@ -230,7 +260,7 @@ class TableDataFooterBuilder<V> {
         }
         if ((tableFooter.length !== data.columnCount() + (rowHeader.length > 0 ? 1 : 0) && tableFooter.length !== data.columnCount())) {
             const message = "The footer must have the same number of columns as the data. Cannot construct table data." +
-                `num_data_columns: ${data.columnCount()}; row_header_columns: ${rowHeader.length > 0 ? 1 : 0}; `+
+                `num_data_columns: ${data.columnCount()}; row_header_columns: ${rowHeader.length > 0 ? 1 : 0}; ` +
                 `num_footer_columns: ${tableFooter.length}`;
             console.error(message)
             throw new Error(message)
@@ -259,7 +289,7 @@ class TableDataFooterBuilder<V> {
             // add the tags to the data-frame for the column headers, row headers, and footer
             .flatMap(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
             .flatMap(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
-            .flatMap(df => df.tagRow(df.rowCount()-1, "footer", TableTagType.FOOTER))
+            .flatMap(df => df.tagRow(df.rowCount() - 1, "footer", TableTagType.FOOTER))
             .getOrThrow()
 
         const tableData: TableData<V> = {
@@ -269,47 +299,70 @@ class TableDataFooterBuilder<V> {
             hasFooter: tableFooter.length > 0,
         }
 
-        return new TableDataFormatter<V>(tableData)
+        return new TableDataFormatterBuilder<V>(tableData)
     }
 }
 
-class TableDataFormatter<V> {
+/**
+ * At the end of the build process, you may want to format the data to a string representation, or not. Your choice.
+ * This formatter-builder allows you to specify formatters for each column in the data table you've created.
+ */
+class TableDataFormatterBuilder<V> {
     readonly tableData: TableData<V>
 
+    /**
+     * @param tableData The table data so far
+     */
     constructor(tableData: TableData<V>) {
         this.tableData = tableData
     }
 
-
-    public withoutFormattedData(): TableData<V> {
+    /**
+     * Do NOT apply any formatting, and leave the {@link TableData} in its specified types
+     * @return the unchanged {@link TableData}
+     * @see withFormatData
+     */
+    public withoutFormatData(): TableData<V> {
         return this.tableData
     }
 
-    public withFormattedData(columnFormatters: Map<number, (value: V) => string>): TableData<string> {
+    /**
+     * Note that at the end of this process, the {@link TableData<V>} is converted to a {@link TableData<string>}, where
+     * the string holds the formatted data. Column headers, which are expected to be strings, are, for safety, formatted
+     * by the {@link defaultFormatter}.
+     * @param columnFormatters A map of (column-index, formatter) where the column-index is the index of the column
+     * to which to apply the formatter. When the data has row-headers, then a column-index of 0 would refer to the
+     * column of row-headers. Any columns for which no formatter is specified will use the {@link defaultFormatter}
+     * @return The {@link TableData} where each element has been converted to a string based on the specified fomatter.
+     * @see withoutFormatData
+     */
+    public withFormatData(columnFormatters: Map<number, (value: V) => string>): TableData<string> {
         const minValidIndex = this.tableData.hasRowHeaders ? 1 : 0
         const maxValidIndex = this.tableData.data.columnCount()
 
         const minIndex = Array.from(columnFormatters.keys()).reduce((min, index) => Math.min(min, index), Infinity)
         const maxIndex = Array.from(columnFormatters.keys()).reduce((max, index) => Math.max(max, index), -Infinity)
+
         if (minIndex < minValidIndex) {
-            throw Error(`Column formatter indexes must be in [${minValidIndex}, ${maxValidIndex}]; found index: ${minIndex}`)
+            throw Error(`Column formatter indexes must be in [${minValidIndex}, ${maxValidIndex}); found index: ${minIndex}`)
         }
         if (maxIndex > maxValidIndex) {
-            throw Error(`Column formatter indexes must be in [${minValidIndex}, ${maxValidIndex}]; found index: ${maxIndex}`)
+            throw Error(`Column formatter indexes must be in [${minValidIndex}, ${maxValidIndex}); found index: ${maxIndex}`)
         }
 
-        const formatted: Array<Array<string>> = []
-        for (let i = minIndex; i <= maxIndex; i++) {
-            const formatter: (value: V) => string = columnFormatters.get(i) || defaultFormatter<V>
-            const column = this.tableData.data.columnSlice(i).getOrThrow()
-            const adjustedColumn = this.tableData.hasColumnHeaders ? column.slice(1) : column
-            const finalColumn = adjustedColumn.map(formatter)
+        const formattedColumns = this.tableData.data.columnSlices().map((column, index) => {
+            // grab the formatter for the column, or if no formatter exists, grab a default formatter
+            const formatter: (value: V) => string = columnFormatters.get(index) || defaultFormatter<V>
+            // format the column, accounting for the possible column header
             if (this.tableData.hasColumnHeaders) {
-                finalColumn.unshift(defaultFormatter(column[0]))
+                const adjustedColumn = column.slice(1).map(value => formatter(value))
+                adjustedColumn.unshift(defaultFormatter(column[0]))
+                return adjustedColumn
             }
-            formatted.push(finalColumn)
-        }
-        return DataFrame.fromColumnData<string>(formatted)
+            return column.map(value => formatter(value))
+        })
+
+        return DataFrame.fromColumnData<string>(formattedColumns)
             .map(df => ({
                 data: df,
                 hasRowHeaders: this.tableData.hasRowHeaders,
@@ -317,6 +370,5 @@ class TableDataFormatter<V> {
                 hasFooter: this.tableData.hasFooter,
             }))
             .getOrThrow()
-
     }
 }
