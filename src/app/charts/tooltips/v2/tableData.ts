@@ -1,5 +1,5 @@
 import {successResult} from "result-fn";
-import {DataFrame} from "./DataFrame";
+import {DataFrame} from "data-frame-ts";
 
 /**
  * Guided builders for constructing a {@link TableData} object. Supports row-headers and column-headers

@@ -1,5 +1,5 @@
 import {createTableData, defaultFormatter, TableData} from "./tableData";
-import {DataFrame} from "./DataFrame";
+import {DataFrame} from "data-frame-ts"
 
 describe('creating and manipulating table data', () => {
 
