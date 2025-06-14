@@ -23,13 +23,27 @@ export type TableFont = {
     family: string
     weight: number
 }
+const emptyTableFont: TableFont = {
+    size: NaN,
+    color: '',
+    family: '',
+    weight: NaN
+}
+
+function isTableFontEmpty(font: TableFont) {
+    return isNaN(font.size) || font.color === '' || font.family === '' || isNaN(font.weight)
+}
 
 export type Background = {
     color: string
     opacity: number
 }
-
 const defaultBackground: Background = {color: '#fff', opacity: 0}
+
+const emptyBackground: Background = {color: '', opacity: NaN}
+function isBackgroundEmpty(background: Background) {
+    return background.color === '' || isNaN(background.opacity)
+}
 
 export type Padding = {
     left: number
@@ -107,6 +121,22 @@ const defaultColumnHeaderStyle: ColumnHeaderStyle = {
     dimension: {height: 15},
     padding: defaultPadding
 }
+const emptyColumnHeaderStyle: ColumnHeaderStyle = {
+    font: emptyTableFont,
+    alignText: "center",
+    dimension: {height: NaN},
+    padding: {top: NaN, bottom: NaN},
+    background: emptyBackground
+}
+
+function isColumnHeaderStyleEmpty(style: ColumnHeaderStyle) {
+    return isNaN(style.dimension.height) && isNaN(style.padding.bottom) && isNaN(style.padding.top) &&
+        style.alignText === "center" && isTableFontEmpty(style.font) && isBackgroundEmpty(style.background)
+}
+
+function hasColumnHeaderStyle(style: ColumnHeaderStyle) {
+    return !isColumnHeaderStyleEmpty(style)
+}
 
 /**
  * Confusing as it may be, this is the style for the **column** that holds
@@ -128,65 +158,6 @@ const defaultRowHeaderStyle: RowHeaderStyle = {
     padding: defaultPadding
 }
 
-export type TableStyle = {
-    font: TableFont
-
-    border: Border
-    background: Background
-
-    dimension: Pick<Dimension, "width" | "height">
-    padding: Padding
-    margin: Margin
-
-    // a row may have a header, and the row-headers form a column that sits before
-    // the other columns, and so here we want the width of that column. this value
-    // must be specified if the data has row-headers
-    rowHeaderStyle: RowHeaderStyle
-
-    // a column may have a header, and the column-headers form a row that sits before
-    // the other rows, and so here we want the height of that row. this value must be
-    // specified if the data has column-headers
-    columnHeaderStyle: ColumnHeaderStyle
-
-    // the style (height bounds and padding) for each row
-    rowStyles: Array<RowStyle>
-    // the style (width bounds, padding, and text alignment) for each column
-    columnStyles: Array<ColumnStyle>
-}
-
-const emptyTableFont: TableFont = {
-    size: NaN,
-    color: '',
-    family: '',
-    weight: NaN
-}
-
-function isTableFontEmpty(font: TableFont) {
-    return isNaN(font.size) || font.color === '' || font.family === '' || isNaN(font.weight)
-}
-
-const emptyBackground: Background = {color: '', opacity: NaN}
-function isBackgroundEmpty(background: Background) {
-    return background.color === '' || isNaN(background.opacity)
-}
-
-const emptyColumnHeaderStyle: ColumnHeaderStyle = {
-    font: emptyTableFont,
-    alignText: "center",
-    dimension: {height: NaN},
-    padding: {top: NaN, bottom: NaN},
-    background: emptyBackground
-}
-
-function isColumnHeaderStyleEmpty(style: ColumnHeaderStyle) {
-    return isNaN(style.dimension.height) && isNaN(style.padding.bottom) && isNaN(style.padding.top) &&
-        style.alignText === "center" && isTableFontEmpty(style.font) && isBackgroundEmpty(style.background)
-}
-
-function hasColumnHeaderStyle(style: ColumnHeaderStyle) {
-    return !isColumnHeaderStyleEmpty(style)
-}
-
 const emptyRowHeaderStyle: RowHeaderStyle = {
     font: emptyTableFont,
     alignText: "center",
@@ -197,7 +168,7 @@ const emptyRowHeaderStyle: RowHeaderStyle = {
 
 function isRowHeaderStyleEmpty(style: RowHeaderStyle) {
     return (isNaN(style.padding.left) || isNaN(style.padding.right)) &&
-    // return (isNaN(style.dimension.width) || isNaN(style.padding.left) || isNaN(style.padding.right)) &&
+        // return (isNaN(style.dimension.width) || isNaN(style.padding.left) || isNaN(style.padding.right)) &&
         style.alignText === "center" && isTableFontEmpty(style.font) && isBackgroundEmpty(style.background)
 }
 
@@ -205,15 +176,125 @@ function hasRowHeaderStyle(style: RowHeaderStyle) {
     return !isRowHeaderStyleEmpty(style)
 }
 
-export function createTableStyleFor(tableData: TableData): TableStyleBuilder {
-    return new TableStyleBuilder(tableData)
+export class TableStyle {
+    private font: TableFont
+
+    private border: Border
+    private background: Background
+
+    private dimension: Pick<Dimension, "width" | "height">
+    private padding: Padding
+    private margin: Margin
+
+    // a row may have a header, and the row-headers form a column that sits before
+    // the other columns, and so here we want the width of that column. this value
+    // must be specified if the data has row-headers
+    private rowHeaderStyle: RowHeaderStyle
+
+    // a column may have a header, and the column-headers form a row that sits before
+    // the other rows, and so here we want the height of that row. this value must be
+    // specified if the data has column-headers
+    private columnHeaderStyle: ColumnHeaderStyle
+
+    // the style (height bounds and padding) for each row
+    private rowStyles: Array<RowStyle>
+    // the style (width bounds, padding, and text alignment) for each column
+    private columnStyles: Array<ColumnStyle>
+
+    constructor(
+        font: TableFont,
+        border: Border,
+        background: Background,
+        dimension: Pick<Dimension, "width" | "height">,
+        padding: Padding,
+        margin: Margin,
+        rowHeaderStyle: RowHeaderStyle,
+        columnHeaderStyle: ColumnHeaderStyle,
+        rowStyles: Array<RowStyle>,
+        columnStyles: Array<ColumnStyle>
+    ) {
+        this.font = font
+        this.border = border
+        this.background = background
+        this.dimension = dimension
+        this.padding = padding
+        this.margin = margin
+        this.rowHeaderStyle = rowHeaderStyle
+        this.columnHeaderStyle = columnHeaderStyle
+        this.rowStyles = rowStyles
+        this.columnStyles = columnStyles
+    }
+
+    static builder<V>(tableData: TableData<V>): TableStyleBuilder<V> {
+        return TableStyleBuilder.createTableStyleFor<V>(tableData)
+    }
+
+    getFont(): TableFont {
+        return {...this.font}
+    }
+
+    getBorder(): Border {
+        return {...this.border}
+    }
+
+    getBackground(): Background {
+        return {...this.background}
+    }
+
+    getDimension(): Pick<Dimension, "width" | "height"> {
+        return {...this.dimension}
+    }
+
+    getPadding(): Padding {
+        return {...this.padding}
+    }
+
+    getMargin(): Margin {
+        return {...this.margin}
+    }
+
+    getRowHeaderStyle(): RowHeaderStyle {
+        return {
+            font: {...this.rowHeaderStyle.font},
+            alignText: this.rowHeaderStyle.alignText,
+            padding: {...this.rowHeaderStyle.padding},
+            background: {...this.rowHeaderStyle.background},
+        }
+    }
+
+    getColumnHeaderStyle(): ColumnHeaderStyle {
+        return {
+            font: {...this.columnHeaderStyle.font},
+            alignText: this.columnHeaderStyle.alignText,
+            dimension: {...this.columnHeaderStyle.dimension},
+            padding: {...this.columnHeaderStyle.padding},
+            background: {...this.columnHeaderStyle.background},
+        }
+    }
+
+    getRowStyles(): Array<RowStyle> {
+        return this.rowStyles.map(style => ({
+            font: {...style.font},
+            background: {...style.background},
+            dimension: {...style.dimension},
+            padding: {...style.padding},
+        }))
+    }
+
+    getColumnStyles(): Array<ColumnStyle> {
+        return this.columnStyles.map(style => ({
+            alignText: style.alignText,
+            dimension: {...style.dimension},
+            padding: {...style.padding},
+        }))
+    }
 }
 
 /**
  * Returns a table object of rows and columns that have the data and style for each element in the table.
  */
-class TableStyleBuilder {
-    private readonly tableData: TableData
+class TableStyleBuilder<V> {
+    private readonly tableData: TableData<V>
 
     // table-level styles
     private font: TableFont
@@ -227,10 +308,10 @@ class TableStyleBuilder {
     private columnHeaderStyle: ColumnHeaderStyle
     private rowHeaderStyle: RowHeaderStyle
 
-    private rowStyles: Array<RowStyle>
-    private columnStyles: Array<ColumnStyle>
+    private readonly rowStyles: Array<RowStyle>
+    private readonly columnStyles: Array<ColumnStyle>
 
-    constructor(tableData: TableData) {
+    private constructor(tableData: TableData<V>) {
         this.tableData = tableData
 
         this.font = defaultTableFont
@@ -247,7 +328,11 @@ class TableStyleBuilder {
         this.columnStyles = []
     }
 
-    public withTableBackground(background: Background): TableStyleBuilder {
+    static createTableStyleFor<V>(tableData: TableData<V>): TableStyleBuilder<V> {
+        return new TableStyleBuilder<V>(tableData)
+    }
+
+    public withTableBackground(background: Background): TableStyleBuilder<V> {
         this.background = background
         // default the header background to the table background unless it
         // had be set explicitly
@@ -257,27 +342,27 @@ class TableStyleBuilder {
         return this
     }
 
-    public withBorder(border: Border): TableStyleBuilder {
+    public withBorder(border: Border): TableStyleBuilder<V> {
         this.border = border
         return this
     }
 
-    public withDimensions(width: number, height: number): TableStyleBuilder {
+    public withDimensions(width: number, height: number): TableStyleBuilder<V> {
         this.dimension = {width, height}
         return this
     }
 
-    public withPadding(padding: Padding): TableStyleBuilder {
+    public withPadding(padding: Padding): TableStyleBuilder<V> {
         this.padding = padding
         return this
     }
 
-    public withMargin(margin: Margin): TableStyleBuilder {
+    public withMargin(margin: Margin): TableStyleBuilder<V> {
         this.margin = margin
         return this
     }
 
-    public withColumnHeaderStyle(style: Partial<ColumnHeaderStyle>): TableStyleBuilder {
+    public withColumnHeaderStyle(style: Partial<ColumnHeaderStyle>): TableStyleBuilder<V> {
         this.columnHeaderStyle = {...this.columnHeaderStyle, ...style}
         return this
     }
@@ -286,12 +371,12 @@ class TableStyleBuilder {
      * Calling this function sets the column-header style to be the same as the column style for the table
      * @return A reference to this builder for chaining
      */
-    public withoutColumnHeaderStyle(): TableStyleBuilder {
+    public withoutColumnHeaderStyle(): TableStyleBuilder<V> {
         this.columnHeaderStyle = emptyColumnHeaderStyle
         return this
     }
 
-    public withRowHeaderStyle(style: Partial<RowHeaderStyle>): TableStyleBuilder {
+    public withRowHeaderStyle(style: Partial<RowHeaderStyle>): TableStyleBuilder<V> {
         this.rowHeaderStyle = {...this.rowHeaderStyle, ...style}
         return this
     }
@@ -300,16 +385,16 @@ class TableStyleBuilder {
      * Calling this function sets the row-header style to be the same as the row style for the table
      * @return A reference to this builder for chaining
      */
-    public withoutRowHeaderStyle(): TableStyleBuilder {
+    public withoutRowHeaderStyle(): TableStyleBuilder<V> {
         this.rowHeaderStyle = emptyRowHeaderStyle
         return this
     }
 
-    public withColumnStyles(styles: Array<ColumnStyle>): TableStyleBuilder {
+    public withColumnStyles(styles: Array<ColumnStyle>): TableStyleBuilder<V> {
         return this
     }
 
-    public withRowStyles(styles: Array<RowStyle>): TableStyleBuilder {
+    public withRowStyles(styles: Array<RowStyle>): TableStyleBuilder<V> {
         return this
     }
 
@@ -356,22 +441,22 @@ class TableStyleBuilder {
             throw new Error(message)
         }
 
-        return {
-            font: this.font,
+        return new TableStyle(
+            this.font,
 
-            background: this.background,
+            this.border,
+            this.background,
 
-            border: this.border,
-            dimension: this.dimension,
-            padding: this.padding,
-            margin: this.margin,
+            this.dimension,
+            this.padding,
+            this.margin,
 
-            columnHeaderStyle: this.columnHeaderStyle,
-            columnStyles: this.columnStyles,
+            this.columnHeaderStyle,
+            this.rowHeaderStyle,
 
-            rowHeaderStyle: this.rowHeaderStyle,
-            rowStyles: this.rowStyles,
-        }
+            this.rowStyles,
+            this.columnStyles,
+        )
     }
 }
 

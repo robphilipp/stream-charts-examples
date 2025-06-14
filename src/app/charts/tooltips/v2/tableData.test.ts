@@ -17,7 +17,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withoutFooter()
-            .withoutFormatData()
+            .build()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(4 + 1)
         expect(tableData.hasFooter).toBeFalsy()
@@ -45,7 +45,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withFooter(footer)
-            .withoutFormatData()
+            .build()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(/*data*/ 4 + /*header*/ 1 + /*footer*/ 1)
         expect(tableData.hasFooter).toBeTruthy()
@@ -74,7 +74,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withFooter(footer)
-            .withoutFormatData()
+            .build()
         expect(tableData.hasColumnHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toBe(/*data*/ 4 + /*header*/ 1 + /*footer*/ 1)
         expect(tableData.hasFooter).toBeTruthy()
@@ -102,7 +102,7 @@ describe('creating and manipulating table data', () => {
             .withRowHeader(rowHeader)
             .withData(data)
             .withoutFooter()
-            .withoutFormatData()
+            .build()
         expect(tableData.hasRowHeaders).toBeTruthy()
         expect(tableData.data.rowCount()).toEqual(5 + 1) // the thing is transposed
         expect(tableData.hasFooter).toBeFalsy()
@@ -130,7 +130,7 @@ describe('creating and manipulating table data', () => {
             .withoutRowHeader()
             .withData(data)
             .withoutFooter()
-            .withoutFormatData()
+            .build()
         expect(tableData.data.rowCount()).toBe(6)
         expect(tableData.hasFooter).toBeFalsy()
         expect(tableData.data.columnCount()).toEqual(4)
@@ -184,14 +184,14 @@ describe('creating and manipulating table data', () => {
             .withoutHeaders()
             .withData(DataFrame.from([[11, 12, 13], [21, 22, 23]]).getOrThrow())
             .withoutFooter()
-            .withoutFormatData()
+            .build()
         expect(tableData.data.rowCount()).toEqual(2)
-        expect(tableData.data.rowSlice(0).map(row => row.length).getOrDefault(-1)).toEqual(3)
-        expect(tableData.data.rowSlice(1).map(row => row.length).getOrDefault(-1)).toEqual(3)
+        expect(tableData.data.rowSlice(0).map(row => row.length).getOrElse(-1)).toEqual(3)
+        expect(tableData.data.rowSlice(1).map(row => row.length).getOrElse(-1)).toEqual(3)
     })
 
     describe('creating tables with mixed data types', () => {
-        function dateTime(day: number, hour: number): Date {
+        function dateTimeFor(day: number, hour: number): Date {
           return new Date(2021, 1, day, hour, 0, 0, 0);
         }
 
@@ -199,10 +199,10 @@ describe('creating and manipulating table data', () => {
             const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
 
             const data = DataFrame.from<string | number | Date>([
-                [dateTime(1, 1), 12345, 'gnm-f234', 123.45,  4],
-                [dateTime(2, 2), 23456, 'gnm-g234',  23.45,  5],
-                [dateTime(3, 3), 34567, 'gnm-h234',   3.65, 40],
-                [dateTime(4, 4), 45678, 'gnm-i234', 314.15,  9],
+                [dateTimeFor(1, 1), 12345, 'gnm-f234', 123.45,  4],
+                [dateTimeFor(2, 2), 23456, 'gnm-g234',  23.45,  5],
+                [dateTimeFor(3, 3), 34567, 'gnm-h234',   3.65, 40],
+                [dateTimeFor(4, 4), 45678, 'gnm-i234', 314.15,  9],
             ]).getOrThrow()
 
             const expected = DataFrame.from<string | number | Date>([
@@ -225,7 +225,8 @@ describe('creating and manipulating table data', () => {
                 .withoutRowHeader()
                 .withData(data)
                 .withoutFooter()
-                .withFormatData(formatters)
+                .withFormattedData(formatters)
+                .build()
 
             expect(tableData.data).toEqual(expected)
             expect(tableData.data.columnCount()).toEqual(5)
@@ -240,10 +241,10 @@ describe('creating and manipulating table data', () => {
             const rowHeader = [1, 2, 3, 4]
 
             const data = DataFrame.from<string | number | Date>([
-                [dateTime(1, 1), 12345, 'gnm-f234', 123.45,  4],
-                [dateTime(2, 2), 23456, 'gnm-g234',  23.45,  5],
-                [dateTime(3, 3), 34567, 'gnm-h234',   3.65, 40],
-                [dateTime(4, 4), 45678, 'gnm-i234', 314.15,  9],
+                [dateTimeFor(1, 1), 12345, 'gnm-f234', 123.45,  4],
+                [dateTimeFor(2, 2), 23456, 'gnm-g234',  23.45,  5],
+                [dateTimeFor(3, 3), 34567, 'gnm-h234',   3.65, 40],
+                [dateTimeFor(4, 4), 45678, 'gnm-i234', 314.15,  9],
             ]).getOrThrow()
 
             const expected = DataFrame.from<string | number | Date>([
@@ -266,7 +267,8 @@ describe('creating and manipulating table data', () => {
                 .withRowHeader(rowHeader)
                 .withData(data)
                 .withoutFooter()
-                .withFormatData(formatters)
+                .withFormattedData(formatters)
+                .build()
 
             expect(tableData.data).toEqual(expected)
             expect(tableData.data.columnCount()).toEqual(/*data*/ 5 + /*row-header*/ 1)

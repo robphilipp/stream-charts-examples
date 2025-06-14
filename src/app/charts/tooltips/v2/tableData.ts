@@ -217,6 +217,7 @@ class TableDataFooterBuilder<V> {
                 }
                 return successResult(df)
             })
+            // todo, why are these done unconditionally? shouldn't we only add these tags when a row/column header are known to be present?
             .flatMap(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
             .flatMap(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
             .getOrThrow()
@@ -287,6 +288,7 @@ class TableDataFooterBuilder<V> {
             // add the footer to the end
             .flatMap(df => df.pushRow(tableFooter))
             // add the tags to the data-frame for the column headers, row headers, and footer
+            // todo, why are these done unconditionally? shouldn't we only add these tags when a row/column header are known to be present?
             .flatMap(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
             .flatMap(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
             .flatMap(df => df.tagRow(df.rowCount() - 1, "footer", TableTagType.FOOTER))
@@ -320,9 +322,9 @@ class TableDataFormatterBuilder<V> {
     /**
      * Do NOT apply any formatting, and leave the {@link TableData} in its specified types
      * @return the unchanged {@link TableData}
-     * @see withFormatData
+     * @see withFormattedData
      */
-    public withoutFormatData(): TableData<V> {
+    public build(): TableData<V> {
         return this.tableData
     }
 
@@ -333,15 +335,17 @@ class TableDataFormatterBuilder<V> {
      * @param columnFormatters A map of (column-index, formatter) where the column-index is the index of the column
      * to which to apply the formatter. When the data has row-headers, then a column-index of 0 would refer to the
      * column of row-headers. Any columns for which no formatter is specified will use the {@link defaultFormatter}
-     * @return The {@link TableData} where each element has been converted to a string based on the specified fomatter.
-     * @see withoutFormatData
+     * @return The {@link TableData} where each element has been converted to a string based on the specified formater.
+     * @see build
      */
-    public withFormatData(columnFormatters: Map<number, (value: V) => string>): TableData<string> {
+    public withFormattedData(columnFormatters: Map<number, (value: V) => string>): TableDataFormatterBuilder<string> {
         const minValidIndex = this.tableData.hasRowHeaders ? 1 : 0
         const maxValidIndex = this.tableData.data.columnCount()
 
-        const minIndex = Array.from(columnFormatters.keys()).reduce((min, index) => Math.min(min, index), Infinity)
-        const maxIndex = Array.from(columnFormatters.keys()).reduce((max, index) => Math.max(max, index), -Infinity)
+        const minIndex = Array.from(columnFormatters.keys())
+            .reduce((min, index) => Math.min(min, index), Infinity)
+        const maxIndex = Array.from(columnFormatters.keys())
+            .reduce((max, index) => Math.max(max, index), -Infinity)
 
         if (minIndex < minValidIndex) {
             throw Error(`Column formatter indexes must be in [${minValidIndex}, ${maxValidIndex}); found index: ${minIndex}`)
@@ -350,6 +354,7 @@ class TableDataFormatterBuilder<V> {
             throw Error(`Column formatter indexes must be in [${minValidIndex}, ${maxValidIndex}); found index: ${maxIndex}`)
         }
 
+        // convert all the elements to strings using the column formatters supplied
         const formattedColumns = this.tableData.data.columnSlices().map((column, index) => {
             // grab the formatter for the column, or if no formatter exists, grab a default formatter
             const formatter: (value: V) => string = columnFormatters.get(index) || defaultFormatter<V>
@@ -362,7 +367,15 @@ class TableDataFormatterBuilder<V> {
             return column.map(value => formatter(value))
         })
 
-        return DataFrame.fromColumnData<string>(formattedColumns)
+        // return DataFrame.fromColumnData<string>(formattedColumns)
+        //     .map(df => ({
+        //         data: df,
+        //         hasRowHeaders: this.tableData.hasRowHeaders,
+        //         hasColumnHeaders: this.tableData.hasColumnHeaders,
+        //         hasFooter: this.tableData.hasFooter,
+        //     }))
+        //     .getOrThrow()
+        const formattedTableData = DataFrame.fromColumnData<string>(formattedColumns)
             .map(df => ({
                 data: df,
                 hasRowHeaders: this.tableData.hasRowHeaders,
@@ -370,5 +383,7 @@ class TableDataFormatterBuilder<V> {
                 hasFooter: this.tableData.hasFooter,
             }))
             .getOrThrow()
+
+        return new TableDataFormatterBuilder<string>(formattedTableData)
     }
 }
