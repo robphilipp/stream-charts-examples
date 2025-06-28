@@ -105,17 +105,17 @@ export function validateTableDimensions(style: Partial<TableStyle>, data: TableD
     // then check if there is enough space for the row-headers based on a proportional column width.
     // if not, the user should really specify the row-header width for the column
     if (style.rowHeaderStyle?.dimension.width && style.dimension?.width && style.columnStyles) {
-        if (data.hasRowHeaders && style.rowHeaderStyle.dimension.width <= 0 && (style.dimension.width - sumMinimumColumnsWidths) < style.dimension.width / (style.columnStyles.length + 1)) {
+        if (data.hasRowHeader && style.rowHeaderStyle.dimension.width <= 0 && (style.dimension.width - sumMinimumColumnsWidths) < style.dimension.width / (style.columnStyles.length + 1)) {
             const message = "The data has row-headers and no row-header width was specified. In addition, there isn't enough " +
                 "width left over after the minimum widths for each data column are summed. This check is done based on a" +
                 "on an uniform allocation calculation. If you need less width for the row-header column, then please specify" +
                 "the row-header-width. " +
-                `has_row_headers: ${data.hasRowHeaders}; table_width: ${style.dimension.width} px; sum_minimum_column_widths: ${sumMinimumColumnsWidths} px; ` +
+                `has_row_headers: ${data.hasRowHeader}; table_width: ${style.dimension.width} px; sum_minimum_column_widths: ${sumMinimumColumnsWidths} px; ` +
                 `remaining_width_for_row_headers: ${style.dimension.width - sumMinimumColumnsWidths} px`
             console.warn(message)
             return failureResult(message)
         }
-        if (data.hasRowHeaders && style.rowHeaderStyle.dimension.width > 0 && style.dimension.width - sumMinimumColumnsWidths < style.rowHeaderStyle.dimension.width) {
+        if (data.hasRowHeader && style.rowHeaderStyle.dimension.width > 0 && style.dimension.width - sumMinimumColumnsWidths < style.rowHeaderStyle.dimension.width) {
             const message = "The sum of the minimum columns widths, plus the row-header width, is greater than the specified table width. " +
                 "Cannot render table. " +
                 `table_width: ${style.dimension.width} px; sum_minimum_column_widths: ${sumMinimumColumnsWidths} px; row_header_width: ${style.rowHeaderStyle.dimension.width} px; `
@@ -126,17 +126,17 @@ export function validateTableDimensions(style: Partial<TableStyle>, data: TableD
 
     // check that there is enough space for the column headers
     if (style.columnHeaderStyle?.dimension.height && style.dimension?.height && style.rowStyles) {
-        if (data.hasColumnHeaders && style.columnHeaderStyle.dimension.height <= 0 && (style.dimension.height - sumMinimumRowHeights) < style.dimension.height / (style.rowStyles.length + 1)) {
+        if (data.hasColumnHeader && style.columnHeaderStyle.dimension.height <= 0 && (style.dimension.height - sumMinimumRowHeights) < style.dimension.height / (style.rowStyles.length + 1)) {
             const message = "The data has column-headers and no column-header height was specified. In addition, there isn't enough " +
                 "height left over after the minimum heights for each data row are summed. This check is done based on a" +
                 "on an uniform allocation calculation. If you need less height for the column-header row, then please specify" +
                 "the column-header-height. " +
-                `has_column_headers: ${data.hasColumnHeaders}; table_height: ${style.dimension.height} px; sum_minimum_row_heights: ${sumMinimumRowHeights} px; ` +
+                `has_column_headers: ${data.hasColumnHeader}; table_height: ${style.dimension.height} px; sum_minimum_row_heights: ${sumMinimumRowHeights} px; ` +
                 `remaining_height_for_column_headers: ${style.dimension.height - sumMinimumRowHeights} px`
             console.warn(message)
             return failureResult(message)
         }
-        if (data.hasColumnHeaders && style.columnHeaderStyle.dimension.height > 0 && style.dimension.height - sumMinimumRowHeights < style.columnHeaderStyle.dimension.height) {
+        if (data.hasColumnHeader && style.columnHeaderStyle.dimension.height > 0 && style.dimension.height - sumMinimumRowHeights < style.columnHeaderStyle.dimension.height) {
             const message = "The sum of the minimum row heights, plus the column-header height, is greater than the specified table height. " +
                 "Cannot render table. " +
                 `table_height: ${style.dimension.height} px; sum_minimum_row_heights: ${sumMinimumRowHeights} px; column_header_height: ${style.columnHeaderStyle.dimension.height} px; `

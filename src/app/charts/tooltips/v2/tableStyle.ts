@@ -294,7 +294,6 @@ export class TableStyle {
  * Returns a table object of rows and columns that have the data and style for each element in the table.
  */
 class TableStyleBuilder<V> {
-    private readonly tableData: TableData<V>
 
     // table-level styles
     private font: TableFont
@@ -311,7 +310,7 @@ class TableStyleBuilder<V> {
     private readonly rowStyles: Array<RowStyle>
     private readonly columnStyles: Array<ColumnStyle>
 
-    private constructor(tableData: TableData<V>) {
+    private constructor(private readonly tableData: TableData<V>) {
         this.tableData = tableData
 
         this.font = defaultTableFont
@@ -401,7 +400,7 @@ class TableStyleBuilder<V> {
     public build(): TableStyle {
         // when the column header style is set, ensure that it is consistent with the header
         // information in the table data
-        if (hasColumnHeaderStyle(this.columnHeaderStyle) && !this.tableData.hasColumnHeaders) {
+        if (hasColumnHeaderStyle(this.columnHeaderStyle) && !this.tableData.hasColumnHeader()) {
             const message = "The column header style can only be supplied when the table data has a column header"
             console.error(message)
             throw new Error(message)
@@ -414,7 +413,7 @@ class TableStyleBuilder<V> {
         //     throw new Error(message)
         // }
         // when the table data has a column header, then the style must be specified
-        if (isColumnHeaderStyleEmpty(this.columnHeaderStyle) && this.tableData.hasColumnHeaders) {
+        if (isColumnHeaderStyleEmpty(this.columnHeaderStyle) && this.tableData.hasColumnHeader()) {
             const message = "The column header style must be specified when the table data has a column header"
             console.error(message)
             throw new Error(message)
@@ -422,7 +421,7 @@ class TableStyleBuilder<V> {
 
         // when that row header style is set, ensure tha it is consistent with the header
         // information in the table data
-        if (!isRowHeaderStyleEmpty(this.rowHeaderStyle) && this.tableData.hasRowHeaders) {
+        if (!isRowHeaderStyleEmpty(this.rowHeaderStyle) && this.tableData.hasRowHeader()) {
             const message = "The row header style can only be supplied when the table data has row headers"
             console.error(message)
             throw new Error(message)
@@ -435,7 +434,7 @@ class TableStyleBuilder<V> {
         //     throw new Error(message)
         // }
         // when the table data has a column header, then the style must be specified
-        if (isRowHeaderStyleEmpty(this.rowHeaderStyle) && this.tableData.hasRowHeaders) {
+        if (isRowHeaderStyleEmpty(this.rowHeaderStyle) && this.tableData.hasRowHeader()) {
             const message = "The row header style must be specified when the table data has row headers"
             console.error(message)
             throw new Error(message)
@@ -451,8 +450,8 @@ class TableStyleBuilder<V> {
             this.padding,
             this.margin,
 
-            this.columnHeaderStyle,
             this.rowHeaderStyle,
+            this.columnHeaderStyle,
 
             this.rowStyles,
             this.columnStyles,

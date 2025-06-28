@@ -278,7 +278,7 @@ export function createTable(
         // the relevant styles to each element in the column headers (e.g. the first/header row in the table)
         //
         const columnHeaders: Array<ElementPlacementInfo> = []
-        if (tableData.hasColumnHeaders) {
+        if (tableData.hasColumnHeader) {
             // this is the group <g> representing row of column headers that sits on top of the table
             const columnHeaderRowSelection = tableSelection
                 .append('g')
@@ -288,7 +288,7 @@ export function createTable(
 
             // when each row has a header (i.e. the table has row-headers) and we have column headers,
             // then need to add an extra cell to beginning of the column header
-            if (tableData.hasColumnHeaders && tableData.hasRowHeaders) {
+            if (tableData.hasColumnHeader && tableData.hasRowHeader) {
                 const selection = columnHeaderRowSelection
                     .append<SVGTextElement>("text")
                     .attr('id', tableElementId(uniqueTableId, 0, 0))
@@ -303,8 +303,8 @@ export function createTable(
 
             // append the headers and hold them in an array so that we can position them after figuring out
             // the "optimal" width of each column
-            const dataStartColumnIndex: number = tableData.hasRowHeaders ? 1 : 0
-            const columnHeaderData: Row = tableData.hasColumnHeaders ? tableData.data[0] : []
+            const dataStartColumnIndex: number = tableData.hasRowHeader ? 1 : 0
+            const columnHeaderData: Row = tableData.hasColumnHeader ? tableData.data[0] : []
             columnHeaderData.forEach((element, colIndex) => {
                 const selection = columnHeaderRowSelection
                     .append<SVGTextElement>("text")
@@ -324,13 +324,13 @@ export function createTable(
         //
         // todo need to add the data structure (matrix of ElementInfo) for the table and put the column headers are the top
         const data: Array<Array<ElementPlacementInfo>> = []
-        const dataStartRowIndex: number = tableData.hasColumnHeaders ? 1 : 0
+        const dataStartRowIndex: number = tableData.hasColumnHeader ? 1 : 0
         // when the table has row headers and column headers then add a row header to the
         // beginning of each row (the column header has already been taken care of and so
         // we don't need to do anything further for it)
         tableData.data.slice(dataStartRowIndex).forEach((row, rowIndex) => {
 
-            const dataStartColumnIndex: number = tableData.hasRowHeaders ? 1 : 0
+            const dataStartColumnIndex: number = tableData.hasRowHeader ? 1 : 0
             const colStyle = style.columnStyles[dataStartRowIndex + rowIndex]
             const rowData: Array<ElementPlacementInfo> = []
             row.slice(dataStartColumnIndex).forEach((elem, colIndex) => {
@@ -347,7 +347,7 @@ export function createTable(
                 rowData.push(elementInfoFrom(dataElem, rowHeaderStyle.alignText, padding))
             })
 
-            if (tableData.hasRowHeaders) {
+            if (tableData.hasRowHeader) {
                 const header = tableSelection
                     .append<SVGTextElement>("text")
                     .attr('id', tableElementId(uniqueTableId, dataStartRowIndex + rowIndex, 0))
@@ -366,7 +366,7 @@ export function createTable(
         })
 
         // add any columns headers (a row) to the beginning of the table
-        if (tableData.hasColumnHeaders) {
+        if (tableData.hasColumnHeader) {
             data.unshift(columnHeaders)
         }
 
