@@ -1,5 +1,5 @@
 import {DataFrame, Tag, TagCoordinate, TagValue} from "data-frame-ts";
-import {failureResult, Result} from "result-fn";
+import {failureResult, Result, successResult} from "result-fn";
 import {Index, indexFrom} from "data-frame-ts/dist/DataFrame";
 
 /*
@@ -171,6 +171,30 @@ export class TableData<V> {
         return this.dataFrame.columnCount()
     }
 
+    /**
+     * @return A {@link Result} holding the column header if it exists; or a failure if no column-header exists
+     * @example
+     * ```typescript
+     * const columnHeader = ['A', 'B', 'C', 'D', 'E']
+     * const rowHeader = ['one', 'two', 'three', 'four']
+     * const footer = ['a10', 'b10', 'c10', 'd10', 'e10']
+     * const data = DataFrame.from([
+     *     ['a1', 'b1', 'c1', 'd1', 'e1'],
+     *     ['a2', 'b2', 'c2', 'd2', 'e2'],
+     *     ['a3', 'b3', 'c3', 'd3', 'e3'],
+     *     ['a4', 'b4', 'c4', 'd4', 'e4'],
+     * ]).getOrThrow()
+     *
+     * // create a data-table with a column-header, row-header, footer, and data
+     * const tableData = createTableData<string>(data)
+     *     .withColumnHeader(columnHeader)
+     *     .flatMap(table => table.withRowHeader(rowHeader))
+     *     .flatMap(table => table.withFooter(footer))
+     *     .getOrThrow()
+     *
+     * // the column-header retrieved from the table-data should equal the column-header originally set
+     * expect(tableData.columnHeader().getOrThrow().equals(columnHeader)).toBeTruthy()
+     * ```     */
     columnHeader(): Result<Array<V>, string> {
         if (this.hasColumnHeader()) {
             const startColumn = this.hasRowHeader() ? 1 : 0
@@ -182,6 +206,30 @@ export class TableData<V> {
         return failureResult("(TableData::columnHeader) Failed to retrieve the column-header because no column header exists.")
     }
 
+    /**
+     * @return A {@link Result} holding the row-header if it exists; or a failure if no row-header exists
+     * @example
+     * ```typescript
+     * const columnHeader = ['A', 'B', 'C', 'D', 'E']
+     * const rowHeader = ['one', 'two', 'three', 'four']
+     * const footer = ['a10', 'b10', 'c10', 'd10', 'e10']
+     * const data = DataFrame.from([
+     *     ['a1', 'b1', 'c1', 'd1', 'e1'],
+     *     ['a2', 'b2', 'c2', 'd2', 'e2'],
+     *     ['a3', 'b3', 'c3', 'd3', 'e3'],
+     *     ['a4', 'b4', 'c4', 'd4', 'e4'],
+     * ]).getOrThrow()
+     *
+     * // create a data-table with a column-header, row-header, footer, and data
+     * const tableData = createTableData<string>(data)
+     *     .withColumnHeader(columnHeader)
+     *     .flatMap(table => table.withRowHeader(rowHeader))
+     *     .flatMap(table => table.withFooter(footer))
+     *     .getOrThrow()
+     *
+     * // the row-header retrieved from the table-data should equal the row-header originally set
+     * expect(tableData.rowHeader().getOrThrow().equals(rowHeader)).toBeTruthy()
+     * ```     */
     rowHeader(): Result<Array<V>, string> {
         if (this.hasRowHeader()) {
             const startRow = this.hasColumnHeader() ? 1 : 0
@@ -194,6 +242,31 @@ export class TableData<V> {
         return failureResult("(TableData::rowHeader) Failed to retrieve the row-header because no row header exists.")
     }
 
+    /**
+     * @return A {@link Result} holding the footer, if exists; or a failure if no footer exists
+     * @example
+     * ```typescript
+     * const columnHeader = ['A', 'B', 'C', 'D', 'E']
+     * const rowHeader = ['one', 'two', 'three', 'four']
+     * const footer = ['a10', 'b10', 'c10', 'd10', 'e10']
+     * const data = DataFrame.from([
+     *     ['a1', 'b1', 'c1', 'd1', 'e1'],
+     *     ['a2', 'b2', 'c2', 'd2', 'e2'],
+     *     ['a3', 'b3', 'c3', 'd3', 'e3'],
+     *     ['a4', 'b4', 'c4', 'd4', 'e4'],
+     * ]).getOrThrow()
+     *
+     * // create a data-table with a column-header, row-header, footer, and data
+     * const tableData = createTableData<string>(data)
+     *     .withColumnHeader(columnHeader)
+     *     .flatMap(table => table.withRowHeader(rowHeader))
+     *     .flatMap(table => table.withFooter(footer))
+     *     .getOrThrow()
+     *
+     * // the footer retrieved from the table-data should equal the footer originally set
+     * expect(tableData.footer().getOrThrow().equals(footer)).toBeTruthy()
+     * ```
+     */
     footer(): Result<Array<V>, string> {
         if (this.hasFooter()) {
             const startColumn = this.hasRowHeader() ? 1 : 0
@@ -205,6 +278,33 @@ export class TableData<V> {
         return failureResult("(TableData::footer) Failed to retrieve the footer because no footer exists.")
     }
 
+    /**
+     * Retrieves the "data" from the data-table. This excludes any column headers, row-headers, and footers.
+     * @return A {@link Result} holding a {@link DataFrame} with the "data" from the data-table. This excludes any
+     * column headers, row-headers, and footers.
+     * @example
+     * ```typescript
+     * const columnHeader = ['A', 'B', 'C', 'D', 'E']
+     * const rowHeader = ['one', 'two', 'three', 'four']
+     * const footer = ['a10', 'b10', 'c10', 'd10', 'e10']
+     * const data = DataFrame.from([
+     *     ['a1', 'b1', 'c1', 'd1', 'e1'],
+     *     ['a2', 'b2', 'c2', 'd2', 'e2'],
+     *     ['a3', 'b3', 'c3', 'd3', 'e3'],
+     *     ['a4', 'b4', 'c4', 'd4', 'e4'],
+     * ]).getOrThrow()
+     *
+     * // create a data-table with a column-header, row-header, footer, and data
+     * const tableData = createTableData<string>(data)
+     *     .withColumnHeader(columnHeader)
+     *     .flatMap(table => table.withRowHeader(rowHeader))
+     *     .flatMap(table => table.withFooter(footer))
+     *     .getOrThrow()
+     *
+     * // the data retrieved from the table-data should equal the data originally set
+     * expect(tableData.data().getOrThrow().equals(data)).toBeTruthy()
+     * ```
+     */
     data(): Result<DataFrame<V>, string> {
         const startRow = this.hasColumnHeader() ? 1 : 0
         const endRow = this.hasFooter() ? this.dataFrame.rowCount() - 2 : this.dataFrame.rowCount() - 1
@@ -236,14 +336,81 @@ export class TableData<V> {
             .map(data => new TableData<V>(data))
     }
 
+    addCellFormatter(rowIndex: number, columnIndex: number, formatter: Formatter<V>, priority: number = 0): Result<TableData<V>, string> {
+        return this.dataFrame
+            .tagCell(rowIndex, columnIndex, TableFormatter.CELL, {formatter, priority})
+            .map(data => new TableData<V>(data))
+    }
+
     /**
      * Formats the table headers, footer, and values using the formatters that have been added
      * to this `TableData<V>` object and returns a new `TableData<string>` object where all the
      * elements have been converted to a formatted string.
      * @return a new `TableData<string>` object where all the elements have been converted to a
      * formatted string.
+     * @example
+     * ```typescript
+     * function dateTimeFor(day: number, hour: number): Date {
+     *   return new Date(2021, 1, day, hour, 0, 0, 0);
+     * }
+     *
+     * // the headers for the table
+     * const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
+     * const rowHeader = [1, 2, 3, 4]
+     *
+     * // this is the actual data used to creat the data table (in row-form)
+     * const data = DataFrame.from<string | number | Date>([
+     *     [dateTimeFor(1, 1), 12345, 'gnm-f234', 123.45,  4],
+     *     [dateTimeFor(2, 2), 23456, 'gnm-g234',  23.45,  5],
+     *     [dateTimeFor(3, 3), 34567, 'gnm-h234',   3.65, 40],
+     *     [dateTimeFor(4, 4), 45678, 'gnm-i234', 314.15,  9],
+     * ]).getOrThrow()
+     *
+     * // this is what we expect that formatted data to look like
+     * const expectedData = DataFrame.from<string>([
+     *     ['2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
+     *     ['2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
+     *     ['2/3/2021', '34567', 'gnm-h234',   '$ 3.65', '40'],
+     *     ['2/4/2021', '45678', 'gnm-i234', '$ 314.15',  '9'],
+     * ]).getOrThrow()
+     *
+     * // 1. create a data-table that has a column-header and a row-header and mixed-type
+     * //    data (number, string, Date)
+     * // 2. add formatters for the row and column headers (at highest priority)
+     * // 3. add formatters for some of the other data columns
+     * // 4. format the table
+     * const tableData = createTableData<string | number | Date>(data)
+     *     .withColumnHeader(columnHeader)
+     *     .flatMap(table => table.withRowHeader(rowHeader))
+     *     // add the default formatter for the column header, at the highest priority so that
+     *     // it is the one that applies to the row representing the column header
+     *     .flatMap(td => td.addRowFormatter(0, defaultFormatter, Infinity))
+     *     // add the default formatter for the row header, at the highest priority so that
+     *     // it is the one that applies to the column representing the row header
+     *     .flatMap(td => td.addColumnFormatter(0, defaultFormatter, Infinity))
+     *     // add the column formatters for each column at the default (lowest) priority
+     *     // (notice that the columns are shifted by one for the columns because the row-header
+     *     // occupies the first column (index=0))
+     *     .flatMap(td => td.addColumnFormatter(1, value => (value as Date).toLocaleDateString()))
+     *     .flatMap(td => td.addColumnFormatter(2, value => defaultFormatter(value)))
+     *     .flatMap(td => td.addColumnFormatter(4, value => `$ ${(value as number).toFixed(2)}`))
+     *     .flatMap(td => td.addColumnFormatter(5, value => `${(value as number).toFixed(0)}`))
+     *     // format the table data and get back a TableData<string>
+     *     .map(td => td.formatTable())
+     *     .getOrThrow()
+     *
+     * // the column header of the formatted table should be the same as the one specified
+     * expect(tableData.columnHeader().getOrThrow()).toEqual(columnHeader)
+     *
+     * // the row header of the formatted table should be the same as the one specified
+     * expect(tableData.rowHeader().getOrThrow()).toEqual(rowHeader.map(hdr => defaultFormatter(hdr)))
+     *
+     * // the data should be equal to the expected data
+     * expect(tableData.data().map(df => df.equals(expectedData)).getOrThrow()).toBeTruthy()
+     * ```
      */
-    formatTable<C extends TagCoordinate>(): TableData<string> {
+    formatTable<C extends TagCoordinate>(): Result<TableData<string>, string> {
+        const formattingFailures: Array<string> = []
         const formattedDataFrame = this.dataFrame
             .mapElements<string>((elem, row, col) => {
                 const tags = this.dataFrame
@@ -253,10 +420,19 @@ export class TableData<V> {
                     .sort((t1: Tag<Formatting<V>, C>, t2: Tag<Formatting<V>, C>) => t2.value.priority - t1.value.priority)
                 if (sorted.length > 0) {
                     const formatter = sorted[0].value.formatter
-                    return formatter(elem)
+                    try {
+                        return formatter(elem)
+                    } catch (e) {
+                        formattingFailures.push(
+                            `(TableData::formatTable) Failed to format cell (${row}, ${col}); value: ${elem}; error: ${e}`
+                        )
+                    }
                 }
                 return defaultFormatter<V>(elem)
             })
-        return createTableData<string>(formattedDataFrame)
+        if (formattingFailures.length === 0) {
+            return successResult(createTableData<string>(formattedDataFrame))
+        }
+        return failureResult(formattingFailures.concat('').join('\n'))
     }
 }

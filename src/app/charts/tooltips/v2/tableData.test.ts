@@ -234,6 +234,60 @@ describe('creating and manipulating table data', () => {
         expect(tableData.data().flatMap(df => df.rowSlice(1).map(row => row.length)).getOrThrow()).toEqual(3)
     })
 
+    describe('retrieving information about the table', () => {
+        const columnHeader = ['A', 'B', 'C', 'D', 'E']
+        const rowHeader = ['one', 'two', 'three', 'four']
+        const footer = ['a10', 'b10', 'c10', 'd10', 'e10']
+        const data = DataFrame.from([
+            ['a1', 'b1', 'c1', 'd1', 'e1'],
+            ['a2', 'b2', 'c2', 'd2', 'e2'],
+            ['a3', 'b3', 'c3', 'd3', 'e3'],
+            ['a4', 'b4', 'c4', 'd4', 'e4'],
+        ]).getOrThrow()
+
+        const tableData = createTableData<string>(data)
+            .withColumnHeader(columnHeader)
+            .flatMap(table => table.withRowHeader(rowHeader))
+            .flatMap(table => table.withFooter(footer))
+            .getOrThrow()
+
+        test("should be able to get the column header", () => {
+            expect(tableData.columnHeader().getOrThrow()).toEqual(columnHeader)
+        })
+
+        test("should be able to get the row header", () => {
+            expect(tableData.rowHeader().getOrThrow()).toEqual(rowHeader)
+        })
+
+        test("should be able to get the footer", () => {
+            expect(tableData.footer().getOrThrow()).toEqual(footer)
+        })
+
+        test("should be able to get the data", () => {
+            expect(tableData.data().getOrThrow().equals(data)).toBeTruthy()
+        })
+
+        test("should be able to get the table row count", () => {
+            expect(tableData.tableRowCount()).toEqual(4 + 1 + 1) // data + column_header + footer
+        })
+
+        test("should be able to get the table column count", () => {
+            expect(tableData.tableColumnCount()).toEqual(5 + 1) // data + row_header
+        })
+
+        test("should be able to determine whether the table has a column header", () => {
+            expect(tableData.hasColumnHeader()).toBeTruthy()
+        })
+
+        test("should be able to determine whether the table has a row header", () => {
+            expect(tableData.hasRowHeader()).toBeTruthy()
+        })
+
+        test("should be able to determine whether the table has a footer", () => {
+            expect(tableData.hasFooter()).toBeTruthy()
+        })
+    })
+
     describe('creating tables with mixed data types', () => {
         function dateTimeFor(day: number, hour: number): Date {
           return new Date(2021, 1, day, hour, 0, 0, 0);
@@ -249,12 +303,10 @@ describe('creating and manipulating table data', () => {
         test('should be able to create a table with string headers and numeric values', () => {
             const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
 
-            const expectedColumnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
-
             const expectedData = DataFrame.from<string>([
                 ['2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
                 ['2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
-                ['2/3/2021', '34567', 'gnm-h234',   '$ 3.65', '40'],
+                ['2/3/2021', '34567', 'GNM-H234',   '$ 3.65', '40'],
                 ['2/4/2021', '45678', 'gnm-i234', '$ 314.15',  '9'],
             ]).getOrThrow()
 
@@ -268,11 +320,12 @@ describe('creating and manipulating table data', () => {
                 .flatMap(td => td.addColumnFormatter(1, value => defaultFormatter(value)))
                 .flatMap(td => td.addColumnFormatter(3, value => `$ ${(value as number).toFixed(2)}`))
                 .flatMap(td => td.addColumnFormatter(4, value => `${(value as number).toFixed(0)}`))
+                .flatMap(td => td.addCellFormatter(3, 2, value => (value as string).toUpperCase(), 1))
                 // format the table data and get back a TableData<string>
-                .map(td => td.formatTable())
+                .flatMap(td => td.formatTable())
                 .getOrThrow()
 
-            expect(tableData.columnHeader().getOrThrow()).toEqual(expectedColumnHeader)
+            expect(tableData.columnHeader().getOrThrow()).toEqual(columnHeader)
             expect(tableData.data().map(df => df.equals(expectedData)).getOrThrow()).toBeTruthy()
             expect(tableData.tableColumnCount()).toEqual(5)
             expect(tableData.tableRowCount()).toEqual(/*data*/4 + /*header*/ 1)
@@ -285,8 +338,6 @@ describe('creating and manipulating table data', () => {
             const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
             const rowHeader = [1, 2, 3, 4]
 
-            const expectedColumnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
-            const expectedRowHeader = ['1', '2', '3', '4']
             const expectedData = DataFrame.from<string>([
                 ['2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
                 ['2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
@@ -311,17 +362,42 @@ describe('creating and manipulating table data', () => {
                 .flatMap(td => td.addColumnFormatter(4, value => `$ ${(value as number).toFixed(2)}`))
                 .flatMap(td => td.addColumnFormatter(5, value => `${(value as number).toFixed(0)}`))
                 // format the table data and get back a TableData<string>
-                .map(td => td.formatTable())
+                .flatMap(td => td.formatTable())
                 .getOrThrow()
 
-            expect(tableData.columnHeader().getOrThrow()).toEqual(expectedColumnHeader)
-            expect(tableData.rowHeader().getOrThrow()).toEqual(expectedRowHeader)
+            expect(tableData.columnHeader().getOrThrow()).toEqual(columnHeader)
+            expect(tableData.rowHeader().getOrThrow()).toEqual(rowHeader.map(hdr => defaultFormatter(hdr)))
             expect(tableData.data().map(df => df.equals(expectedData)).getOrThrow()).toBeTruthy()
-            expect(tableData.tableColumnCount()).toEqual(/*data*/ 5 + /*row-header*/ 1)
-            expect(tableData.tableRowCount()).toEqual(/*data*/ 4 + /*column-header*/ 1)
+            expect(tableData.tableColumnCount()).toEqual(5 + 1) // data + row-header
+            expect(tableData.tableRowCount()).toEqual(4 + 1) // data + column-header
             expect(tableData.hasColumnHeader()).toBeTruthy()
             expect(tableData.hasRowHeader()).toBeTruthy()
             expect(tableData.hasFooter()).toBeFalsy()
         })
+
+        test('should be report failures when formatting function fails', () => {
+            const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
+
+            const result = createTableData<string | number | Date>(data)
+                .withColumnHeader(columnHeader)
+                // add the default formatter for the column header, at the highest priority so that
+                // it is the one that applies to the row representing the column header
+                .flatMap(td => td.addRowFormatter(0, defaultFormatter, 100))
+                // add a column formatter to the incorrect column (data-type is a number) and attempt to
+                // format it as if it where a string. errors will be collected for each format error
+                .flatMap(td => td.addColumnFormatter(3, value => (value as string).toUpperCase()))
+                // format the table data and get back a TableData<string>
+                .flatMap(td => td.formatTable())
+
+            expect(result.failed).toBeTruthy()
+            expect(result.error).toEqual(
+                `(TableData::formatTable) Failed to format cell (1, 3); value: 123.45; error: TypeError: value.toUpperCase is not a function
+(TableData::formatTable) Failed to format cell (2, 3); value: 23.45; error: TypeError: value.toUpperCase is not a function
+(TableData::formatTable) Failed to format cell (3, 3); value: 3.65; error: TypeError: value.toUpperCase is not a function
+(TableData::formatTable) Failed to format cell (4, 3); value: 314.15; error: TypeError: value.toUpperCase is not a function
+`
+            )
+        })
+
     })
 })
