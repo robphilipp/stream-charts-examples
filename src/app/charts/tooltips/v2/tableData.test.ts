@@ -249,26 +249,31 @@ describe('creating and manipulating table data', () => {
         test('should be able to create a table with string headers and numeric values', () => {
             const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
 
-            const expected = DataFrame.from<string | number | Date>([
-                ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount'],
+            const expectedColumnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
+
+            const expectedData = DataFrame.from<string>([
                 ['2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
                 ['2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
                 ['2/3/2021', '34567', 'gnm-h234',   '$ 3.65', '40'],
                 ['2/4/2021', '45678', 'gnm-i234', '$ 314.15',  '9'],
             ]).getOrThrow()
 
-            const formatters = new Map<number, (value: any) => string>([
-                [0, (value: Date) => value.toLocaleDateString()],
-                [1, (value: number) => defaultFormatter(value)],
-                [3, (value: number) => `$ ${value.toFixed(2)}`],
-                [4, (value: number) => `${value.toFixed(0)}`],
-            ])
-
             const tableData = createTableData<string | number | Date>(data)
                 .withColumnHeader(columnHeader)
+                // add the default formatter for the column header, at the highest priority so that
+                // it is the one that applies to the row representing the column header
+                .flatMap(td => td.addRowFormatter(0, defaultFormatter, 100))
+                // add the column formatters for each column at the default (lowest) priority
+                .flatMap(td => td.addColumnFormatter(0, value => (value as Date).toLocaleDateString()))
+                .flatMap(td => td.addColumnFormatter(1, value => defaultFormatter(value)))
+                .flatMap(td => td.addColumnFormatter(3, value => `$ ${(value as number).toFixed(2)}`))
+                .flatMap(td => td.addColumnFormatter(4, value => `${(value as number).toFixed(0)}`))
+                // format the table data and get back a TableData<string>
+                .map(td => td.formatTable())
                 .getOrThrow()
 
-            expect(tableData.data().map(df => df.equals(expected)).getOrThrow()).toBeTruthy()
+            expect(tableData.columnHeader().getOrThrow()).toEqual(expectedColumnHeader)
+            expect(tableData.data().map(df => df.equals(expectedData)).getOrThrow()).toBeTruthy()
             expect(tableData.tableColumnCount()).toEqual(5)
             expect(tableData.tableRowCount()).toEqual(/*data*/4 + /*header*/ 1)
             expect(tableData.hasColumnHeader()).toBeTruthy()
@@ -280,27 +285,38 @@ describe('creating and manipulating table data', () => {
             const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
             const rowHeader = [1, 2, 3, 4]
 
-            const expected = DataFrame.from<string | number | Date>([
-                ['', 'Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount'],
-                ['1', '2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
-                ['2', '2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
-                ['3', '2/3/2021', '34567', 'gnm-h234',   '$ 3.65', '40'],
-                ['4', '2/4/2021', '45678', 'gnm-i234', '$ 314.15',  '9'],
+            const expectedColumnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
+            const expectedRowHeader = ['1', '2', '3', '4']
+            const expectedData = DataFrame.from<string>([
+                ['2/1/2021', '12345', 'gnm-f234', '$ 123.45',  '4'],
+                ['2/2/2021', '23456', 'gnm-g234',  '$ 23.45',  '5'],
+                ['2/3/2021', '34567', 'gnm-h234',   '$ 3.65', '40'],
+                ['2/4/2021', '45678', 'gnm-i234', '$ 314.15',  '9'],
             ]).getOrThrow()
-
-            // the column index for the formatter must be adjusted for the row-header
-            const formatters = new Map<number, (value: any) => string>([
-                [1, (value: Date) => value.toLocaleDateString()],
-                [2, (value: number) => defaultFormatter(value)],
-                [4, (value: number) => `$ ${value.toFixed(2)}`],
-            ])
 
             const tableData = createTableData<string | number | Date>(data)
                 .withColumnHeader(columnHeader)
                 .flatMap(table => table.withRowHeader(rowHeader))
+                // add the default formatter for the column header, at the highest priority so that
+                // it is the one that applies to the row representing the column header
+                .flatMap(td => td.addRowFormatter(0, defaultFormatter, Infinity))
+                // add the default formatter for the row header, at the highest priority so that
+                // it is the one that applies to the column representing the row header
+                .flatMap(td => td.addColumnFormatter(0, defaultFormatter, Infinity))
+                // add the column formatters for each column at the default (lowest) priority
+                // (notice that the columns are shifted by one for the columns because the row-header
+                // occupies the first column (index=0))
+                .flatMap(td => td.addColumnFormatter(1, value => (value as Date).toLocaleDateString()))
+                .flatMap(td => td.addColumnFormatter(2, value => defaultFormatter(value)))
+                .flatMap(td => td.addColumnFormatter(4, value => `$ ${(value as number).toFixed(2)}`))
+                .flatMap(td => td.addColumnFormatter(5, value => `${(value as number).toFixed(0)}`))
+                // format the table data and get back a TableData<string>
+                .map(td => td.formatTable())
                 .getOrThrow()
 
-            expect(tableData.data().map(df => df.equals(expected)).getOrThrow()).toBeTruthy()
+            expect(tableData.columnHeader().getOrThrow()).toEqual(expectedColumnHeader)
+            expect(tableData.rowHeader().getOrThrow()).toEqual(expectedRowHeader)
+            expect(tableData.data().map(df => df.equals(expectedData)).getOrThrow()).toBeTruthy()
             expect(tableData.tableColumnCount()).toEqual(/*data*/ 5 + /*row-header*/ 1)
             expect(tableData.tableRowCount()).toEqual(/*data*/ 4 + /*column-header*/ 1)
             expect(tableData.hasColumnHeader()).toBeTruthy()

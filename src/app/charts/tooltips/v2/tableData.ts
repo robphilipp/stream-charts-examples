@@ -1,10 +1,9 @@
-import {DataFrame} from "data-frame-ts";
+import {DataFrame, Tag, TagCoordinate, TagValue} from "data-frame-ts";
 import {failureResult, Result} from "result-fn";
-import {indexFrom} from "data-frame-ts/dist/DataFrame";
+import {Index, indexFrom} from "data-frame-ts/dist/DataFrame";
 
-/**
- * Guided builders for constructing a {@link TableData} object. Supports row-headers and column-headers
- * as tags on the underlying {@link DataFrame}.
+/*
+ | formatting
  */
 
 /**
@@ -33,6 +32,21 @@ export function defaultFormatting<D>(): Formatting<D> {
     }
 }
 
+export enum TableFormatter {
+    CELL = "cell-formatter",
+    COLUMN = "column-formatter",
+    ROW = "row-formatter"
+}
+
+export function isFormattingTag(tag: Tag<TagValue, TagCoordinate>): boolean {
+    return (tag.name === TableFormatter.COLUMN ||
+            tag.name === TableFormatter.ROW ||
+            tag.name === TableFormatter.CELL) &&
+        tag.value.hasOwnProperty("formatter") &&
+        tag.value.hasOwnProperty("priority")
+}
+
+
 /**
  * Represents a row
  */
@@ -47,22 +61,12 @@ export enum TableTagType {
     FOOTER = "footer"
 }
 
-export enum TableFormatter {
-    // COLUMN_HEADER = "column-header-formatter",
-    // ROW_HEADER = "row-header-formatter",
-    FOOTER = "footer-formatter",
-    COLUMN = "column-formatter",
-    ROW = "row-formatter"
-}
-
 /**
- * Entry point for the builder to create table data. From here, you can specify the
- * header information, then the data, and then the footers.
+ * Factory function to create table data.
  */
 export function createTableData<V>(data: DataFrame<V>): TableData<V> {
     return new TableData<V>(data)
 }
-
 
 /**
  * Represents the table data, row and column headers, and footers
@@ -89,7 +93,7 @@ export class TableData<V> {
         // when a row header has already been applied, then the table has grown by one column,
         // and so we need to insert an empty cell at the beginning of the column header
         const updatedHeader = header.slice()
-        if(this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)) {
+        if (this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)) {
             updatedHeader.unshift(undefined as V)
         }
 
@@ -126,7 +130,7 @@ export class TableData<V> {
         // when a row header has already been applied, then the table has grown by one column,
         // and so we need to insert an empty cell at the beginning of the footer
         const updatedFooter = footer.slice()
-        if(this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)) {
+        if (this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)) {
             updatedFooter.unshift(undefined as V)
         }
         return this.dataFrame
@@ -134,7 +138,7 @@ export class TableData<V> {
             .pushRow(updatedFooter)
             // tag the row as a footer and tag the formatter for the footer
             .flatMap(df => df.tagRow(df.rowCount() - 1, "footer", TableTagType.FOOTER))
-            .flatMap(df => df.tagColumn<Formatting<V>>(0, TableFormatter.FOOTER, formatting))
+            .flatMap(df => df.tagColumn<Formatting<V>>(0, TableFormatter.ROW, formatting))
             // convert it to the row-header builder
             .map(df => new TableData<V>(df))
     }
@@ -170,33 +174,44 @@ export class TableData<V> {
     columnHeader(): Result<Array<V>, string> {
         if (this.hasColumnHeader()) {
             const startColumn = this.hasRowHeader() ? 1 : 0
-            return this.dataFrame.rowSlice(0).map(row => row.slice(startColumn))
+            return this.dataFrame
+                .rowSlice(0)
+                .map(row => row.slice(startColumn))
+                .mapFailure(err => "(TableData::columnHeader) Failed to retrieve column-header.\n" + err)
         }
-        return failureResult("(TableData::columnHeader) No column header")
+        return failureResult("(TableData::columnHeader) Failed to retrieve the column-header because no column header exists.")
     }
 
     rowHeader(): Result<Array<V>, string> {
         if (this.hasRowHeader()) {
             const startRow = this.hasColumnHeader() ? 1 : 0
             const endRow = this.hasFooter() ? this.dataFrame.rowCount() - 1 : this.dataFrame.rowCount()
-            return this.dataFrame.columnSlice(0).map(row => row.slice(startRow, endRow))
+            return this.dataFrame
+                .columnSlice(0)
+                .map(row => row.slice(startRow, endRow))
+                .mapFailure(err => "(TableData::rowHeader) Failed to retrieve row-header.\n" + err)
         }
-        return failureResult("(TableData::rowHeader) No row header")
+        return failureResult("(TableData::rowHeader) Failed to retrieve the row-header because no row header exists.")
     }
 
     footer(): Result<Array<V>, string> {
         if (this.hasFooter()) {
             const startColumn = this.hasRowHeader() ? 1 : 0
-            return this.dataFrame.rowSlice(this.dataFrame.rowCount() - 1).map(row => row.slice(startColumn))
+            return this.dataFrame
+                .rowSlice(this.dataFrame.rowCount() - 1)
+                .map(row => row.slice(startColumn))
+                .mapFailure(err => "(TableData::footer) Failed to retrieve footer.\n" + err)
         }
-        return failureResult("(TableData::footer) No footer")
+        return failureResult("(TableData::footer) Failed to retrieve the footer because no footer exists.")
     }
 
     data(): Result<DataFrame<V>, string> {
         const startRow = this.hasColumnHeader() ? 1 : 0
         const endRow = this.hasFooter() ? this.dataFrame.rowCount() - 2 : this.dataFrame.rowCount() - 1
         const startColumn = this.hasRowHeader() ? 1 : 0
-        return this.dataFrame.subFrame(indexFrom(startRow, startColumn), indexFrom(endRow, this.dataFrame.columnCount() - 1))
+        return this.dataFrame
+            .subFrame(indexFrom(startRow, startColumn), indexFrom(endRow, this.dataFrame.columnCount() - 1))
+            .mapFailure(err => "(TableData::data) Failed to retrieve data.\n" + err)
     }
 
     /**
@@ -228,7 +243,20 @@ export class TableData<V> {
      * @return a new `TableData<string>` object where all the elements have been converted to a
      * formatted string.
      */
-    // formatTable(): TableData<string> {
-    //
-    // }
+    formatTable<C extends TagCoordinate>(): TableData<string> {
+        const formattedDataFrame = this.dataFrame
+            .mapElements<string>((elem, row, col) => {
+                const tags = this.dataFrame
+                    .tagsFor(row, col)
+                    .filter(tag => isFormattingTag(tag)) as Array<Tag<Formatting<V>, C>>
+                const sorted = tags
+                    .sort((t1: Tag<Formatting<V>, C>, t2: Tag<Formatting<V>, C>) => t2.value.priority - t1.value.priority)
+                if (sorted.length > 0) {
+                    const formatter = sorted[0].value.formatter
+                    return formatter(elem)
+                }
+                return defaultFormatter<V>(elem)
+            })
+        return createTableData<string>(formattedDataFrame)
+    }
 }
