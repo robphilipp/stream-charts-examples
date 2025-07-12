@@ -42,13 +42,43 @@ export function isFormattingTag(tag: Tag<TagValue, TagCoordinate>): boolean {
         tag.value.hasOwnProperty("priority")
 }
 
-export function createTableFormatterFrom<V>(tableData: TableData<V>): TableFormatter<V> {
-    return new TableFormatter<V>(tableData.unpackDataFrame())
-}
-
+/**
+ * Represents a formatter used to apply row, column, and cell formatting to a data table.
+ * This class is used to define custom formatters for specific rows, columns, or cells,
+ * with support for priority-based selection of formatters.
+ */
 export class TableFormatter<V> {
-    constructor(private readonly dataFrame: DataFrame<V>) {
+
+    /**
+     * @param dataFrame A data-frame that will be tagged with the row, column, and
+     * cell formatters.
+     * @private
+     */
+    private constructor(private readonly dataFrame: DataFrame<V>) {
     }
+
+    /**
+     * Constructs a new {@link TableFormatter} from a {@link TableData} object. Underneath,
+     * this factory method merely unwraps the {@link DataFrame} from the {@link TableData}
+     * and hands it to the constructor.
+     * @param tableData The table data object from which to construct the table formatter
+     * @return A new {@link TableFormatter} based on the {@link TableData}
+     * @see TableFormatter.fromDataFrame
+     */
+    static fromTableData<V>(tableData: TableData<V>): TableFormatter<V> {
+        return new TableFormatter<V>(tableData.unwrapDataFrame())
+    }
+
+    /**
+     * Constructs a new {@link TableFormatter} from a {@link DataFrame} object
+     * @param dataFrame The data-frame object from which to construct the table formatter
+     * @return A new {@link TableFormatter} based on the {@link DataFrame}
+     @see TableFormatter.fromTableData
+     */
+    static fromDataFrame<V>(dataFrame: DataFrame<V>): TableFormatter<V> {
+        return new TableFormatter<V>(dataFrame.copy())
+    }
+
     /**
      * Formatters convert the column value types to formatted strings. The formatter used to format a given
      * cell depends on the priority of each formatter associated with that cell. The formatter with the
@@ -58,6 +88,42 @@ export class TableFormatter<V> {
      * @param formatter The formatter
      * @param [priority = 0] The priority of this formatter. If cells have more than one associated formatter,
      * the one with the highest priority number is used.
+     * @example
+     * ```typescript
+     * // create the data
+     * const data = DataFrame.from<string | number | Date>([
+     *     [dateTimeFor(1, 1), 12345, 'gnm-f234', 123.45, 4],
+     *     [dateTimeFor(2, 2), 23456, 'gnm-g234', 23.45, 5],
+     *     [dateTimeFor(3, 3), 34567, 'gnm-h234', 3.65, 40],
+     *     [dateTimeFor(4, 4), 45678, 'gnm-i234', 314.15, 9],
+     * ]).getOrThrow()
+     *
+     * // create the table-data object from the data, and then hand the table-data
+     * // to the table formatter, add column formats, and format the table, getting
+     * // back a new TableData<string>
+     * const tableData: TableData<string> = createTableData<string | number | Date>(data)
+     *     // from the table-data, create a table-formatter
+     *     .flatMap(tableData => createTableFormatterFrom(tableData)
+     *         // add a column formatter for the first column of dates
+     *         .addColumnFormatter(0, value => (value as Date).toLocaleDateString())
+     *         // add a column formatter to the second column of number
+     *         .flatMap(tf => tf.addColumnFormatter(1, value => defaultFormatter(value)))
+     *         // add a column formatter to the fourth column of currencies
+     *         .flatMap(tf => tf.addColumnFormatter(3, value => `$ ${(value as number).toFixed(2)}`))
+     *         .flatMap(tf => tf.addColumnFormatter(4, value => `${(value as number).toFixed(0)}`))
+     *         // format the table into a new TableData<string> object
+     *         .flatMap(tf => tf.formatTable())
+     *     )
+     *     .getOrThrow()
+     *
+     * // we expect the data-frame in the table data to be the following
+     * const expectedData = DataFrame.from<string>([
+     *     ['2/1/2021', '12345', 'gnm-f234', '$ 123.45', '4'],
+     *     ['2/2/2021', '23456', 'gnm-g234', '$ 23.45', '5'],
+     *     ['2/3/2021', '34567', 'GNM-H234', '$ 3.65', '40'],
+     *     ['2/4/2021', '45678', 'gnm-i234', '$ 314.15', '9'],
+     * ]).getOrThrow()
+     * ```
      */
     addColumnFormatter(columnIndex: number, formatter: Formatter<V>, priority: number = 0): Result<TableFormatter<V>, string> {
         return this.dataFrame

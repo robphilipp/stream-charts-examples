@@ -1,5 +1,6 @@
-import {TableData} from "./tableData";
+import {hasColumnHeader, TableData} from "./tableData";
 import {defaultTableFont} from "./tableUtils";
+import {DataFrame} from "data-frame-ts";
 
 // todo get rid of the notion of headers once the data is set. instead, each
 //    row wil have a style, and each column will have a style, and the headers
@@ -225,8 +226,8 @@ export class TableStyle {
         this.columnStyles = columnStyles
     }
 
-    static builder<V>(tableData: TableData<V>): TableStyleBuilder<V> {
-        return TableStyleBuilder.createTableStyleFor<V>(tableData)
+    static builder<V>(dataFrame: DataFrame<V>): TableStyleBuilder<V> {
+        return TableStyleBuilder.fromTableData<V>(dataFrame)
     }
 
     getFont(): TableFont {
@@ -290,114 +291,167 @@ export class TableStyle {
     }
 }
 
+enum TableStyleType {
+    COLUMN_HEADER = "column_header_style",
+    ROW_HEADER = "row_header_style",
+    ROW = "row_style",
+    COLUMN = "column_style",
+    CELL = "cell_style"
+}
+
+type TableStyleBuilderProps<V> = {
+    dataFrame: DataFrame<V>
+    readonly font: TableFont
+    border: Border
+    background: Background
+    dimension: Pick<Dimension, "width" | "height">
+    padding: Padding
+    margin: Margin
+    readonly errors: Array<string>
+}
+
 /**
  * Returns a table object of rows and columns that have the data and style for each element in the table.
  */
 class TableStyleBuilder<V> {
 
-    // table-level styles
-    private font: TableFont
-    private border: Border
-    private background: Background
-    private dimension: Pick<Dimension, "width" | "height">
-    private padding: Padding
-    private margin: Margin
-
-    // header styles
-    private columnHeaderStyle: ColumnHeaderStyle
-    private rowHeaderStyle: RowHeaderStyle
-
-    private readonly rowStyles: Array<RowStyle>
-    private readonly columnStyles: Array<ColumnStyle>
-
-    private constructor(private readonly tableData: TableData<V>) {
-        this.tableData = tableData
-
-        this.font = defaultTableFont
-        this.border = defaultBorder
-        this.background = defaultBackground
-        this.dimension = {width: NaN, height: NaN}
-        this.padding = defaultPadding
-        this.margin = defaultMargin
-
-        this.columnHeaderStyle = defaultColumnHeaderStyle
-        this.rowHeaderStyle = defaultRowHeaderStyle
-
-        this.rowStyles = []
-        this.columnStyles = []
+    private constructor(
+        private dataFrame: DataFrame<V>,
+        private readonly font: TableFont = defaultTableFont,
+        private border: Border = defaultBorder,
+        private background: Background = defaultBackground,
+        private dimension: Pick<Dimension, "width" | "height"> = {width: NaN, height: NaN},
+        private padding: Padding = defaultPadding,
+        private margin: Margin = defaultMargin,
+        private readonly errors: Array<string> = []
+    ) {
     }
 
-    static createTableStyleFor<V>(tableData: TableData<V>): TableStyleBuilder<V> {
-        return new TableStyleBuilder<V>(tableData)
+    static fromTableData<V>(tableData: TableData<V>): TableStyleBuilder<V> {
+        return new TableStyleBuilder<V>(tableData.unwrapDataFrame())
     }
 
-    public withTableBackground(background: Background): TableStyleBuilder<V> {
-        this.background = background
-        // default the header background to the table background unless it
-        // had be set explicitly
-        if (this.columnHeaderStyle.background === undefined) {
-            this.columnHeaderStyle.background = background
+    static fromDataFrame<V>(dataFrame: DataFrame<V>): TableStyleBuilder<V> {
+        return new TableStyleBuilder<V>(dataFrame)
+    }
+
+    copy(): TableStyleBuilder<V> {
+        return new TableStyleBuilder<V>(
+            this.dataFrame,
+            this.font,
+            this.border,
+            this.background,
+            this.dimension,
+            this.padding,
+            this.margin,
+            this.errors
+        )
+    }
+
+    update(properties: Partial<TableStyleBuilderProps<V>>): TableStyleBuilder<V> {
+        const {
+            dataFrame = this.dataFrame,
+            font = this.font,
+            border = this.border,
+            background = this.background,
+            dimension = this.dimension,
+            padding = this.padding,
+            margin = this.margin,
+        } = properties
+        return new TableStyleBuilder<V>(
+            dataFrame,
+            font,
+            border,
+            background,
+            dimension,
+            padding,
+            margin,
+            this.errors
+        )
+    }
+
+    withTableBackground(background: Background): TableStyleBuilder<V> {
+        const builder = this.copy()
+        builder.background = background
+        return builder
+    }
+
+    withBorder(border: Border): TableStyleBuilder<V> {
+        const builder = this.copy()
+        builder.border = border
+        return builder
+    }
+
+    withDimensions(width: number, height: number): TableStyleBuilder<V> {
+        const builder = this.copy()
+        builder.dimension = {width, height}
+        return builder
+    }
+
+    withPadding(padding: Padding): TableStyleBuilder<V> {
+        const builder = this.copy()
+        builder.padding = padding
+        return builder
+    }
+
+    withMargin(margin: Margin): TableStyleBuilder<V> {
+        const builder = this.copy()
+        builder.margin = margin
+        return builder
+    }
+    
+    withColumnHeaderStyle(columnHeaderStyle: ColumnHeaderStyle): TableStyleBuilder<V> {
+        if (!TableData.hasColumnHeader(this.dataFrame)) {
+            this.errors.push("The column header style can only be supplied when the table data has a column header")
+            return this
         }
-        return this
+        // tag the row as a column header style
+        return this.dataFrame.tagRow<ColumnHeaderStyle>(0, TableStyleType.COLUMN_HEADER, columnHeaderStyle)
+            // when successfully tagged, make an updated copy of this builder with the new data-frame
+            .map(df => this.update({dataFrame: df}))
+            // when failed to tag, add to the errors
+            .onFailure(error => this.errors.push(error))
+            // return the updated builder on success, or the original builder on failure
+            .getOrElse(this)
     }
 
-    public withBorder(border: Border): TableStyleBuilder<V> {
-        this.border = border
-        return this
-    }
+    // withColumnHeaderStyle(style: Partial<ColumnHeaderStyle>): TableStyleBuilder<V> {
+    //     this.columnHeaderStyle = {...this.columnHeaderStyle, ...style}
+    //     return this
+    // }
+    //
+    // /**
+    //  * Calling this function sets the column-header style to be the same as the column style for the table
+    //  * @return A reference to this builder for chaining
+    //  */
+    // withoutColumnHeaderStyle(): TableStyleBuilder<V> {
+    //     this.columnHeaderStyle = emptyColumnHeaderStyle
+    //     return this
+    // }
+    //
+    // withRowHeaderStyle(style: Partial<RowHeaderStyle>): TableStyleBuilder<V> {
+    //     this.rowHeaderStyle = {...this.rowHeaderStyle, ...style}
+    //     return this
+    // }
+    //
+    // /**
+    //  * Calling this function sets the row-header style to be the same as the row style for the table
+    //  * @return A reference to this builder for chaining
+    //  */
+    // withoutRowHeaderStyle(): TableStyleBuilder<V> {
+    //     this.rowHeaderStyle = emptyRowHeaderStyle
+    //     return this
+    // }
+    //
+    // withColumnStyles(styles: Array<ColumnStyle>): TableStyleBuilder<V> {
+    //     return this
+    // }
+    //
+    // withRowStyles(styles: Array<RowStyle>): TableStyleBuilder<V> {
+    //     return this
+    // }
 
-    public withDimensions(width: number, height: number): TableStyleBuilder<V> {
-        this.dimension = {width, height}
-        return this
-    }
-
-    public withPadding(padding: Padding): TableStyleBuilder<V> {
-        this.padding = padding
-        return this
-    }
-
-    public withMargin(margin: Margin): TableStyleBuilder<V> {
-        this.margin = margin
-        return this
-    }
-
-    public withColumnHeaderStyle(style: Partial<ColumnHeaderStyle>): TableStyleBuilder<V> {
-        this.columnHeaderStyle = {...this.columnHeaderStyle, ...style}
-        return this
-    }
-
-    /**
-     * Calling this function sets the column-header style to be the same as the column style for the table
-     * @return A reference to this builder for chaining
-     */
-    public withoutColumnHeaderStyle(): TableStyleBuilder<V> {
-        this.columnHeaderStyle = emptyColumnHeaderStyle
-        return this
-    }
-
-    public withRowHeaderStyle(style: Partial<RowHeaderStyle>): TableStyleBuilder<V> {
-        this.rowHeaderStyle = {...this.rowHeaderStyle, ...style}
-        return this
-    }
-
-    /**
-     * Calling this function sets the row-header style to be the same as the row style for the table
-     * @return A reference to this builder for chaining
-     */
-    public withoutRowHeaderStyle(): TableStyleBuilder<V> {
-        this.rowHeaderStyle = emptyRowHeaderStyle
-        return this
-    }
-
-    public withColumnStyles(styles: Array<ColumnStyle>): TableStyleBuilder<V> {
-        return this
-    }
-
-    public withRowStyles(styles: Array<RowStyle>): TableStyleBuilder<V> {
-        return this
-    }
-
-    public build(): TableStyle {
+    build(): TableStyle {
         // when the column header style is set, ensure that it is consistent with the header
         // information in the table data
         if (hasColumnHeaderStyle(this.columnHeaderStyle) && !this.tableData.hasColumnHeader()) {
@@ -466,7 +520,7 @@ class TableStyleBuilder<V> {
 //         this.tableData = tableData
 //     }
 //
-//     public withColumnHeaderStyle(font: TableFont, headerStyle: ColumnHeaderStyle, elementStyle: Array<ColumnStyle>): TableStyleRowHeaderBuilder {
+//     withColumnHeaderStyle(font: TableFont, headerStyle: ColumnHeaderStyle, elementStyle: Array<ColumnStyle>): TableStyleRowHeaderBuilder {
 //         if (!this.tableData.hasColumnHeaders) {
 //             const message = "The column header style can only be supplied when the table data has a column header"
 //             console.error(message)
@@ -483,7 +537,7 @@ class TableStyleBuilder<V> {
 //         return new TableStyleRowHeaderBuilder(this.tableData, header)
 //     }
 //
-//     public withoutColumnHeaderStyler(): TableStyleRowHeaderBuilder {
+//     withoutColumnHeaderStyler(): TableStyleRowHeaderBuilder {
 //         if (this.tableData.hasColumnHeaders) {
 //             const message = "The column header style must be specified when the table data has a column header"
 //             console.error(message)
@@ -510,12 +564,12 @@ class TableStyleBuilder<V> {
 //         this.columnHeader = columnHeader
 //     }
 //
-//     public withRowHeaderStyle(font: TableFont, headerStyle: RowHeaderStyle, elementStyle: Array<RowStyle>): TableStyleDataBuilder {
+//     withRowHeaderStyle(font: TableFont, headerStyle: RowHeaderStyle, elementStyle: Array<RowStyle>): TableStyleDataBuilder {
 //         const header: RowHeaderInfo = {font, headerStyle, elementStyle}
 //         return new TableStyleDataBuilder(this.tableData, this.columnHeader, header)
 //     }
 //
-//     public withoutRowHeaderStyle(): TableStyleDataBuilder {
+//     withoutRowHeaderStyle(): TableStyleDataBuilder {
 //         const header: RowHeaderInfo = {
 //             font: emptyTableFont,
 //             headerStyle: emptyRowHeaderStyle,
@@ -540,5 +594,5 @@ class TableStyleBuilder<V> {
 //         this.rowHeader = rowHeader
 //     }
 //
-//     public withDataAsRow(data: Array<RowStyle>)
+//     withDataAsRow(data: Array<RowStyle>)
 // }

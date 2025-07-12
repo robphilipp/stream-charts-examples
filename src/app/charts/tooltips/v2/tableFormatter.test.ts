@@ -1,7 +1,7 @@
 import {createTableData} from "./tableData";
 import {DataFrame} from "data-frame-ts"
 import {defaultFormatter} from "../tableData";
-import {createTableFormatterFrom} from "./tableFormatter";
+import {TableFormatter} from "./tableFormatter";
 
 
 describe('creating tables with mixed data types', () => {
@@ -29,7 +29,7 @@ describe('creating tables with mixed data types', () => {
 
         const tableData = createTableData<string | number | Date>(data)
             .withColumnHeader(columnHeader)
-            .flatMap(tableData => createTableFormatterFrom(tableData)
+            .flatMap(tableData => TableFormatter.fromTableData(tableData)
                 // add the default formatter for the column header, at the highest priority so that
                 // it is the one that applies to the row representing the column header
                 .addRowFormatter(0, defaultFormatter, 100)
@@ -65,7 +65,7 @@ describe('creating tables with mixed data types', () => {
         const tableData = createTableData<string | number | Date>(data)
             .withColumnHeader(columnHeader)
             .flatMap(td => td.withRowHeader(rowHeader))
-            .flatMap(tableData => createTableFormatterFrom(tableData)
+            .flatMap(tableData => TableFormatter.fromTableData(tableData)
                 // add the default formatter for the column header, at the highest priority so that
                 // it is the one that applies to the row representing the column header
                 .addRowFormatter(0, defaultFormatter, Infinity)
@@ -99,7 +99,7 @@ describe('creating tables with mixed data types', () => {
 
         const result = createTableData<string | number | Date>(data)
             .withColumnHeader(columnHeader)
-            .flatMap(tableData => createTableFormatterFrom(tableData)
+            .flatMap(tableData => TableFormatter.fromDataFrame(tableData.unwrapDataFrame())
                 // add the default formatter for the column header, at the highest priority so that
                 // it is the one that applies to the row representing the column header
                 .addRowFormatter(0, defaultFormatter, 100)

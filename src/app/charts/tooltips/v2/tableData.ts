@@ -99,24 +99,49 @@ export class TableData<V> {
             .map(df => new TableData<V>(df))
     }
 
+    static hasColumnHeader<V>(dataFrame: DataFrame<V>): boolean {
+        return dataFrame.rowTagsFor(0).some(tag => tag.value === TableTagType.COLUMN_HEADER)
+    }
+
+    static hasRowHeader<V>(dataFrame: DataFrame<V>): boolean {
+        return dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)
+    }
+
+    static hasFooter<V>(dataFrame: DataFrame<V>): boolean {
+        return dataFrame.rowTagsFor(dataFrame.rowCount() - 1).some(tag => tag.value === TableTagType.FOOTER)
+    }
+
+    static dataRowCount<V>(dataFrame: DataFrame<V>): number {
+        return dataFrame.rowCount() - (TableData.hasColumnHeader(dataFrame) ? 1 : 0) - (TableData.hasFooter(dataFrame) ? 1 : 0)
+    }
+
+    static dataColumnCount<V>(dataFrame: DataFrame<V>): number {
+        return dataFrame.columnCount() - (TableData.hasRowHeader(dataFrame) ? 1 : 0)
+    }
+
     hasColumnHeader(): boolean {
-        return this.dataFrame.rowTagsFor(0).some(tag => tag.value === TableTagType.COLUMN_HEADER)
+        // return this.dataFrame.rowTagsFor(0).some(tag => tag.value === TableTagType.COLUMN_HEADER)
+        return TableData.hasColumnHeader(this.dataFrame)
     }
 
     hasRowHeader(): boolean {
-        return this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)
+        // return this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)
+        return TableData.hasRowHeader(this.dataFrame)
     }
 
     hasFooter(): boolean {
-        return this.dataFrame.rowTagsFor(this.dataFrame.rowCount() - 1).some(tag => tag.value === TableTagType.FOOTER)
+        // return this.dataFrame.rowTagsFor(this.dataFrame.rowCount() - 1).some(tag => tag.value === TableTagType.FOOTER)
+        return TableData.hasFooter(this.dataFrame)
     }
 
     dataRowCount(): number {
-        return this.dataFrame.rowCount() - (this.hasColumnHeader() ? 1 : 0) - (this.hasFooter() ? 1 : 0)
+        // return this.dataFrame.rowCount() - (this.hasColumnHeader() ? 1 : 0) - (this.hasFooter() ? 1 : 0)
+        return TableData.dataRowCount(this.dataFrame)
     }
 
     dataColumnCount(): number {
-        return this.dataFrame.columnCount() - (this.hasRowHeader() ? 1 : 0)
+        // return this.dataFrame.columnCount() - (this.hasRowHeader() ? 1 : 0)
+        return TableData.dataColumnCount(this.dataFrame)
     }
 
     tableRowCount(): number {
@@ -273,7 +298,7 @@ export class TableData<V> {
     /**
      * @return a copy of the {@link DataFrame} that has been prepared by this class.
      */
-    unpackDataFrame(): DataFrame<V> {
+    unwrapDataFrame(): DataFrame<V> {
         return this.dataFrame.copy()
     }
 }
