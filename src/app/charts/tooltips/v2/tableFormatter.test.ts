@@ -1,4 +1,4 @@
-import {createTableData} from "./tableData";
+import {TableData} from "./tableData";
 import {DataFrame} from "data-frame-ts"
 import {defaultFormatter} from "../tableData";
 import {TableFormatter} from "./tableFormatter";
@@ -27,7 +27,7 @@ describe('creating tables with mixed data types', () => {
             ['2/4/2021', '45678', 'gnm-i234', '$ 314.15', '9'],
         ]).getOrThrow()
 
-        const tableData = createTableData<string | number | Date>(data)
+        const tableData = TableData.fromDataFrame<string | number | Date>(data)
             .withColumnHeader(columnHeader)
             .flatMap(tableData => TableFormatter.fromTableData(tableData)
                 // add the default formatter for the column header, at the highest priority so that
@@ -62,7 +62,7 @@ describe('creating tables with mixed data types', () => {
             ['2/4/2021', '45678', 'gnm-i234', '$ 314.15', '9'],
         ]).getOrThrow()
 
-        const tableData = createTableData<string | number | Date>(data)
+        const tableData = TableData.fromDataFrame<string | number | Date>(data)
             .withColumnHeader(columnHeader)
             .flatMap(td => td.withRowHeader(rowHeader))
             .flatMap(tableData => TableFormatter.fromTableData(tableData)
@@ -97,7 +97,7 @@ describe('creating tables with mixed data types', () => {
     test('should be report failures when formatting function fails', () => {
         const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
 
-        const result = createTableData<string | number | Date>(data)
+        const result = TableData.fromDataFrame<string | number | Date>(data)
             .withColumnHeader(columnHeader)
             .flatMap(tableData => TableFormatter.fromDataFrame(tableData.unwrapDataFrame())
                 // add the default formatter for the column header, at the highest priority so that

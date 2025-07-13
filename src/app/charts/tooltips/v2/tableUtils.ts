@@ -8,7 +8,7 @@ import {TableData} from "./tableData";
 import * as d3 from "d3";
 // import {select} from 'd3';
 import {TooltipStyle} from "./tooltipUtils";
-import {Background, Padding, TableFont, TableStyle} from "./tableStyle";
+import {Background, Padding, TableFont, StyledTable} from "./tableStyler";
 
 export type Anchor = "center" | "left" | "right"
 export type ColumnInfo = { width: number, offset: number, anchor: Anchor }
@@ -43,7 +43,7 @@ export type RowHeightInfo = {
  * @param data The table data
  * @return `true` if the table dimensions are valid, and `false` otherwise
  */
-export function areTableDimensionsValid(style: Partial<TableStyle>, data: TableData): boolean {
+export function areTableDimensionsValid(style: Partial<StyledTable>, data: TableData): boolean {
     return validateTableDimensions(style, data).succeeded
 }
 
@@ -63,7 +63,7 @@ export function areInfoDimensionsValid(tableInfo: TableDataPlacementInfo): boole
  * @param data The table data
  * @return A {@link Result} that evaluates to `true` if the table dimensions are valid, and `false` otherwise
  */
-export function validateTableDimensions(style: Partial<TableStyle>, data: TableData): Result<string, string> {
+export function validateTableDimensions(style: Partial<StyledTable>, data: TableData): Result<string, string> {
     //
     // check that the number of rows and columns match the number of data rows and columns
     if (style.rowStyles && style.rowStyles.length > 0 && style.rowStyles.length !== data.numRows()) {
@@ -202,7 +202,7 @@ export function validateInfoDimensions(tableInfo: TableDataPlacementInfo): Resul
  */
 function calculateColumnMaxWidths(
     tableInfo: TableDataPlacementInfo,
-    tableStyle: Partial<TableStyle>,
+    tableStyle: Partial<StyledTable>,
     tableWidth: number = 0
 ): ColumnWidthInfo {
     const {rowHeaderStyle, padding = {left: 5}, margin = {left: 5}} = tableStyle
@@ -314,7 +314,7 @@ function calculateColumnMaxWidths(
  */
 function calculateRowMaxHeights(
     tableInfo: TableDataPlacementInfo,
-    tableStyle: Partial<TableStyle>,
+    tableStyle: Partial<StyledTable>,
     tableHeight: number = 0
 ): RowHeightInfo {
     const {columnHeaderStyle} = tableStyle
@@ -377,7 +377,7 @@ function calculateRowMaxHeights(
 }
 
 export function calculateTableCellDimensions(
-    tableStyle: Partial<TableStyle>,
+    tableStyle: Partial<StyledTable>,
     tableInfo: TableDataPlacementInfo,
     tableData: TableData,
 ): Result<TableDimensions, string> {
@@ -504,7 +504,7 @@ export function headerTableBackground(tableBackground: Background): Background {
 
 export const defaultHeaderTableBackground: Background = headerTableBackground(defaultTableBackground)
 
-export function tableStyleFrom(tooltipStyle: TooltipStyle): TableStyle {
+export function tableStyleFrom(tooltipStyle: TooltipStyle): StyledTable {
     const tableFont: TableFont = {
         family: tooltipStyle.fontFamily,
         color: tooltipStyle.fontColor,

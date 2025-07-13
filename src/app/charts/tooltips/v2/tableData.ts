@@ -17,12 +17,12 @@ export enum TableTagType {
     FOOTER = "footer"
 }
 
-/**
- * Factory function to create table data.
- */
-export function createTableData<V>(data: DataFrame<V>): TableData<V> {
-    return new TableData<V>(data)
-}
+// /**
+//  * Factory function to create table data.
+//  */
+// export function createTableData<V>(data: DataFrame<V>): TableData<V> {
+//     return new TableData<V>(data)
+// }
 
 /**
  * Represents the table data, row and column headers, and footers
@@ -31,7 +31,11 @@ export class TableData<V> {
     /**
      * The matrix of data, including row, column headers, and footers, if they exist
      */
-    constructor(private readonly dataFrame: DataFrame<V>) {
+    private constructor(private readonly dataFrame: DataFrame<V>) {
+    }
+
+    static fromDataFrame<V>(dataFrame: DataFrame<V>): TableData<V> {
+        return new TableData<V>(dataFrame.copy())
     }
 
     /**
@@ -117,6 +121,14 @@ export class TableData<V> {
 
     static dataColumnCount<V>(dataFrame: DataFrame<V>): number {
         return dataFrame.columnCount() - (TableData.hasRowHeader(dataFrame) ? 1 : 0)
+    }
+
+    static tableRowCount<V>(dataFrame: DataFrame<V>): number {
+        return dataFrame.rowCount()
+    }
+
+    static tableColumnCount<V>(dataFrame: DataFrame<V>): number {
+        return dataFrame.columnCount()
     }
 
     hasColumnHeader(): boolean {

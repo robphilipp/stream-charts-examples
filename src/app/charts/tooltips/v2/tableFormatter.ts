@@ -1,6 +1,6 @@
 import {DataFrame, Tag, TagCoordinate, TagValue} from "data-frame-ts";
 import {failureResult, Result, successResult} from "result-fn";
-import {createTableData, TableData} from "./tableData";
+import {TableData} from "./tableData";
 
 /**
  * Type representing a formatter function
@@ -17,7 +17,7 @@ export function defaultFormatter<D>(value: D): string {
 }
 
 export type Formatting<V> = {
-    formatter: Formatter<V>,
+    formatter: Formatter<V>
     priority: number
 }
 
@@ -101,7 +101,7 @@ export class TableFormatter<V> {
      * // create the table-data object from the data, and then hand the table-data
      * // to the table formatter, add column formats, and format the table, getting
      * // back a new TableData<string>
-     * const tableData: TableData<string> = createTableData<string | number | Date>(data)
+     * const tableData: TableData<string> = TableData.fromDataFrame<string | number | Date>(data)
      *     // from the table-data, create a table-formatter
      *     .flatMap(tableData => createTableFormatterFrom(tableData)
      *         // add a column formatter for the first column of dates
@@ -180,7 +180,7 @@ export class TableFormatter<V> {
      * // 2. add formatters for the row and column headers (at highest priority)
      * // 3. add formatters for some of the other data columns
      * // 4. format the table
-     * const tableData = createTableData<string | number | Date>(data)
+     * const tableData = TableData.fromDataFrame<string | number | Date>(data)
      *     .withColumnHeader(columnHeader)
      *     .flatMap(table => table.withRowHeader(rowHeader))
      *     // add the default formatter for the column header, at the highest priority so that
@@ -211,7 +211,7 @@ export class TableFormatter<V> {
      * ```
      */
     formatTable<C extends TagCoordinate>(): Result<TableData<string>, string> {
-        return this.formatTableInto<C, TableData<string>>(dataFrame => createTableData<string>(dataFrame))
+        return this.formatTableInto<C, TableData<string>>(dataFrame => TableData.fromDataFrame<string>(dataFrame))
     }
 
     formatTableInto<C extends TagCoordinate, D = TableData<string>>(mapper: (dataFrame: DataFrame<string>) => D): Result<D, string> {

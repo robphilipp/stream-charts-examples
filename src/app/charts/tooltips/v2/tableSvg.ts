@@ -16,7 +16,7 @@ import {
 import {textHeightOf, textWidthOf} from "../../utils";
 import {Row, TableData} from "./tableData";
 import {Result} from "result-fn";
-import {ColumnHeaderStyle, ColumnStyle, Dimension, Padding, RowHeaderStyle, RowStyle, TableStyle} from "./tableStyle";
+import {ColumnHeaderStyle, ColumnStyle, Dimension, Padding, RowHeaderStyle, RowStyle, StyledTable} from "./tableStyler";
 
 // export type TableFont = {
 //     size: number
@@ -242,7 +242,7 @@ export function createTable(
     tableData: TableData,
     container: SVGSVGElement,
     uniqueTableId: string,
-    style: TableStyle,
+    style: StyledTable,
     coordinates: (width: number, height: number) => [x: number, y: number],
 ): Result<TableDimensions, string> {
 
