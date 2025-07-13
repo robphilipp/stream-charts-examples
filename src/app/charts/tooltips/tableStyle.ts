@@ -14,11 +14,13 @@ export type TableFont = {
     family: string
     weight: number
 }
+export const defaultTableFont: TableFont = {size: 12, color: 'black', family: 'sans-serif', weight: 400}
 
 export type Background = {
     color: string
     opacity: number
 }
+export const defaultTableBackground: Background = {color: 'white', opacity: 0}
 
 export type Padding = {
     left: number
@@ -26,7 +28,7 @@ export type Padding = {
     top: number
     bottom: number
 }
-const defaultPadding = {left: 0, right: 0, top: 0, bottom: 0}
+export const defaultTablePadding = {left: 0, right: 0, top: 0, bottom: 0}
 
 export type Margin = {
     left: number
@@ -34,7 +36,7 @@ export type Margin = {
     top: number
     bottom: number
 }
-const defaultMargin = {left: 0, right: 0, top: 0, bottom: 0}
+export const defaultTableMargin = {left: 0, right: 0, top: 0, bottom: 0}
 
 export type Border = {
     color: string
@@ -42,7 +44,7 @@ export type Border = {
     width: number
     radius: number
 }
-const defaultBorder: Border = {color: 'black', radius: 0, width: 0}
+export const defaultTableBorder: Border = {color: 'black', radius: 0, width: 0}
 
 /**
  * The style for each column (for what is not determined by each row's style).
@@ -230,11 +232,11 @@ class TableStyleBuilder {
         this.tableData = tableData
         this.background = emptyBackground
         this.headerBackground = emptyBackground
-        this.border = defaultBorder
+        this.border = defaultTableBorder
         this.width = NaN
         this.height = NaN
-        this.padding = defaultPadding
-        this.margin = defaultMargin
+        this.padding = defaultTablePadding
+        this.margin = defaultTableMargin
 
         this.columnHeader = emptyColumnHeaderInfo
         this.rowHeader = emptyRowHeaderInfo
