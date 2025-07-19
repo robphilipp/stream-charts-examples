@@ -519,7 +519,8 @@ export class StyledTable<V> {
     stylesFor(rowIndex: number, columnIndex: number): Result<CellStyle, string> {
         if (rowIndex < 0 || rowIndex >= this.dataFrame.rowCount() || columnIndex < 0 || columnIndex >= this.dataFrame.columnCount()) {
             return failureResult(
-                `(StyledTable::stylesFor) Invalid row and/or column index; row_index${rowIndex}` +
+                `(StyledTable::stylesFor) Invalid row and/or column index` +
+                `; row_index: ${rowIndex}` +
                 `; column_index: ${columnIndex}` +
                 `; valid_row_index: [0, ${this.dataFrame.rowCount()})` +
                 `; valid_column_index: [0, ${this.dataFrame.columnCount()})`
