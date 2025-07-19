@@ -3,6 +3,8 @@ import {DataFrame} from "data-frame-ts"
 import {defaultFormatter} from "../tableData";
 import {TableFormatter} from "./tableFormatter";
 import {
+    CellStyle,
+    defaultCellStyle,
     defaultColumnHeaderStyle, defaultFooterStyle,
     defaultRowHeaderStyle,
     FooterStyle,
@@ -39,6 +41,7 @@ describe('styling data tables', () => {
                 // add the default formatter for the column header, at the highest priority so that
                 // it is the one that applies to the row representing the column header
                 .addRowFormatter(0, defaultFormatter, 100)
+                // formatter for the footer
                 .flatMap(tf => tf.addRowFormatter(5, defaultFormatter, 100))
                 .flatMap(tf => tf.addColumnFormatter(0, defaultFormatter, 100))
                 // add the column formatters for each column at the default (lowest) priority
@@ -111,6 +114,29 @@ describe('styling data tables', () => {
                 },
                 priority: Infinity
             } as Styling<FooterStyle>)
+        })
+
+        test('should be able to get the cell style with highest priority', () => {
+            const styledTable: StyledTable<string> = TableStyler.fromTableData(formattedTableData)
+                .withColumnHeaderStyle({font: {...defaultTableFont, size: 16, weight: 800}})
+                .withCellStyle(2, 3, {font: {...defaultTableFont, size: 12, weight: 600}}, 100)
+                .withRowStyle(2, {font: {...defaultTableFont, size: 14, weight: 700}}, 50)
+                .styleTable()
+
+            // cell style for (2, 3) is the highest priority
+            expect(styledTable.stylesFor(2, 3).getOrThrow()).toEqual({
+                ...defaultCellStyle,
+                font: {...defaultTableFont, size: 12, weight: 600},
+            } as CellStyle)
+
+            // column header style for (0, 3) is the highest priority
+            expect(styledTable.stylesFor(0, 3).getOrThrow()).toEqual({
+                ...defaultCellStyle,
+                font: {...defaultTableFont, size: 16, weight: 800},
+            } as CellStyle)
+
+            // the table has no footer, so the default cell style has the highest priority
+            expect(styledTable.stylesFor(5, 3).getOrThrow()).toEqual(defaultCellStyle)
         })
     })
 

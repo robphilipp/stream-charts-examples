@@ -485,15 +485,15 @@ export class StyledTable<V> {
             rowIndex < 0 || rowIndex >= TableData.dataRowCount(this.dataFrame) ||
             columnIndex < 0 || columnIndex >= TableData.dataColumnCount(this.dataFrame)
         ) {
-           return failureResult(
-               `(StyledTable::dataCellStyles) Invalid row and/or column index for data; row_index${rowIndex}` +
-               `; column_index: ${columnIndex}` +
-               `; valid_row_index: [0, ${TableData.dataRowCount(this.dataFrame)})` +
-               `; valid_column_index: [0, ${TableData.dataColumnCount(this.dataFrame)})` +
-               `; has_column_header: ${TableData.hasColumnHeader(this.dataFrame)}` +
-               `; has_row_header: ${TableData.hasRowHeader(this.dataFrame)}` +
-               `; has_footer: ${TableData.hasFooter(this.dataFrame)}`
-           )
+            return failureResult(
+                `(StyledTable::dataCellStyles) Invalid row and/or column index for data; row_index${rowIndex}` +
+                `; column_index: ${columnIndex}` +
+                `; valid_row_index: [0, ${TableData.dataRowCount(this.dataFrame)})` +
+                `; valid_column_index: [0, ${TableData.dataColumnCount(this.dataFrame)})` +
+                `; has_column_header: ${TableData.hasColumnHeader(this.dataFrame)}` +
+                `; has_row_header: ${TableData.hasRowHeader(this.dataFrame)}` +
+                `; has_footer: ${TableData.hasFooter(this.dataFrame)}`
+            )
         }
         const dataRowIndex = rowIndex + (TableData.hasColumnHeader(this.dataFrame) ? 1 : 0)
         const dataColumnIndex = columnIndex + (TableData.hasRowHeader(this.dataFrame) ? 1 : 0)
@@ -525,30 +525,48 @@ export class StyledTable<V> {
                 `; valid_column_index: [0, ${this.dataFrame.columnCount()})`
             )
         }
-        return successResult([
-            this.columnHeaderStyle().getOrElse({style: defaultColumnHeaderStyle, priority: -1}),
-            this.rowHeaderStyle().getOrElse({style: defaultRowHeaderStyle, priority: -2}),
-            this.footerStyle().getOrElse({style: defaultFooterStyle, priority: -1}),
-            this.rowStyleFor(rowIndex).getOrElse({style: defaultRowStyle, priority: -3}),
-            this.columnStyleFor(columnIndex).getOrElse({style: defaultColumnStyle, priority: -2}),
-            this.cellStyleFor(rowIndex, columnIndex).getOrElse({style: defaultCellStyle, priority: -1})
-        ]
+
+        //
+        // determine what styles may be available
+        const availableStyling: Array<Stylings> = []
+        if (rowIndex === 0) {
+            this.columnHeaderStyle().onSuccess(styling => availableStyling.push(styling))
+        }
+        if (columnIndex === 0) {
+            this.rowHeaderStyle().onSuccess(styling => availableStyling.push(styling))
+        }
+        if (rowIndex === this.dataFrame.rowCount() - 1) {
+            this.footerStyle().onSuccess(styling => availableStyling.push(styling))
+        }
+        this.rowStyleFor(rowIndex).onSuccess(styling => availableStyling.push(styling))
+        this.columnStyleFor(columnIndex).onSuccess(styling => availableStyling.push(styling))
+
+        // the cell style is handled differently when it doesn't exist because we need a default set of
+        // values for the cell style in case not all properties are found in the available styles
+        this.cellStyleFor(rowIndex, columnIndex)
+            .onSuccess(styling => availableStyling.push(styling))
+            .onFailure(() => availableStyling.push({style: defaultCellStyle, priority: -1}))
+
+        //
+        // calculate the style for the cell based on the priorities and available styles
+        const cellStyle = availableStyling
             .sort((stylingA: Stylings, stylingB: Stylings) => stylingA.priority - stylingB.priority)
             .reduce((acc: CellStyle, curr: Stylings) => ({
-                ...acc,
                 // @ts-ignore
-                font: (curr.style.hasOwnProperty('font') ? {...curr.style.font} as TableFont : acc.font),
+                font: (curr.style.hasOwnProperty('font') ? {...acc.font, ...curr.style.font} as TableFont : acc.font),
                 // @ts-ignore
-                alignText: (curr.style.hasOwnProperty('alignText') ? {...curr.style.alignText} as "left" | "center" | "right" : acc.alignText),
+                alignText: (curr.style.hasOwnProperty('alignText') ? curr.style.alignText as "left" | "center" | "right" : acc.alignText),
                 // @ts-ignore
-                background: (curr.style.hasOwnProperty('background') ? {...curr.style.background} as Background : acc.background),
+                background: (curr.style.hasOwnProperty('background') ? {...acc.background, ...curr.style.background} as Background : acc.background),
                 // @ts-ignore
-                dimension: (curr.style.hasOwnProperty('dimension') ? {...curr.style.dimension} as Dimension : acc.dimension),
+                dimension: (curr.style.hasOwnProperty('dimension') ? {...acc.dimension, ...curr.style.dimension} as Dimension : acc.dimension),
                 // @ts-ignore
-                padding: (curr.style.hasOwnProperty('padding') ? {...curr.style.padding} as Padding : acc.padding),
+                padding: (curr.style.hasOwnProperty('padding') ? {...acc.padding, ...curr.style.padding} as Padding : acc.padding),
                 // @ts-ignore
-                border: (curr.style.hasOwnProperty('border') ? {...curr.style.border} as Border : acc.border),
-            }), defaultCellStyle))
+                border: (curr.style.hasOwnProperty('border') ? {...acc.border, ...curr.style.border} as Border : acc.border),
+            }), defaultCellStyle)
+
+        return successResult(cellStyle)
     }
 }
 
@@ -803,7 +821,7 @@ export class TableStyler<V> {
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the row style applied
      */
-    withRowStyle(rowIndex: number, rowStyle: RowStyle, priority: number = 0): TableStyler<V> {
+    withRowStyle(rowIndex: number, rowStyle: Partial<RowStyle>, priority: number = 0): TableStyler<V> {
         if (rowIndex < 0 || rowIndex >= TableData.tableRowCount(this.dataFrame)) {
             this.errors.push(
                 `The row index, when setting a row-style, must be between 0 and ${TableData.tableRowCount(this.dataFrame) - 1}`
@@ -823,7 +841,7 @@ export class TableStyler<V> {
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the column style applied
      */
-    withColumnStyle(columnIndex: number, columnStyle: ColumnStyle, priority: number = 0): TableStyler<V> {
+    withColumnStyle(columnIndex: number, columnStyle: Partial<ColumnStyle>, priority: number = 0): TableStyler<V> {
         if (columnIndex < 0 || columnIndex >= TableData.tableRowCount(this.dataFrame)) {
             this.errors.push(
                 `The column index, when setting a column-style, must be between 0 and ${TableData.tableColumnCount(this.dataFrame) - 1}`
@@ -844,7 +862,7 @@ export class TableStyler<V> {
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the cell style applied
      */
-    withCellStyle(rowIndex: number, columnIndex: number, cellStyle: CellStyle, priority: number = 0): TableStyler<V> {
+    withCellStyle(rowIndex: number, columnIndex: number, cellStyle: Partial<CellStyle>, priority: number = 0): TableStyler<V> {
         if (rowIndex < 0 || rowIndex >= TableData.tableRowCount(this.dataFrame) ||
             columnIndex < 0 || columnIndex >= TableData.tableRowCount(this.dataFrame)) {
             this.errors.push(
