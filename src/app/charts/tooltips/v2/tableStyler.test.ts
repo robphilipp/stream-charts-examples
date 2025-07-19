@@ -2,9 +2,17 @@ import {TableData} from "./tableData";
 import {DataFrame} from "data-frame-ts"
 import {defaultFormatter} from "../tableData";
 import {TableFormatter} from "./tableFormatter";
-import {defaultColumnHeaderStyle, StyledTable, Styling, TableStyler} from "./tableStyler";
+import {
+    defaultColumnHeaderStyle, defaultFooterStyle,
+    defaultRowHeaderStyle,
+    FooterStyle,
+    StyledTable,
+    Styling,
+    TableStyler
+} from "./tableStyler";
 import {ColumnHeaderStyle, defaultTableBorder, defaultTableMargin, defaultTablePadding} from "./tableStyler";
 import {defaultTableFont} from "./tableUtils";
+import {RowHeaderStyle} from "./tableStyler";
 
 
 describe('styling data tables', () => {
@@ -20,15 +28,18 @@ describe('styling data tables', () => {
     ]).getOrThrow()
     const columnHeader = ['Date-Time', 'Customer ID', 'Product ID', 'Purchase Price', 'Amount']
     const rowHeader = [1, 2, 3, 4]
+    const footer = ['A', 'B', 'C', 'D', 'E']
 
     describe('adding basic table styles', () => {
         const formattedTableData = TableData.fromDataFrame<string | number | Date>(data)
             .withColumnHeader(columnHeader)
             .flatMap(td => td.withRowHeader(rowHeader))
+            .flatMap(td => td.withFooter(footer))
             .flatMap(td => TableFormatter.fromTableData(td)
                 // add the default formatter for the column header, at the highest priority so that
                 // it is the one that applies to the row representing the column header
                 .addRowFormatter(0, defaultFormatter, 100)
+                .flatMap(tf => tf.addRowFormatter(5, defaultFormatter, 100))
                 .flatMap(tf => tf.addColumnFormatter(0, defaultFormatter, 100))
                 // add the column formatters for each column at the default (lowest) priority
                 .flatMap(tf => tf.addColumnFormatter(1, value => (value as Date).toLocaleDateString()))
@@ -73,7 +84,37 @@ describe('styling data tables', () => {
                 priority: Infinity
             } as Styling<ColumnHeaderStyle>)
         })
+
+        test('should be able to set and retrieve style for the row header', () => {
+            const styledTable: StyledTable<string> = TableStyler.fromTableData(formattedTableData)
+                .withRowHeaderStyle({font: {...defaultTableFont, size: 16, weight: 800}})
+                .styleTable()
+
+            expect(styledTable.rowHeaderStyle().getOrThrow()).toEqual({
+                style: {
+                    ...defaultRowHeaderStyle,
+                    font: {...defaultTableFont, size: 16, weight: 800},
+                },
+                priority: Infinity
+            } as Styling<RowHeaderStyle>)
+        })
+
+        test('should be able to set and retrieve style for the footer', () => {
+            const styledTable: StyledTable<string> = TableStyler.fromTableData(formattedTableData)
+                .withFooterStyle({font: {...defaultTableFont, size: 16, weight: 800}})
+                .styleTable()
+
+            expect(styledTable.footerStyle().getOrThrow()).toEqual({
+                style: {
+                    ...defaultFooterStyle,
+                    font: {...defaultTableFont, size: 16, weight: 800},
+                },
+                priority: Infinity
+            } as Styling<FooterStyle>)
+        })
     })
+
+    // todo replace below with test like above
 
     test('should be able to create a table with string column and row headers and numeric values', () => {
 

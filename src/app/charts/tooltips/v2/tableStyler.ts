@@ -187,6 +187,7 @@ export const defaultCellStyle: CellStyle = {
     padding: defaultTablePadding,
     border: defaultTableBorder
 }
+
 /**
  * Confusing as it may be, this is the style for the **row** that holds the
  * headers for each column. The styling for this row may differ from the
@@ -247,6 +248,13 @@ export const defaultFooterStyle: FooterStyle = {
     padding: {top: 0, bottom: 0},
     background: defaultTableBackground
 }
+
+type Stylings = Styling<RowHeaderStyle> |
+    Styling<ColumnHeaderStyle> |
+    Styling<FooterStyle> |
+    Styling<RowStyle> |
+    Styling<ColumnStyle> |
+    Styling<CellStyle>
 
 /**
  * Represents a table with applied styles.
@@ -377,13 +385,13 @@ export class StyledTable<V> {
      * Gets the style for the row header.
      * @returns A Result containing the row header style if found, or an error message
      */
-    rowHeaderStyle(): Result<RowHeaderStyle, string> {
+    rowHeaderStyle(): Result<Styling<RowHeaderStyle>, string> {
         if (!TableData.hasRowHeader(this.dataFrame)) {
             return failureResult("(StyledTable::rowHeaderStyle) The table data does not have a row header")
         }
         return this
             .columnTagsFor<RowHeaderStyle>(0, TableStyleType.ROW_HEADER)
-            .map(tag => tag.value.style)
+            .map(tag => tag.value as Styling<RowHeaderStyle>)
     }
 
     /**
@@ -397,6 +405,15 @@ export class StyledTable<V> {
         return this
             .rowTagsFor<ColumnHeaderStyle>(0, TableStyleType.COLUMN_HEADER)
             .map(tag => tag.value as Styling<ColumnHeaderStyle>)
+    }
+
+    footerStyle(): Result<Styling<FooterStyle>, string> {
+        if (!TableData.hasFooter(this.dataFrame)) {
+            return failureResult("(StyledTable::footerStyle) The table data does not have a footer")
+        }
+        return this
+            .rowTagsFor<FooterStyle>(this.dataFrame.rowCount() - 1, TableStyleType.FOOTER)
+            .map(tag => tag.value as Styling<FooterStyle>)
     }
 
     /**
@@ -443,6 +460,95 @@ export class StyledTable<V> {
             tags.sort((tagA, tagB) => tagB.value.priority - tagA.value.priority)
         }
         return successResult(tags[0].value as Styling<CellStyle>)
+    }
+
+    /**
+     * Unlike the methods that retrieve the particular styles, say for a cell, a column header,
+     * and so forth, this method returns a {@link CellStyle} calculated from all the styles
+     * that apply to the specified cell by using the style properties with the highest priority.
+     * <p>
+     * Retrieves the styles to be applied to a specific data cell in the table. This method
+     * accounts for column headers and row headers. For example, regardless of whether the
+     * table has a column header, a row index of 0 refers to the first row of data. And
+     * regardless of whether the table has a row header, a column index of 0 refers to the
+     * first column of data.
+     *
+     * @param rowIndex - The index of the row in the table data for which styles are required.
+     * Must be within the valid row index range.
+     * @param columnIndex - The index of the column in the table data for which styles are required.
+     * Must be within the valid column index range.
+     * @return A result object containing the cell style if the indices are valid, or an error
+     * message if they are not.
+     */
+    dataCellStyles(rowIndex: number, columnIndex: number): Result<CellStyle, string> {
+        if (
+            rowIndex < 0 || rowIndex >= TableData.dataRowCount(this.dataFrame) ||
+            columnIndex < 0 || columnIndex >= TableData.dataColumnCount(this.dataFrame)
+        ) {
+           return failureResult(
+               `(StyledTable::dataCellStyles) Invalid row and/or column index for data; row_index${rowIndex}` +
+               `; column_index: ${columnIndex}` +
+               `; valid_row_index: [0, ${TableData.dataRowCount(this.dataFrame)})` +
+               `; valid_column_index: [0, ${TableData.dataColumnCount(this.dataFrame)})` +
+               `; has_column_header: ${TableData.hasColumnHeader(this.dataFrame)}` +
+               `; has_row_header: ${TableData.hasRowHeader(this.dataFrame)}` +
+               `; has_footer: ${TableData.hasFooter(this.dataFrame)}`
+           )
+        }
+        const dataRowIndex = rowIndex + (TableData.hasColumnHeader(this.dataFrame) ? 1 : 0)
+        const dataColumnIndex = columnIndex + (TableData.hasRowHeader(this.dataFrame) ? 1 : 0)
+        return this.stylesFor(dataRowIndex, dataColumnIndex)
+    }
+
+    /**
+     * Unlike the methods that retrieve the particular styles, say for a cell, a column header,
+     * and so forth, this method returns a {@link CellStyle} calculated from all the styles
+     * that apply to the specified cell by using the style properties with the highest priority.
+     * <p>
+     * Calculates the style for the cell based on the styles applied to the table and their
+     * relative priority. The row and column indexes refer to the entire table and do not account
+     * for column headers, row headers, or footers.
+     * @param rowIndex The index of the row in the entire table. For example, if the table has column
+     * headers, then a rowIndex of 0 would be that column header.
+     * @param columnIndex The index of the column in the entire table. For example, if the table has
+     * row headers, then a column index of 0 would be the row header
+     * @return A {@link Result} holding the {@link CellStyle}; or a failure {@link Result} if the
+     * row or column indexes are out of range.
+     * @see dataCellStyles
+     */
+    stylesFor(rowIndex: number, columnIndex: number): Result<CellStyle, string> {
+        if (rowIndex < 0 || rowIndex >= this.dataFrame.rowCount() || columnIndex < 0 || columnIndex >= this.dataFrame.columnCount()) {
+            return failureResult(
+                `(StyledTable::stylesFor) Invalid row and/or column index; row_index${rowIndex}` +
+                `; column_index: ${columnIndex}` +
+                `; valid_row_index: [0, ${this.dataFrame.rowCount()})` +
+                `; valid_column_index: [0, ${this.dataFrame.columnCount()})`
+            )
+        }
+        return successResult([
+            this.columnHeaderStyle().getOrElse({style: defaultColumnHeaderStyle, priority: -1}),
+            this.rowHeaderStyle().getOrElse({style: defaultRowHeaderStyle, priority: -2}),
+            this.footerStyle().getOrElse({style: defaultFooterStyle, priority: -1}),
+            this.rowStyleFor(rowIndex).getOrElse({style: defaultRowStyle, priority: -3}),
+            this.columnStyleFor(columnIndex).getOrElse({style: defaultColumnStyle, priority: -2}),
+            this.cellStyleFor(rowIndex, columnIndex).getOrElse({style: defaultCellStyle, priority: -1})
+        ]
+            .sort((stylingA: Stylings, stylingB: Stylings) => stylingA.priority - stylingB.priority)
+            .reduce((acc: CellStyle, curr: Stylings) => ({
+                ...acc,
+                // @ts-ignore
+                font: (curr.style.hasOwnProperty('font') ? {...curr.style.font} as TableFont : acc.font),
+                // @ts-ignore
+                alignText: (curr.style.hasOwnProperty('alignText') ? {...curr.style.alignText} as "left" | "center" | "right" : acc.alignText),
+                // @ts-ignore
+                background: (curr.style.hasOwnProperty('background') ? {...curr.style.background} as Background : acc.background),
+                // @ts-ignore
+                dimension: (curr.style.hasOwnProperty('dimension') ? {...curr.style.dimension} as Dimension : acc.dimension),
+                // @ts-ignore
+                padding: (curr.style.hasOwnProperty('padding') ? {...curr.style.padding} as Padding : acc.padding),
+                // @ts-ignore
+                border: (curr.style.hasOwnProperty('border') ? {...curr.style.border} as Border : acc.border),
+            }), defaultCellStyle))
     }
 }
 
@@ -661,7 +767,7 @@ export class TableStyler<V> {
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the row header style applied
      */
-    withRowHeaderStyle(rowHeaderStyle: RowHeaderStyle, priority: number = Infinity): TableStyler<V> {
+    withRowHeaderStyle(rowHeaderStyle: Partial<RowHeaderStyle>, priority: number = Infinity): TableStyler<V> {
         if (!TableData.hasRowHeader(this.dataFrame)) {
             this.errors.push("The row header style can only be supplied when the table data has row headers")
             return this
@@ -678,7 +784,7 @@ export class TableStyler<V> {
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the footer style applied
      */
-    withFooterStyle(footerStyle: FooterStyle, priority: number = Infinity): TableStyler<V> {
+    withFooterStyle(footerStyle: Partial<FooterStyle>, priority: number = Infinity): TableStyler<V> {
         if (!TableData.hasFooter(this.dataFrame)) {
             this.errors.push("The footer style can only be supplied when the table data has a footer")
             return this
