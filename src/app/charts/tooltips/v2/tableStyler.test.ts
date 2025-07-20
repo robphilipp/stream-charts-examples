@@ -139,6 +139,7 @@ describe('styling data tables', () => {
                 .withCellStyle(2, 3, {font: {...defaultTableFont, size: 12, weight: 600}}, 100)
                 .withRowStyle(2, {font: {...defaultTableFont, size: 14, weight: 700}}, 50)
                 .withRowHeaderStyle({font: {...defaultTableFont, size: 15, weight: 650}})
+                .withColumnStyle(4, {padding: {left: 1000, right: 1111}}, 75)
                 .styleTable()
 
             function expectDefaultCellStyleFor(row: number, column: number) {
@@ -147,7 +148,7 @@ describe('styling data tables', () => {
 
             test('should get the default cell style for cells with no available style', () => {
                 const unstyledRows = [1, 3, 4, 5]   // row 0 is the column header, row 2 has a row-style
-                const unstyledColumns = [1, 2, 3, 4, 5] // column 0 is the row header
+                const unstyledColumns = [1, 2, 3, 5] // column 0 is the row header, column 4 has a column-style
                 for (const row of unstyledRows) {
                     for (const column of unstyledColumns) {
                         expectDefaultCellStyleFor(row, column)
@@ -199,6 +200,34 @@ describe('styling data tables', () => {
                 expect(styledTable.stylesForTableCoordinates(1, 0).getOrThrow()).toEqual({
                     ...defaultCellStyle,
                     font: {...defaultTableFont, size: 15, weight: 650}
+                } as CellStyle)
+            })
+
+            test('should get column header style for (0, 4) because table has column header style', () => {
+                expect(styledTable.stylesForTableCoordinates(0, 4).getOrThrow()).toEqual({
+                    ...defaultCellStyle,
+                    font: {...defaultTableFont, size: 16, weight: 800}
+                } as CellStyle)
+            })
+
+            test('should get column header style for (1, 4) because table has column style', () => {
+                expect(styledTable.stylesForTableCoordinates(1, 4).getOrThrow()).toEqual({
+                    ...defaultCellStyle,
+                    padding: {...defaultTablePadding, left: 1000, right: 1111}
+                } as CellStyle)
+            })
+
+            test('should get column header style for (2, 4) because table has column style with higher priority than row-style', () => {
+                expect(styledTable.stylesForTableCoordinates(2, 4).getOrThrow()).toEqual({
+                    ...defaultCellStyle,
+                    padding: {...defaultTablePadding, left: 1000, right: 1111}
+                } as CellStyle)
+            })
+
+            test('should get column header style for (3, 4) because table has column style with higer priority than row-style', () => {
+                expect(styledTable.stylesForTableCoordinates(3, 4).getOrThrow()).toEqual({
+                    ...defaultCellStyle,
+                    padding: {...defaultTablePadding, left: 1000, right: 1111}
                 } as CellStyle)
             })
 

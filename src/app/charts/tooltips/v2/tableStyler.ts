@@ -555,17 +555,44 @@ export class StyledTable<V> {
             .sort((stylingA: Stylings, stylingB: Stylings) => stylingA.priority - stylingB.priority)
             .reduce((acc: CellStyle, curr: Stylings) => ({
                 // @ts-ignore
-                font: (curr.style.hasOwnProperty('font') ? {...acc.font, ...curr.style.font} as TableFont : acc.font),
+                font: (curr.style.hasOwnProperty('font') ? {...defaultTableFont, ...curr.style.font} as TableFont : defaultTableFont),
                 // @ts-ignore
-                alignText: (curr.style.hasOwnProperty('alignText') ? curr.style.alignText as "left" | "center" | "right" : acc.alignText),
+                alignText: (curr.style.hasOwnProperty('alignText') ? curr.style.alignText as "left" | "center" | "right" : defaultColumnStyle.alignText),
                 // @ts-ignore
-                background: (curr.style.hasOwnProperty('background') ? {...acc.background, ...curr.style.background} as Background : acc.background),
+                background: (curr.style.hasOwnProperty('background') ? {...defaultTableBackground, ...curr.style.background} as Background : defaultTableBackground),
                 // @ts-ignore
-                dimension: (curr.style.hasOwnProperty('dimension') ? {...acc.dimension, ...curr.style.dimension} as Dimension : acc.dimension),
+                dimension: (curr.style.hasOwnProperty('dimension') ? {...defaultDimension, ...curr.style.dimension} as Dimension : defaultDimension),
                 // @ts-ignore
-                padding: (curr.style.hasOwnProperty('padding') ? {...acc.padding, ...curr.style.padding} as Padding : acc.padding),
+                padding: (curr.style.hasOwnProperty('padding') ? {...defaultTablePadding, ...curr.style.padding} as Padding : defaultTablePadding),
                 // @ts-ignore
-                border: (curr.style.hasOwnProperty('border') ? {...acc.border, ...curr.style.border} as Border : acc.border),
+                border: (curr.style.hasOwnProperty('border') ? {...defaultTableBorder, ...curr.style.border} as Border : defaultTableBorder),
+
+                // // @ts-ignore
+                // font: (curr.style.hasOwnProperty('font') ? {...defaultTableFont, ...curr.style.font} as TableFont : acc.font),
+                // // @ts-ignore
+                // alignText: (curr.style.hasOwnProperty('alignText') ? curr.style.alignText as "left" | "center" | "right" : acc.alignText),
+                // // @ts-ignore
+                // background: (curr.style.hasOwnProperty('background') ? {...defaultTableBackground, ...curr.style.background} as Background : acc.background),
+                // // @ts-ignore
+                // dimension: (curr.style.hasOwnProperty('dimension') ? {...defaultDimension, ...curr.style.dimension} as Dimension : acc.dimension),
+                // // @ts-ignore
+                // padding: (curr.style.hasOwnProperty('padding') ? {...defaultTablePadding, ...curr.style.padding} as Padding : acc.padding),
+                // // @ts-ignore
+                // border: (curr.style.hasOwnProperty('border') ? {...defaultTableBorder, ...curr.style.border} as Border : acc.border),
+
+                // original
+                // // @ts-ignore
+                // font: (curr.style.hasOwnProperty('font') ? {...acc.font, ...curr.style.font} as TableFont : acc.font),
+                // // @ts-ignore
+                // alignText: (curr.style.hasOwnProperty('alignText') ? curr.style.alignText as "left" | "center" | "right" : acc.alignText),
+                // // @ts-ignore
+                // background: (curr.style.hasOwnProperty('background') ? {...acc.background, ...curr.style.background} as Background : acc.background),
+                // // @ts-ignore
+                // dimension: (curr.style.hasOwnProperty('dimension') ? {...acc.dimension, ...curr.style.dimension} as Dimension : acc.dimension),
+                // // @ts-ignore
+                // padding: (curr.style.hasOwnProperty('padding') ? {...acc.padding, ...curr.style.padding} as Padding : acc.padding),
+                // // @ts-ignore
+                // border: (curr.style.hasOwnProperty('border') ? {...acc.border, ...curr.style.border} as Border : acc.border),
             }), defaultCellStyle)
 
         return successResult(cellStyle)
