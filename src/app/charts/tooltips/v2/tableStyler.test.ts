@@ -142,7 +142,7 @@ describe('styling data tables', () => {
                 .styleTable()
 
             function expectDefaultCellStyleFor(row: number, column: number) {
-                expect(styledTable.stylesFor(row, column).getOrThrow()).toEqual(defaultCellStyle)
+                expect(styledTable.stylesForTableCoordinates(row, column).getOrThrow()).toEqual(defaultCellStyle)
             }
 
             test('should get the default cell style for cells with no available style', () => {
@@ -156,7 +156,7 @@ describe('styling data tables', () => {
             })
 
             test('should get cell style for (2, 3) is the highest priority', () => {
-                expect(styledTable.stylesFor(2, 3).getOrThrow()).toEqual({
+                expect(styledTable.stylesForTableCoordinates(2, 3).getOrThrow()).toEqual({
                     ...defaultCellStyle,
                     font: {...defaultTableFont, size: 12, weight: 600},
                 } as CellStyle)
@@ -164,41 +164,51 @@ describe('styling data tables', () => {
 
             test('should get column header style for (0, 3) is the highest priority', () => {
                 // column header style for (0, 3) is the highest priority
-                expect(styledTable.stylesFor(0, 3).getOrThrow()).toEqual({
+                expect(styledTable.stylesForTableCoordinates(0, 3).getOrThrow()).toEqual({
                     ...defaultCellStyle,
                     font: {...defaultTableFont, size: 16, weight: 800},
                 } as CellStyle)
             })
 
             test('should return a failure when getting a style for a column index that is too large', () => {
-                const result = styledTable.stylesFor(1, 6)
+                const result = styledTable.stylesForTableCoordinates(1, 6)
                 expect(result.failed).toBeTruthy()
                 expect(result.error).toEqual("(StyledTable::stylesFor) Invalid row and/or column index; row_index: 1; column_index: 6; valid_row_index: [0, 6); valid_column_index: [0, 6)")
             })
 
             test('should return a failure when getting a style for a column index that is less than 0', () => {
-                const result = styledTable.stylesFor(3, -1)
+                const result = styledTable.stylesForTableCoordinates(3, -1)
                 expect(result.failed).toBeTruthy()
                 expect(result.error).toEqual("(StyledTable::stylesFor) Invalid row and/or column index; row_index: 3; column_index: -1; valid_row_index: [0, 6); valid_column_index: [0, 6)")
 
             })
 
             test('should return a failure when getting a style for a row index that is less than 0', () => {
-                const result = styledTable.stylesFor(-1, 3)
+                const result = styledTable.stylesForTableCoordinates(-1, 3)
                 expect(result.failed).toBeTruthy()
                 expect(result.error).toEqual("(StyledTable::stylesFor) Invalid row and/or column index; row_index: -1; column_index: 3; valid_row_index: [0, 6); valid_column_index: [0, 6)")
             })
 
             test('should return a failure when getting a style for a row index that is too large', () => {
-                const result = styledTable.stylesFor(6, 3)
+                const result = styledTable.stylesForTableCoordinates(6, 3)
                 expect(result.failed).toBeTruthy()
                 expect(result.error).toEqual("(StyledTable::stylesFor) Invalid row and/or column index; row_index: 6; column_index: 3; valid_row_index: [0, 6); valid_column_index: [0, 6)")
             })
 
             test('should get the row header style for (1, 0) because table has row header style', () => {
-                expect(styledTable.stylesFor(1, 0).getOrThrow()).toEqual({
+                expect(styledTable.stylesForTableCoordinates(1, 0).getOrThrow()).toEqual({
                     ...defaultCellStyle,
                     font: {...defaultTableFont, size: 15, weight: 650}
+                } as CellStyle)
+            })
+
+            test('should be able to retrieve cell styles using data row and column indices', () => {
+                // cell (2 ,3) in table coordinates translates to cell (1, 2) in data coordinates because
+                // the table has a column header and a row header. in this case the data coordinates are
+                // (table_row - 1, table_column - 1).
+                expect(styledTable.stylesForDataCoordinates(2 - 1, 3 - 1).getOrThrow()).toEqual({
+                    ...defaultCellStyle,
+                    font: {...defaultTableFont, size: 12, weight: 600},
                 } as CellStyle)
             })
         })

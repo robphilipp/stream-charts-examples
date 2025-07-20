@@ -468,7 +468,7 @@ export class StyledTable<V> {
      * that apply to the specified cell by using the style properties with the highest priority.
      * <p>
      * Retrieves the styles to be applied to a specific data cell in the table. This method
-     * accounts for column headers and row headers. For example, regardless of whether the
+     * accounts for column headers, row headers, and footers. For example, regardless of whether the
      * table has a column header, a row index of 0 refers to the first row of data. And
      * regardless of whether the table has a row header, a column index of 0 refers to the
      * first column of data.
@@ -480,7 +480,7 @@ export class StyledTable<V> {
      * @return A result object containing the cell style if the indices are valid, or an error
      * message if they are not.
      */
-    dataCellStyles(rowIndex: number, columnIndex: number): Result<CellStyle, string> {
+    stylesForDataCoordinates(rowIndex: number, columnIndex: number): Result<CellStyle, string> {
         if (
             rowIndex < 0 || rowIndex >= TableData.dataRowCount(this.dataFrame) ||
             columnIndex < 0 || columnIndex >= TableData.dataColumnCount(this.dataFrame)
@@ -495,9 +495,10 @@ export class StyledTable<V> {
                 `; has_footer: ${TableData.hasFooter(this.dataFrame)}`
             )
         }
-        const dataRowIndex = rowIndex + (TableData.hasColumnHeader(this.dataFrame) ? 1 : 0)
-        const dataColumnIndex = columnIndex + (TableData.hasRowHeader(this.dataFrame) ? 1 : 0)
-        return this.stylesFor(dataRowIndex, dataColumnIndex)
+
+        const columnHeaderOffset: number = TableData.hasColumnHeader(this.dataFrame) ? 1 : 0
+        const rowHeaderOffset: number = TableData.hasRowHeader(this.dataFrame) ? 1 : 0
+        return this.stylesForTableCoordinates(rowIndex + columnHeaderOffset, columnIndex + rowHeaderOffset)
     }
 
     /**
@@ -514,9 +515,9 @@ export class StyledTable<V> {
      * row headers, then a column index of 0 would be the row header
      * @return A {@link Result} holding the {@link CellStyle}; or a failure {@link Result} if the
      * row or column indexes are out of range.
-     * @see dataCellStyles
+     * @see stylesForDataCoordinates
      */
-    stylesFor(rowIndex: number, columnIndex: number): Result<CellStyle, string> {
+    stylesForTableCoordinates(rowIndex: number, columnIndex: number): Result<CellStyle, string> {
         if (rowIndex < 0 || rowIndex >= this.dataFrame.rowCount() || columnIndex < 0 || columnIndex >= this.dataFrame.columnCount()) {
             return failureResult(
                 `(StyledTable::stylesFor) Invalid row and/or column index` +
