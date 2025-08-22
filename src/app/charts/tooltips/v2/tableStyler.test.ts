@@ -210,21 +210,21 @@ describe('styling data tables', () => {
                 } as CellStyle)
             })
 
-            test('should get column header style for (1, 4) because table has column style', () => {
+            test('should get column style for (1, 4) because table has column style', () => {
                 expect(styledTable.stylesForTableCoordinates(1, 4).getOrThrow()).toEqual({
                     ...defaultCellStyle,
                     padding: {...defaultTablePadding, left: 1000, right: 1111}
                 } as CellStyle)
             })
 
-            test('should get column header style for (2, 4) because table has column style with higher priority than row-style', () => {
+            test('should get column style for (2, 4) because table has column style with higher priority than row-style', () => {
                 expect(styledTable.stylesForTableCoordinates(2, 4).getOrThrow()).toEqual({
                     ...defaultCellStyle,
                     padding: {...defaultTablePadding, left: 1000, right: 1111}
                 } as CellStyle)
             })
 
-            test('should get column header style for (3, 4) because table has column style with higer priority than row-style', () => {
+            test('should get column style for (3, 4) because table has column style with higher priority than row-style', () => {
                 expect(styledTable.stylesForTableCoordinates(3, 4).getOrThrow()).toEqual({
                     ...defaultCellStyle,
                     padding: {...defaultTablePadding, left: 1000, right: 1111}

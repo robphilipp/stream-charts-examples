@@ -1,5 +1,5 @@
 import {DataFrame} from "data-frame-ts";
-import {failureResult, Result} from "result-fn";
+import {failureResult, Result, successResult} from "result-fn";
 import {indexFrom} from "data-frame-ts/dist/DataFrame";
 import {defaultFormatting, Formatting, TableFormatterType} from "./tableFormatter";
 
@@ -50,6 +50,11 @@ export class TableData<V> {
      * @return A {@link TableData} which represents the next step in the guided builder
      */
     public withColumnHeader(header: Array<V>, formatting: Formatting<V> = defaultFormatting<V>()): Result<TableData<V>, string> {
+        // just return a copy of the data table if the header is empty
+        if (header.length === 0) {
+            return successResult(new TableData<V>(this.dataFrame.copy()))
+        }
+
         // when a row header has already been applied, then the table has grown by one column,
         // and so we need to insert an empty cell at the beginning of the column header
         const updatedHeader = header.slice()
@@ -57,14 +62,26 @@ export class TableData<V> {
             updatedHeader.unshift(undefined as V)
         }
 
+        // when there is already a column-header, then replace it with the new one
+        if (this.dataFrame.rowTagsFor(0).some(tag => tag.value === TableTagType.COLUMN_HEADER)) {
+            return this.dataFrame
+                .mapRow(0, (row, rowIndex) => header[rowIndex])
+                .map(df => new TableData<V>(df))
+        }
+
         return this.dataFrame
             .insertRowBefore(0, updatedHeader)
             .flatMap(df => df.tagRow(0, "column-header", TableTagType.COLUMN_HEADER))
-            .flatMap(df => df.tagRow<Formatting<V>>(0, TableFormatterType.ROW, formatting))
+            .flatMap(df => df.tagRow<Formatting<V>>(0, TableFormatterType.COLUMN, formatting))
             .map(df => new TableData<V>(df))
     }
 
     public withRowHeader(header: Array<V>, formatting: Formatting<V> = defaultFormatting<V>()): Result<TableData<V>, string> {
+        // just return a copy of the data table if the header is empty
+        if (header.length === 0) {
+            return successResult(TableData.fromDataFrame<V>(this.dataFrame.copy()))
+        }
+
         // when there is a column-header and/or footer, we adjust the (row) header by adding
         // empty elements so that the length of the (row) header matches the number of rows,
         // including the column header and the footer
@@ -77,30 +94,46 @@ export class TableData<V> {
             updatedHeader.push(undefined as V)
         }
 
+
+        // when there is already a row-header, then replace it with the new one
+        if (this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)) {
+            return this.dataFrame
+                .mapColumn(0, (row, rowIndex) => header[rowIndex])
+                .map(df => TableData.fromDataFrame<V>(df))
+        }
+
         return this.dataFrame
-            // insert the updated header as the first column of the data-frame
             .insertColumnBefore(0, updatedHeader)
-            // tag the column as the row header, and as having the formatter
             .flatMap(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
-            .flatMap(df => df.tagColumn<Formatting<V>>(0, TableFormatterType.COLUMN, formatting))
-            .map(df => new TableData<V>(df))
+            .flatMap(df => df.tagColumn<Formatting<V>>(0, TableFormatterType.ROW, formatting))
+            .map(df => TableData.fromDataFrame<V>(df))
     }
 
     public withFooter(footer: Array<V>, formatting: Formatting<V> = defaultFormatting<V>()): Result<TableData<V>, string> {
+        // just return a copy of the data table if the footer is empty
+        if (footer.length === 0) {
+            return successResult(TableData.fromDataFrame<V>(this.dataFrame.copy()))
+        }
+
         // when a row header has already been applied, then the table has grown by one column,
         // and so we need to insert an empty cell at the beginning of the footer
         const updatedFooter = footer.slice()
         if (this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)) {
             updatedFooter.unshift(undefined as V)
         }
+
+        // when there is already a footer, then replace it with the new one
+        if (this.dataFrame.rowTagsFor(0).some(tag => tag.value === TableTagType.FOOTER)) {
+            return this.dataFrame
+                .mapRow(this.dataFrame.rowCount() -1 , (row, rowIndex) => footer[rowIndex])
+                .map(df => TableData.fromDataFrame<V>(df))
+        }
+
         return this.dataFrame
-            // add the foot row to the end
             .pushRow(updatedFooter)
-            // tag the row as a footer and tag the formatter for the footer
-            .flatMap(df => df.tagRow(df.rowCount() - 1, "footer", TableTagType.FOOTER))
-            .flatMap(df => df.tagColumn<Formatting<V>>(0, TableFormatterType.ROW, formatting))
-            // convert it to the row-header builder
-            .map(df => new TableData<V>(df))
+            .flatMap(df => df.tagRow(df.rowCount()-1, "footer", TableTagType.FOOTER))
+            .flatMap(df => df.tagRow<Formatting<V>>(df.rowCount()-1, TableFormatterType.ROW, formatting))
+            .map(df => TableData.fromDataFrame<V>(df))
     }
 
     static hasColumnHeader<V>(dataFrame: DataFrame<V>): boolean {
@@ -165,6 +198,8 @@ export class TableData<V> {
     }
 
     /**
+     * @param [includeRowHeader=false] When `true` includes an extra empty column element when the table
+     * has a row-header. When `false` returns only the column-header elements
      * @return A {@link Result} holding the column header if it exists; or a failure if no column-header exists
      * @example
      * ```typescript
@@ -188,9 +223,9 @@ export class TableData<V> {
      * // the column-header retrieved from the table-data should equal the column-header originally set
      * expect(tableData.columnHeader().getOrThrow().equals(columnHeader)).toBeTruthy()
      * ```     */
-    columnHeader(): Result<Array<V>, string> {
+    columnHeader(includeRowHeader:  boolean = false): Result<Array<V>, string> {
         if (this.hasColumnHeader()) {
-            const startColumn = this.hasRowHeader() ? 1 : 0
+            const startColumn = this.hasRowHeader() && !includeRowHeader ? 1 : 0
             return this.dataFrame
                 .rowSlice(0)
                 .map(row => row.slice(startColumn))
@@ -200,6 +235,10 @@ export class TableData<V> {
     }
 
     /**
+     * @param [includeColumnHeader=false] When `true` returns an extra empty row element if the table data
+     * has a column header. When `false` does not include the empty extra row element.
+     * @param [includeFooter=false] When `true` returns an extra empty row element if the table data
+     * has a footer. When `false` does not include the empty extra row element.
      * @return A {@link Result} holding the row-header if it exists; or a failure if no row-header exists
      * @example
      * ```typescript
@@ -223,10 +262,10 @@ export class TableData<V> {
      * // the row-header retrieved from the table-data should equal the row-header originally set
      * expect(tableData.rowHeader().getOrThrow().equals(rowHeader)).toBeTruthy()
      * ```     */
-    rowHeader(): Result<Array<V>, string> {
+    rowHeader(includeColumnHeader: boolean = false, includeFooter: boolean = false): Result<Array<V>, string> {
         if (this.hasRowHeader()) {
-            const startRow = this.hasColumnHeader() ? 1 : 0
-            const endRow = this.hasFooter() ? this.dataFrame.rowCount() - 1 : this.dataFrame.rowCount()
+            const startRow = this.hasColumnHeader() && !includeColumnHeader? 1 : 0
+            const endRow = this.hasFooter() && !includeFooter ? this.dataFrame.rowCount() - 1 : this.dataFrame.rowCount()
             return this.dataFrame
                 .columnSlice(0)
                 .map(row => row.slice(startRow, endRow))
@@ -236,6 +275,8 @@ export class TableData<V> {
     }
 
     /**
+     * @param [includeRowHeader=false] When `true` includes an extra empty column element when the table
+     * has a row-header. When `false` returns only the column-header elements
      * @return A {@link Result} holding the footer, if exists; or a failure if no footer exists
      * @example
      * ```typescript
@@ -260,9 +301,9 @@ export class TableData<V> {
      * expect(tableData.footer().getOrThrow().equals(footer)).toBeTruthy()
      * ```
      */
-    footer(): Result<Array<V>, string> {
+    footer(includeRowHeader:  boolean = false): Result<Array<V>, string> {
         if (this.hasFooter()) {
-            const startColumn = this.hasRowHeader() ? 1 : 0
+            const startColumn = this.hasRowHeader() && !includeRowHeader ? 1 : 0
             return this.dataFrame
                 .rowSlice(this.dataFrame.rowCount() - 1)
                 .map(row => row.slice(startColumn))

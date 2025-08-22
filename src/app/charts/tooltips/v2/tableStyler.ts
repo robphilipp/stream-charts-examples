@@ -284,6 +284,18 @@ export class StyledTable<V> {
     }
 
     /**
+     * @return A copy of the {@link DataFrame} with all the styling and formatting tags
+     */
+    data(): DataFrame<V> {
+        return this.dataFrame.copy()
+    }
+
+    tableData(): TableData<V> {
+        // fromDataFrame makes a copy of the data frame
+        return TableData.fromDataFrame(this.dataFrame)
+    }
+
+    /**
      * Returns the font settings for the table.
      * @returns A copy of the table's font settings
      */
@@ -379,6 +391,18 @@ export class StyledTable<V> {
             tags.sort((tagA, tagB) => tagB.value.priority - tagA.value.priority)
         }
         return successResult(tags[0])
+    }
+
+    hasRowHeader(): boolean {
+        return TableData.hasRowHeader(this.dataFrame)
+    }
+
+    hasColumnHeader(): boolean {
+        return TableData.hasColumnHeader(this.dataFrame)
+    }
+
+    hasFooter(): boolean {
+        return TableData.hasFooter(this.dataFrame)
     }
 
     /**
@@ -566,33 +590,6 @@ export class StyledTable<V> {
                 padding: (curr.style.hasOwnProperty('padding') ? {...defaultTablePadding, ...curr.style.padding} as Padding : defaultTablePadding),
                 // @ts-ignore
                 border: (curr.style.hasOwnProperty('border') ? {...defaultTableBorder, ...curr.style.border} as Border : defaultTableBorder),
-
-                // // @ts-ignore
-                // font: (curr.style.hasOwnProperty('font') ? {...defaultTableFont, ...curr.style.font} as TableFont : acc.font),
-                // // @ts-ignore
-                // alignText: (curr.style.hasOwnProperty('alignText') ? curr.style.alignText as "left" | "center" | "right" : acc.alignText),
-                // // @ts-ignore
-                // background: (curr.style.hasOwnProperty('background') ? {...defaultTableBackground, ...curr.style.background} as Background : acc.background),
-                // // @ts-ignore
-                // dimension: (curr.style.hasOwnProperty('dimension') ? {...defaultDimension, ...curr.style.dimension} as Dimension : acc.dimension),
-                // // @ts-ignore
-                // padding: (curr.style.hasOwnProperty('padding') ? {...defaultTablePadding, ...curr.style.padding} as Padding : acc.padding),
-                // // @ts-ignore
-                // border: (curr.style.hasOwnProperty('border') ? {...defaultTableBorder, ...curr.style.border} as Border : acc.border),
-
-                // original
-                // // @ts-ignore
-                // font: (curr.style.hasOwnProperty('font') ? {...acc.font, ...curr.style.font} as TableFont : acc.font),
-                // // @ts-ignore
-                // alignText: (curr.style.hasOwnProperty('alignText') ? curr.style.alignText as "left" | "center" | "right" : acc.alignText),
-                // // @ts-ignore
-                // background: (curr.style.hasOwnProperty('background') ? {...acc.background, ...curr.style.background} as Background : acc.background),
-                // // @ts-ignore
-                // dimension: (curr.style.hasOwnProperty('dimension') ? {...acc.dimension, ...curr.style.dimension} as Dimension : acc.dimension),
-                // // @ts-ignore
-                // padding: (curr.style.hasOwnProperty('padding') ? {...acc.padding, ...curr.style.padding} as Padding : acc.padding),
-                // // @ts-ignore
-                // border: (curr.style.hasOwnProperty('border') ? {...acc.border, ...curr.style.border} as Border : acc.border),
             }), defaultCellStyle)
 
         return successResult(cellStyle)
@@ -786,7 +783,8 @@ export class TableStyler<V> {
 
     /**
      * Sets the style for the column header row.
-     * @param columnHeaderStyle The style to apply to the column header
+     * @param columnHeaderStyle The style to apply to the column header. Style properties that are not specified
+     * will be set to their default values.
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the column header style applied
      */
@@ -810,7 +808,8 @@ export class TableStyler<V> {
 
     /**
      * Sets the style for the row header column.
-     * @param rowHeaderStyle The style to apply to the row header
+     * @param rowHeaderStyle The style to apply to the row header. Style properties that are not specified
+     * will be set to their default values.
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the row header style applied
      */
@@ -827,7 +826,8 @@ export class TableStyler<V> {
 
     /**
      * Sets the style for the footer row.
-     * @param footerStyle The style to apply to the footer
+     * @param footerStyle The style to apply to the footer. Style properties that are not specified
+     * will be set to their default values.
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the footer style applied
      */
@@ -846,7 +846,8 @@ export class TableStyler<V> {
     /**
      * Sets the style for a specific row.
      * @param rowIndex The index of the row to style
-     * @param rowStyle The style to apply to the row
+     * @param rowStyle The style to apply to the row. Style properties that are not specified
+     * will be set to their default values.
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the row style applied
      */
@@ -866,7 +867,8 @@ export class TableStyler<V> {
     /**
      * Sets the style for a specific column.
      * @param columnIndex The index of the column to style
-     * @param columnStyle The style to apply to the column
+     * @param columnStyle The style to apply to the column. Style properties that are not specified
+     * will be set to their default values.
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the column style applied
      */
@@ -887,7 +889,8 @@ export class TableStyler<V> {
      * Sets the style for a specific cell.
      * @param rowIndex The row index of the cell to style
      * @param columnIndex The column index of the cell to style
-     * @param cellStyle The style to apply to the cell
+     * @param cellStyle The style to apply to the cell. Style properties that are not specified
+     * will be set to their default values.
      * @param priority The priority of this style (higher values take precedence)
      * @returns A new TableStyler instance with the cell style applied
      */
