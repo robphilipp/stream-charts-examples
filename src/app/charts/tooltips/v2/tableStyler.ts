@@ -170,9 +170,12 @@ export const defaultRowStyle: RowStyle = {
     padding: {top: 0, bottom: 0}
 }
 
+export type TextAlignment = "left" | "center" | "right"
+
 export type CellStyle = {
     font: TableFont
-    alignText: "left" | "center" | "right"
+    // alignText: "left" | "center" | "right"
+    alignText: TextAlignment
     background: Background
     dimension: Dimension
     padding: Padding
