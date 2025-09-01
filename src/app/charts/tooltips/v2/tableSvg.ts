@@ -8,9 +8,9 @@ import {Result} from "result-fn";
 import {
     CellStyle,
     defaultCellStyle,
-    defaultColumnHeaderStyle,
+    defaultColumnHeaderStyle, defaultColumnStyle,
     defaultFooterStyle,
-    defaultRowHeaderStyle,
+    defaultRowHeaderStyle, defaultRowStyle,
     StyledTable,
     TextAlignment
 } from "./tableStyler";
@@ -403,13 +403,8 @@ function calculateRenderingInfo<V>(
             .stylesForTableCoordinates(rowIndex, columnIndex)
             .getOrElse({...defaultCellStyle})
 
-        // // grab the text node
-        // const text = d3.select<SVGSVGElement | null, any>(container)
-        //     .attr('id', cellIdFor(uniqueTableId, rowIndex, columnIndex))
-
         // calculate the actual width and height of the cell
         const {width, height} = calculateCellDimensions(style, element.textWidth, element.textHeight)
-        // const {width, height} = calculateCellDimensions(style, text.node()?.getBBox())
 
         return {...element, cellWidth: width, cellHeight: height}
     })
@@ -427,13 +422,13 @@ function calculateRenderingInfo<V>(
 
     const columnWidths = df.columnSlices().map((column, index) => {
         return styledTable.columnStyleFor(index)
-            .map(styling => Math.min(styling.style.dimension.maxWidth, minMaxColumnWidths.maxValues[index]))
-            .getOrElse(minMaxColumnWidths.maxValues[index])
+            .map(styling => Math.max(styling.style.dimension.minWidth, Math.min(styling.style.dimension.maxWidth, minMaxColumnWidths.maxValues[index])))
+            .getOrElse(Math.max(defaultColumnStyle.dimension.minWidth, Math.min(defaultColumnStyle.dimension.maxWidth, minMaxColumnWidths.maxValues[index])))
     })
     const rowHeights = df.rowSlices().map((row, index) => {
         return styledTable.rowStyleFor(index)
-            .map(styling => Math.min(styling.style.dimension.maxHeight, minMaxRowHeights.maxValues[index]))
-            .getOrElse(minMaxRowHeights.maxValues[index])
+            .map(styling => Math.max(styling.style.dimension.minHeight, Math.min(styling.style.dimension.maxHeight, minMaxRowHeights.maxValues[index])))
+            .getOrElse(Math.max(defaultRowStyle.dimension.minHeight, Math.min(defaultRowStyle.dimension.maxHeight, minMaxRowHeights.maxValues[index])))
     })
 
     const dimAdjustedDf = df
