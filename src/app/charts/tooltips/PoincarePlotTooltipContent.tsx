@@ -18,9 +18,10 @@ import {TooltipData} from "../hooks/useTooltip";
 import {TableData} from "./v2/tableData";
 import {DataFrame} from "data-frame-ts";
 import {TableFormatter} from "./v2/tableFormatter";
-import {TableStyler} from "./v2/tableStyler";
+import {defaultColumnStyle, TableStyler} from "./v2/tableStyler";
 import {createTable} from "./v2/tableSvg";
 import {hierarchy} from "d3";
+import {defaultTablePadding} from "./tableStyle";
 
 /**
  # Want to write your own tooltip-content component?
@@ -283,6 +284,10 @@ function addTooltipContent(
         )
         .map(tableData => TableStyler
             .fromTableData(tableData)
+            .withPadding({...defaultTablePadding, top: 10, bottom: 10})
+            .withColumnStyle(0, {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'}, 10)
+            .withColumnStyle(1, {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'}, 10)
+            .withColumnStyle(2, {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'}, 10)
             .styleTable()
         )
         .flatMap(styledTable => {

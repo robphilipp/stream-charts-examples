@@ -147,7 +147,7 @@ export type ColumnStyle = {
 
 export const defaultColumnStyle: ColumnStyle = {
     alignText: "left",
-    dimension: {defaultWidth: 20, minWidth: 20, maxWidth: 20},
+    dimension: {defaultWidth: 60, minWidth: 40, maxWidth: 80},
     padding: {left: 0, right: 0}
 }
 
