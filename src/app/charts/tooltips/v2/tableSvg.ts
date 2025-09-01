@@ -1,4 +1,3 @@
-import * as d3 from 'd3';
 import {select, Selection} from 'd3';
 import {TextSelection} from "../../d3types";
 import {ColumnWidthInfo, RowHeightInfo} from "./tableUtils";
@@ -8,9 +7,11 @@ import {Result} from "result-fn";
 import {
     CellStyle,
     defaultCellStyle,
-    defaultColumnHeaderStyle, defaultColumnStyle,
+    defaultColumnHeaderStyle,
+    defaultColumnStyle,
     defaultFooterStyle,
-    defaultRowHeaderStyle, defaultRowStyle,
+    defaultRowHeaderStyle,
+    defaultRowStyle,
     StyledTable,
     TextAlignment
 } from "./tableStyler";
@@ -89,11 +90,11 @@ export function createTable<V>(
 ): Result<TableRenderingInfo, string> {
 
     // grab a copy of the data as a data-frame
-    // const dataFrame = styledTable.data();
-    // const tableData = TableData.fromDataFrame(dataFrame)
     const tableData = styledTable.tableData()
 
     const [x, y] = coordinates
+
+    const {top, left} = styledTable.tablePadding()
 
     // add the group <g> representing the table, to which all the elements will be added, and
     // the group will be translated to the mouse (x, y) coordinates as appropriate
@@ -102,7 +103,7 @@ export function createTable<V>(
         .attr('id', tableId(uniqueTableId))
         .attr('class', 'tooltip')
         // the  "+ 10" need to be properly calculated from the padding, margin, etc
-        .attr('transform', `translate(${x + 10}, ${y + 10})`)
+        .attr('transform', `translate(${x + left}, ${y + top})`)
 
         .style('fill', styledTable.tableBackground().color)
         .style('font-family', styledTable.tableFont().family)
@@ -122,7 +123,7 @@ export function createTable<V>(
         .withColumnHeader(columnHeaders)
         .flatMap(tableData => tableData.withRowHeader(rowHeaders))
         .flatMap(tableData => tableData.withFooter(footers))
-        .map(tableData => calculateRenderingInfo(tableData, styledTable, uniqueTableId, container))
+        .map(tableData => calculateRenderingInfo(tableData, styledTable))
         .map(renderingInfo => placeTextInTable(renderingInfo))
 }
 
@@ -310,6 +311,9 @@ function createDataPlacementInfo<V>(
     uniqueTableId: string,
     styledTable: StyledTable<V>
 ): DataFrame<ElementPlacementInfo> {
+    // when the table has a column header, then the data starts at row 1
+    // otherwise, the data starts at row 0
+    const rowOffset = tableData.hasColumnHeader() ? 1 : 0
     return tableData
         .data()
         .map(df => {
@@ -321,12 +325,12 @@ function createDataPlacementInfo<V>(
             return df.mapElements((element, rowIndex, columnIndex) => {
                 // the style with the highest priority for the cell
                 const style = styledTable
-                    .stylesForTableCoordinates(rowIndex, columnIndex)
+                    .stylesForTableCoordinates(rowIndex + rowOffset, columnIndex)
                     .getOrElse({...defaultCellStyle})
 
                 const textSelection = groupSelection
                     .append<SVGTextElement>("text")
-                    .attr('id', cellIdFor(uniqueTableId, rowIndex, columnIndex))
+                    .attr('id', cellIdFor(uniqueTableId, rowIndex + rowOffset, columnIndex))
                     .style('font-family', style.font.family)
                     .style('font-size', style.font.family)
                     .style('font-weight', style.font.weight)
@@ -349,14 +353,10 @@ function createDataPlacementInfo<V>(
  *
  * @param tableData
  * @param styledTable
- * @param uniqueTableId
- * @param container
  */
 function calculateRenderingInfo<V>(
     tableData: TableData<ElementPlacementInfo>,
     styledTable: StyledTable<V>,
-    uniqueTableId: string,
-    container: SVGSVGElement
 ): TableRenderingInfo {
 
     type WithWidthHeight = ElementPlacementInfo & { cellWidth: number, cellHeight: number }
@@ -421,11 +421,22 @@ function calculateRenderingInfo<V>(
     const minMaxRowHeights = minMaxFor(whdf.rowSlices(), cell => cell.cellHeight)
 
     const columnWidths = df.columnSlices().map((column, index) => {
+        if (index === 0 && tableData.hasRowHeader()) {
+            return styledTable.rowHeaderStyle()
+                // todo update the styling for the row-headers to include the width and the min and max width
+                .map(styling => minMaxColumnWidths.maxValues[index])
+                .getOrElse(Math.max(defaultColumnStyle.dimension.minWidth, Math.min(defaultColumnStyle.dimension.maxWidth, minMaxColumnWidths.maxValues[index])))
+        }
         return styledTable.columnStyleFor(index)
             .map(styling => Math.max(styling.style.dimension.minWidth, Math.min(styling.style.dimension.maxWidth, minMaxColumnWidths.maxValues[index])))
             .getOrElse(Math.max(defaultColumnStyle.dimension.minWidth, Math.min(defaultColumnStyle.dimension.maxWidth, minMaxColumnWidths.maxValues[index])))
     })
     const rowHeights = df.rowSlices().map((row, index) => {
+        if (index === 0 && tableData.hasColumnHeader()) {
+            return styledTable.columnHeaderStyle()
+                .map(styling => Math.max(styling.style.dimension.minHeight, Math.min(styling.style.dimension.maxHeight, minMaxRowHeights.maxValues[index])))
+                .getOrElse(Math.max(defaultRowStyle.dimension.minHeight, Math.min(defaultRowStyle.dimension.maxHeight, minMaxRowHeights.maxValues[index])))
+        }
         return styledTable.rowStyleFor(index)
             .map(styling => Math.max(styling.style.dimension.minHeight, Math.min(styling.style.dimension.maxHeight, minMaxRowHeights.maxValues[index])))
             .getOrElse(Math.max(defaultRowStyle.dimension.minHeight, Math.min(defaultRowStyle.dimension.maxHeight, minMaxRowHeights.maxValues[index])))
@@ -446,17 +457,27 @@ function calculateRenderingInfo<V>(
             })
         )
 
-    const positionAdjustedDf = dimAdjustedDf.mapElements((element, rowIndex, columnIndex): ElementPlacementInfo & CellRenderingDimensions => {
-        const cellWidth = element.cellStyle.dimension.width
-        const cellHeight = element.cellStyle.dimension.height
-        return {
-            ...element,
-            width: cellWidth,
-            height: cellHeight,
-            x: columnIndex * cellWidth + cellXOffset(element, cellWidth),
-            y: rowIndex * cellHeight + element.cellStyle.padding.bottom,
-        }
-    })
+    // todo gross as shit, is there a better way
+    const cumColumnWidths = columnWidths.reduce((sum: Array<number>, curr: number, index) => {
+        sum.push(curr + sum[index])
+        return sum
+    }, [0])
+    const cumRowHeights = rowHeights.reduce((sum: Array<number>, curr: number, index) => {
+        sum.push(curr + sum[index])
+        return sum
+    }, [0])
+    const positionAdjustedDf = dimAdjustedDf
+        .mapElements((element, rowIndex, columnIndex): ElementPlacementInfo & CellRenderingDimensions => {
+            const cellWidth = element.cellStyle.dimension.width
+            const cellHeight = element.cellStyle.dimension.height
+            return {
+                ...element,
+                width: cellWidth,
+                height: cellHeight,
+                x: cumColumnWidths[columnIndex] + cellXOffset(element, cellWidth),
+                y: cumRowHeights[rowIndex] + element.cellStyle.padding.top,
+            }
+        })
 
     return {
         tableWidth: columnWidths.reduce((sum, width) => sum + width, 0),
@@ -470,14 +491,13 @@ function calculateRenderingInfo<V>(
  * Calculates the row and column dimensions based on the min and max width and hieght of
  * the cells.
  * @param style
- * @param boundingBox
+ * @param width
+ * @param height
  */
 function calculateCellDimensions(style: CellStyle, width: number, height: number): {
     width: number,
     height: number
 } {
-    // const width = boundingBox === undefined ? style.dimension.defaultWidth : boundingBox.width
-    // const height = boundingBox === undefined ? style.dimension.defaultHeight : boundingBox.height
     return {
         width: Math.max(
             Math.min(
@@ -495,29 +515,6 @@ function calculateCellDimensions(style: CellStyle, width: number, height: number
         )
     }
 }
-// function calculateCellDimensions(style: CellStyle, boundingBox: DOMRect | undefined): {
-//     width: number,
-//     height: number
-// } {
-//     const width = boundingBox === undefined ? style.dimension.defaultWidth : boundingBox.width
-//     const height = boundingBox === undefined ? style.dimension.defaultHeight : boundingBox.height
-//     return {
-//         width: Math.max(
-//             Math.min(
-//                 width + style.padding.left + style.padding.right,
-//                 style.dimension.maxWidth
-//             ),
-//             style.dimension.minWidth
-//         ),
-//         height: Math.max(
-//             Math.min(
-//                 height + style.padding.top + style.padding.bottom,
-//                 style.dimension.maxHeight
-//             ),
-//             style.dimension.minHeight
-//         )
-//     }
-// }
 
 /**
  * Calculates the x-offset of the text with the cell
@@ -551,8 +548,6 @@ function placeTextInTable(tableRenderingInfo: TableRenderingInfo): TableRenderin
                 // todo expose style parameter
                 .attr('dominant-baseline', 'central')
                 .attr('transform', `translate(${info.x}, ${info.y})`)
-                // .attr('x', info.x)
-                // .attr('y', info.y)
             return info
         })
     return {

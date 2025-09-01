@@ -473,7 +473,7 @@ export function translateTableToTooltipLocation(
 }
 
 export const defaultTableFont: TableFont = {
-    size: 12,
+    size: 13,
     color: '#d2933f',
     family: 'sans-serif',
     weight: 250,

@@ -199,7 +199,7 @@ export const defaultCellStyle: CellStyle = {
 export type ColumnHeaderStyle = {
     font: TableFont
     alignText: "left" | "right" | "center"
-    dimension: Pick<Dimension, "height">
+    dimension: Pick<Dimension, "height" | "maxHeight" | "minHeight">
     padding: Pick<Padding, "top" | "bottom">
     background: Background
 }
@@ -207,7 +207,7 @@ export type ColumnHeaderStyle = {
 export const defaultColumnHeaderStyle: ColumnHeaderStyle = {
     font: defaultTableFont,
     alignText: "left",
-    dimension: {height: 20},
+    dimension: {height: 20, maxHeight: 20, minHeight: 20},
     padding: {top: 0, bottom: 0},
     background: defaultTableBackground
 }
@@ -374,15 +374,15 @@ export class StyledTable<V> {
     /**
      * Retrieves styling tags for a specific row.
      * @param rowIndex The index of the row
-     * @param tagStyleType The type of style tag to retrieve
+     * @param tagStyleType The type of style tag to retrieve (can be more than one)
      * @returns A Result containing the tag if found, or an error message
      * @private
      */
-    private rowTagsFor<S extends TagValue>(rowIndex: number, tagStyleType: TableStyleType): Result<Tag<Styling<S>, RowCoordinate>, string> {
+    private rowTagsFor<S extends TagValue>(rowIndex: number, ...tagStyleType: Array<TableStyleType>): Result<Tag<Styling<S>, RowCoordinate>, string> {
         // find all the tags and type them to column-header tags
         const tags = this.dataFrame
             .rowTagsFor(rowIndex)
-            .filter(tag => tag.matchesId(tagStyleType, RowCoordinate.of(rowIndex)))
+            .filter(tag => tagStyleType.filter(styleType => tag.matchesId(styleType, RowCoordinate.of(rowIndex))).length > 0)
             .map(tag => tag as Tag<Styling<S>, RowCoordinate>)
 
         if (tags.length === 0) {
@@ -842,7 +842,7 @@ export class TableStyler<V> {
         // tag the row the footer style, and if it fails, then return this (unmodified) builder
         const footerIndex = TableData.tableRowCount(this.dataFrame) - 1
         return this
-            .tagRow<Styling<ColumnHeaderStyle>>(footerIndex, TableStyleType.FOOTER, stylingFor(footerStyle, defaultFooterStyle, priority))
+            .tagRow<Styling<FooterStyle>>(footerIndex, TableStyleType.FOOTER, stylingFor(footerStyle, defaultFooterStyle, priority))
             .getOrElse(this)
     }
 
@@ -867,6 +867,26 @@ export class TableStyler<V> {
             .getOrElse(this)
     }
 
+    withRowStyles(rowIndexes: Array<number>, rowStyle: Partial<RowStyle>, priority: number = 0): TableStyler<V> {
+        return TableStyler.withRowStyles(this, rowIndexes, rowStyle, priority)
+    }
+
+    private static withRowStyles<V>(
+        tableStyler: TableStyler<V>,
+        rowIndexes: Array<number>,
+        rowStyle: Partial<RowStyle>,
+        priority: number = 0
+    ): TableStyler<V> {
+        if (rowIndexes.length > 0) {
+            const rowIndex = rowIndexes.shift()
+            if (rowIndex != null) {
+                const styler = tableStyler.withRowStyle(rowIndex, rowStyle, priority)
+                return TableStyler.withRowStyles(styler, rowIndexes, rowStyle, priority)
+            }
+        }
+        return tableStyler
+    }
+
     /**
      * Sets the style for a specific column.
      * @param columnIndex The index of the column to style
@@ -886,6 +906,26 @@ export class TableStyler<V> {
         return this
             .tagColumn<Styling<ColumnStyle>>(columnIndex, TableStyleType.COLUMN, stylingFor(columnStyle, defaultColumnStyle, priority))
             .getOrElse(this)
+    }
+
+    withColumnStyles(columnIndexes: Array<number>, columnStyle: Partial<ColumnStyle>, priority: number = 0): TableStyler<V> {
+        return TableStyler.withColumnStyles(this, columnIndexes, columnStyle, priority)
+    }
+
+    private static withColumnStyles<V>(
+        tableStyler: TableStyler<V>,
+        columnIndexes: Array<number>,
+        columnStyle: Partial<ColumnStyle>,
+        priority: number = 0
+    ): TableStyler<V> {
+        if (columnIndexes.length > 0) {
+            const columnIndex = columnIndexes.shift()
+            if (columnIndex != null) {
+                const styler = tableStyler.withColumnStyle(columnIndex, columnStyle, priority)
+                return TableStyler.withColumnStyles(styler, columnIndexes, columnStyle, priority)
+            }
+        }
+        return tableStyler
     }
 
     /**

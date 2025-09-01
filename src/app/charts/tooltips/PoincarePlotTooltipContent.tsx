@@ -18,7 +18,13 @@ import {TooltipData} from "../hooks/useTooltip";
 import {TableData} from "./v2/tableData";
 import {DataFrame} from "data-frame-ts";
 import {TableFormatter} from "./v2/tableFormatter";
-import {defaultColumnStyle, TableStyler} from "./v2/tableStyler";
+import {
+    defaultColumnHeaderStyle,
+    defaultColumnStyle,
+    defaultRowHeaderStyle,
+    defaultRowStyle,
+    TableStyler
+} from "./v2/tableStyler";
 import {createTable} from "./v2/tableSvg";
 import {hierarchy} from "d3";
 import {defaultTablePadding} from "./tableStyle";
@@ -244,7 +250,6 @@ function addTooltipContent(
     tooltipStyle: TooltipStyle,
     options: TooltipOptions
 ): TooltipDimensions {
-    const {labels, formatters} = options
     const [x, y] = mouseCoords
     const {series} = tooltipData
     const [lower, point, upper, index] = findPointAndNeighbors(
@@ -264,8 +269,8 @@ function addTooltipContent(
 
     return DataFrame
         .from<number | string>([
-            [formatters.x.value(lower.time), formatters.x.value(point.time), formatters.x.value(upper.time)],
-            [formatters.y.value(lower.iterateN_1), formatters.y.value(point.iterateN_1), formatters.y.value(upper.iterateN_1)]
+            [lower.time, point.time, upper.time],
+            [lower.iterateN_1, point.iterateN_1, upper.iterateN_1]
         ])
         // create the table data that has the column headers
         .flatMap(df => TableData
@@ -277,17 +282,16 @@ function addTooltipContent(
             ])
         )
         // add the dat formatters for the (x, y) values of the iterates
-        .flatMap(tableData => TableFormatter
-                .fromTableData(tableData)
-                .addRowFormatters([0, 1], value => formatTime(value as number))
-                .flatMap(tf => tf.formatTable())
+        .flatMap(tableData => TableFormatter.fromTableData(tableData)
+            .addRowFormatter(1, value => formatTime(value as number))
+            .flatMap(tf => tf.addRowFormatter(2, value => formatValue(value as number)))
+            .flatMap(tf => tf.formatTable())
         )
-        .map(tableData => TableStyler
-            .fromTableData(tableData)
-            .withPadding({...defaultTablePadding, top: 10, bottom: 10})
-            .withColumnStyle(0, {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'}, 10)
-            .withColumnStyle(1, {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'}, 10)
-            .withColumnStyle(2, {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'}, 10)
+        .map(tableData => TableStyler.fromTableData(tableData)
+            .withPadding({...defaultTablePadding, top: 20, left: 20})
+            // todo seems like the column header is getting applied to the first data row instead of the header...
+            .withColumnHeaderStyle({...defaultColumnHeaderStyle, padding: {top: 5, bottom: 15}, dimension: {...defaultColumnHeaderStyle.dimension, maxHeight: 70}, alignText: 'center', background: {color: 'grey', opacity: 0.25}}, 10)
+            .withColumnStyles([0, 1, 2], {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'})
             .styleTable()
         )
         .flatMap(styledTable => {
@@ -299,22 +303,6 @@ function addTooltipContent(
             return {x: xCoordinate, y: yCoordinate, contentWidth: width, contentHeight: height}
         })
         .getOrThrow()
-
-
-    // const tableData = createTableData()
-    //     .withColumnHeader([
-    //         index > 0 ? `f[${index - 1}](x)` : '- n/a -',
-    //         `f[${index}](x)`,
-    //         index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
-    //     ])
-    //     .withRowHeader([labels.x, labels.y])
-    //     .withDataAsRow([
-    //         [formatters.x.value(lower.time), formatters.x.value(point.time), formatters.x.value(upper.time)],
-    //         [formatters.y.value(lower.iterateN_1), formatters.y.value(point.iterateN_1), formatters.y.value(upper.iterateN_1)]
-    //     ])
-    //     .withoutFooter()
-    //
-    // const tableStyle = tableStyleFrom(tooltipStyle)
 
     /**
      * Calculates the coordinates of the tooltip based on the width and height of the SVG
@@ -331,85 +319,4 @@ function addTooltipContent(
         ]
     }
 
-    // todo replace the return of this containing function with a Result
-    // const {
-    //     width,
-    //     height
-    // } = createTable(tableData, container, `t${time}-${seriesName}-header-${chartId}`, tableStyle, tooltipCoordinates).getOrThrow()
-    //
-    // const [xCoordinate, yCoordinate] = tooltipCoordinates(width, height)
-    // return {x: xCoordinate, y: yCoordinate, contentWidth: width, contentHeight: height}
-
-    // above works, below was commented out
-
-    // // create the table that shows the points that come before and after the mouse time, and the
-    // // changes in the time and value
-    // const table = d3.select<SVGSVGElement | null, any>(container)
-    //     .append("g")
-    //     .attr('id', `t${time}-${seriesName}-header-${chartId}`)
-    //     .attr('class', 'tooltip')
-    //     .style('fill', tooltipStyle.fontColor)
-    //     .style('font-family', 'sans-serif')
-    //     .style('font-size', tooltipStyle.fontSize + 2)
-    //     .attr('font-weight', tooltipStyle.fontWeight + 150)
-    //
-    //
-    // const headerRow = table.append('g').attr('font-weight', tooltipStyle.fontWeight + 550)
-    // const hrLower = headerRow.append<SVGTextElement>("text").text(() => index > 0 ? `f[${index-1}](x)` : '- n/a -')
-    // const hrUpper = headerRow.append<SVGTextElement>("text").text(() => `f[${index}](x)`)
-    // const hrDelta = headerRow.append<SVGTextElement>("text").text(() => index < series.length - 1 ? `f[${index+1}](x)` : '- n/a -')
-    //
-    // const trHeader = table.append<SVGTextElement>("text").text(() => labels.x)
-    // const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower.time))
-    // const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(point.time))
-    // const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper.time))
-    //
-    // const vrHeader = table.append<SVGTextElement>("text").text(() => labels.y)
-    // const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower.iterateN_1))
-    // const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(point.iterateN_1))
-    // const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper.iterateN_1))
-    //
-    // const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
-    // const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0
-    // const spacesWidthFor = (spaces: number) => spaces * textWidthOf(hrLower) / 5
-    //
-    // // calculate the max width and height of the text
-    // const tooltipWidth = Math.max(textWidthOf(header), spacesWidthFor(33))
-    // const headerTextHeight = textHeightOf(header)
-    // const headerRowHeight = textHeightOf(hrLower)
-    // const timeRowHeight = textHeightOf(trHeader)
-    // const valueRowHeight = textHeightOf(vrHeader)
-    // const textHeight = headerTextHeight + headerRowHeight + timeRowHeight + valueRowHeight
-    //
-    // // set the header text location
-    // const xCoord = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin)
-    // const yCoord = tooltipY(y, textHeight, plotDimensions, tooltipStyle, margin)
-    // const xTooltip = xCoord + tooltipStyle.paddingLeft
-    // const yTooltip = yCoord + tooltipStyle.paddingTop
-    // header
-    //     .attr('x', () => xTooltip)
-    //     .attr('y', () => yTooltip - (headerRowHeight + timeRowHeight + valueRowHeight) + textHeight)
-    //
-    //
-    // const hrRowY = yTooltip + headerTextHeight + headerRowHeight
-    // const hrLowerX = spacesWidthFor(14)
-    // const hrUpperX = spacesWidthFor(24)
-    // const hrDeltaX = spacesWidthFor(32)
-    // hrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(hrLower)).attr('y', () => hrRowY)
-    // hrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(hrUpper)).attr('y', () => hrRowY)
-    // hrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(hrDelta)).attr('y', () => hrRowY)
-    //
-    // const trRowY = hrRowY + timeRowHeight
-    // trHeader.attr('x', () => xTooltip).attr('y', () => trRowY)
-    // trLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(trLower)).attr('y', () => trRowY)
-    // trUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(trUpper)).attr('y', () => trRowY)
-    // trDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(trDelta)).attr('y', () => trRowY)
-    //
-    // const vrRowY = trRowY + valueRowHeight
-    // vrHeader.attr('x', () => xTooltip).attr('y', () => vrRowY)
-    // vrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(vrLower)).attr('y', () => vrRowY)
-    // vrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(vrUpper)).attr('y', () => vrRowY)
-    // vrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(vrDelta)).attr('y', () => vrRowY)
-    //
-    // return {x: xCoord, y: yCoord, contentWidth: tooltipWidth, contentHeight: textHeight}
 }
