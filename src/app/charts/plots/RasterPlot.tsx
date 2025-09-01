@@ -147,7 +147,7 @@ export function RasterPlot(props: Props): null {
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
-    const subscriptionRef = useRef<Subscription>()
+    const subscriptionRef = useRef<Subscription>(undefined)
 
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 

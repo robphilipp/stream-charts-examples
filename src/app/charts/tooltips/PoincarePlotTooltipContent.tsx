@@ -15,63 +15,66 @@ import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {emptyIterateDatum, IterateDatum} from "../series/iterateSeries";
 import {SeriesLineStyle} from "../axes/axes";
 import {TooltipData} from "../hooks/useTooltip";
-import {createTable} from "./tableSvg";
-import {createTableData} from "./tableData";
-import {tableStyleFrom} from "./tableUtils";
+import {TableData} from "./v2/tableData";
+import {DataFrame} from "data-frame-ts";
+import {TableFormatter} from "./v2/tableFormatter";
+import {TableStyler} from "./v2/tableStyler";
+import {createTable} from "./v2/tableSvg";
+import {hierarchy} from "d3";
 
 /**
-# Want to write your own tooltip-content component?
+ # Want to write your own tooltip-content component?
 
-Here's how to write your own tooltip-content component.
+ Here's how to write your own tooltip-content component.
 
-To create your own tooltip content `<MyTooltipContent/>` you must do the following:
-1. Create a react component for your tooltip content (see for example, {@link PoincarePlotTooltipContent}
-   as a reference.
-2. Use the {@link useChart} hook to get the {@link registerTooltipContentProvider} registration function.
-3. When your tooltip content component (`<MyTooltipContent/>`) mounts, use the {@link registerTooltipContentProvider}
-   function to register your tooltip content provider.
-4. When the chart dimensions, margin, container, etc, change, register your tooltip content provider
-   again (you can register as many times as you like because it only uses the last content provider
-   registered).
+ To create your own tooltip content `<MyTooltipContent/>` you must do the following:
+ 1. Create a react component for your tooltip content (see for example, {@link PoincarePlotTooltipContent}
+ as a reference.
+ 2. Use the {@link useChart} hook to get the {@link registerTooltipContentProvider} registration function.
+ 3. When your tooltip content component (`<MyTooltipContent/>`) mounts, use the {@link registerTooltipContentProvider}
+ function to register your tooltip content provider.
+ 4. When the chart dimensions, margin, container, etc, change, register your tooltip content provider
+ again (you can register as many times as you like because it only uses the last content provider
+ registered).
 
-That's it! A bit more details below.
+ That's it! A bit more details below.
 
-The {@link registerTooltipContentProvider} function from the {@link useChart} hook allows you to register
-one tooltip content provider. A second call to this function will cause the {@link useChart} hook to drop
-the first one in favor of the second one.
+ The {@link registerTooltipContentProvider} function from the {@link useChart} hook allows you to register
+ one tooltip content provider. A second call to this function will cause the {@link useChart} hook to drop
+ the first one in favor of the second one.
 
-The {@link registerTooltipContentProvider} function from the {@link useChart} hook accepts a higher-order
-function that allowing a closure on content/chart-specific data. Specifically, you must hand the
-{@link registerTooltipContentProvider} a function of the form:
+ The {@link registerTooltipContentProvider} function from the {@link useChart} hook accepts a higher-order
+ function that allowing a closure on content/chart-specific data. Specifically, you must hand the
+ {@link registerTooltipContentProvider} a function of the form:
 
-`(seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions`
+ `(seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions`
 
-Your function to add that actual content will be what this function calls whenever d3 fires a mouse-over
-event on one you the time-series in the chart.
+ Your function to add that actual content will be what this function calls whenever d3 fires a mouse-over
+ event on one you the time-series in the chart.
 
-The code snippet below is from the `useEffect` call in the {@link PoincarePlotTooltipContent}.
-Note that the first four arguments to the {@link addTooltipContent} function are those provided by the {@link useChart} hook
-when a d3 mouse-over event occurs on one of your series. The additional six arguments are from the closure formed
-on the variables in your component. The `chartId`, `container`, `margin`, and `plotDimensions` are from the
+ The code snippet below is from the `useEffect` call in the {@link PoincarePlotTooltipContent}.
+ Note that the first four arguments to the {@link addTooltipContent} function are those provided by the {@link useChart} hook
+ when a d3 mouse-over event occurs on one of your series. The additional six arguments are from the closure formed
+ on the variables in your component. The `chartId`, `container`, `margin`, and `plotDimensions` are from the
  {@link useChart} hook called by the {@link PoincarePlotTooltipContent} component. The last two
-arguments, `defaultTooltipStyle` and `options` are specific to the {@link PoincarePlotTooltipContent}.
-For example, the `options` property is set by the caller of the {@link PoincarePlotTooltipContent}
-component.
+ arguments, `defaultTooltipStyle` and `options` are specific to the {@link PoincarePlotTooltipContent}.
+ For example, the `options` property is set by the caller of the {@link PoincarePlotTooltipContent}
+ component.
 
-```ts
-// register the tooltip content provider function with the chart hook (useChart) so that
-// it is visible to all children of the Chart (i.e. the <Tooltip>).
-registerTooltipContentProvider(
-    (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
-        addTooltipContent(
-            seriesName, time, series, mouseCoords,
-            chartId, container, margin, plotDimensions,
-            defaultTooltipStyle, options
-        )
-)
-```
+ ```ts
+ // register the tooltip content provider function with the chart hook (useChart) so that
+ // it is visible to all children of the Chart (i.e. the <Tooltip>).
+ registerTooltipContentProvider(
+ (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
+ addTooltipContent(
+ seriesName, time, series, mouseCoords,
+ chartId, container, margin, plotDimensions,
+ defaultTooltipStyle, options
+ )
+ )
+ ```
 
-This pattern allows you to supplement that `useChart` mouse-over callback with information specific to you component.
+ This pattern allows you to supplement that `useChart` mouse-over callback with information specific to you component.
 
  */
 
@@ -88,7 +91,7 @@ This pattern allows you to supplement that `useChart` mouse-over callback with i
  */
 interface TooltipOptions {
     labels: { x: string, y: string }
-    headers: {nMinusLag: string, n: string, nPlusLag: string}
+    headers: { nMinusLag: string, n: string, nPlusLag: string }
     formatters: {
         x: { value: (value: number) => string, change: (value1: number, value2: number) => string },
         y: { value: (value: number) => string, change: (value1: number, value2: number) => string },
@@ -157,8 +160,8 @@ export function PoincarePlotTooltipContent(props: Props): null {
         xLabel,
         yLabel,
         nMinusLagHeader = ' f[n-1](x)',
-        nHeader         = ' f[n](x)  ',
-        nPlusLagHeader  = ' f[n+1](x)',
+        nHeader = ' f[n](x)  ',
+        nPlusLagHeader = ' f[n+1](x)',
         xValueFormatter = formatTime,
         yValueFormatter = formatValue,
         xChangeFormatter = formatTimeChange,
@@ -248,30 +251,65 @@ function addTooltipContent(
     )
 
     // display the neuron ID in the tooltip
-    const header = d3.select<SVGSVGElement | null, any>(container)
-        .append<SVGTextElement>("text")
-        .attr('id', `tn${time}-${seriesName}-${chartId}`)
-        .attr('class', 'tooltip')
-        .style('fill', tooltipStyle.fontColor)
-        .style('font-family', 'sans-serif')
-        .style('font-size', tooltipStyle.fontSize)
-        .style('font-weight', tooltipStyle.fontWeight)
-        .text(() => seriesName)
+    // const header = d3.select<SVGSVGElement | null, any>(container)
+    //     .append<SVGTextElement>("text")
+    //     .attr('id', `tn${time}-${seriesName}-${chartId}`)
+    //     .attr('class', 'tooltip')
+    //     .style('fill', tooltipStyle.fontColor)
+    //     .style('font-family', 'sans-serif')
+    //     .style('font-size', tooltipStyle.fontSize)
+    //     .style('font-weight', tooltipStyle.fontWeight)
+    //     .text(() => seriesName)
 
-    const tableData = createTableData()
-        .withColumnHeader([
-            index > 0 ? `f[${index-1}](x)` : '- n/a -',
-            `f[${index}](x)`,
-            index < series.length - 1 ? `f[${index+1}](x)` : '- n/a -'
-        ])
-        .withRowHeader([labels.x, labels.y])
-        .withDataAsRow([
+    return DataFrame
+        .from<number | string>([
             [formatters.x.value(lower.time), formatters.x.value(point.time), formatters.x.value(upper.time)],
             [formatters.y.value(lower.iterateN_1), formatters.y.value(point.iterateN_1), formatters.y.value(upper.iterateN_1)]
         ])
-        .withoutFooter()
+        // create the table data that has the column headers
+        .flatMap(df => TableData
+            .fromDataFrame(df)
+            .withColumnHeader([
+                index > 0 ? `f[${index - 1}](x)` : '- n/a -',
+                `f[${index}](x)`,
+                index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
+            ])
+        )
+        // add the dat formatters for the (x, y) values of the iterates
+        .flatMap(tableData => TableFormatter
+                .fromTableData(tableData)
+                .addRowFormatters([0, 1], value => formatTime(value as number))
+                .flatMap(tf => tf.formatTable())
+        )
+        .map(tableData => TableStyler
+            .fromTableData(tableData)
+            .styleTable()
+        )
+        .flatMap(styledTable => {
+            return createTable(styledTable, container, `t${time}-${seriesName}-header-${chartId}`, mouseCoords)
+        })
+        .map(renderingInfo => {
+            const {tableWidth: width, tableHeight: height} = renderingInfo
+            const [xCoordinate, yCoordinate] = tooltipCoordinates(width, height)
+            return {x: xCoordinate, y: yCoordinate, contentWidth: width, contentHeight: height}
+        })
+        .getOrThrow()
 
-    const tableStyle = tableStyleFrom(tooltipStyle)
+
+    // const tableData = createTableData()
+    //     .withColumnHeader([
+    //         index > 0 ? `f[${index - 1}](x)` : '- n/a -',
+    //         `f[${index}](x)`,
+    //         index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
+    //     ])
+    //     .withRowHeader([labels.x, labels.y])
+    //     .withDataAsRow([
+    //         [formatters.x.value(lower.time), formatters.x.value(point.time), formatters.x.value(upper.time)],
+    //         [formatters.y.value(lower.iterateN_1), formatters.y.value(point.iterateN_1), formatters.y.value(upper.iterateN_1)]
+    //     ])
+    //     .withoutFooter()
+    //
+    // const tableStyle = tableStyleFrom(tooltipStyle)
 
     /**
      * Calculates the coordinates of the tooltip based on the width and height of the SVG
@@ -289,10 +327,15 @@ function addTooltipContent(
     }
 
     // todo replace the return of this containing function with a Result
-    const {width, height} = createTable(tableData, container, `t${time}-${seriesName}-header-${chartId}`, tableStyle, tooltipCoordinates).getOrThrow()
+    // const {
+    //     width,
+    //     height
+    // } = createTable(tableData, container, `t${time}-${seriesName}-header-${chartId}`, tableStyle, tooltipCoordinates).getOrThrow()
+    //
+    // const [xCoordinate, yCoordinate] = tooltipCoordinates(width, height)
+    // return {x: xCoordinate, y: yCoordinate, contentWidth: width, contentHeight: height}
 
-    const [xCoordinate, yCoordinate] = tooltipCoordinates(width, height)
-    return {x: xCoordinate, y: yCoordinate, contentWidth: width, contentHeight: height}
+    // above works, below was commented out
 
     // // create the table that shows the points that come before and after the mouse time, and the
     // // changes in the time and value

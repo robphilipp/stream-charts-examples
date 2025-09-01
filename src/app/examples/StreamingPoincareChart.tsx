@@ -226,7 +226,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timeout>()
+    const intervalRef = useRef<NodeJS.Timeout>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time

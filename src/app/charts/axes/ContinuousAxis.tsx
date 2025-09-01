@@ -83,8 +83,8 @@ export function ContinuousAxis(props: Props): null {
         label,
     } = props
 
-    const axisRef = useRef<ContinuousNumericAxis>()
-    const rangeUpdateHandlerIdRef = useRef<string>()
+    const axisRef = useRef<ContinuousNumericAxis>(undefined)
+    const rangeUpdateHandlerIdRef = useRef<string>(undefined)
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)

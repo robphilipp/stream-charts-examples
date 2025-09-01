@@ -164,7 +164,7 @@ export function BarPlot(props: Props): null {
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<number>(0)
 
-    const subscriptionRef = useRef<Subscription>()
+    const subscriptionRef = useRef<Subscription>(undefined)
 
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 

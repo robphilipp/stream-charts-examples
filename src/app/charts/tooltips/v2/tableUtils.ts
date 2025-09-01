@@ -43,7 +43,7 @@ export type RowHeightInfo = {
  * @param data The table data
  * @return `true` if the table dimensions are valid, and `false` otherwise
  */
-export function areTableDimensionsValid(style: Partial<StyledTable>, data: TableData): boolean {
+export function areTableDimensionsValid<V>(style: Partial<StyledTable<V>>, data: TableData<V>): boolean {
     return validateTableDimensions(style, data).succeeded
 }
 
@@ -63,7 +63,7 @@ export function areInfoDimensionsValid(tableInfo: TableDataPlacementInfo): boole
  * @param data The table data
  * @return A {@link Result} that evaluates to `true` if the table dimensions are valid, and `false` otherwise
  */
-export function validateTableDimensions(style: Partial<StyledTable>, data: TableData): Result<string, string> {
+export function validateTableDimensions<V>(style: Partial<StyledTable<V>>, data: TableData<V>): Result<string, string> {
     //
     // check that the number of rows and columns match the number of data rows and columns
     if (style.rowStyles && style.rowStyles.length > 0 && style.rowStyles.length !== data.numRows()) {

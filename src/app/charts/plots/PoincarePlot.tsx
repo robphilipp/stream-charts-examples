@@ -185,15 +185,15 @@ export function PoincarePlot(props: Props): null {
     const xAxisRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map());
     const yAxisRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map());
 
-    const subscriptionRef = useRef<Subscription>()
+    const subscriptionRef = useRef<Subscription>(undefined)
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     const allowTooltip = useRef<boolean>(isSubscriptionClosed())
 
     // so that we can reset the zoom when the axes-bounds change, we hold on to the zoom-behaviour
     // and the zoom-selection so that we can reset the transform to the identity
-    const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, Datum>>()
-    const zoomSelectionRef = useRef<d3.Selection<SVGSVGElement, any, null, undefined>>()
+    const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, Datum>>(undefined)
+    const zoomSelectionRef = useRef<d3.Selection<SVGSVGElement, any, null, undefined>>(undefined)
 
     // calculates the distinct axis IDs that cover all the series in the plot
     const xAxesForSeries = useMemo(

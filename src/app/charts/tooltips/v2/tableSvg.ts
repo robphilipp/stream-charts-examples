@@ -79,11 +79,13 @@ export function elementInfoFrom(selection: TextSelection, cellStyle: CellStyle):
  * @param styledTable
  * @param container
  * @param uniqueTableId
+ * @param coordinates
  */
 export function createTable<V>(
     styledTable: StyledTable<V>,
     container: SVGSVGElement,
-    uniqueTableId: string
+    uniqueTableId: string,
+    coordinates: [x: number, y: number]
 ): Result<TableRenderingInfo, string> {
 
     // grab a copy of the data as a data-frame
@@ -91,13 +93,18 @@ export function createTable<V>(
     // const tableData = TableData.fromDataFrame(dataFrame)
     const tableData = styledTable.tableData()
 
+    const [x, y] = coordinates
+
     // add the group <g> representing the table, to which all the elements will be added, and
     // the group will be translated to the mouse (x, y) coordinates as appropriate
     const tableSelection = select<SVGSVGElement | null, any>(container)
         .append('g')
         .attr('id', tableId(uniqueTableId))
         .attr('class', 'tooltip')
-        // .attr('class', 'tooltip-table')
+        .attr('transform', `translate(${x + 10}, ${y + 10})`)
+        // .attr('x', x)
+        // .attr('y', y)
+
         .style('fill', styledTable.tableBackground().color)
         .style('font-family', styledTable.tableFont().family)
         .style('font-size', styledTable.tableFont().size)
@@ -119,6 +126,10 @@ export function createTable<V>(
         .map(tableData => calculateRenderingInfo(tableData, styledTable, uniqueTableId, container))
         .map(renderingInfo => placeTextInTable(renderingInfo))
 }
+
+/*
+    HELPER STUFF
+ */
 
 /*
     Add all the SVG elements representing the table and then update the
@@ -521,8 +532,9 @@ function placeTextInTable(tableRenderingInfo: TableRenderingInfo): TableRenderin
                 .attr('text-anchor', textAnchorFrom(info.cellStyle.alignText))
                 // todo expose style parameter
                 .attr('dominant-baseline', 'central')
-                .attr('x', info.x)
-                .attr('y', info.y)
+                .attr('transform', `translate(${info.x}, ${info.y})`)
+                // .attr('x', info.x)
+                // .attr('y', info.y)
             return info
         })
     return {

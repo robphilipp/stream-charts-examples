@@ -63,7 +63,7 @@ export function Tracker(props: Props): null {
 
     const trackerStyle = useMemo(() => ({...defaultTrackerStyle, ...style}), [style])
     const trackerFont = useMemo(() => ({...defaultTrackerLabelFont, ...font}), [font])
-    const trackerRef = useRef<TrackerSelection>()
+    const trackerRef = useRef<TrackerSelection>(undefined)
 
     const xAxisRef = useRef<Map<string, ContinuousNumericAxis>>(new Map())
     useEffect(

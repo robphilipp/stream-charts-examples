@@ -131,16 +131,79 @@ export class TableFormatter<V> {
             .map(data => new TableFormatter<V>(data))
     }
 
+    addColumnFormatters(columnIndexes: Array<number>, formatter: Formatter<V>, priority: number = 0): Result<TableFormatter<V>, string> {
+        return TableFormatter.addColumnFormatters(this, columnIndexes, formatter, priority)
+    }
+
+    private static addColumnFormatters<V>(
+        tableFormatter: TableFormatter<V>,
+        columnIndexes: Array<number>,
+        formatter: Formatter<V>,
+        priority: number = 0
+    ): Result<TableFormatter<V>, string> {
+        if (columnIndexes.length > 0) {
+            const columnIndex = columnIndexes.slice().shift()
+            if (columnIndex != null) {
+                return tableFormatter
+                    .addColumnFormatter(columnIndex, formatter, priority)
+                    .flatMap(tf => TableFormatter.addColumnFormatters(tf, columnIndexes, formatter, priority))
+            }
+        }
+        return successResult(tableFormatter)
+    }
+
     addRowFormatter(rowIndex: number, formatter: Formatter<V>, priority: number = 0): Result<TableFormatter<V>, string> {
         return this.dataFrame
             .tagRow<Formatting<V>>(rowIndex, TableFormatterType.ROW, {formatter, priority})
             .map(data => new TableFormatter<V>(data))
     }
 
+    addRowFormatters(rowIndexes: Array<number>, formatter: Formatter<V>, priority: number = 0): Result<TableFormatter<V>, string> {
+        return TableFormatter.addRowFormatters(this, rowIndexes.slice(), formatter, priority)
+    }
+
+    private static addRowFormatters<V>(
+        tableFormatter: TableFormatter<V>,
+        rowIndexes: Array<number>,
+        formatter: Formatter<V>,
+        priority: number = 0
+    ): Result<TableFormatter<V>, string> {
+        if (rowIndexes.length > 0) {
+            const rowIndex = rowIndexes.shift()
+            if (rowIndex != null) {
+                return tableFormatter
+                    .addRowFormatter(rowIndex, formatter, priority)
+                    .flatMap(tf => TableFormatter.addRowFormatters(tf, rowIndexes, formatter, priority))
+            }
+        }
+        return successResult(tableFormatter)
+    }
+
     addCellFormatter(rowIndex: number, columnIndex: number, formatter: Formatter<V>, priority: number = 0): Result<TableFormatter<V>, string> {
         return this.dataFrame
             .tagCell(rowIndex, columnIndex, TableFormatterType.CELL, {formatter, priority})
             .map(data => new TableFormatter<V>(data))
+    }
+
+    addCellFormatters(cellIndexes: Array<[x: number, y: number]>, formatter: Formatter<V>, priority: number = 0): Result<TableFormatter<V>, string> {
+        return TableFormatter.addCellFormatters(this, cellIndexes, formatter, priority)
+    }
+
+    private static addCellFormatters<V>(
+        tableFormatter: TableFormatter<V>,
+        cellIndexes: Array<[x: number, y: number]>,
+        formatter: Formatter<V>,
+        priority: number = 0
+    ): Result<TableFormatter<V>, string> {
+        if (cellIndexes.length > 0) {
+            const [columnIndex, rowIndex] = cellIndexes.slice().shift() ?? [undefined, undefined]
+            if (rowIndex != null && columnIndex != null) {
+                return tableFormatter
+                    .addCellFormatter(rowIndex, columnIndex, formatter, priority)
+                    .flatMap(tf => TableFormatter.addCellFormatters(tf, cellIndexes, formatter, priority))
+            }
+        }
+        return successResult(tableFormatter)
     }
 
     /**

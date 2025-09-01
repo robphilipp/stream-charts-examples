@@ -64,7 +64,7 @@ export function OrdinalAxis(props: Props): null {
         label,
     } = props
 
-    const axisRef = useRef<axes.CategoryAxis>()
+    const axisRef = useRef<axes.CategoryAxis>(undefined)
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
