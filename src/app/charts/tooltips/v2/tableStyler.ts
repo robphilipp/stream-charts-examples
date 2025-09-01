@@ -125,15 +125,15 @@ export type Dimension = {
 }
 
 export const defaultDimension: Dimension = {
-    width: 20,
-    defaultWidth: 20,
-    minWidth: 20,
-    maxWidth: 20,
+    width: 60,
+    defaultWidth: 70,
+    minWidth: 50,
+    maxWidth: 80,
 
-    height: 20,
+    height: 15,
     defaultHeight: 20,
-    minHeight: 20,
-    maxHeight: 20
+    minHeight: 10,
+    maxHeight: 30
 }
 
 /**

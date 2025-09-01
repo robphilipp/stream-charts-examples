@@ -101,9 +101,8 @@ export function createTable<V>(
         .append('g')
         .attr('id', tableId(uniqueTableId))
         .attr('class', 'tooltip')
+        // the  "+ 10" need to be properly calculated from the padding, margin, etc
         .attr('transform', `translate(${x + 10}, ${y + 10})`)
-        // .attr('x', x)
-        // .attr('y', y)
 
         .style('fill', styledTable.tableBackground().color)
         .style('font-family', styledTable.tableFont().family)
@@ -404,12 +403,13 @@ function calculateRenderingInfo<V>(
             .stylesForTableCoordinates(rowIndex, columnIndex)
             .getOrElse({...defaultCellStyle})
 
-        // grab the text node
-        const text = d3.select<SVGSVGElement | null, any>(container)
-            .attr('id', cellIdFor(uniqueTableId, rowIndex, columnIndex))
+        // // grab the text node
+        // const text = d3.select<SVGSVGElement | null, any>(container)
+        //     .attr('id', cellIdFor(uniqueTableId, rowIndex, columnIndex))
 
         // calculate the actual width and height of the cell
-        const {width, height} = calculateCellDimensions(style, text.node()?.getBBox())
+        const {width, height} = calculateCellDimensions(style, element.textWidth, element.textHeight)
+        // const {width, height} = calculateCellDimensions(style, text.node()?.getBBox())
 
         return {...element, cellWidth: width, cellHeight: height}
     })
@@ -477,12 +477,12 @@ function calculateRenderingInfo<V>(
  * @param style
  * @param boundingBox
  */
-function calculateCellDimensions(style: CellStyle, boundingBox: DOMRect | undefined): {
+function calculateCellDimensions(style: CellStyle, width: number, height: number): {
     width: number,
     height: number
 } {
-    const width = boundingBox === undefined ? style.dimension.defaultWidth : boundingBox.width
-    const height = boundingBox === undefined ? style.dimension.defaultHeight : boundingBox.height
+    // const width = boundingBox === undefined ? style.dimension.defaultWidth : boundingBox.width
+    // const height = boundingBox === undefined ? style.dimension.defaultHeight : boundingBox.height
     return {
         width: Math.max(
             Math.min(
@@ -500,6 +500,29 @@ function calculateCellDimensions(style: CellStyle, boundingBox: DOMRect | undefi
         )
     }
 }
+// function calculateCellDimensions(style: CellStyle, boundingBox: DOMRect | undefined): {
+//     width: number,
+//     height: number
+// } {
+//     const width = boundingBox === undefined ? style.dimension.defaultWidth : boundingBox.width
+//     const height = boundingBox === undefined ? style.dimension.defaultHeight : boundingBox.height
+//     return {
+//         width: Math.max(
+//             Math.min(
+//                 width + style.padding.left + style.padding.right,
+//                 style.dimension.maxWidth
+//             ),
+//             style.dimension.minWidth
+//         ),
+//         height: Math.max(
+//             Math.min(
+//                 height + style.padding.top + style.padding.bottom,
+//                 style.dimension.maxHeight
+//             ),
+//             style.dimension.minHeight
+//         )
+//     }
+// }
 
 /**
  * Calculates the x-offset of the text with the cell
