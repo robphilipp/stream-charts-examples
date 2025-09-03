@@ -205,7 +205,7 @@ export type ColumnHeaderStyle = {
 }
 
 export const defaultColumnHeaderStyle: ColumnHeaderStyle = {
-    font: defaultTableFont,
+    font: {...defaultTableFont, weight: 600},
     alignText: "left",
     dimension: {height: 20, maxHeight: 20, minHeight: 20},
     padding: {top: 0, bottom: 0},

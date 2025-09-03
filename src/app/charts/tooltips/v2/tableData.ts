@@ -17,13 +17,6 @@ export enum TableTagType {
     FOOTER = "footer"
 }
 
-// /**
-//  * Factory function to create table data.
-//  */
-// export function createTableData<V>(data: DataFrame<V>): TableData<V> {
-//     return new TableData<V>(data)
-// }
-
 /**
  * Represents the table data, row and column headers, and footers
  */
@@ -47,9 +40,14 @@ export class TableData<V> {
      * @param formatting The formatter, and its priority, for the row that represents the column-header. Note that the column
      * header should not account for a possible column containing row-headers. The builder will take care
      * of any adjustments needed for that.
+     * @param rowHeaderProvider
      * @return A {@link TableData} which represents the next step in the guided builder
      */
-    public withColumnHeader(header: Array<V>, formatting: Formatting<V> = defaultFormatting<V>()): Result<TableData<V>, string> {
+    public withColumnHeader(
+        header: Array<V>,
+        formatting: Formatting<V> = defaultFormatting<V>(),
+        rowHeaderProvider: () => V | undefined = () => undefined
+    ): Result<TableData<V>, string> {
         // just return a copy of the data table if the header is empty
         if (header.length === 0) {
             return successResult(new TableData<V>(this.dataFrame.copy()))
@@ -59,7 +57,7 @@ export class TableData<V> {
         // and so we need to insert an empty cell at the beginning of the column header
         const updatedHeader = header.slice()
         if (this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)) {
-            updatedHeader.unshift(undefined as V)
+            updatedHeader.unshift(rowHeaderProvider() as V)
         }
 
         // when there is already a column-header, then replace it with the new one
@@ -76,7 +74,12 @@ export class TableData<V> {
             .map(df => new TableData<V>(df))
     }
 
-    public withRowHeader(header: Array<V>, formatting: Formatting<V> = defaultFormatting<V>()): Result<TableData<V>, string> {
+    public withRowHeader(
+        header: Array<V>,
+        formatting: Formatting<V> = defaultFormatting<V>(),
+        columnHeaderProvider: () => V | undefined = () => undefined,
+        footerProvider: () => V | undefined = () => undefined,
+    ): Result<TableData<V>, string> {
         // just return a copy of the data table if the header is empty
         if (header.length === 0) {
             return successResult(TableData.fromDataFrame<V>(this.dataFrame.copy()))
@@ -88,10 +91,10 @@ export class TableData<V> {
         const updatedHeader = header.slice()
         // recall that a column-header is a row, specifically the first row
         if (this.dataFrame.rowTagsFor(0).some(tag => tag.value === TableTagType.COLUMN_HEADER)) {
-            updatedHeader.unshift(undefined as V)
+            updatedHeader.unshift(columnHeaderProvider() as V)
         }
         if (this.dataFrame.rowTagsFor(this.dataFrame.rowCount() - 1).some(tag => tag.value === TableTagType.FOOTER)) {
-            updatedHeader.push(undefined as V)
+            updatedHeader.push(footerProvider() as V)
         }
 
 
@@ -105,11 +108,15 @@ export class TableData<V> {
         return this.dataFrame
             .insertColumnBefore(0, updatedHeader)
             .flatMap(df => df.tagColumn(0, "row-header", TableTagType.ROW_HEADER))
-            .flatMap(df => df.tagColumn<Formatting<V>>(0, TableFormatterType.ROW, formatting))
+            .flatMap(df => df.tagColumn<Formatting<V>>(0, TableFormatterType.COLUMN, formatting))
             .map(df => TableData.fromDataFrame<V>(df))
     }
 
-    public withFooter(footer: Array<V>, formatting: Formatting<V> = defaultFormatting<V>()): Result<TableData<V>, string> {
+    public withFooter(
+        footer: Array<V>,
+        formatting: Formatting<V> = defaultFormatting<V>(),
+        rowHeaderProvider: () => V | undefined = () => undefined
+    ): Result<TableData<V>, string> {
         // just return a copy of the data table if the footer is empty
         if (footer.length === 0) {
             return successResult(TableData.fromDataFrame<V>(this.dataFrame.copy()))
@@ -119,7 +126,7 @@ export class TableData<V> {
         // and so we need to insert an empty cell at the beginning of the footer
         const updatedFooter = footer.slice()
         if (this.dataFrame.columnTagsFor(0).some(tag => tag.value === TableTagType.ROW_HEADER)) {
-            updatedFooter.unshift(undefined as V)
+            updatedFooter.unshift(rowHeaderProvider() as V)
         }
 
         // when there is already a footer, then replace it with the new one

@@ -94,8 +94,8 @@ export function formatNumber(value: number, format: string): string {
     return isNaN(value) ? '---' : d3.format(format)(value)
 }
 
-export function formatTime(value: number): string {
-    return formatNumber(value, " ,.0f")
+export function formatTime(value: number, units: string = ""): string {
+    return `${formatNumber(value, " ,.0f")}${!isNaN(value) && units ? ` ${units}` : ""}`
 }
 
 export function formatValue(value: number): string {

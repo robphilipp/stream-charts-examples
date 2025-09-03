@@ -7,7 +7,6 @@ import {
     tooltipX,
     tooltipY
 } from "./tooltipUtils";
-import * as d3 from "d3";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "../utils";
 import {useEffect, useMemo} from "react";
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
@@ -18,15 +17,8 @@ import {TooltipData} from "../hooks/useTooltip";
 import {TableData} from "./v2/tableData";
 import {DataFrame} from "data-frame-ts";
 import {TableFormatter} from "./v2/tableFormatter";
-import {
-    defaultColumnHeaderStyle,
-    defaultColumnStyle,
-    defaultRowHeaderStyle,
-    defaultRowStyle,
-    TableStyler
-} from "./v2/tableStyler";
+import {defaultColumnHeaderStyle, defaultColumnStyle, TableStyler} from "./v2/tableStyler";
 import {createTable} from "./v2/tableSvg";
-import {hierarchy} from "d3";
 import {defaultTablePadding} from "./tableStyle";
 
 /**
@@ -280,27 +272,27 @@ function addTooltipContent(
                 `f[${index}](x)`,
                 index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
             ])
+            // .flatMap(td => td.withRowHeader(['(ms)', ' ']))
         )
         // add the dat formatters for the (x, y) values of the iterates
         .flatMap(tableData => TableFormatter.fromTableData(tableData)
-            .addRowFormatter(1, value => formatTime(value as number))
+            .addRowFormatter(1, value => formatTime(value as number, "ms"))
+            // .addRowFormatter(1, value => `${formatTime(value as number)} ms`)
             .flatMap(tf => tf.addRowFormatter(2, value => formatValue(value as number)))
             .flatMap(tf => tf.formatTable())
         )
         .map(tableData => TableStyler.fromTableData(tableData)
             .withPadding({...defaultTablePadding, top: 20, left: 20})
-            // todo seems like the column header is getting applied to the first data row instead of the header...
-            .withColumnHeaderStyle({...defaultColumnHeaderStyle, padding: {top: 5, bottom: 15}, dimension: {...defaultColumnHeaderStyle.dimension, maxHeight: 70}, alignText: 'center', background: {color: 'grey', opacity: 0.25}}, 10)
+            .withColumnHeaderStyle({...defaultColumnHeaderStyle, padding: {top: 0, bottom: 10}, dimension: {...defaultColumnHeaderStyle.dimension, maxHeight: 70}, alignText: 'center', background: {color: 'grey', opacity: 0.25}}, 10)
             .withColumnStyles([0, 1, 2], {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'})
             .styleTable()
         )
-        .flatMap(styledTable => {
-            return createTable(styledTable, container, `t${time}-${seriesName}-header-${chartId}`, mouseCoords)
-        })
+        .flatMap(styledTable =>
+            createTable(styledTable, container, `t${time}-${seriesName}-header-${chartId}`, tooltipCoordinates)
+        )
         .map(renderingInfo => {
-            const {tableWidth: width, tableHeight: height} = renderingInfo
-            const [xCoordinate, yCoordinate] = tooltipCoordinates(width, height)
-            return {x: xCoordinate, y: yCoordinate, contentWidth: width, contentHeight: height}
+            const {tableX: x, tableY: y, tableWidth: contentWidth, tableHeight: contentHeight} = renderingInfo
+            return {x, y, contentWidth, contentHeight}
         })
         .getOrThrow()
 
