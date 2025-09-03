@@ -478,6 +478,92 @@ export function PoincarePlot(props: Props): null {
                     // only show the data for which the filter matches
                     const plotData = (name.match(seriesFilter)) ? data : []
 
+                    // // when specified, show a circle for the actual data point
+                    // if (showPoints) {
+                    //     mainGElem
+                    //         .selectAll(`.${name}-${chartId}-poincare-points`)
+                    //         .data(plotData, () => `${name}`)
+                    //         .join(
+                    //             enter => enter
+                    //                 .append("circle")
+                    //                 .attr("class", `${name}-${chartId}-poincare-points`)
+                    //                 .attr("id", (_, index) => `${name}-${chartId}-poincare-point-${index}`)
+                    //                 .attr("fill", seriesLineStyle.color)
+                    //                 .attr("stroke", "none")
+                    //                 .attr("cx", (d: IteratePoint) => xAxisLinear.scale(d.n) || 0)
+                    //                 .attr("cy", (d: IteratePoint) => yAxisLinear.scale(d.n_1) || 0)
+                    //                 .attr("r", 2)
+                    //                 .attr('transform', `translate(${margin.left}, ${margin.top})`)
+                    //                 .attr("clip-path", `url(#${clipPathId})`)
+                    //             ,
+                    //             update => update
+                    //                 .attr("cx", (d: IteratePoint) => xAxisLinear.scale(d.n) || 0)
+                    //                 .attr("cy", (d: IteratePoint) => yAxisLinear.scale(d.n_1) || 0)
+                    //             ,
+                    //             exit => exit.remove()
+                    //         )
+                    //         .on("mouseenter",
+                    //             (event: React.MouseEvent<SVGCircleElement>, datum: IteratePoint) => {
+                    //                 if (allowTooltip.current && tooltipVisible) {
+                    //                     return handleMouseEnterPoint(
+                    //                         chartId,
+                    //                         name,
+                    //                         container,
+                    //                         event,
+                    //                         datum,
+                    //                         plotData,
+                    //                         xAxisLinear,
+                    //                         yAxisLinear,
+                    //                         margin,
+                    //                         seriesLineStyle,
+                    //                         backgroundColor,
+                    //                         allowTooltip.current,
+                    //                         mouseOverHandlerFor(`tooltip-${chartId}`)
+                    //                     )
+                    //                 }
+                    //                 return <></>
+                    //             }
+                    //         )
+                    //         .on("mouseleave", () => {
+                    //             handleMouseLeavePoint(
+                    //                 chartId,
+                    //                 name,
+                    //                 seriesLineStyle.color,
+                    //                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                    //             )
+                    //         })
+                    // }
+                    //
+                    const pathGenerator = d3.line<IteratePoint>()
+                        .x(d => xAxis.scale(d.n || 0))
+                        .y(d => yAxis.scale(d.n_1 || 0))
+
+                    if (interpolation === undefined) {
+                        mainGElem
+                            .selectAll(`#${name}-${chartId}-poincare`)
+                            .remove()
+                    } else {
+                        // create the time-series paths
+                        mainGElem
+                            .selectAll(`#${name}-${chartId}-poincare`)
+                            .data([[], plotData], () => `${name}`)
+                            .join(
+                                enter => enter
+                                    .append("path")
+                                    .attr("class", 'iterate-series-lines')
+                                    .attr("id", `${name}-${chartId}-poincare`)
+                                    .attr("d", pathGenerator.curve(interpolation))
+                                    .style("fill", "none")
+                                    .style("stroke", seriesLineStyle.color)
+                                    .style("stroke-width", seriesLineStyle.lineWidth)
+                                    .attr('transform', `translate(${margin.left}, ${margin.top})`)
+                                    .attr("clip-path", `url(#${clipPathId})`)
+                                ,
+                                update => update,
+                                exit => exit.remove()
+                            )
+                    }
+
                     // when specified, show a circle for the actual data point
                     if (showPoints) {
                         mainGElem
@@ -532,36 +618,6 @@ export function PoincarePlot(props: Props): null {
                                     mouseLeaveHandlerFor(`tooltip-${chartId}`)
                                 )
                             })
-                    }
-
-                    const pathGenerator = d3.line<IteratePoint>()
-                        .x(d => xAxis.scale(d.n || 0))
-                        .y(d => yAxis.scale(d.n_1 || 0))
-
-                    if (interpolation === undefined) {
-                        mainGElem
-                            .selectAll(`#${name}-${chartId}-poincare`)
-                            .remove()
-                    } else {
-                        // create the time-series paths
-                        mainGElem
-                            .selectAll(`#${name}-${chartId}-poincare`)
-                            .data([[], plotData], () => `${name}`)
-                            .join(
-                                enter => enter
-                                    .append("path")
-                                    .attr("class", 'iterate-series-lines')
-                                    .attr("id", `${name}-${chartId}-poincare`)
-                                    .attr("d", pathGenerator.curve(interpolation))
-                                    .style("fill", "none")
-                                    .style("stroke", seriesLineStyle.color)
-                                    .style("stroke-width", seriesLineStyle.lineWidth)
-                                    .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                                    .attr("clip-path", `url(#${clipPathId})`)
-                                ,
-                                update => update,
-                                exit => exit.remove()
-                            )
                     }
                 })
             }
