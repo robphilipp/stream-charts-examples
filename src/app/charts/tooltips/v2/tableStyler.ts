@@ -692,7 +692,8 @@ export class TableStyler<V> {
 
     withTableFont(font: Partial<TableFont>): TableStyler<V> {
         const builder = this.copy()
-        builder.font = {...builder.font, ...font}
+        builder.font = {...defaultTableFont, ...font}
+        // builder.font = {...builder.font, ...font}
         return builder
     }
 

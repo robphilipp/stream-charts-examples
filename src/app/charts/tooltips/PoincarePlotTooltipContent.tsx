@@ -1,4 +1,18 @@
-import {Dimensions, Margin} from "../styling/margins";
+// import {Dimensions, Margin} from "../styling/margins";
+import {
+    CellStyle,
+    createTable,
+    defaultBorder,
+    defaultBorderElement, defaultCellStyle,
+    defaultColumnHeaderStyle,
+    defaultColumnStyle, defaultRowStyle,
+    defaultTableFont,
+    defaultTablePadding,
+    type Margin,
+    TableData,
+    TableFormatter,
+    TableStyler
+} from "svg-table";
 import {
     defaultTooltipStyle,
     findPointAndNeighbors,
@@ -14,12 +28,8 @@ import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {emptyIterateDatum, IterateDatum} from "../series/iterateSeries";
 import {SeriesLineStyle} from "../axes/axes";
 import {TooltipData} from "../hooks/useTooltip";
-import {TableData} from "./v2/tableData";
 import {DataFrame} from "data-frame-ts";
-import {TableFormatter} from "./v2/tableFormatter";
-import {defaultColumnHeaderStyle, defaultColumnStyle, TableStyler} from "./v2/tableStyler";
-import {createTable} from "./v2/tableSvg";
-import {defaultTablePadding} from "./tableStyle";
+import {Dimensions} from "../styling/margins";
 
 /**
  # Want to write your own tooltip-content component?
@@ -36,7 +46,7 @@ import {defaultTablePadding} from "./tableStyle";
  again (you can register as many times as you like because it only uses the last content provider
  registered).
 
- That's it! A bit more details below.
+ That's it! A few more details are below.
 
  The {@link registerTooltipContentProvider} function from the {@link useChart} hook allows you to register
  one tooltip content provider. A second call to this function will cause the {@link useChart} hook to drop
@@ -73,7 +83,7 @@ import {defaultTablePadding} from "./tableStyle";
  )
  ```
 
- This pattern allows you to supplement that `useChart` mouse-over callback with information specific to you component.
+ This pattern allows you to supplement that `useChart` mouse-over callback with information specific to your component.
 
  */
 
@@ -128,9 +138,9 @@ interface Props {
  * The table has the following form.
  * ```
  * series name
- *            before     after         ∆
- * x-label     x_tb      x_ta       x_ta - x_tb
- * y-label     y_tb      y_ta       y_ta - y_tb
+ *            previous  current         next
+ * time        x_tb      x_ta       x_ta - x_tb
+ * value       y_tb      y_ta       y_ta - y_tb
  * ```
  *
  * Registers the tooltip-content provider with the `ChartContext` so that when d3 fires a mouse-over
@@ -266,12 +276,12 @@ function addTooltipContent(
         ])
         // create the table data that has the column headers
         .flatMap(df => TableData
-            .fromDataFrame(df)
-            .withColumnHeader([
-                index > 0 ? `f[${index - 1}](x)` : '- n/a -',
-                `f[${index}](x)`,
-                index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
-            ])
+                .fromDataFrame(df)
+                .withColumnHeader([
+                    index > 0 ? `f[${index - 1}](x)` : '- n/a -',
+                    `f[${index}](x)`,
+                    index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
+                ])
             // .flatMap(td => td.withRowHeader(['(ms)', ' ']))
         )
         // add the dat formatters for the (x, y) values of the iterates
@@ -282,9 +292,27 @@ function addTooltipContent(
             .flatMap(tf => tf.formatTable())
         )
         .map(tableData => TableStyler.fromTableData(tableData)
-            .withPadding({...defaultTablePadding, top: 20, left: 20})
-            .withColumnHeaderStyle({...defaultColumnHeaderStyle, padding: {top: 0, bottom: 10}, dimension: {...defaultColumnHeaderStyle.dimension, maxHeight: 70}, alignText: 'center', background: {color: 'grey', opacity: 0.25}}, 10)
-            .withColumnStyles([0, 1, 2], {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'})
+            .withTableFont({
+                ...defaultTableFont,
+                color: tooltipStyle.fontColor,
+                family: tooltipStyle.fontFamily,
+                size: tooltipStyle.fontSize,
+                weight: tooltipStyle.fontWeight
+            })
+            .withPadding({...defaultTablePadding, top: 5, left: 10})
+            .withColumnHeaderStyle({
+                ...defaultColumnHeaderStyle,
+                padding: {top: 0, bottom: 10},
+                dimension: {...defaultColumnHeaderStyle.dimension, maxHeight: 70},
+                alignText: 'center',
+                // background: {color: 'grey', opacity: 0.25},
+                border: {
+                    ...defaultBorder,
+                    // top: {...defaultBorderElement, width: 0.5, color: 'darkgray'},
+                    bottom: {...defaultBorderElement, width: 0.5, color: 'darkgray'}
+                },
+            })
+            .withColumnStyles([], {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'})
             .styleTable()
         )
         .flatMap(styledTable =>

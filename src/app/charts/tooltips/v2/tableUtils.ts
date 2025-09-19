@@ -476,7 +476,7 @@ export const defaultTableFont: TableFont = {
     size: 13,
     color: '#d2933f',
     family: 'sans-serif',
-    weight: 250,
+    weight: 450,
 }
 
 // export function headerTableFontFrom(tableFont: TableFont): TableFont {

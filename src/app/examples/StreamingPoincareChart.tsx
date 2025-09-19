@@ -47,6 +47,7 @@ import {lightTheme, Theme} from "../ui/Themes";
 import {IterateChartData, iteratesObservable} from "../charts/observables/iterates";
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
+import {defaultTooltipStyle} from "../charts/tooltips/tooltipUtils";
 
 //
 // the interpolations for the lines drawn between each iterate point.
@@ -221,7 +222,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const randomData = (updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
         return initialData => iteratesObservable(iterateFunctionObservable(iterateFunction, initialData, updatePeriod), lagN)
     }
-    const randomDataObservable = randomData(100, lagN)
+    const randomDataObservable = randomData(50, lagN)
     const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
 
     // elapsed time
@@ -545,6 +546,12 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             xLabel="t (ms)"
                             yLabel="f(x)"
                             yValueFormatter={value => formatNumber(value, " ,.4f")}
+                            style={{
+                                ...defaultTooltipStyle,
+                                fontColor: 'black',
+                                // fontColor: theme.color,
+                                fontWeight: 650
+                            }}
                         />
                     </Tooltip>
                     <PoincarePlot
