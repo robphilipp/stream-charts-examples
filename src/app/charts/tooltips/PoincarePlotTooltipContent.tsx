@@ -24,7 +24,6 @@ import {SeriesLineStyle} from "../axes/axes";
 import {TooltipData} from "../hooks/useTooltip";
 import {DataFrame} from "data-frame-ts";
 import {Dimensions} from "../styling/margins";
-// import {TableFont} from "./tableStyle";
 import {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
 
 /**
