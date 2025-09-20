@@ -54,6 +54,7 @@ export const defaultTooltipStyle: TooltipStyle = {
     fontSize: 12,
     fontColor: 'rgba(10,31,58,0.99)',
     // fontColor: '#d2933f',
+    // fontColor: '#202020',
     fontFamily: 'sans-serif',
     fontWeight: 250,
 

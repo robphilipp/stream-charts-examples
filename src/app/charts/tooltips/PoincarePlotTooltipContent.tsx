@@ -1,17 +1,11 @@
-// import {Dimensions, Margin} from "../styling/margins";
 import {
     CellStyle,
     createTable,
-    defaultBorder,
-    defaultBorderElement, defaultCellStyle,
-    defaultColumnHeaderStyle,
-    defaultColumnStyle, defaultRowStyle,
-    defaultTableFont,
-    defaultTablePadding,
     type Margin,
+    TableFont,
     TableData,
     TableFormatter,
-    TableStyler
+    TableStyler, Padding
 } from "svg-table";
 import {
     defaultTooltipStyle,
@@ -30,6 +24,8 @@ import {SeriesLineStyle} from "../axes/axes";
 import {TooltipData} from "../hooks/useTooltip";
 import {DataFrame} from "data-frame-ts";
 import {Dimensions} from "../styling/margins";
+// import {TableFont} from "./tableStyle";
+import {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
 
 /**
  # Want to write your own tooltip-content component?
@@ -86,26 +82,6 @@ import {Dimensions} from "../styling/margins";
  This pattern allows you to supplement that `useChart` mouse-over callback with information specific to your component.
 
  */
-
-/**
- * Options for displaying the tooltip content. These options are specific to this
- * particular implementation of a tooltip content. The options effect are applied
- * as shown below.
- * ```
- * series name
- *            headers.before       headers.after         headers.delta
- * labels.x   formatters.x.value   formatters.x.value    formatters.x.change
- * labels.y   formatters.y.value   formatters.y.value    formatters.y.change
- * ```
- */
-interface TooltipOptions {
-    labels: { x: string, y: string }
-    headers: { nMinusLag: string, n: string, nPlusLag: string }
-    formatters: {
-        x: { value: (value: number) => string, change: (value1: number, value2: number) => string },
-        y: { value: (value: number) => string, change: (value1: number, value2: number) => string },
-    }
-}
 
 /**
  * Properties for rendering the tooltip content. The properties are applied as
@@ -184,7 +160,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
     // will render the tooltip container and then the tooltip content. recall that the
     // tooltip content is generated in this plot (because this is the plot that holds all the
     // information needed to render it), and the container for the content is rendered by
-    // the <Tooltip>, which this know nothing about.
+    // the <Tooltip>, which this knows nothing about.
     //
     // the 'registration function accepts a function of the form (seriesName, time, series) => TooltipDimensions.
     // and that function has a closure on the content-specific information needed to add the
@@ -192,16 +168,6 @@ export function PoincarePlotTooltipContent(props: Props): null {
     useEffect(
         () => {
             if (container) {
-                // assemble the options for adding the tooltip
-                const options: TooltipOptions = {
-                    labels: {x: xLabel, y: yLabel},
-                    headers: {nMinusLag: nMinusLagHeader, n: nHeader, nPlusLag: nPlusLagHeader},
-                    formatters: {
-                        x: {value: xValueFormatter, change: xChangeFormatter},
-                        y: {value: yValueFormatter, change: yChangeFormatter},
-                    }
-                }
-
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
@@ -209,7 +175,6 @@ export function PoincarePlotTooltipContent(props: Props): null {
                         addTooltipContent(
                             seriesName, time, tooltipData, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
-                            options
                         )
                 )
             }
@@ -226,6 +191,18 @@ export function PoincarePlotTooltipContent(props: Props): null {
     return null
 }
 
+const dimension: Dimension = {
+    width: 60,
+    defaultWidth: 70,
+    minWidth: 50,
+    maxWidth: 100,
+
+    height: 15,
+    defaultHeight: 15,
+    minHeight: 10,
+    maxHeight: 50
+}
+
 /**
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
@@ -237,7 +214,6 @@ export function PoincarePlotTooltipContent(props: Props): null {
  * @param margin The plot margins
  * @param tooltipStyle The style properties for the tooltip
  * @param plotDimensions The dimensions of the plot
- * @param options The options passed through the function that adds the tooltip content
  * @return The width and text height of the tooltip content
  */
 function addTooltipContent(
@@ -249,8 +225,7 @@ function addTooltipContent(
     container: SVGSVGElement,
     margin: Margin,
     plotDimensions: Dimensions,
-    tooltipStyle: TooltipStyle,
-    options: TooltipOptions
+    tooltipStyle: TooltipStyle
 ): TooltipDimensions {
     const [x, y] = mouseCoords
     const {series} = tooltipData
@@ -258,16 +233,48 @@ function addTooltipContent(
         series, time, 0.1, value => value.time, () => emptyIterateDatum
     )
 
-    // display the neuron ID in the tooltip
-    // const header = d3.select<SVGSVGElement | null, any>(container)
-    //     .append<SVGTextElement>("text")
-    //     .attr('id', `tn${time}-${seriesName}-${chartId}`)
-    //     .attr('class', 'tooltip')
-    //     .style('fill', tooltipStyle.fontColor)
-    //     .style('font-family', 'sans-serif')
-    //     .style('font-size', tooltipStyle.fontSize)
-    //     .style('font-weight', tooltipStyle.fontWeight)
-    //     .text(() => seriesName)
+    const defaultBorderElement: BorderElement = {
+        color: tooltipStyle.borderColor,
+        radius: 0,
+        width: 0,
+        opacity: 0
+    }
+
+    const border: Border = {
+        top: defaultBorderElement,
+        bottom: defaultBorderElement,
+        left: defaultBorderElement,
+        right: defaultBorderElement,
+    }
+
+    const background: Background = {
+        color: tooltipStyle.backgroundColor,
+        opacity: tooltipStyle.backgroundOpacity
+    }
+
+    const font: TableFont = {
+        size: tooltipStyle.fontSize,
+        family: tooltipStyle.fontFamily,
+        color: tooltipStyle.fontColor,
+        weight: tooltipStyle.fontWeight
+    }
+
+    const padding: Padding = {
+        top: tooltipStyle.paddingTop,
+        bottom: tooltipStyle.paddingBottom,
+        right: tooltipStyle.paddingRight,
+        left: tooltipStyle.paddingLeft
+    }
+
+    const currentIterateStyle: CellStyle = {
+        border,
+        dimension,
+        background,
+        font: {...font, weight: 550},
+        padding,
+        alignText: 'right',
+        verticalAlignText: 'middle'
+    }
 
     return DataFrame
         .from<number | string>([
@@ -276,43 +283,46 @@ function addTooltipContent(
         ])
         // create the table data that has the column headers
         .flatMap(df => TableData
-                .fromDataFrame(df)
-                .withColumnHeader([
-                    index > 0 ? `f[${index - 1}](x)` : '- n/a -',
-                    `f[${index}](x)`,
-                    index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
-                ])
-            // .flatMap(td => td.withRowHeader(['(ms)', ' ']))
+            .fromDataFrame(df)
+            .withColumnHeader([
+                index > 0 ? `f[${index - 1}](x)` : '- n/a -',
+                `f[${index}](x)`,
+                index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
+            ])
+            .flatMap(td => td.withRowHeader(['t (ms)', 'value']))
         )
         // add the dat formatters for the (x, y) values of the iterates
         .flatMap(tableData => TableFormatter.fromTableData(tableData)
-            .addRowFormatter(1, value => formatTime(value as number, "ms"))
-            // .addRowFormatter(1, value => `${formatTime(value as number)} ms`)
+            .addRowFormatter(1, value => formatTime(value as number, ""))
             .flatMap(tf => tf.addRowFormatter(2, value => formatValue(value as number)))
             .flatMap(tf => tf.formatTable())
         )
         .map(tableData => TableStyler.fromTableData(tableData)
-            .withTableFont({
-                ...defaultTableFont,
-                color: tooltipStyle.fontColor,
-                family: tooltipStyle.fontFamily,
-                size: tooltipStyle.fontSize,
-                weight: tooltipStyle.fontWeight
-            })
-            .withPadding({...defaultTablePadding, top: 5, left: 10})
+            .withTableFont(font)
+            .withPadding(padding)
             .withColumnHeaderStyle({
-                ...defaultColumnHeaderStyle,
+                font: {...font, weight: 650},
                 padding: {top: 0, bottom: 10},
-                dimension: {...defaultColumnHeaderStyle.dimension, maxHeight: 70},
+                dimension: {...dimension, maxHeight: 70},
                 alignText: 'center',
-                // background: {color: 'grey', opacity: 0.25},
-                border: {
-                    ...defaultBorder,
-                    // top: {...defaultBorderElement, width: 0.5, color: 'darkgray'},
-                    bottom: {...defaultBorderElement, width: 0.5, color: 'darkgray'}
-                },
             })
-            .withColumnStyles([], {...defaultColumnStyle, padding: {left: 10, right: 10}, alignText: 'right'})
+            .withRowHeaderStyle({
+                font: {...font, weight: 650},
+                padding: {left: 0, right: 10},
+                dimension: dimension,
+                alignText: 'center',
+            })
+            .withColumnStyles([], {
+                padding: {left: 10, right: 10},
+                alignText: 'right',
+            })
+            .withCellStyle(1, 2, currentIterateStyle)
+            .withCellStyle(2, 2, currentIterateStyle)
+            .withRowStyles([], {
+                font,
+                dimension: {...dimension, maxHeight: 20},
+                padding: {top: 0, bottom: 0}}
+            )
             .styleTable()
         )
         .flatMap(styledTable =>
