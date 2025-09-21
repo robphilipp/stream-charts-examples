@@ -152,12 +152,22 @@ export function ScatterPlot(props: Props): null {
         [originalAxisBounds]
     )
 
-    // some 'splainin: the dataRef holds on to a copy of the initial data, but, the Series in the array
-    // are by reference, so the seriesRef, also holds on to the same Series. When the Series in seriesRef
-    // get appended with new data, it's updating the underlying series, and so the dataRef sees those
-    // changes as well. The dataRef is used for performance, so that in the updatePlot function we don't
-    // need to create a temporary array to holds the series data, rather, we can just use the one held in
-    // the dataRef.
+    // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
+    //
+    // the "dataRef" and "seriesRef" both point to the same underlying data, a collection
+    // of series. The series in "dataRef" are bound to the DOM elements through d3. The "seriesRef" series
+    // are the ones that are updated as new data is streamed in.
+    //
+    // the "dataRef" object holds on to a copy of the initial data (which is an array of
+    // time-series, e.i. an array of BaseSeries<OrdinalDatum> objects). The slice just creates a copy of
+    // the array, but the references to the BaseSeries objects are the same and still point to the same
+    // data as the "initialData" array.
+    //
+    // the "seriesRef" object is a reference to a map (series_name -> BaseSeries<OrdinalDatum>) which is
+    // used to update the data in the series. When new data enters, it is appended to one or more series.
+    //
+    // the series in the "dataRef" object are the ones bound to the DOM elements in d3, and so as these
+    // are updated, d3 will update the DOM elements (the elements in this plot).
     const dataRef = useRef<Array<TimeSeries>>(initialData.slice() as Array<TimeSeries>)
     const seriesRef = useRef<Map<string, TimeSeries>>(new Map(initialData.map(series => [series.name, series as TimeSeries])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
