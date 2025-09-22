@@ -346,8 +346,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         } as BarSeriesStyle],
                     ])}
                     initialData={initialDataRef.current}
-                    seriesFilter={filter}
                     seriesObservable={observableRef.current}
+                    seriesFilter={filter}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={25}

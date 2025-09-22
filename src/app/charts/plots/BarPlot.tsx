@@ -24,7 +24,7 @@ import {
     SvgFillStyle,
     SvgStrokeStyle
 } from "../styling/svgStyle";
-import {BarSeriesStyle, defaultBarSeriesStyle} from "../styling/barPlotStyle";
+import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
 
 interface Props {
@@ -86,17 +86,19 @@ interface Props {
  * @param props The properties associated with the bar plot
  * @constructor
  * @example
- <BarPlot
- axisAssignments={new Map([
- ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
- ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
- ])}
- spikeMargin={1}
- dropDataAfter={5000}
- panEnabled={true}
- zoomEnabled={true}
- zoomKeyModifiersRequired={true}
- />
+ * ```typescript
+ *  <BarPlot
+ *      axisAssignments={new Map([
+ *          ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+ *          ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+ *      ])}
+ *      spikeMargin={1}
+ *      dropDataAfter={5000}
+ *      panEnabled={true}
+ *      zoomEnabled={true}
+ *      zoomKeyModifiersRequired={true}
+ *  />
+ * ```
  */
 export function BarPlot(props: Props): null {
     const {
@@ -233,6 +235,7 @@ export function BarPlot(props: Props): null {
             dataRef.current = initialData.slice()
             seriesRef.current = new Map(initialData.map(series => [series.name, series]))
             currentTimeRef.current = 0
+            statsRef.current = initialOrdinalStats(dataRef.current)
             // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot()
             // updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
@@ -367,10 +370,13 @@ export function BarPlot(props: Props): null {
                     }
 
                     // only show the data for which the regex filter matches
-                    const plotData = (series.name.match(seriesFilter)) ? [series.data[series.data.length - 1]] : []
+                    const plotData = series.name.match(seriesFilter) ? [series.data[series.data.length - 1]] : []
 
                     // grab the functions for determining the lower and upper bounds of the category
-                    const {lower, upper} = xAxisCategoryBoundsFn(xAxis.categorySize, valueLineStyle.regular.width, categoryMargin)
+                    const {
+                        lower,
+                        upper
+                    } = xAxisCategoryBoundsFn(xAxis.categorySize, valueLineStyle.regular.width, categoryMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
@@ -388,15 +394,19 @@ export function BarPlot(props: Props): null {
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                         .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-min-max')
-                        .data(showMinMaxBars ? plotData : [])
+                        .data(plotData)
+                        // .data(showMinMaxBars ? plotData : [])
                         .join(
                             enter => barFor(
                                 enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-min-max'),
                                 totalBar,
-                                minMaxBarStyle.stroke,
-                                minMaxBarStyle.fill
+                                barStyleFor(showMinMaxBars, minMaxBarStyle)
                             ),
-                            update => barFor(update, totalBar, minMaxBarStyle.stroke, minMaxBarStyle.fill),
+                            update => barFor(
+                                update,
+                                totalBar,
+                                barStyleFor(showMinMaxBars, minMaxBarStyle)
+                            ),
                             exit => exit.remove()
                         )
 
@@ -441,15 +451,17 @@ export function BarPlot(props: Props): null {
                         svg
                             .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                             .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-windowed-min-max')
-                            .data(showWindowedMinMaxBars ? plotData : [])
+                            .data(plotData)
                             .join(
                                 enter => barFor(
                                     enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-windowed-min-max'),
                                     windowedBar,
-                                    windowedBarStyle.stroke,
-                                    windowedBarStyle.fill
+                                    barStyleFor(showWindowedMinMaxBars, windowedBarStyle)
                                 ),
-                                update => barFor(update, windowedBar, windowedBarStyle.stroke, windowedBarStyle.fill),
+                                update => barFor(
+                                    update,
+                                    windowedBar,
+                                    barStyleFor(showWindowedMinMaxBars, windowedBarStyle)                                ),
                                 exit => exit.remove()
                             )
 
@@ -506,7 +518,7 @@ export function BarPlot(props: Props): null {
                         )
                         .on(
                             "mouseover",
-                            (event, ) =>
+                            (event,) =>
                                 handleMouseOverBar(
                                     container,
                                     yAxis,
@@ -687,27 +699,40 @@ type BarDimensions = {
     height: number
 }
 
+function barStyleFor(isVisible: boolean, style: BarStyle): BarStyle {
+    return {
+        ...style,
+        fill: updateOpacityFor<SvgFillStyle>(isVisible, style.fill),
+        stroke: updateOpacityFor<SvgStrokeStyle>(isVisible, style.stroke)
+    }
+}
+
+function updateOpacityFor<S extends SvgFillStyle | SvgStrokeStyle>(isVisible: boolean, style: S): S {
+    return {
+        ...style,
+        opacity: isVisible ? style.opacity : 0
+    }
+}
+
 /**
  * Sets the attributes for the bar based on the d3 selection
  * @param selection The d3 selection (rect SVG element)
  * @param dimensions The bar dimensions
- * @param strokeStyle The stroke style
- * @param fillStyle The fill style
+ * @param style The bar style holding the fill and stroke styles
  * @return The updated SVG selection (rect SVG element)
  */
 function barFor(
     selection: d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, any>,
     dimensions: BarDimensions,
-    strokeStyle: Partial<SvgStrokeStyle>,
-    fillStyle: Partial<SvgFillStyle>
-):  d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, any> {
+    style: BarStyle
+): d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, any> {
     selection
         .attr('x', () => dimensions.upperX)
         .attr('y', () => dimensions.upperY)
         .attr('width', () => dimensions.width)
         .attr('height', () => dimensions.height)
-    applyFillStylesTo(selection, fillStyle)
-    return applyStrokeStylesTo(selection, strokeStyle)
+
+    return applyStrokeStylesTo(applyFillStylesTo(selection, style.fill), style.stroke)
 }
 
 type PathSegment = {
@@ -726,7 +751,7 @@ type PathSegment = {
  * @return The updated SVG selection (rect SVG element)
  */
 function lineFor(
-    selection:  d3.Selection<SVGLineElement, OrdinalDatum, SVGGElement, any>,
+    selection: d3.Selection<SVGLineElement, OrdinalDatum, SVGGElement, any>,
     pathSegment: PathSegment,
     strokeStyle: Partial<SvgStrokeStyle>
 ) {
