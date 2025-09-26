@@ -120,7 +120,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
-    const chartTimeRef = useRef<number>(0)
+    const [chartTime, setChartTime] = useState<number>(0)
 
     function initialDataFrom(data: Array<TimeSeries>): Array<BaseSeries<OrdinalDatum>> {
         return data.map(series => seriesFrom<OrdinalDatum>(series.name, series.data.map(datum => ({
@@ -128,7 +128,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
             ordinal: series.name,
             value: datum.value,
         }))))
-        // return data.map(series => seriesFrom(series.name))
     }
 
     /**
@@ -141,11 +140,11 @@ export function StreamingBarChart(props: Props): JSX.Element {
     }
 
     /**
-     * Updates the time from the chart (the max value of the axes ranges)
-     * @param times A map associating the axis with its time range
+     * Updates the chart time based on the observable data time
+     * @param time The time from the observable data
      */
-    function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
-        chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
+    function handleChartTimeUpdate(time: number): void {
+        setChartTime(time)
     }
 
     const inputStyle = {
@@ -306,7 +305,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
-                    }}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>
+                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -349,9 +348,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     seriesFilter={filter}
                     shouldSubscribe={running}
-                    onUpdateAxesBounds={handleChartTimeUpdate}
+                    onUpdateChartTime={handleChartTimeUpdate}
                     windowingTime={25}
-                    // onSubscribe={subscription => console.log("subscribed raster")}
                 >
                     <OrdinalAxis
                         axisId="x-axis-1"

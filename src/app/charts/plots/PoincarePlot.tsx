@@ -103,16 +103,18 @@ interface Props {
  * @param props The properties associated with the scatter plot
  * @constructor
  * @example
- <ScatterPlot
- interpolation={interpolation}
- axisAssignments={new Map([
- ['test2', assignAxes("x-axis-2", "y-axis-2")],
- ])}
- dropDataAfter={10000}
- panEnabled={true}
- zoomEnabled={true}
- zoomKeyModifiersRequired={true}
- />
+ * ```typescript
+ *  <ScatterPlot
+ *      interpolation={interpolation}
+ *      axisAssignments={new Map([
+ *          ['test2', assignAxes("x-axis-2", "y-axis-2")],
+ *      ])}
+ *      dropDataAfter={10000}
+ *      panEnabled={true}
+ *      zoomEnabled={true}
+ *      zoomKeyModifiersRequired={true}
+ *  />
+ * ```
  */
 export function PoincarePlot(props: Props): null {
     const {

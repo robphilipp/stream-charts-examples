@@ -132,6 +132,7 @@ export function BarPlot(props: Props): null {
 
         onSubscribe = noop,
         onUpdateData,
+        onUpdateChartTime = noop
     } = useDataObservable<OrdinalChartData, OrdinalDatum>()
 
     const {initialData} = useInitialData<OrdinalChartData, OrdinalDatum>()
@@ -213,6 +214,7 @@ export function BarPlot(props: Props): null {
             if (mainG !== null) {
                 // onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(mainG)
+                onUpdateChartTime(currentTimeRef.current)
                 // updatePlotRef.current(ranges, mainG)
                 // if (onUpdateAxesBounds) {
                 //     setTimeout(() => {
@@ -560,7 +562,6 @@ export function BarPlot(props: Props): null {
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    // const updatePlotRef = useRef<(r: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
     const updatePlotRef = useRef<(g: GSelection) => void>(noop)
     useEffect(
         () => {
@@ -590,16 +591,6 @@ export function BarPlot(props: Props): null {
         [chartId, container, mainG, margin, plotDimensions, updatePlot]
     )
 
-    // // grab a reference to the function used to update the time ranges and update that reference
-    // // if the function changes (solve for stale closures)
-    // const onUpdateTimeRef = useRef(updateAxesBounds)
-    // useEffect(
-    //     () => {
-    //         onUpdateTimeRef.current = updateAxesBounds
-    //     },
-    //     [updateAxesBounds]
-    // )
-
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
@@ -627,36 +618,10 @@ export function BarPlot(props: Props): null {
         ]
     )
 
-    // const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
     useEffect(
         () => {
             if (container && mainG) {
-                // // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
-                // // change. for example, as data is streamed in, the times change, and then we need to update the
-                // // time-range. however, we want to keep the time-ranges to reflect their original scale so that
-                // // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
-                // // interpolation changes, then the update plot changes, and the time-ranges must maintain their
-                // // original scale as well.
-                // if (timeRangesRef.current.size === 0) {
-                //     // when no time-ranges have yet been created, then create them and hold on to a mutable
-                //     // reference to them
-                //     timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                // } else {
-                //     // when the time-ranges already exist, then we want to update the time-ranges for each
-                //     // existing time-range in a way that maintains the original scale.
-                //     const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                //     timeRangesRef.current
-                //         .forEach((range, id, rangesMap) => {
-                //             const [start, end] = intervals.get(id) || [NaN, NaN]
-                //             if (!isNaN(start) && !isNaN(end)) {
-                //                 // update the reference map with the new (start, end) portion of the range,
-                //                 // while keeping the original scale intact
-                //                 rangesMap.set(id, range.update(start, end))
-                //             }
-                //         })
-                // }
                 updatePlot(mainG)
-                // updatePlot(timeRangesRef.current, mainG)
             }
         },
         [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
