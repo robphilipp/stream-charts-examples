@@ -1,14 +1,18 @@
 import {Dimensions, Margin} from "../styling/margins";
 import {defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import * as d3 from "d3";
-import {formatTime, formatValue} from "../utils";
+import {formatNumber, formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
 import {SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {OrdinalDatum} from "../series/ordinalSeries";
+import {emptyOrdinalDatum, OrdinalDatum} from "../series/ordinalSeries";
 import {TooltipData} from "../hooks/useTooltip";
 import {WindowedOrdinalStats} from "../subscriptions/subscriptions";
+import {DataFrame} from "data-frame-ts";
+import {createTable, Padding, TableData, TableFont, TableFormatter, TableStyler} from "svg-table";
+import {defaultOrdinalValueStats} from "../observables/ordinals";
+import {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
 
 /**
  # Want to write your own tooltip-content component?
@@ -67,22 +71,6 @@ import {WindowedOrdinalStats} from "../subscriptions/subscriptions";
  */
 
 /**
- * Options for displaying the tooltip content. These options are specific to this
- * particular implementation of a tooltip content. The options effect are applied
- * as shown below.
- * ```
- * series name
- * formatters.x(x), formatters.y(y)
- * ```
- */
-interface TooltipOptions {
-    formatters: {
-        x: (value: number) => string,
-        y: (value: number) => string,
-    }
-}
-
-/**
  * Properties for rendering the tooltip content. The properties are applied as
  * shown below.
  * ```
@@ -91,8 +79,7 @@ interface TooltipOptions {
  * ```
  */
 interface Props {
-    xFormatter?: (value: number) => string
-    yFormatter?: (value: number) => string
+    ordinalUnits?: string
     style?: Partial<TooltipStyle>
 }
 
@@ -128,11 +115,7 @@ export function BarPlotTooltipContent(props: Props): null {
 
     const {margin, plotDimensions} = usePlotDimensions()
 
-    const {
-        xFormatter = formatTime,
-        yFormatter = formatValue,
-        style,
-    } = props
+    const {style, ordinalUnits = ""} = props
 
     const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
 
@@ -148,14 +131,6 @@ export function BarPlotTooltipContent(props: Props): null {
     useEffect(
         () => {
             if (container) {
-                // assemble the options for adding the tooltip
-                const options: TooltipOptions = {
-                    formatters: {
-                        x: xFormatter,
-                        y: yFormatter,
-                    }
-                }
-
                 // register the tooltip content provider function with the chart hook (useChart) so that
                 // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
@@ -167,11 +142,15 @@ export function BarPlotTooltipContent(props: Props): null {
                      * @param mouseCoords The coordinates of the mouse
                      * @return The tooltip contents
                      */
-                    (seriesName: string, time: number, tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>, mouseCoords: [x: number, y: number]) => {
+                    (seriesName: string,
+                     time: number,
+                     tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
+                     mouseCoords: [x: number, y: number]
+                    ) => {
                         return addTooltipContent(
                             seriesName, tooltipData, mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
-                            options
+                            ordinalUnits
                         )
                     }
                 )
@@ -179,14 +158,25 @@ export function BarPlotTooltipContent(props: Props): null {
         },
         [
             chartId, container, margin, plotDimensions, registerTooltipContentProvider,
-            xFormatter,
-            yFormatter,
             tooltipStyle,
-            yAxesState, axisAssignmentsFor
+            yAxesState, axisAssignmentsFor,
+            ordinalUnits
         ]
     )
 
     return null
+}
+
+const dimension: Dimension = {
+    width: 60,
+    defaultWidth: 70,
+    minWidth: 50,
+    maxWidth: 100,
+
+    height: 15,
+    defaultHeight: 15,
+    minHeight: 10,
+    maxHeight: 50
 }
 
 /**
@@ -199,7 +189,7 @@ export function BarPlotTooltipContent(props: Props): null {
  * @param margin The plot margins
  * @param tooltipStyle The style properties for the tooltip
  * @param plotDimensions The dimensions of the plot
- * @param options The options passed through the function that adds the tooltip content
+ * @param ordinalUnits The units of the ordinal data (i.e. "mV")
  * @return The width and text height of the tooltip content
  */
 function addTooltipContent(
@@ -211,17 +201,19 @@ function addTooltipContent(
     margin: Margin,
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
-    options: TooltipOptions
+    ordinalUnits: string
 ): TooltipDimensions {
-    const {formatters} = options
     const [x, y] = mouseCoords
-    const {series: selected} = tooltipData
-    const {time: datumTime, value} = selected.length > 0 ? selected[selected.length - 1] : {time: NaN, value: NaN}
+    const {series, metadata: statistics} = tooltipData
+    const currentDatum = series.length > 0 ? series[series.length - 1] : emptyOrdinalDatum
+    const valueStats = statistics.valueStatsForSeries.get(seriesName) || defaultOrdinalValueStats()
+    const windowedValueStats = statistics.windowedValueStatsForSeries.get(seriesName) || defaultOrdinalValueStats()
+    const displayOrdinalUnits = ordinalUnits.length > 0 ? ` ${ordinalUnits}` : ""
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
-        .attr('id', `tn${datumTime}-${seriesName}-${chartId}`)
+        .attr('id', `tn${currentDatum.time}-${seriesName}-${chartId}`)
         .attr('class', 'tooltip')
         .attr('fill', tooltipStyle.fontColor)
         .attr('font-family', 'sans-serif')
@@ -229,16 +221,17 @@ function addTooltipContent(
         .attr('font-weight', tooltipStyle.fontWeight)
         .text(() => seriesName)
 
-    // display the time (ms) and spike strength (mV) in the tooltip
+
+    // display the series name and the current value
     const text = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
-        .attr('id', `t${datumTime}-${seriesName}-${chartId}`)
+        .attr('id', `t${currentDatum.time}-${seriesName}-${chartId}`)
         .attr('class', 'tooltip')
         .attr('fill', tooltipStyle.fontColor)
         .attr('font-family', 'sans-serif')
         .attr('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
-        .text(() => `${formatters.x(datumTime)}, ${formatters.y(value)}`)
+        .text(() => `${formatValue(currentDatum.value)}${displayOrdinalUnits}  (${formatTime(currentDatum.time)} ms)`)
 
     // calculate the max width and height of the text
     const tooltipWidth = Math.max(header.node()?.getBBox()?.width || 0, text.node()?.getBBox()?.width || 0);
@@ -247,7 +240,6 @@ function addTooltipContent(
     const textHeight = headerTextHeight + idHeight;
 
     // set the header text location
-    // const spikeHeight = plotDimensions.height / liveDataRef.current.size
     const xCoord = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin)
     const yCoord = tooltipY(y, textHeight, plotDimensions, tooltipStyle, margin)
     const xTooltip = xCoord + tooltipStyle.paddingLeft
@@ -256,10 +248,113 @@ function addTooltipContent(
         .attr('x', () => xTooltip)
         .attr('y', () => yTooltip - idHeight + textHeight)
 
-    // set the tooltip text (i.e. neuron ID) location
+    // set the tooltip text (i.e. series name) location
     text
         .attr('x', () => xTooltip)
         .attr('y', () => yTooltip + textHeight)
 
-    return {x: xCoord, y: yCoord, contentWidth: tooltipWidth, contentHeight: textHeight}
+    const defaultBorderElement: BorderElement = {
+        color: tooltipStyle.borderColor,
+        radius: 0,
+        width: 0,
+        opacity: 0
+    }
+
+    const border: Border = {
+        top: defaultBorderElement,
+        bottom: defaultBorderElement,
+        left: defaultBorderElement,
+        right: defaultBorderElement,
+    }
+
+    const background: Background = {
+        color: tooltipStyle.backgroundColor,
+        opacity: tooltipStyle.backgroundOpacity
+    }
+
+    const font: TableFont = {
+        size: tooltipStyle.fontSize,
+        family: tooltipStyle.fontFamily,
+        color: tooltipStyle.fontColor,
+        weight: tooltipStyle.fontWeight
+    }
+
+    const padding: Padding = {
+        top: tooltipStyle.paddingTop,
+        bottom: tooltipStyle.paddingBottom,
+        right: tooltipStyle.paddingRight,
+        left: tooltipStyle.paddingLeft
+    }
+
+    const units = ordinalUnits.length > 0 ? ` (${ordinalUnits})` : ""
+    return DataFrame
+        .from<number | string>([
+            [windowedValueStats.min.value, valueStats.min.value],
+            [windowedValueStats.max.value, valueStats.max.value],
+            [windowedValueStats.mean, valueStats.mean],
+            [windowedValueStats.count, valueStats.count],
+        ])
+        // create the table data that has the column headers
+        .flatMap(df => TableData
+            .fromDataFrame(df)
+            .withColumnHeader(["Windowed", "All"])
+            .flatMap(td => td.withRowHeader([`Min${units}`, `Max${units}`, `Mean${units}`, "Count"]))
+        )
+        // add the data formatters for statistics
+        .flatMap(tableData => TableFormatter.fromTableData(tableData)
+            .addRowFormatters([1, 2, 3], value => formatValue(value as number))
+            .flatMap(tf => tf.addRowFormatter(4, value => formatNumber(value as number, " ,.0f")))
+            .flatMap(tf => tf.formatTable())
+        )
+        .map(tableData => TableStyler.fromTableData(tableData)
+            .withTableFont(font)
+            .withPadding(padding)
+            .withColumnHeaderStyle({
+                font: {...font, weight: 650},
+                padding: {top: 15, bottom: 0},
+                dimension: {...dimension, maxHeight: 70},
+                alignText: 'right',
+            })
+            .withRowHeaderStyle({
+                font: {...font, weight: 650},
+                padding: {left: 0, right: 10},
+                dimension: dimension,
+                alignText: 'left',
+            })
+            .withColumnStyles([], {
+                padding: {left: 10, right: 10},
+                alignText: 'right',
+            })
+            .withRowStyles([], {
+                font,
+                dimension: {...dimension, maxHeight: 20},
+                padding: {top: 0, bottom: 0}}
+            )
+            .styleTable()
+        )
+        .flatMap(styledTable =>
+            createTable(styledTable, container, `t${currentDatum.time}-${seriesName}-header-${chartId}`, tooltipCoordinates)
+        )
+        .map(renderingInfo => {
+            const {tableX: x, tableY: y, tableWidth: contentWidth, tableHeight: contentHeight} = renderingInfo
+            return {x, y: y - textHeight, contentWidth, contentHeight: contentHeight + textHeight + padding.top}
+        })
+        .getOrThrow()
+
+
+    /**
+     * Calculates the coordinates of the tooltip based on the width and height of the SVG
+     * table. This is needed because the tooltip needs to be adjusted relative mouse location
+     * when the mouse coordinates are too close to an edge.
+     * @param width The SVG table width
+     * @param height The SVG table height
+     * @return The updated tooltip coordinates
+     */
+    function tooltipCoordinates(width: number, height: number): [x: number, y: number] {
+        return [
+            tooltipX(x, width, plotDimensions, tooltipStyle, margin),
+            tooltipY(y + textHeight + padding.top, height, plotDimensions, tooltipStyle, margin)
+        ]
+    }
+
 }

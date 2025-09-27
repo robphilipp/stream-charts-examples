@@ -394,10 +394,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             backgroundOpacity: 0.9,
                         }}
                     >
-                        <BarPlotTooltipContent
-                            xFormatter={value => formatNumber(value, " ,.0f") + ' ms'}
-                            yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
-                        />
+                        <BarPlotTooltipContent ordinalUnits="mV"/>
                     </Tooltip>
                     <BarPlot
                         barMargin={1}
