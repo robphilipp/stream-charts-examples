@@ -225,7 +225,7 @@ export function BarPlot(props: Props): null {
                 // }
             }
         },
-        [mainG]
+        [mainG, onUpdateChartTime]
         // [mainG, onUpdateAxesBounds]
     )
 
@@ -397,7 +397,6 @@ export function BarPlot(props: Props): null {
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
                         .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-min-max')
                         .data(plotData)
-                        // .data(showMinMaxBars ? plotData : [])
                         .join(
                             enter => barFor(
                                 enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-min-max'),
