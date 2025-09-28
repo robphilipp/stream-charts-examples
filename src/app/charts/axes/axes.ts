@@ -57,11 +57,6 @@ export function defaultLineStyle(): SeriesLineStyle {
     }
 }
 
-// export interface Axes<X extends BaseAxis, Y extends BaseAxis> {
-//     xAxis: X
-//     yAxis: Y
-// }
-
 export interface BaseAxis {
     axisId: string
     location: AxisLocation
@@ -87,42 +82,6 @@ export enum AxisLocation {
     Bottom,
     Top
 }
-
-// export function addLinearAxis(
-//     chartId: number,
-//     axisId: string,
-//     svg: SvgSelection,
-//     location: AxisLocation,
-//     plotDimensions: Dimensions,
-//     domain: [minValue: number, maxValue: number],
-//     axesLabelFont: AxesLabelFont,
-//     margin: Margin,
-//     axisLabel: string,
-// ): ContinuousNumericAxis {
-//     switch (location) {
-//         // y-axis
-//         case AxisLocation.Left:
-//         case AxisLocation.Right:
-//             return addContinuousNumericYAxis(
-//                 chartId,
-//                 axisId,
-//                 svg,
-//                 plotDimensions,
-//                 location,
-//                 d3.scaleLinear(),
-//                 domain,
-//                 axesLabelFont,
-//                 margin,
-//                 axisLabel,
-//                 noop,
-//             )
-//
-//         // x-axis
-//         case AxisLocation.Bottom:
-//         case AxisLocation.Top:
-//             return addContinuousNumericXAxis(chartId, "", svg, plotDimensions, location, d3.scaleLinear(), domain, axesLabelFont, margin, axisLabel, noop)
-//     }
-// }
 
 /*
         category axes
@@ -210,7 +169,7 @@ function addCategoryXAxis(
 
     // rotate the tick-labels by the specified amount (in degrees)
     let maxTickLabelHeight = 0
-    const {font, rotation, useAutoRotation} = axisTickStyle
+    const {font, rotation} = axisTickStyle
     selection
         .selectAll("text")
         .style("text-anchor", "end")
@@ -230,8 +189,6 @@ function addCategoryXAxis(
             }
         })
 
-    // const xLabelTranslate = labelXTranslation(location, plotDimensions, margin, axesLabelFont)
-    // const yLabelTranslation = labelYTranslation(location, plotDimensions, margin)
     svg
         .append<SVGTextElement>('text')
         .attr('id', labelIdFor(chartId, location))
@@ -240,7 +197,6 @@ function addCategoryXAxis(
         .attr('fill', font.color)
         .attr('font-family', font.family)
         .attr('font-weight', font.weight)
-        // .attr('transform', `translate(${xLabelTranslate}, ${yLabelTranslation})`)
         .text(axisLabel)
 
     const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
