@@ -50,7 +50,7 @@ export type IterateSeries = BaseSeries<IterateDatum>
  * @see seriesFrom
  * @see emptySeries
  */
-export const seriesFromTuples = (name: string, data: Array<[number, number, number]> = []): IterateSeries =>
+export const iterateSeriesFromTuples = (name: string, data: Array<[number, number, number]> = []): IterateSeries =>
     seriesFrom(name, data.map(([t, fn, fn_1]) => iterateDatumOf(t, fn, fn_1)))
 
 

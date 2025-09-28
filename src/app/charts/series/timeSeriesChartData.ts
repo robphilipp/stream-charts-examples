@@ -47,7 +47,7 @@ export function emptyTimeSeriesChartData(series: Array<string>): TimeSeriesChart
  * @param [currentTime=0] The current time
  * @return An empty chart data object
  */
-export function initialChartData(seriesList: Array<TimeSeries>, currentTime: number = 0): TimeSeriesChartData {
+export function initialTimeSeriesChartData(seriesList: Array<TimeSeries>, currentTime: number = 0): TimeSeriesChartData {
     const maxTime = seriesList.reduce(
         (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrDefault(-Infinity)),
         // (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(-Infinity)),

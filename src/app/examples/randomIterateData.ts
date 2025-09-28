@@ -1,7 +1,7 @@
 import {Datum, datumOf, TimeSeries} from "../charts/series/timeSeries";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {interval, Observable} from "rxjs";
-import {initialChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {initialTimeSeriesChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {scan} from "rxjs/operators";
 
 export type IterateFunction = (time: number, xn: number) => Datum
@@ -52,7 +52,7 @@ export function iterateFunctionObservable(
     updatePeriod: number = 25
 ): Observable<TimeSeriesChartData> {
     // convert the initial time-series to chart data needed by the observable
-    const initialData = initialChartData(initialSeries)
+    const initialData = initialTimeSeriesChartData(initialSeries)
     // create the function that accumulates the time-series into an iterate series
     const accumulateFn = accumulateIterateDataAt(updatePeriod)
     // observable that converts the time-series into iterates

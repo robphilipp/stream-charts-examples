@@ -73,7 +73,7 @@ export type OrdinalSeries = BaseSeries<OrdinalDatum>
  * @see seriesFrom
  * @see emptySeries
  */
-export function seriesFromTuples(
+export function ordinateSeriesFromTuples(
     name: string,
     data: Array<[time: number, ordinal: string, value: number]> = []
 ): OrdinalSeries {
@@ -88,7 +88,7 @@ export function seriesFromTuples(
  * @param seriesList The list of series names (identifiers) to update
  * @return An empty chart data object
  */
-export function initialChartData(seriesList: Array<OrdinalSeries>): OrdinalChartData {
+export function initialOrdinalChartData(seriesList: Array<OrdinalSeries>): OrdinalChartData {
     return {
         seriesNames: new Set(seriesList.map(series => series.name)),
         stats: calculateOrdinalStats(seriesList),

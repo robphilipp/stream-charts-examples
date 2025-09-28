@@ -1,7 +1,7 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
 import {Datum, TimeSeries} from "../charts/series/timeSeries";
-import {initialChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {initialTimeSeriesChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 // import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
 
@@ -104,7 +104,7 @@ export function randomWeightDataObservable(
     max: number = 1
 ): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
-    const initialData = initialChartData(series)
+    const initialData = initialTimeSeriesChartData(series)
     return interval(updatePeriod).pipe(
         // convert the number sequence to a time
         map(sequence => (sequence + 1) * updatePeriod),

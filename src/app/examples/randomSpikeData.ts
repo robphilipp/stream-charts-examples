@@ -1,4 +1,4 @@
-import {initialChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {initialTimeSeriesChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {TimeSeries} from "../charts/series/timeSeries";
 import {interval, Observable} from "rxjs";
 import {map} from "rxjs/operators";
@@ -54,7 +54,7 @@ export function randomSpikeDataObservable(
     spikeProbability: number = 0.1
 ): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
-    const initialData = initialChartData(series)
+    const initialData = initialTimeSeriesChartData(series)
     return interval(updatePeriod).pipe(
         // convert the number sequence to a time
         map(sequence => (sequence + 1) * updatePeriod),

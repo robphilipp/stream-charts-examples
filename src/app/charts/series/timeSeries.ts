@@ -29,7 +29,7 @@ export type TimeSeries = BaseSeries<Datum>
  * @see seriesFrom
  * @see emptySeries
  */
-export const seriesFromTuples = (name: string, data: Array<[number, number]> = []): TimeSeries =>
+export const timeSeriesFromTuples = (name: string, data: Array<[number, number]> = []): TimeSeries =>
     seriesFrom(name, data.map(([t, y]) => datumOf(t, y)))
 
 export interface PixelDatum extends Datum {

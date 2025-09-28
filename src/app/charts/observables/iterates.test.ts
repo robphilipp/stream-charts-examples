@@ -1,6 +1,6 @@
 import {scan} from 'rxjs/operators';
 import {Observable, range} from 'rxjs';
-import {initialChartData, TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {initialTimeSeriesChartData, TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {Datum, datumOf, TimeSeries} from "../series/timeSeries";
 import {seriesFrom} from "../series/baseSeries";
 
@@ -92,7 +92,7 @@ function tentMapTimeSeriesObservable(
     const maxTime = series
         .map(srs => srs.last().map(datum => datum.time).getOrElse(0))
         .reduce((tMax, tCurr) => (tCurr > tMax) ? tCurr : tMax, -Infinity)
-    const initialData = initialChartData(series, maxTime)
+    const initialData = initialTimeSeriesChartData(series, maxTime)
     const tentMap = tentMapFn(mu)
     const accumulateFn = accumulateTentDataAt(updatePeriod);
     return range(series.length, numPoints).pipe(
