@@ -884,6 +884,36 @@ export function axisZoomHandler(
     }
 }
 
+// export function ordinalAxisZoomHandler(
+//     axesForSeries: Array<string>,
+//     margin: Margin,
+//     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+//     axesState: AxesState,
+//     scaleExtent: [min: number, max: number] = [0, Infinity],
+// ): (
+//     transform: ZoomTransform,
+//     x: number,
+//     plotDimensions: Dimensions,
+//     ranges: Map<string, OrdinalAxisRange>,
+// ) => void {
+//
+//     /**
+//      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+//      * at the location of the mouse when the scroll wheel or gesture was applied.
+//      * @param transform The d3 zoom transformation information
+//      * @param x The x-position of the mouse when the scroll wheel or gesture is used
+//      * @param plotDimensions The dimensions of the plot
+//      * @param ranges A map holding the axis ID and its associated time-range
+//      */
+//     return (transform, x, plotDimensions, ranges) => {
+//         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
+//         axesForSeries.forEach(axisId =>
+//             calcZoomAndUpdate(x, axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
+//         )
+//         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
+//     }
+// }
+
 /**
  * Higher-order function that generates a handler for zoom events, given the distinct series IDs that cover all
  * the axes in the chart, the margin, range update function, and the current state of the x- or y-axes. This

@@ -8,9 +8,9 @@ export interface Theme {
 
 export const darkTheme: Theme = {
     name: 'dark',
-    color: '#d2933f',
+    color: '#eee',
     backgroundColor: '#202020',
-    disabledColor: '#d3ab76',
+    disabledColor: '#b2b0b0',
     disabledBackgroundColor: '#3e3d3d'
 }
 

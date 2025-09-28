@@ -240,25 +240,6 @@ export function BarPlot(props: Props): null {
             statsRef.current = initialOrdinalStats(dataRef.current)
             // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot()
-            // updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-            //         .map(([id, range]) => {
-            //             // grab the current range, then calculate the minimum time from the initial data, and
-            //             // set that as the start, and then add the range to it for the end time
-            //             const [start, end] = range.original
-            //             const minTime = (initialData as Array<TimeSeries>)
-            //                 .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-            //                 .reduce(
-            //                     (tMin: number, series: TimeSeries) => Math.min(
-            //                         tMin,
-            //                         !series.isEmpty() ? series.data[0].time : tMin
-            //                     ),
-            //                     Infinity
-            //                 )
-            //             const startTime = minTime === Infinity ? 0 : minTime
-            //             return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
-            //         })
-            //     )
-            // )
         },
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
@@ -813,24 +794,24 @@ function axesFor(
     return [xAxisCategory, yAxisContinuous]
 }
 
-/**
- * Calculates the upper and lower coordinate for the category
- * @param categorySize The size of the category (i.e. plot_height / num_series)
- * @param lineWidth The width of the series line
- * @param margin The margin applied to the top and bottom of the spike line (vertical spacing)
- * @return An object with two functions, that when handed a y-coordinate, return the location
- * for the start (yUpper) or end (yLower) of the spikes line.
- */
-function yAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: number): CategoryBounds {
-    if (categorySize <= margin) return {
-        upper: value => value,
-        lower: value => value + lineWidth
-    }
-    return {
-        upper: value => value + margin,
-        lower: value => value + categorySize - margin
-    }
-}
+// /**
+//  * Calculates the upper and lower coordinate for the category
+//  * @param categorySize The size of the category (i.e. plot_height / num_series)
+//  * @param lineWidth The width of the series line
+//  * @param margin The margin applied to the top and bottom of the spike line (vertical spacing)
+//  * @return An object with two functions, that when handed a y-coordinate, return the location
+//  * for the start (yUpper) or end (yLower) of the spikes line.
+//  */
+// function yAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: number): CategoryBounds {
+//     if (categorySize <= margin) return {
+//         upper: value => value,
+//         lower: value => value + lineWidth
+//     }
+//     return {
+//         upper: value => value + margin,
+//         lower: value => value + categorySize - margin
+//     }
+// }
 
 /**
  * Calculates the upper and lower coordinate for the category

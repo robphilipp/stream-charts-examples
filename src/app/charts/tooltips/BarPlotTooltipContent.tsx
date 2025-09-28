@@ -12,7 +12,7 @@ import {WindowedOrdinalStats} from "../subscriptions/subscriptions";
 import {DataFrame} from "data-frame-ts";
 import {createTable, Padding, TableData, TableFont, TableFormatter, TableStyler} from "svg-table";
 import {defaultOrdinalValueStats} from "../observables/ordinals";
-import {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
+import {Dimension} from "svg-table/stylings";
 
 /**
  # Want to write your own tooltip-content component?
@@ -53,20 +53,25 @@ import {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
  For example, the `options` property is set by the caller of the {@link ScatterPlotTooltipContent}
  component.
 
- ```ts
+ ```typescript
  // register the tooltip content provider function with the chart hook (useChart) so that
  // it is visible to all children of the Chart (i.e. the <Tooltip>).
  registerTooltipContentProvider(
-     (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
-         addTooltipContent(
-         seriesName, time, series, mouseCoords,
-         chartId, container, margin, plotDimensions,
-         defaultTooltipStyle, options
-     )
- )
+(seriesName: string,
+     time: number,
+     tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
+     mouseCoords: [x: number, y: number]
+) => {
+        return addTooltipContent(
+            seriesName, tooltipData, mouseCoords,
+            chartId, container, margin, plotDimensions, tooltipStyle,
+            ordinalUnits
+        )
+    }
+)
  ```
 
- This pattern allows you to supplement that `useChart` mouse-over callback with information specific to you component.
+ This pattern allows you to supplement that `useChart` mouse-over callback with information specific to your component.
 
  */
 
@@ -253,25 +258,6 @@ function addTooltipContent(
         .attr('x', () => xTooltip)
         .attr('y', () => yTooltip + textHeight)
 
-    const defaultBorderElement: BorderElement = {
-        color: tooltipStyle.borderColor,
-        radius: 0,
-        width: 0,
-        opacity: 0
-    }
-
-    const border: Border = {
-        top: defaultBorderElement,
-        bottom: defaultBorderElement,
-        left: defaultBorderElement,
-        right: defaultBorderElement,
-    }
-
-    const background: Background = {
-        color: tooltipStyle.backgroundColor,
-        opacity: tooltipStyle.backgroundOpacity
-    }
-
     const font: TableFont = {
         size: tooltipStyle.fontSize,
         family: tooltipStyle.fontFamily,
@@ -289,21 +275,21 @@ function addTooltipContent(
     const units = ordinalUnits.length > 0 ? ` (${ordinalUnits})` : ""
     return DataFrame
         .from<number | string>([
+            [windowedValueStats.count, valueStats.count],
             [windowedValueStats.min.value, valueStats.min.value],
             [windowedValueStats.max.value, valueStats.max.value],
             [windowedValueStats.mean, valueStats.mean],
-            [windowedValueStats.count, valueStats.count],
         ])
         // create the table data that has the column headers
         .flatMap(df => TableData
             .fromDataFrame(df)
             .withColumnHeader(["Windowed", "All"])
-            .flatMap(td => td.withRowHeader([`Min${units}`, `Max${units}`, `Mean${units}`, "Count"]))
+            .flatMap(td => td.withRowHeader(["Count", `Min${units}`, `Max${units}`, `Mean${units}`]))
         )
         // add the data formatters for statistics
         .flatMap(tableData => TableFormatter.fromTableData(tableData)
-            .addRowFormatters([1, 2, 3], value => formatValue(value as number))
-            .flatMap(tf => tf.addRowFormatter(4, value => formatNumber(value as number, " ,.0f")))
+            .addRowFormatters([2, 3, 4], value => formatValue(value as number))
+            .flatMap(tf => tf.addRowFormatter(1, value => formatNumber(value as number, " ,.0f")))
             .flatMap(tf => tf.formatTable())
         )
         .map(tableData => TableStyler.fromTableData(tableData)

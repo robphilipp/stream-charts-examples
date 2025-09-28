@@ -52,10 +52,7 @@ export function OrdinalAxis(props: Props): null {
 
     const {addXAxis, addYAxis} = axes
 
-    const {
-        plotDimensions,
-        margin
-    } = usePlotDimensions()
+    const {plotDimensions, margin} = usePlotDimensions()
 
     const {
         axisId,
@@ -104,7 +101,20 @@ export function OrdinalAxis(props: Props): null {
                 }
             }
         },
-        [addXAxis, addYAxis, axisId, categories, chartId, color, container, label, location, margin, plotDimensions, props.font]
+        [
+            addXAxis, addYAxis,
+            axisId,
+            categories,
+            chartId,
+            color,
+            container,
+            label,
+            location,
+            margin,
+            plotDimensions,
+            props.axisTickStyle,
+            props.font
+        ]
     )
 
     return null
