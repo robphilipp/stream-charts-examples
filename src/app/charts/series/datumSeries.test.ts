@@ -6,7 +6,7 @@ describe('should be able to create an empty series', () => {
     });
 
     test('an empty series should not have a last element', () => {
-        expect(emptySeries('test1').last().isNone());
+        expect(emptySeries('test1').last().failed);
     });
 
     test('an empty series should have 0 length', () => {

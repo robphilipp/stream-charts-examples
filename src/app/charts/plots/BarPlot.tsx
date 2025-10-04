@@ -78,26 +78,32 @@ interface Props {
 }
 
 /**
- * Renders a streaming neuron bar plot for the series in the initial data and those sourced by the
+ * Renders a streaming bar plot for the series in the initial data and those sourced by the
  * observable specified as a property in the {@link Chart}. This component uses the {@link useChart}
- * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
+ * hook, and therefore must be a child of the {@link Chart} to be plugged in to the
  * chart ecosystem (axes, tracker, tooltip).
+ *
+ * For a relatively complete example of how to use this plot component, see the
+ * <a href="https://github.com/robphilipp/stream-charts-examples">`StreamingBarChart` example</a>
  *
  * @param props The properties associated with the bar plot
  * @constructor
  * @example
  * ```typescript
- *  <BarPlot
- *      axisAssignments={new Map([
- *          ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
- *          ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
- *      ])}
- *      spikeMargin={1}
- *      dropDataAfter={5000}
- *      panEnabled={true}
- *      zoomEnabled={true}
- *      zoomKeyModifiersRequired={true}
- *  />
+ * <BarPlot
+ *     barMargin={1}
+ *     dropDataAfter={5000}
+ *     // panEnabled={true}
+ *     // zoomEnabled={true}
+ *     // zoomKeyModifiersRequired={true}
+ *     // withCadenceOf={50}
+ *
+ *     showMinMaxBars={showMinMax}
+ *     showValueLines={showValue}
+ *     showMeanValueLines={showMean}
+ *     showWindowedMinMaxBars={showWinMinMax}
+ *     showWindowedMeanValueLines={showWinMean}
+ * />
  * ```
  */
 export function BarPlot(props: Props): null {
