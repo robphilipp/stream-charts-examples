@@ -17,8 +17,6 @@ export interface TooltipData<D, M> {
     metadata: M
 }
 
-const DEFAULT_PROVIDER_ID: string = "default"
-
 /**
  * A higher-order function that returns a function that provides the tooltip content or
  * `undefined` if no tooltip content is available.
@@ -29,7 +27,9 @@ const DEFAULT_PROVIDER_ID: string = "default"
  * @param mouseCoords The mouse coordinates over which the mouse is hovering
  */
 type TooltipContentProvider<D, M> =
-    (seriesName: string, time: number, tooltipData: TooltipData<D, M>, mouseCoords: [x: number, y: number]) => TooltipDimensions
+    (seriesName: string, time: number, tooltipData: TooltipData<D, M>, mouseCoords: [x: number, y: number], providerId?: string) => TooltipDimensions
+// type TooltipContentProvider<D, M> =
+//     (seriesName: string, time: number, tooltipData: TooltipData<D, M>, mouseCoords: [x: number, y: number]) => TooltipDimensions
 
 /**
  * The functions and values exposed through the {@link useTooltip} react hook
@@ -41,13 +41,13 @@ export type UseTooltipValues<D, M> = {
      * one specified. This function can be called repeatedly.
      * @param provider The function that provides the content when called.
      */
-    registerTooltipContentProvider: (provider: TooltipContentProvider<D, M>, providerId?: string) => void
+    registerTooltipContentProvider: (provider: TooltipContentProvider<D, M>) => void
 
     /**
      * @return The registered function that provides the tooltip content. If no function has been
      * registered, then returns `undefined`.
      */
-    tooltipContentProvider: (providerId?: string) => (TooltipContentProvider<D, M> | undefined)
+    tooltipContentProvider: () => (TooltipContentProvider<D, M> | undefined)
 
     setVisibilityState: (visible: boolean) => void
     visibilityState: boolean
@@ -82,19 +82,13 @@ type Props = {
 export default function TooltipProvider<D, M>(props: Props): JSX.Element {
     const {children} = props
 
-    // the tooltip content provider holds a map of tooltip content providers so that a chart can have
-    // multiple tooltip content depending on what is being moused over. In the default case, which
-    // is backward compatible, the provider ID is set to its default value and retrieved using the
-    // default provider ID. When the provider ID is set along with the provider, then that provider
-    // will be returned.
-    const tooltipContentProviderRef = useRef<Map<string, TooltipContentProvider<D, M>>>(new Map())
+    const tooltipContentProviderRef = useRef<TooltipContentProvider<D, M>>(undefined)
     const visibilityStateRef = useRef<boolean>(false)
 
     return <TooltipContext.Provider
         value={{
-            registerTooltipContentProvider: (provider, providerId = DEFAULT_PROVIDER_ID) =>
-                tooltipContentProviderRef.current?.set(providerId ?? DEFAULT_PROVIDER_ID, provider),
-            tooltipContentProvider: providerId => tooltipContentProviderRef.current?.get(providerId ?? DEFAULT_PROVIDER_ID),
+            registerTooltipContentProvider: provider => tooltipContentProviderRef.current = provider,
+            tooltipContentProvider: () => tooltipContentProviderRef.current,
             setVisibilityState: (visible: boolean) => visibilityStateRef.current = visible,
             visibilityState: visibilityStateRef.current
         }}
