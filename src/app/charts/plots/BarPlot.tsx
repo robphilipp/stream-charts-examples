@@ -517,7 +517,7 @@ export function BarPlot(props: Props): null {
                                     seriesStyles,
                                     barSeriesStyle,
                                     allowTooltipRef.current,
-                                    mouseOverHandlerFor(`tooltip-${chartId}`)
+                                    mouseOverHandlerFor(`tooltip-${chartId}`, "current-value-tooltip-content-provider")
                                 )
                         )
                         .on(

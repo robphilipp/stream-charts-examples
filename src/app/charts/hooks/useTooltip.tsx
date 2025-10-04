@@ -25,6 +25,7 @@ export interface TooltipData<D, M> {
  * @param time The time (x-value) for which the tooltip content is being provided
  * @param tooltipData The tooltip data
  * @param mouseCoords The mouse coordinates over which the mouse is hovering
+ * @param providerId An optional ID of the tooltip content provider.
  */
 type TooltipContentProvider<D, M> =
     (seriesName: string, time: number, tooltipData: TooltipData<D, M>, mouseCoords: [x: number, y: number], providerId?: string) => TooltipDimensions

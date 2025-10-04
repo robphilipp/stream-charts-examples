@@ -150,10 +150,18 @@ export function BarPlotTooltipContent(props: Props): null {
                     (seriesName: string,
                      time: number,
                      tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
-                     mouseCoords: [x: number, y: number]
+                     mouseCoords: [x: number, y: number],
+                     providerId?: string
                     ) => {
+                        if (providerId === "current-value-tooltip-content-provider") {
+                            return addTooltipContent(
+                                seriesName, tooltipData, mouseCoords,
+                                chartId, container, margin, plotDimensions, tooltipStyle,
+                                ordinalUnits
+                            )
+                        }
                         return addTooltipContent(
-                            seriesName, tooltipData, mouseCoords,
+                            seriesName, tooltipData, [0,0],
                             chartId, container, margin, plotDimensions, tooltipStyle,
                             ordinalUnits
                         )

@@ -31,8 +31,8 @@ export type UseMouseValues<D, TM> = {
      * @param handlerId The ID of the handler
      * @return The mouse-over-series handler for the ID, or `undefined` if not found
      */
-    mouseOverHandlerFor: (handlerId: string) =>
-        ((seriesName: string, time: number, tooltipData: TooltipData<D, TM>, mouseCoords: [x: number, y: number]) => void) | undefined
+    mouseOverHandlerFor: (handlerId: string, providerId?: string) =>
+        ((seriesName: string, time: number, tooltipData: TooltipData<D, TM>, mouseCoords: [x: number, y: number], providerId?: string) => void) | undefined
     /**
      * Adds a mouse-leave-series handler with the specified ID and handler function
      * @param handlerId The handler ID
@@ -71,7 +71,7 @@ type Props = {
 export default function MouseProvider<D, TM>(props: Props): JSX.Element {
     const {children} = props
 
-    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, tooltipData: TooltipData<D, TM>, mouseCoords: [x: number, y: number]) => void>>(new Map())
+    const mouseOverHandlersRef = useRef<Map<string, (seriesName: string, time: number, tooltipData: TooltipData<D, TM>, mouseCoords: [x: number, y: number], providerId?: string) => void>>(new Map())
     const mouseLeaveHandlersRef = useRef<Map<string, (seriesName: string) => void>>(new Map())
 
     return <MouseContext.Provider
@@ -81,7 +81,16 @@ export default function MouseProvider<D, TM>(props: Props): JSX.Element {
                 return handlerId
             },
             unregisterMouseOverHandler: handlerId => mouseOverHandlersRef.current.delete(handlerId),
-            mouseOverHandlerFor: handlerId => mouseOverHandlersRef.current.get(handlerId),
+            mouseOverHandlerFor: (handlerId, providerId) => {
+                const func = mouseOverHandlersRef.current.get(handlerId)
+                if (func !== undefined) {
+                    return (seriesName: string, time: number, tooltipData: TooltipData<D, TM>, mouseCoords: [x: number, y: number])=> {
+                        func(seriesName, time, tooltipData, mouseCoords, providerId)
+                    }
+                }
+                return undefined
+                // return mouseOverHandlersRef.current.get(handlerId)
+            },
 
             registerMouseLeaveHandler: (handlerId, handler) => {
                 mouseLeaveHandlersRef.current.set(handlerId, handler)
