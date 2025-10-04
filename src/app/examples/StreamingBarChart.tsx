@@ -25,7 +25,7 @@ import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
 import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
-import {formatNumber, formatTime} from '../charts/utils';
+import {formatTime} from '../charts/utils';
 import {Button} from "../ui/Button";
 import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {BarPlot} from "../charts/plots/BarPlot";

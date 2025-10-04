@@ -477,7 +477,32 @@ export function BarPlot(props: Props): null {
                                 ),
                                 exit => exit.remove()
                             )
-                    }
+                            .on(
+                                "mouseover",
+                                (event,) =>
+                                    handleMouseOverBar(
+                                        container,
+                                        yAxis,
+                                        series,
+                                        statsRef.current,
+                                        event,
+                                        margin,
+                                        seriesStyles,
+                                        barSeriesStyle,
+                                        allowTooltipRef.current,
+                                        mouseOverHandlerFor(`tooltip-${chartId}`, "current-value-tooltip-content-provider-00")
+                                    )
+                            )
+                            .on(
+                                "mouseleave",
+                                event => handleMouseLeaveSeries(
+                                    series.name,
+                                    event.currentTarget,
+                                    seriesStyles,
+                                    barSeriesStyle,
+                                    mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                                )
+                            )                    }
 
                     //
                     // value lines

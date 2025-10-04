@@ -160,11 +160,19 @@ export function BarPlotTooltipContent(props: Props): null {
                                 ordinalUnits
                             )
                         }
-                        return addTooltipContent(
-                            seriesName, tooltipData, [0,0],
-                            chartId, container, margin, plotDimensions, tooltipStyle,
-                            ordinalUnits
-                        )
+                        if (providerId === "current-value-tooltip-content-provider-00") {
+                            return addTooltipContent(
+                                seriesName, tooltipData, [0, 0],
+                                chartId, container, margin, plotDimensions, tooltipStyle,
+                                ordinalUnits
+                            )
+                        }
+                        return {x: 0, y: 0, contentWidth: 0, contentHeight: 0}
+                        // return addTooltipContent(
+                        //     seriesName, tooltipData, [0,0],
+                        //     chartId, container, margin, plotDimensions, tooltipStyle,
+                        //     ordinalUnits
+                        // )
                     }
                 )
             }
