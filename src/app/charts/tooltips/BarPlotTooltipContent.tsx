@@ -244,33 +244,6 @@ function labelForProviderId(providerId: string): string {
 }
 
 /**
- * Creates the value to display in the header. This it the second line of the tooltip header.
- * @param providerId The tooltip provider ID for which to create the label
- * @param datum The ordinal datum holding the current value
- * @param stats The ordinal stats holding the stats for all time
- * @param windowedStats The ordinal stats holding the stats for the window
- * @return The value to display in the header.
- */
-function valueForProviderId(providerId: string, datum: OrdinalDatum, stats: OrdinalValueStats, windowedStats: OrdinalValueStats): string {
-    // switch (providerId) {
-    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue:
-    //         return formatValue(datum.value)
-    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue:
-    //         return formatValue(stats.mean)
-    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax:
-    //         return `[${formatValue(stats.min.value)}, ${formatValue(stats.max.value)}]`
-    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
-    //         return formatValue(windowedStats.mean)
-    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax:
-    //         return `[${formatValue(windowedStats.min.value)}, ${formatValue(windowedStats.max.value)}]`
-    //
-    //     default:
-    //         return ''
-    // }
-    return formatValue(datum.value)
-}
-
-/**
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param providerId The tooltip content provider ID (i.e. the name of the tooltip)
@@ -324,7 +297,7 @@ function addTooltipContent(
         .attr('font-family', 'sans-serif')
         .attr('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
-        .text(() => `${valueForProviderId(providerId, currentDatum, valueStats, windowedValueStats)}${displayOrdinalUnits}  (${formatTime(currentDatum.time)} ms)`)
+        .text(() => `${formatValue(currentDatum.value)}${displayOrdinalUnits}  (${formatTime(currentDatum.time)} ms)`)
 
     // calculate the max width and height of the text (we'll adjust the coordinates of the header
     // text once we have the table dimensions)
