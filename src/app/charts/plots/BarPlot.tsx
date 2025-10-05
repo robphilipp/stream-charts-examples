@@ -421,32 +421,33 @@ export function BarPlot(props: Props): null {
                             ),
                             exit => exit.remove()
                         )
-
-                    //
-                    // mean line
-                    const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
-                    svg
-                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.meanValue))
-                        .data(showMeanValueLines ? plotData : [])
-                        .join(
-                            enter => lineFor(
-                                enter.append<SVGLineElement>('line').attr('class', BAR_CHART_CLASS_IDS.meanValue),
-                                {
-                                    x1: () => lower(x), y1: () => meanLineY,
-                                    x2: () => upper(x), y2: () => meanLineY
-                                },
-                                meanValueLineStyle.regular
-                            ),
-                            update => lineFor(
-                                update,
-                                {
-                                    x1: () => lower(x), y1: () => meanLineY,
-                                    x2: () => upper(x), y2: () => meanLineY
-                                },
-                                meanValueLineStyle.regular
-                            ),
-                            exit => exit.remove()
+                        .on(
+                            "mouseover",
+                            (event,) =>
+                                handleMouseOverBar(
+                                    container,
+                                    yAxis,
+                                    series,
+                                    statsRef.current,
+                                    event,
+                                    margin,
+                                    seriesStyles,
+                                    barSeriesStyle,
+                                    allowTooltipRef.current,
+                                    mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax),
+                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax
+                                )
+                        )
+                        .on(
+                            "mouseleave",
+                            event => handleMouseLeaveSeries(
+                                series.name,
+                                event.currentTarget,
+                                seriesStyles,
+                                barSeriesStyle,
+                                mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax),
+                                BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax
+                            )
                         )
 
                     //
@@ -475,6 +476,89 @@ export function BarPlot(props: Props): null {
                                     windowedBar,
                                     barStyleFor(showWindowedMinMaxBars, windowedBarStyle)                                ),
                                 exit => exit.remove()
+                            )
+                            .on(
+                                "mouseover",
+                                (event,) =>
+                                    handleMouseOverBar(
+                                        container,
+                                        yAxis,
+                                        series,
+                                        statsRef.current,
+                                        event,
+                                        margin,
+                                        seriesStyles,
+                                        barSeriesStyle,
+                                        allowTooltipRef.current,
+                                        mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax),
+                                        BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax
+                                    )
+                            )
+                            .on(
+                                "mouseleave",
+                                event => handleMouseLeaveSeries(
+                                    series.name,
+                                    event.currentTarget,
+                                    seriesStyles,
+                                    barSeriesStyle,
+                                    mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax),
+                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax
+                                )
+                            )
+
+                        //
+                        // mean line
+                        const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
+                        svg
+                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                            .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.meanValue))
+                            .data(showMeanValueLines ? plotData : [])
+                            .join(
+                                enter => lineFor(
+                                    enter.append<SVGLineElement>('line').attr('class', BAR_CHART_CLASS_IDS.meanValue),
+                                    {
+                                        x1: () => lower(x), y1: () => meanLineY,
+                                        x2: () => upper(x), y2: () => meanLineY
+                                    },
+                                    meanValueLineStyle.regular
+                                ),
+                                update => lineFor(
+                                    update,
+                                    {
+                                        x1: () => lower(x), y1: () => meanLineY,
+                                        x2: () => upper(x), y2: () => meanLineY
+                                    },
+                                    meanValueLineStyle.regular
+                                ),
+                                exit => exit.remove()
+                            )
+                            .on(
+                                "mouseover",
+                                (event,) =>
+                                    handleMouseOverBar(
+                                        container,
+                                        yAxis,
+                                        series,
+                                        statsRef.current,
+                                        event,
+                                        margin,
+                                        seriesStyles,
+                                        barSeriesStyle,
+                                        allowTooltipRef.current,
+                                        mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue),
+                                        BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue
+                                    )
+                            )
+                            .on(
+                                "mouseleave",
+                                event => handleMouseLeaveSeries(
+                                    series.name,
+                                    event.currentTarget,
+                                    seriesStyles,
+                                    barSeriesStyle,
+                                    mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue),
+                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue
+                                )
                             )
 
                         const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
