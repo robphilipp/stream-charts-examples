@@ -13,7 +13,7 @@ import {DataFrame} from "data-frame-ts";
 import {createTable, Padding, TableData, TableFont, TableFormatter, TableStyler} from "svg-table";
 import {defaultOrdinalValueStats} from "../observables/ordinals";
 import {Dimension} from "svg-table/stylings";
-import {CURRENT_VALUE_TOOLTIP_PROVIDER, WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER} from "../plots/BarPlot";
+import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/BarPlot";
 
 /**
  # Want to write your own tooltip-content component?
@@ -114,10 +114,7 @@ export function BarPlotTooltipContent(props: Props): null {
 
     const {registerTooltipContentProvider} = tooltip
 
-    const {
-        yAxesState,
-        axisAssignmentsFor
-    } = axes
+    const {yAxesState, axisAssignmentsFor} = axes
 
     const {margin, plotDimensions} = usePlotDimensions()
 
@@ -146,6 +143,7 @@ export function BarPlotTooltipContent(props: Props): null {
                      * @param time The mouse time
                      * @param tooltipData The series data and metadata
                      * @param mouseCoords The coordinates of the mouse
+                     * @param providerId The ID of the tooltip content provider
                      * @return The tooltip contents
                      */
                     (seriesName: string,
@@ -154,26 +152,22 @@ export function BarPlotTooltipContent(props: Props): null {
                      mouseCoords: [x: number, y: number],
                      providerId?: string
                     ) => {
-                        if (providerId === CURRENT_VALUE_TOOLTIP_PROVIDER) {
+                        if (providerId === BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue) {
                             return addTooltipContent(
                                 seriesName, tooltipData, mouseCoords,
                                 chartId, container, margin, plotDimensions, tooltipStyle,
                                 ordinalUnits
                             )
                         }
-                        if (providerId === WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER) {
+                        if (providerId === BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue) {
                             return addTooltipContent(
                                 seriesName, tooltipData, [0, 0],
                                 chartId, container, margin, plotDimensions, tooltipStyle,
                                 ordinalUnits
                             )
                         }
+                        // empty tooltip
                         return {x: 0, y: 0, contentWidth: 0, contentHeight: 0}
-                        // return addTooltipContent(
-                        //     seriesName, tooltipData, [0,0],
-                        //     chartId, container, margin, plotDimensions, tooltipStyle,
-                        //     ordinalUnits
-                        // )
                     }
                 )
             }

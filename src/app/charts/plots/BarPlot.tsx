@@ -24,17 +24,41 @@ import {
     SvgFillStyle,
     SvgStrokeStyle
 } from "../styling/svgStyle";
-import {
-    BarSeriesStyle,
-    BarStyle,
-    defaultBarSeriesStyle,
-    defaultWindowedMeanValueLineStyle, LineStyle
-} from "../styling/barPlotStyle";
+import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
 
-export const CURRENT_VALUE_TOOLTIP_PROVIDER = 'current-value-tooltip-provider'
-export const WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER = 'windowed-mean-value-tooltip-provider'
+// typescript doesn't support enums with computed string values, even though they are all constants...
+export type BarChartElementId = {
+    readonly currentValue: string
+    readonly meanValue: string
+    readonly minMax: string
+    readonly windowedMeanValue: string
+    readonly windowedMinMax: string
+}
 
+const STREAM_CHARTS_BAR_CHART_ID = 'stream-charts-bar-chart'
+
+// elements of the bar-chart
+const BAR_CHART_CLASS_IDS: BarChartElementId = {
+    currentValue: STREAM_CHARTS_BAR_CHART_ID + '-value-lines',
+    meanValue: STREAM_CHARTS_BAR_CHART_ID + '-mean-value-lines',
+    minMax: STREAM_CHARTS_BAR_CHART_ID + '-min-max-bars',
+    windowedMeanValue: STREAM_CHARTS_BAR_CHART_ID + '-windowed-mean-value-lines',
+    windowedMinMax: STREAM_CHARTS_BAR_CHART_ID + '-windowed-mean-bars'
+}
+
+const classIdFor = (id: string) => '.' + id
+
+// constants identifying the bar-chart elements for which mouse-over/mouse-leave events are defined
+const TOOLTIP_PROVIDER_ID = STREAM_CHARTS_BAR_CHART_ID + '-tooltip-provider'
+
+export const BAR_CHART_TOOLTIP_PROVIDER_IDS: BarChartElementId = {
+    currentValue: TOOLTIP_PROVIDER_ID + '-current-value',
+    meanValue: TOOLTIP_PROVIDER_ID + '-mean-value',
+    minMax: TOOLTIP_PROVIDER_ID + '-min-max',
+    windowedMeanValue: TOOLTIP_PROVIDER_ID + '-windowed-min-max',
+    windowedMinMax: TOOLTIP_PROVIDER_ID + '-windowed-mean'
+}
 
 interface Props {
     /**
@@ -49,7 +73,7 @@ interface Props {
     showMeanValueLines?: boolean
     showWindowedMeanValueLines?: boolean
     /**
-     * The number of milliseconds of data to hold in memory before dropping it. Defaults to
+     * The number of milliseconds worth of data to hold in memory before dropping it. Defaults to
      * infinity (i.e. no data is dropped)
      */
     dropDataAfter?: number
@@ -66,15 +90,6 @@ interface Props {
     //  * in order to activate the zoom
     //  */
     // zoomKeyModifiersRequired?: boolean
-    // /**
-    //  * When set, uses a cadence with the specified refresh period (in milliseconds). For plots
-    //  * where the updates are slow (> 100 ms) using a cadence of 10 to 25 ms smooths out the
-    //  * updates and makes the plot updates look cleaner. When updates are around 25 ms or less,
-    //  * then setting the cadence period too small will result in poor update performance. Generally
-    //  * at high update speeds, the cadence is unnecessary. Finally, using cadence, sets the max time
-    //  * to the current time.
-    //  */
-    // withCadenceOf?: number
     /**
      * The (optional, default = 2 pixels) top and bottom margin (in pixels) for the spike lines in the plot.
      * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
@@ -391,11 +406,11 @@ export function BarPlot(props: Props): null {
 
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-min-max')
+                        .selectAll<SVGRectElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.minMax))
                         .data(plotData)
                         .join(
                             enter => barFor(
-                                enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-min-max'),
+                                enter.append<SVGRectElement>('rect').attr('class', BAR_CHART_CLASS_IDS.minMax),
                                 totalBar,
                                 barStyleFor(showMinMaxBars, minMaxBarStyle)
                             ),
@@ -412,11 +427,11 @@ export function BarPlot(props: Props): null {
                     const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-mean-lines')
+                        .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.meanValue))
                         .data(showMeanValueLines ? plotData : [])
                         .join(
                             enter => lineFor(
-                                enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-mean-lines'),
+                                enter.append<SVGLineElement>('line').attr('class', BAR_CHART_CLASS_IDS.meanValue),
                                 {
                                     x1: () => lower(x), y1: () => meanLineY,
                                     x2: () => upper(x), y2: () => meanLineY
@@ -447,11 +462,11 @@ export function BarPlot(props: Props): null {
 
                         svg
                             .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                            .selectAll<SVGRectElement, PlotData>('.stream-charts-bar-windowed-min-max')
+                            .selectAll<SVGRectElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.windowedMinMax))
                             .data(plotData)
                             .join(
                                 enter => barFor(
-                                    enter.append<SVGRectElement>('rect').attr('class', 'stream-charts-bar-windowed-min-max'),
+                                    enter.append<SVGRectElement>('rect').attr('class', BAR_CHART_CLASS_IDS.windowedMinMax),
                                     windowedBar,
                                     barStyleFor(showWindowedMinMaxBars, windowedBarStyle)
                                 ),
@@ -465,11 +480,11 @@ export function BarPlot(props: Props): null {
                         const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
                         svg
                             .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                            .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-windowed-mean-lines')
+                            .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.windowedMeanValue))
                             .data(showWindowedMeanValueLines ? plotData : [])
                             .join(
                                 enter => lineFor(
-                                    enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-windowed-mean-lines'),
+                                    enter.append<SVGLineElement>('line').attr('class', BAR_CHART_CLASS_IDS.windowedMeanValue),
                                     {
                                         x1: () => lower(x), y1: () => windowedMeanLineY,
                                         x2: () => upper(x), y2: () => windowedMeanLineY
@@ -499,8 +514,8 @@ export function BarPlot(props: Props): null {
                                         seriesStyles,
                                         barSeriesStyle,
                                         allowTooltipRef.current,
-                                        mouseOverHandlerFor(`tooltip-${chartId}`, WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER),
-                                        WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER
+                                        mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue),
+                                        BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue
                                     )
                             )
                             .on(
@@ -510,8 +525,8 @@ export function BarPlot(props: Props): null {
                                     event.currentTarget,
                                     seriesStyles,
                                     barSeriesStyle,
-                                    mouseLeaveHandlerFor(`tooltip-${chartId}`, WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER),
-                                    WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER
+                                    mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue),
+                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue
                                 )
                             )
                     }
@@ -520,11 +535,11 @@ export function BarPlot(props: Props): null {
                     // value lines
                     svg
                         .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
-                        .selectAll<SVGLineElement, PlotData>('.stream-charts-bar-value-lines')
+                        .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.currentValue))
                         .data(showValueLines ? plotData : [])
                         .join(
                             enter => lineFor(
-                                enter.append<SVGLineElement>('line').attr('class', 'stream-charts-bar-value-lines'),
+                                enter.append<SVGLineElement>('line').attr('class', BAR_CHART_CLASS_IDS.currentValue),
                                 {
                                     x1: () => lower(x), y1: datum => yAxis.scale(datum.value),
                                     x2: () => upper(x), y2: datum => yAxis.scale(datum.value)
@@ -554,8 +569,8 @@ export function BarPlot(props: Props): null {
                                     seriesStyles,
                                     barSeriesStyle,
                                     allowTooltipRef.current,
-                                    mouseOverHandlerFor(`tooltip-${chartId}`, CURRENT_VALUE_TOOLTIP_PROVIDER),
-                                    CURRENT_VALUE_TOOLTIP_PROVIDER
+                                    mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue),
+                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue
                                 )
                         )
                         .on(
@@ -565,8 +580,8 @@ export function BarPlot(props: Props): null {
                                 event.currentTarget,
                                 seriesStyles,
                                 barSeriesStyle,
-                                mouseLeaveHandlerFor(`tooltip-${chartId}`, CURRENT_VALUE_TOOLTIP_PROVIDER),
-                                CURRENT_VALUE_TOOLTIP_PROVIDER
+                                mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue),
+                                BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue
                             )
                         )
                 })
@@ -983,9 +998,9 @@ function handleMouseLeaveSeries(
 function lineStyleFor(tooltipProvider: string | undefined, barSeriesStyle: BarSeriesStyle): LineStyle | undefined {
     const {valueLine, windowedMeanValueLine} = barSeriesStyle
     switch (tooltipProvider) {
-        case CURRENT_VALUE_TOOLTIP_PROVIDER:
+        case BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue:
             return valueLine
-        case WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER:
+        case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
             return windowedMeanValueLine
         default:
             return undefined
