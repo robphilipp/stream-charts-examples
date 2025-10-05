@@ -13,6 +13,7 @@ import {DataFrame} from "data-frame-ts";
 import {createTable, Padding, TableData, TableFont, TableFormatter, TableStyler} from "svg-table";
 import {defaultOrdinalValueStats} from "../observables/ordinals";
 import {Dimension} from "svg-table/stylings";
+import {CURRENT_VALUE_TOOLTIP_PROVIDER, WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER} from "../plots/BarPlot";
 
 /**
  # Want to write your own tooltip-content component?
@@ -153,14 +154,14 @@ export function BarPlotTooltipContent(props: Props): null {
                      mouseCoords: [x: number, y: number],
                      providerId?: string
                     ) => {
-                        if (providerId === "current-value-tooltip-content-provider") {
+                        if (providerId === CURRENT_VALUE_TOOLTIP_PROVIDER) {
                             return addTooltipContent(
                                 seriesName, tooltipData, mouseCoords,
                                 chartId, container, margin, plotDimensions, tooltipStyle,
                                 ordinalUnits
                             )
                         }
-                        if (providerId === "current-value-tooltip-content-provider-00") {
+                        if (providerId === WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER) {
                             return addTooltipContent(
                                 seriesName, tooltipData, [0, 0],
                                 chartId, container, margin, plotDimensions, tooltipStyle,
@@ -254,25 +255,11 @@ function addTooltipContent(
         .attr('font-weight', tooltipStyle.fontWeight + 150)
         .text(() => `${formatValue(currentDatum.value)}${displayOrdinalUnits}  (${formatTime(currentDatum.time)} ms)`)
 
-    // calculate the max width and height of the text
-    const tooltipWidth = Math.max(header.node()?.getBBox()?.width || 0, text.node()?.getBBox()?.width || 0);
+    // calculate the max width and height of the text (we'll adjust the coordinates of the header
+    // text once we have the table dimensions)
     const headerTextHeight = header.node()?.getBBox()?.height || 0;
     const idHeight = text.node()?.getBBox()?.height || 0;
     const textHeight = headerTextHeight + idHeight;
-
-    // set the header text location
-    const xCoord = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin)
-    const yCoord = tooltipY(y, textHeight, plotDimensions, tooltipStyle, margin)
-    const xTooltip = xCoord + tooltipStyle.paddingLeft
-    const yTooltip = yCoord + tooltipStyle.paddingTop
-    header
-        .attr('x', () => xTooltip)
-        .attr('y', () => yTooltip - idHeight + textHeight)
-
-    // set the tooltip text (i.e. series name) location
-    text
-        .attr('x', () => xTooltip)
-        .attr('y', () => yTooltip + textHeight)
 
     const font: TableFont = {
         size: tooltipStyle.fontSize,
@@ -338,7 +325,18 @@ function addTooltipContent(
             createTable(styledTable, container, `t${currentDatum.time}-${seriesName}-header-${chartId}`, tooltipCoordinates)
         )
         .map(renderingInfo => {
+            // the calculated table coordinates and dimensions. we'll move the header text into place,
+            // and then move the table down so that it fits
             const {tableX: x, tableY: y, tableWidth: contentWidth, tableHeight: contentHeight} = renderingInfo
+
+            // set the location of the header (series name) and text (value and time)
+            header
+                .attr('x', () => x + tooltipStyle.paddingLeft)
+                .attr('y', () => y - idHeight)
+            text
+                .attr('x', () => x + tooltipStyle.paddingLeft)
+                .attr('y', () => y)
+
             return {x, y: y - textHeight, contentWidth, contentHeight: contentHeight + textHeight + padding.top}
         })
         .getOrThrow()

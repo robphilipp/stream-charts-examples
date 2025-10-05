@@ -24,8 +24,17 @@ import {
     SvgFillStyle,
     SvgStrokeStyle
 } from "../styling/svgStyle";
-import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle} from "../styling/barPlotStyle";
+import {
+    BarSeriesStyle,
+    BarStyle,
+    defaultBarSeriesStyle,
+    defaultWindowedMeanValueLineStyle, LineStyle
+} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
+
+export const CURRENT_VALUE_TOOLTIP_PROVIDER = 'current-value-tooltip-provider'
+export const WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER = 'windowed-mean-value-tooltip-provider'
+
 
 interface Props {
     /**
@@ -490,7 +499,8 @@ export function BarPlot(props: Props): null {
                                         seriesStyles,
                                         barSeriesStyle,
                                         allowTooltipRef.current,
-                                        mouseOverHandlerFor(`tooltip-${chartId}`, "current-value-tooltip-content-provider-00")
+                                        mouseOverHandlerFor(`tooltip-${chartId}`, WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER),
+                                        WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER
                                     )
                             )
                             .on(
@@ -500,9 +510,11 @@ export function BarPlot(props: Props): null {
                                     event.currentTarget,
                                     seriesStyles,
                                     barSeriesStyle,
-                                    mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                                    mouseLeaveHandlerFor(`tooltip-${chartId}`, WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER),
+                                    WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER
                                 )
-                            )                    }
+                            )
+                    }
 
                     //
                     // value lines
@@ -542,7 +554,8 @@ export function BarPlot(props: Props): null {
                                     seriesStyles,
                                     barSeriesStyle,
                                     allowTooltipRef.current,
-                                    mouseOverHandlerFor(`tooltip-${chartId}`, "current-value-tooltip-content-provider")
+                                    mouseOverHandlerFor(`tooltip-${chartId}`, CURRENT_VALUE_TOOLTIP_PROVIDER),
+                                    CURRENT_VALUE_TOOLTIP_PROVIDER
                                 )
                         )
                         .on(
@@ -552,7 +565,8 @@ export function BarPlot(props: Props): null {
                                 event.currentTarget,
                                 seriesStyles,
                                 barSeriesStyle,
-                                mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                                mouseLeaveHandlerFor(`tooltip-${chartId}`, CURRENT_VALUE_TOOLTIP_PROVIDER),
+                                CURRENT_VALUE_TOOLTIP_PROVIDER
                             )
                         )
                 })
@@ -892,19 +906,42 @@ function handleMouseOverBar(
         tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
         mouseCoords: [x: number, y: number]
     ) => void) | undefined,
+    tooltipProvider?: string
 ): void {
     // grab the time needed for the tooltip ID
     const [x, y] = d3.pointer(event, container)
     const value = yAxis.scale.invert(y - margin.top)
 
     const {name: categoryName, data: selectedData} = selectedSeries
-    const {valueLine} = barStyles.get(categoryName) || defaultBarSeriesStyle
+    // const {valueLine, windowedMeanValueLine} = barStyles.get(categoryName) || defaultBarSeriesStyle
+    //
+    // // // Use d3 to select element, change color and size
+    // // d3.select<SVGPathElement, Datum>(event.currentTarget)
+    // //     .style(STROKE_COLOR, valueLine.highlight.color)
+    // //     .style(STROKE_WIDTH, valueLine.highlight.width)
+    // //     .style(STROKE_OPACITY, valueLine.highlight.opacity)
+    // if (tooltipProvider === CURRENT_VALUE_TOOLTIP_PROVIDER) {
+    //     // Use d3 to select element, change color and size
+    //     d3.select<SVGPathElement, Datum>(event.currentTarget)
+    //         .style(STROKE_COLOR, valueLine.highlight.color)
+    //         .style(STROKE_WIDTH, valueLine.highlight.width)
+    //         .style(STROKE_OPACITY, valueLine.highlight.opacity)
+    // } else if (tooltipProvider === WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER) {
+    //     // Use d3 to select element, change color and size
+    //     d3.select<SVGPathElement, Datum>(event.currentTarget)
+    //         .style(STROKE_COLOR, windowedMeanValueLine.highlight.color)
+    //         .style(STROKE_WIDTH, windowedMeanValueLine.highlight.width)
+    //         .style(STROKE_OPACITY, windowedMeanValueLine.highlight.opacity)
+    // }
 
-    // Use d3 to select element, change color and size
-    d3.select<SVGPathElement, Datum>(event.currentTarget)
-        .style(STROKE_COLOR, valueLine.highlight.color)
-        .style(STROKE_WIDTH, valueLine.highlight.width)
-        .style(STROKE_OPACITY, valueLine.highlight.opacity)
+    const barSeriesStyle = barStyles.get(categoryName) || defaultBarSeriesStyle
+    const lineStyle = lineStyleFor(tooltipProvider, barSeriesStyle)
+    if (lineStyle !== undefined) {
+        d3.select<SVGPathElement, Datum>(event.currentTarget)
+            .style(STROKE_COLOR, lineStyle.highlight.color)
+            .style(STROKE_WIDTH, lineStyle.highlight.width)
+            .style(STROKE_OPACITY, lineStyle.highlight.opacity)
+    }
 
     if (mouseOverHandlerFor && allowTooltip) {
         // the contract for the mouse over handler is for a series
@@ -919,6 +956,7 @@ function handleMouseOverBar(
  * @param seriesStyles The styles for the series (for (un)highlighting)
  * @param defaultBarSeriesStyle The default bar series style that is used if no style is found for the series
  * @param mouseLeaverHandlerFor Registered handler for the series when the mouse leaves
+ * @param tooltipProvider The tooltip provider ID for the mouse-over event
  */
 function handleMouseLeaveSeries(
     seriesName: string,
@@ -926,14 +964,30 @@ function handleMouseLeaveSeries(
     seriesStyles: Map<string, BarSeriesStyle>,
     defaultBarSeriesStyle: BarSeriesStyle,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
+    tooltipProvider?: string
 ): void {
-    const {color, valueLine} = seriesStyles.get(seriesName) || defaultBarSeriesStyle
-    d3.select<SVGLineElement, Datum>(segment)
-        .style(STROKE_COLOR, color)
-        .style(STROKE_WIDTH, valueLine.regular.width)
-        .style(STROKE_OPACITY, valueLine.regular.opacity)
+    const barSeriesStyle = seriesStyles.get(seriesName) || defaultBarSeriesStyle
+    const lineStyle = lineStyleFor(tooltipProvider, barSeriesStyle)
+    if (lineStyle !== undefined) {
+        d3.select<SVGPathElement, Datum>(segment)
+            .style(STROKE_COLOR, lineStyle.regular.color)
+            .style(STROKE_WIDTH, lineStyle.regular.width)
+            .style(STROKE_OPACITY, lineStyle.regular.opacity)
+    }
 
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)
+    }
+}
+
+function lineStyleFor(tooltipProvider: string | undefined, barSeriesStyle: BarSeriesStyle): LineStyle | undefined {
+    const {valueLine, windowedMeanValueLine} = barSeriesStyle
+    switch (tooltipProvider) {
+        case CURRENT_VALUE_TOOLTIP_PROVIDER:
+            return valueLine
+        case WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER:
+            return windowedMeanValueLine
+        default:
+            return undefined
     }
 }
