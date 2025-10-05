@@ -58,18 +58,18 @@ import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/BarPlot";
  // register the tooltip content provider function with the chart hook (useChart) so that
  // it is visible to all children of the Chart (i.e. the <Tooltip>).
  registerTooltipContentProvider(
-(seriesName: string,
-     time: number,
-     tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
-     mouseCoords: [x: number, y: number]
-) => {
-        return addTooltipContent(
-            seriesName, tooltipData, mouseCoords,
-            chartId, container, margin, plotDimensions, tooltipStyle,
-            ordinalUnits
-        )
-    }
-)
+ (seriesName: string,
+ time: number,
+ tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
+ mouseCoords: [x: number, y: number]
+ ) => {
+ return addTooltipContent(
+ seriesName, tooltipData, mouseCoords,
+ chartId, container, margin, plotDimensions, tooltipStyle,
+ ordinalUnits
+ )
+ }
+ )
  ```
 
  This pattern allows you to supplement that `useChart` mouse-over callback with information specific to your component.
@@ -252,21 +252,22 @@ function labelForProviderId(providerId: string): string {
  * @return The value to display in the header.
  */
 function valueForProviderId(providerId: string, datum: OrdinalDatum, stats: OrdinalValueStats, windowedStats: OrdinalValueStats): string {
-    switch (providerId) {
-        case BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue:
-            return formatValue(datum.value)
-        case BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue:
-            return formatValue(stats.mean)
-        case BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax:
-            return `[${formatValue(stats.min.value)}, ${formatValue(stats.max.value)}]`
-        case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
-            return formatValue(windowedStats.mean)
-        case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax:
-            return `[${formatValue(windowedStats.min.value)}, ${formatValue(windowedStats.max.value)}]`
-
-        default:
-            return ''
-    }
+    // switch (providerId) {
+    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue:
+    //         return formatValue(datum.value)
+    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue:
+    //         return formatValue(stats.mean)
+    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax:
+    //         return `[${formatValue(stats.min.value)}, ${formatValue(stats.max.value)}]`
+    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
+    //         return formatValue(windowedStats.mean)
+    //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax:
+    //         return `[${formatValue(windowedStats.min.value)}, ${formatValue(windowedStats.max.value)}]`
+    //
+    //     default:
+    //         return ''
+    // }
+    return formatValue(datum.value)
 }
 
 /**
@@ -324,7 +325,6 @@ function addTooltipContent(
         .attr('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
         .text(() => `${valueForProviderId(providerId, currentDatum, valueStats, windowedValueStats)}${displayOrdinalUnits}  (${formatTime(currentDatum.time)} ms)`)
-        // .text(() => `${formatValue(currentDatum.value)}${displayOrdinalUnits}  (${formatTime(currentDatum.time)} ms)`)
 
     // calculate the max width and height of the text (we'll adjust the coordinates of the header
     // text once we have the table dimensions)
@@ -386,9 +386,22 @@ function addTooltipContent(
                 alignText: 'right',
             })
             .withRowStyles([], {
-                font,
-                dimension: {...dimension, maxHeight: 20},
-                padding: {top: 0, bottom: 0}}
+                    font,
+                    dimension: {...dimension, maxHeight: 20},
+                    padding: {top: 0, bottom: 0}
+                }
+            )
+            .withCellStyleWhen((_, row, column) => {
+                // apply the style to the cell corresponding to the chart element that the user
+                // moused-over.
+                const coordinates = coordinatesForProviderId(providerId)
+                if (coordinates.length > 0) {
+                    return coordinates.findIndex(c => c.row === row && c.column === column) > -1
+                }
+                return false
+                },
+                {font: {...font, weight: font.weight + 300}, alignText: 'right', padding: {left: 10, right: 10, top: 0, bottom: 0}},
+                100
             )
             .styleTable()
         )
@@ -412,6 +425,28 @@ function addTooltipContent(
         })
         .getOrThrow()
 
+    /**
+     * Calculates the coordinates that are affected by the provider ID
+     * @param providerId The ID of the provider for the element type being moused-over
+     * @return An array of coordinates that are affected by the provider ID
+     */
+    function coordinatesForProviderId(providerId: string): Array<{ row: number, column: number }> {
+        switch (providerId) {
+            case BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue:
+                return []
+            case BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue:
+                return [{row: 4, column: 2}]
+            case BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax:
+                return [{row: 2, column: 2}, {row: 3, column: 2}]
+            case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
+                return [{row: 4, column: 1}]
+            case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax:
+                return [{row: 2, column: 1}, {row: 3, column: 1}]
+
+            default:
+                return []
+        }
+    }
 
     /**
      * Calculates the coordinates of the tooltip based on the width and height of the SVG
