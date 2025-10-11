@@ -1,5 +1,5 @@
 import {default as React, JSX, useEffect, useRef, useState} from "react";
-import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomData";
+import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomIterateData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {
@@ -14,16 +14,16 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {Datum, TimeSeries} from "../charts/timeSeries";
+import {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation, defaultLineStyle} from '../charts/axes';
-import {ContinuousAxis} from "../charts/ContinuousAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
-import {Tooltip} from "../charts/Tooltip";
-import {PoincarePlotTooltipContent} from "../charts/PoincarePlotTooltipContent";
+import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
+import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
+import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
+import {Tooltip} from "../charts/tooltips/Tooltip";
+import {PoincarePlotTooltipContent} from "../charts/tooltips/PoincarePlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
-import {NoCurveFactory, PoincarePlot} from "../charts/PoincarePlot";
+import {NoCurveFactory, PoincarePlot} from "../charts/plots/PoincarePlot";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -44,9 +44,10 @@ import {NoCurveFactory, PoincarePlot} from "../charts/PoincarePlot";
 // } from "stream-charts";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
-import {IterateChartData, iteratesObservable} from "../charts/iterates";
-import {BaseSeries, seriesFrom} from "../charts/baseSeries";
+import {IterateChartData, iteratesObservable} from "../charts/observables/iterates";
+import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
+import {defaultTooltipStyle} from "../charts/tooltips/tooltipUtils";
 
 //
 // the interpolations for the lines drawn between each iterate point.
@@ -221,12 +222,12 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const randomData = (updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
         return initialData => iteratesObservable(iterateFunctionObservable(iterateFunction, initialData, updatePeriod), lagN)
     }
-    const randomDataObservable = randomData(100, lagN)
+    const randomDataObservable = randomData(50, lagN)
     const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timeout>()
+    const intervalRef = useRef<NodeJS.Timeout>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
@@ -470,20 +471,20 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
                         ['test1', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 1,
                             highlightColor: 'orange'
                         }],
                         ['test2', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: theme.name === 'light' ? 'blue' : 'gray',
                             lineWidth: 1,
                             highlightColor: theme.name === 'light' ? 'blue' : 'gray',
                             highlightWidth: 5
                         }],
                         ['test3', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: theme.name === 'light' ? 'red' : 'gray',
                             lineWidth: 1,
                             highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
@@ -495,7 +496,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateChartTime={handleChartTimeUpdate}
-                    windowingTime={150}
+                    windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
@@ -545,6 +546,12 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             xLabel="t (ms)"
                             yLabel="f(x)"
                             yValueFormatter={value => formatNumber(value, " ,.4f")}
+                            style={{
+                                ...defaultTooltipStyle,
+                                fontColor: 'black',
+                                // fontColor: theme.color,
+                                fontWeight: 650
+                            }}
                         />
                     </Tooltip>
                     <PoincarePlot

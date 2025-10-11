@@ -3,7 +3,7 @@ import {JSX} from "react";
 import {useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {randomSpikeDataObservable} from "./randomData";
+import {randomSpikeDataObservable} from "./randomSpikeData";
 import {
     Grid,
     gridArea,
@@ -18,22 +18,22 @@ import {
 } from 'react-resizable-grid-layout';
 import {lightTheme, Theme} from "../ui/Themes";
 
-import {Datum, TimeSeries} from "../charts/timeSeries";
-import {TimeSeriesChartData} from "../charts/timeSeriesChartData";
-import {regexFilter} from "../charts/regexFilter";
+import {Datum, TimeSeries} from "../charts/series/timeSeries";
+import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
 import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation, defaultLineStyle} from '../charts/axes';
-import {ContinuousAxis} from "../charts/ContinuousAxis";
-import {CategoryAxis} from "../charts/CategoryAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
-import {Tooltip} from "../charts/Tooltip";
-import {RasterPlotTooltipContent} from "../charts/RasterPlotTooltipContent";
+import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
+import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
+import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
+import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
+import {Tooltip} from "../charts/tooltips/Tooltip";
+import {RasterPlotTooltipContent} from "../charts/tooltips/RasterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
-import {RasterPlot} from "../charts/RasterPlot";
+import {RasterPlot} from "../charts/plots/RasterPlot";
 import {Button} from "../ui/Button";
-import {seriesFrom} from "../charts/baseSeries";
-import {assignAxes} from "../charts/plot";
+import {seriesFrom} from "../charts/series/baseSeries";
+import {assignAxes} from "../charts/plots/plot";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -116,7 +116,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timeout>()
+    const intervalRef = useRef<NodeJS.Timeout>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
@@ -133,7 +133,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
      */
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).ifSome(regex => setFilter(regex));
+        regexFilter(updatedFilter).onSuccess(regex => setFilter(regex));
     }
 
     /**
@@ -258,37 +258,37 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map([
                         ['neuron1', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron2', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron3', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron4', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron5', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: 'orange',
                             lineWidth: 2,
                             highlightColor: 'orange'
                         }],
                         ['neuron6', {
-                            ...defaultLineStyle,
+                            ...defaultLineStyle(),
                             color: theme.name === 'light' ? 'blue' : 'gray',
                             lineWidth: 3,
                             highlightColor: theme.name === 'light' ? 'blue' : 'gray',
@@ -301,7 +301,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
-                    windowingTime={150}
+                    windowingTime={25}
                     // onSubscribe={subscription => console.log("subscribed raster")}
                 >
                     <ContinuousAxis
@@ -318,13 +318,14 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         label="t (ms)"
                         // font={{color: theme.color}}
                     />
-                    <CategoryAxis
+                    <OrdinalAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         categories={initialDataRef.current.map(series => series.name)}
                         label="neuron"
+                        axisTickStyle={{rotation: 25}}
                     />
-                    <CategoryAxis
+                    <OrdinalAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
                         categories={initialDataRef.current.map(series => series.name)}

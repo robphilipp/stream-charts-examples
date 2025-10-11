@@ -1,4 +1,4 @@
-import {Dimensions, Margin, plotDimensionsFrom} from "../margins";
+import {Dimensions, Margin, plotDimensionsFrom} from "../styling/margins";
 import {createContext, JSX, useContext, useEffect, useState} from "react";
 
 /**

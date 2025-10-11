@@ -1,9 +1,9 @@
-import {addAxisTo, AxesState, copyAxesState, createAxesState} from "./AxesState";
-import {BaseAxis} from "../axes";
-import {AxesAssignment} from "../plot";
+import {addAxisTo, AxesState, createAxesState} from "./AxesState";
+import {BaseAxis} from "../axes/axes";
+import {AxesAssignment} from "../plots/plot";
 import {createContext, JSX, useContext, useRef} from "react";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../continuousAxisRangeFor";
-import {Dimensions} from "../margins";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
+import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "./usePlotDimensions";
 
 /**

@@ -1,8 +1,8 @@
-import {Dimensions, Margin} from "./margins"
+import {Dimensions, Margin} from "./styling/margins"
 import * as d3 from "d3";
 import {Selection, ZoomTransform} from "d3";
-import {calculateZoomFor, ContinuousNumericAxis} from "./axes";
-import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {calculateZoomFor, ContinuousNumericAxis} from "./axes/axes";
+import {ContinuousAxisRange} from "./axes/continuousAxisRangeFor";
 
 /**
  * No operation function for use when a default function is needed
@@ -32,6 +32,9 @@ export const textWidthOf =
     (elem: Selection<SVGTextElement, any, any, any>): number =>
         elem.node()?.getBBox()?.width || 0
 
+export function textWidthFor(textElem: SVGTextElement): number {
+    return textElem.getBBox().width || 0
+}
 /**
  * Calculates the height of an SVG text element, based on its bounding box
  * @param elem The SVG text element
@@ -91,8 +94,8 @@ export function formatNumber(value: number, format: string): string {
     return isNaN(value) ? '---' : d3.format(format)(value)
 }
 
-export function formatTime(value: number): string {
-    return formatNumber(value, " ,.0f")
+export function formatTime(value: number, units: string = ""): string {
+    return `${formatNumber(value, " ,.0f")}${!isNaN(value) && units ? ` ${units}` : ""}`
 }
 
 export function formatValue(value: number): string {
