@@ -17,7 +17,7 @@ import {
     SeriesLineStyle,
     continuousAxisIntervals,
     continuousAxisRanges,
-    axisZoomHandler
+    continuousAxisZoomHandler
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
 import {Dimensions, Margin} from "../styling/margins";
@@ -289,7 +289,7 @@ export function RasterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
+        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 

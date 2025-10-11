@@ -18,7 +18,7 @@ const anEmptyRange: AxisRange = [NaN, NaN]
 const copyRangeMap = (ranges: Map<string, AxisRange>): Map<string, AxisRange> =>
     new Map(Array.from(ranges.entries()).map(([id, [start, end]]) => [id, [start, end]]))
 
-export type UseAxesValues = {
+export type UseAxesValues<AR> = {
     /**
      * The x-axes state holds the currently set x-axes, manipulation and accessor functions
      */
@@ -80,7 +80,7 @@ export type UseAxesValues = {
      * @param times A `map(axis_id -> time_range)` that associates the axis ID with the
      * current time range.
      */
-    updateAxesBounds: (times: Map<string, ContinuousAxisRange>) => void
+    updateAxesBounds: (times: Map<string, AR>) => void
     /**
      * Resets the axes bounds to their original bounds
      * @param axisId The ID of the axis
@@ -105,7 +105,7 @@ export type UseAxesValues = {
      * @param handlerId The unique ID of the handler to register/add
      * @param handler The handler function that accepts a map of updates and a plot dimension
      */
-    addAxesBoundsUpdateHandler: (handlerId: string, handler: (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void) => void
+    addAxesBoundsUpdateHandler: (handlerId: string, handler: (updates: Map<string, AR>, plotDim: Dimensions) => void) => void
     /**
      * Removes the time-update handler with the specified ID
      * @param handlerId The ID of the handler to remove
@@ -113,7 +113,7 @@ export type UseAxesValues = {
     removeAxesBoundsUpdateHandler: (handlerId: string) => void
 }
 
-export const defaultAxesValues = (): UseAxesValues => ({
+export const defaultAxesValues = (): UseAxesValues<any> => ({
     xAxesState: createAxesState(),
     yAxesState: createAxesState(),
     addXAxis: noop,
@@ -132,7 +132,7 @@ export const defaultAxesValues = (): UseAxesValues => ({
 })
 
 // the context for axes
-const AxesContext = createContext<UseAxesValues>(defaultAxesValues())
+const AxesContext = createContext<UseAxesValues<any>>(defaultAxesValues())
 
 type Props = {
     /**
@@ -150,7 +150,7 @@ type Props = {
  * @return The children wrapped in this provider
  * @constructor
  */
-export default function AxesProvider(props: Props): JSX.Element {
+export default function AxesProvider<AR>(props: Props): JSX.Element {
     const {onUpdateAxesBounds, children} = props
 
     const plotDimensions = usePlotDimensions()
@@ -162,7 +162,7 @@ export default function AxesProvider(props: Props): JSX.Element {
     const axesBoundsRef = useRef<Map<string, AxisRange>>(new Map())
     // holds the original axis bounds, map(axis_id -> (start, end)
     const originalAxesBoundsRef =  useRef<Map<string, AxisRange>>(new Map())
-    const axesBoundsUpdateHandlersRef = useRef<Map<string, (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions) => void>>(new Map())
+    const axesBoundsUpdateHandlersRef = useRef<Map<string, (updates: Map<string, AR>, plotDim: Dimensions) => void>>(new Map())
 
     /**
      * Retrieves the x-axis and y-axis assignments for the specified series. If the axes does not have
@@ -182,7 +182,7 @@ export default function AxesProvider(props: Props): JSX.Element {
      * dispatches the update to all the internal time update handlers.
      * @param updates A map holding the axis ID to the updated axis time-range (i.e. map(axis_id, axis_time_range))
      */
-    function updateAxesBounds(updates: Map<string, ContinuousAxisRange>): void {
+    function updateAxesBounds(updates: Map<string, AR>): void {
         // update the current time-ranges reference
         updates.forEach((range, id) => axesBoundsRef.current.set(id, [range.start, range.end]))
         // dispatch the updates to all the registered handlers

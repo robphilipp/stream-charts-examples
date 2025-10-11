@@ -6,6 +6,9 @@ import {AxisElementSelection, SvgSelection} from "../d3types";
 import {AxesState} from "../hooks/AxesState";
 import {AxesAssignment} from "../plots/plot";
 import {BaseSeries} from "../series/baseSeries";
+import {OrdinalAxisRange} from "./ordinalAxisRangeFor";
+import {OrdinalAxis} from "./OrdinalAxis";
+import {ScaleOrdinal} from "d3-scale";
 
 export type AxisTickStyle = {
     font: AxesFont
@@ -496,8 +499,13 @@ function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDime
 /**
  * The result of a zoom action
  */
-export interface ZoomResult {
+export interface ContinuousAxisZoomResult {
     range: ContinuousAxisRange
+    zoomFactor: number
+}
+
+export interface OrdinalAxisZoomResult {
+    range: OrdinalAxisRange
     zoomFactor: number
 }
 
@@ -516,7 +524,7 @@ export function calculateZoomFor(
     x: number,
     axis: ContinuousNumericAxis,
     range: ContinuousAxisRange,
-): ZoomResult {
+): ContinuousAxisZoomResult {
     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
     return {
         range: range.scale(transform.k, time),
@@ -535,16 +543,41 @@ export function calculateZoomFor(
  * @param constraint The minimum and maximum value the scaled range can have
  * @return The updated range and the new zoom factor
  */
-export function calculateConstrainedZoomFor(
+export function calculateContinuousConstrainedZoomFor(
     transform: ZoomTransform,
     x: number,
     axis: ContinuousNumericAxis,
     range: ContinuousAxisRange,
     constraint: [min: number, max: number],
-): ZoomResult {
+): ContinuousAxisZoomResult {
     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
     return {
         range: range.constrainedScale(transform.k, time, constraint),
+        zoomFactor: transform.k
+    }
+}
+
+/**
+ * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+ * at the location of the mouse when the scroll wheel or gesture was applied, while ensure that
+ * the range (start, end) is contained within the constraint (min, max).
+ * @param transform The d3 zoom transformation information
+ * @param x The x-position of the mouse when the scroll wheel or gesture is used
+ * @param axis The axis being zoomed
+ * @param range The current range for the axis being zoomed
+ * @param constraint The minimum and maximum value the scaled range can have
+ * @return The updated range and the new zoom factor
+ */
+export function calculateOrdinalConstrainedZoomFor(
+    transform: ZoomTransform,
+    x: number,
+    axis: CategoryAxis,
+    range: OrdinalAxisRange,
+    constraint: [min: number, max: number],
+): OrdinalAxisZoomResult {
+    const d = axis.generator.scale<ScaleBand<string>>().domain()
+    return {
+        range: range.constrainedScale(transform.k, x, constraint),
         zoomFactor: transform.k
     }
 }
@@ -760,7 +793,7 @@ export function panHandler2D(
  * @param transform The d3 zoom transformation information
  * @param plotDimensions The dimensions of the plot
  */
-function calcZoomAndUpdate(
+function calcContinuousZoomAndUpdate(
     value: number,
     axisId: string,
     margin: Margin,
@@ -783,7 +816,7 @@ function calcZoomAndUpdate(
             [originalStart * zoomMax, originalEnd * zoomMax] :
             [0, Infinity]
 
-        const zoom = calculateConstrainedZoomFor(transform, value, axis, range, constraint)
+        const zoom = calculateContinuousConstrainedZoomFor(transform, value, axis, range, constraint)
 
         // update the axis range
         ranges.set(axisId, zoom.range)
@@ -810,7 +843,7 @@ function calcZoomAndUpdate(
  * @param scaleExtent The minimum and maximum allowed scale factors
  * @return A handler function for pan events
  */
-export function axisZoomHandler(
+export function continuousAxisZoomHandler(
     axesForSeries: Array<string>,
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
@@ -834,41 +867,98 @@ export function axisZoomHandler(
     return (transform, x, plotDimensions, ranges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         axesForSeries.forEach(axisId =>
-            calcZoomAndUpdate(x, axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
+            calcContinuousZoomAndUpdate(x, axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
         )
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }
 }
 
-// export function ordinalAxisZoomHandler(
-//     axesForSeries: Array<string>,
-//     margin: Margin,
-//     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
-//     axesState: AxesState,
-//     scaleExtent: [min: number, max: number] = [0, Infinity],
-// ): (
-//     transform: ZoomTransform,
-//     x: number,
-//     plotDimensions: Dimensions,
-//     ranges: Map<string, OrdinalAxisRange>,
-// ) => void {
-//
-//     /**
-//      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-//      * at the location of the mouse when the scroll wheel or gesture was applied.
-//      * @param transform The d3 zoom transformation information
-//      * @param x The x-position of the mouse when the scroll wheel or gesture is used
-//      * @param plotDimensions The dimensions of the plot
-//      * @param ranges A map holding the axis ID and its associated time-range
-//      */
-//     return (transform, x, plotDimensions, ranges) => {
-//         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
-//         axesForSeries.forEach(axisId =>
-//             calcZoomAndUpdate(x, axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
-//         )
-//         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
-//     }
-// }
+export function ordinalAxisZoomHandler(
+    axesForSeries: Array<string>,
+    margin: Margin,
+    // setRangeFor: (axisId: string, range: Array<string>) => void,
+    setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+    axesState: AxesState,
+    scaleExtent: [min: number, max: number] = [0, Infinity],
+): (
+    transform: ZoomTransform,
+    x: number,
+    plotDimensions: Dimensions,
+    ranges: Map<string, OrdinalAxisRange>,
+) => void {
+
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param ranges A map holding the axis ID and its associated time-range
+     */
+    return (transform, x, plotDimensions, ranges) => {
+        // run through the axis IDs, adjust their domain, and update the time-range set for that axis
+        axesForSeries.forEach(axisId =>
+            calcOrdinalZoomAndUpdate(x, axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
+        )
+        // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
+    }
+}
+
+/**
+ * Calculates the zoom for the specified axis and updates the axis and the axis ranges
+ * @param value The x- or y-coordinate of the mouse
+ * @param axisId
+ * @param margin The plot margin
+ * @param setRangeFor Function for setting the new time-range for a specific axis * @param scaleExtent The smallest and largest scale factors allowed
+ * @param axesState
+ * @param ranges A map associating axis IDs with axis ranges
+ * @param scaleExtent The smallest and largest scale factors allowed
+ * @param transform The d3 zoom transformation information
+ * @param plotDimensions The dimensions of the plot
+ */
+function calcOrdinalZoomAndUpdate(
+    value: number,
+    axisId: string,
+    margin: Margin,
+    setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+    // setRangeFor: (axisId: string, categories: Array<string>) => void,
+    axesState: AxesState,
+    ranges: Map<string, OrdinalAxisRange>,
+    scaleExtent: [min: number, max: number],
+    transform: ZoomTransform,
+    plotDimensions: Dimensions,
+): void {
+    const [, zoomMax] = scaleExtent
+
+    const range = ranges.get(axisId)
+    if (range) {
+        const axis = axesState.axisFor(axisId) as CategoryAxis
+        // axis.generator.scale<ScaleBand<string>>()
+        const categories = axis.scale.domain()
+        // const [start, end] = axis.scale.range()
+
+        // calculate the constraint for the zoom
+        const [originalStart, originalEnd] = axis.scale.range()
+        // const [originalStart, originalEnd] = range.original
+        const constraint: [number, number] = isFinite(zoomMax) ?
+            [originalStart * zoomMax, originalEnd * zoomMax] :
+            [0, Infinity]
+
+        const zoom = calculateOrdinalConstrainedZoomFor(transform, value, axis, range, constraint)
+
+        // update the axis range
+        ranges.set(axisId, zoom.range)
+
+        setRangeFor(axisId, zoom.range.range)
+
+        // update the axis' range
+        // axis.update(axis.generator.scale<ScaleBand<string>>().domain(), plotDimensions, margin)
+        // axis.update([zoom.range.start, zoom.range.end], originalEnd - originalStart, plotDimensions, margin)
+        axis.update(axis.scale.domain(), zoom.range.categories.length, plotDimensions, margin)
+        // axis.update(axis.generator.scale<ScaleBand<string>>().domain(), zoom.range.end - zoom.range.start, plotDimensions, margin)
+        // axis.update(axis.generator.scale<ScaleBand<string>>().domain(), [zoom.range.start, zoom.range.end], plotDimensions, margin)
+    }
+}
 
 /**
  * Higher-order function that generates a handler for zoom events, given the distinct series IDs that cover all
@@ -915,10 +1005,10 @@ export function axesZoomHandler(
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         const [x, y] = mousePosition
         xAxesForSeries.forEach(id =>
-            calcZoomAndUpdate(x, id, margin, setRangeFor, xAxesState, xRanges, scaleExtent, transform, plotDimensions)
+            calcContinuousZoomAndUpdate(x, id, margin, setRangeFor, xAxesState, xRanges, scaleExtent, transform, plotDimensions)
         )
         yAxesForSeries.forEach(id =>
-            calcZoomAndUpdate(y, id, margin, setRangeFor, yAxesState, yRanges, scaleExtent, transform, plotDimensions)
+            calcContinuousZoomAndUpdate(y, id, margin, setRangeFor, yAxesState, yRanges, scaleExtent, transform, plotDimensions)
         )
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }

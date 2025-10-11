@@ -2,12 +2,18 @@ import {AxesAssignment, setClipPath} from "./plot";
 import * as d3 from "d3";
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {GSelection, SvgSelection} from "../d3types";
-import {BaseAxis, CategoryAxis, ContinuousNumericAxis} from "../axes/axes";
+import {
+    continuousAxisZoomHandler,
+    BaseAxis,
+    CategoryAxis,
+    ContinuousNumericAxis,
+    ordinalAxisZoomHandler, axesForSeriesGen
+} from "../axes/axes";
 import {Subscription} from "rxjs";
-import {Margin} from "../styling/margins";
+import {Dimensions, Margin} from "../styling/margins";
 import {subscriptionOrdinalXFor, WindowedOrdinalStats} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
@@ -26,6 +32,9 @@ import {
 } from "../styling/svgStyle";
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
+import {ZoomTransform} from "d3";
+import {OrdinalAxisRange, ordinalAxisRangeFor} from "../axes/ordinalAxisRangeFor";
+import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -81,15 +90,15 @@ interface Props {
     //  * Enables panning (default is false)
     //  */
     // panEnabled?: boolean
-    // /**
-    //  * Enables zooming (default is false)
-    //  */
-    // zoomEnabled?: boolean
-    // /**
-    //  * When true, requires that the shift or control key be pressed while scrolling
-    //  * in order to activate the zoom
-    //  */
-    // zoomKeyModifiersRequired?: boolean
+    /**
+     * Enables zooming (default is false)
+     */
+    zoomEnabled?: boolean
+    /**
+     * When true, requires that the shift or control key be pressed while scrolling
+     * in order to activate the zoom
+     */
+    zoomKeyModifiersRequired?: boolean
     /**
      * The (optional, default = 2 pixels) top and bottom margin (in pixels) for the spike lines in the plot.
      * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
@@ -146,7 +155,7 @@ export function BarPlot(props: Props): null {
         xAxesState,
         yAxesState,
         setAxisAssignments,
-        // setAxisBoundsFor,
+        setAxisBoundsFor,
         // updateAxesBounds = noop,
         // onUpdateAxesBounds,
     } = axes
@@ -171,8 +180,8 @@ export function BarPlot(props: Props): null {
         axisAssignments = new Map<string, AxesAssignment>(),
         dropDataAfter = Infinity,
         // panEnabled = false,
-        // zoomEnabled = false,
-        // zoomKeyModifiersRequired = true,
+        zoomEnabled = false,
+        zoomKeyModifiersRequired = true,
         showMinMaxBars = true,
         showWindowedMinMaxBars = true,
         showValueLines = true,
@@ -213,6 +222,18 @@ export function BarPlot(props: Props): null {
 
     const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
 
+    const axisRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map());
+
+    // calculates the distinct axis IDs that cover all the series in the plot
+    const axesForSeries = useMemo(
+        (): Array<string> => xAxesState.axisIds(),
+        [xAxesState]
+    )
+    // const yAxesForSeries = useMemo(
+    //     (): Array<string> => yAxesState.axisIds(),
+    //     [yAxesState]
+    // )
+
     useEffect(
         () => {
             currentTimeRef.current = 0
@@ -220,6 +241,12 @@ export function BarPlot(props: Props): null {
         },
         [xAxesState]
     )
+
+    useEffect(() => {
+        if (xAxesState.axes.size > 0 && axisRangesRef.current.size === 0) {
+            axisRangesRef.current = generateAxisRangeMap(xAxesState.axes)
+        }
+    }, [xAxesState]);
 
     // set the axis assignments needed if a tooltip is being used
     useEffect(
@@ -294,24 +321,24 @@ export function BarPlot(props: Props): null {
     //     [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     // )
     //
-    // /**
-    //  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-    //  * at the location of the mouse when the scroll wheel or gesture was applied.
-    //  * @param transform The d3 zoom transformation information
-    //  * @param x The x-position of the mouse when the scroll wheel or gesture is used
-    //  * @param plotDimensions The dimensions of the plot
-    //  * @param series An array of series names
-    //  * @param ranges A map holding the axis ID and its associated time-range
-    //  */
-    // const onZoom = useCallback(
-    //     (
-    //         transform: ZoomTransform,
-    //         x: number,
-    //         plotDimensions: Dimensions,
-    //         ranges: Map<string, ContinuousAxisRange>,
-    //     ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
-    //     [axesForSeries, margin, setAxisBoundsFor, xAxesState]
-    // )
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time-range
+     */
+    const onZoom = useCallback(
+        (
+            transform: ZoomTransform,
+            x: number,
+            plotDimensions: Dimensions,
+            ranges: Map<string, OrdinalAxisRange>,
+        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+    )
 
     /**
      * @param timeRanges
@@ -345,25 +372,25 @@ export function BarPlot(props: Props): null {
                 //     svg.call(drag)
                 // }
                 //
-                // // set up for zooming
-                // if (zoomEnabled) {
-                //     const zoom = d3.zoom<SVGSVGElement, Datum>()
-                //         .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                //         .scaleExtent([0, 10])
-                //         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                //         .on("zoom", (event: any) => {
-                //                 onZoom(
-                //                     event.transform,
-                //                     event.sourceEvent.offsetX - margin.left,
-                //                     plotDimensions,
-                //                     timeRanges,
-                //                 )
-                //                 updatePlotRef.current(timeRanges, mainGElem)
-                //             }
-                //         )
-                //
-                //     svg.call(zoom)
-                // }
+                // set up for zooming
+                if (zoomEnabled) {
+                    const zoom = d3.zoom<SVGSVGElement, Datum>()
+                        .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                        .scaleExtent([0, 10])
+                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                        .on("zoom", (event: any) => {
+                                onZoom(
+                                    event.transform,
+                                    event.sourceEvent.offsetX - margin.left,
+                                    plotDimensions,
+                                    axisRangesRef.current,
+                                )
+                                updatePlotRef.current(mainGElem)
+                            }
+                        )
+
+                    svg.call(zoom)
+                }
 
                 // enter, update, delete the bar data
                 dataRef.current.forEach(series => {
@@ -1089,4 +1116,17 @@ function lineStyleFor(tooltipProvider: string | undefined, barSeriesStyle: BarSe
         default:
             return undefined
     }
+}
+
+/**
+ * For zooming
+ * @param axes
+ */
+function generateAxisRangeMap(axes: Map<string, BaseAxis>): Map<string, OrdinalAxisRange> {
+    return new Map(
+        Array.from(axes.entries()).map(([id, axis]) => {
+            const categories = (axis as CategoryAxis).scale.domain()
+            return [id, ordinalAxisRangeFor(categories)]
+        })
+    )
 }
