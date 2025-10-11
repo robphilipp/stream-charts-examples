@@ -201,7 +201,7 @@ export function ScatterPlot(props: Props): null {
                 if (onUpdateAxesBounds) {
                     setTimeout(() => {
                         const times = new Map<string, [number, number]>()
-                        ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
+                        ranges.forEach((range, name) => times.set(name, range.current))
                         onUpdateAxesBounds(times)
                     }, 0)
                 }

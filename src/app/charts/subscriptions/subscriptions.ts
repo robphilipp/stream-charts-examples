@@ -107,8 +107,8 @@ export function subscriptionTimeSeriesFor(
                         // axis, update the time windows, and call the setCurrentTime
                         // callback to update the current time for the caller
                         const range = timesWindows.get(axisId)
-                        if (range !== undefined && range.end < currentAxisTime) {
-                            const timeWindow = range.end - range.start
+                        if (range !== undefined && range.currentEnd() < currentAxisTime) {
+                            const timeWindow = range.currentDistance()
                             const timeRange = continuousAxisRangeFor(
                                 // 0,
                                 timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
@@ -117,7 +117,7 @@ export function subscriptionTimeSeriesFor(
                                 Math.max(currentAxisTime, timeWindow)
                             )
                             timesWindows.set(axisId, timeRange)
-                            setCurrentTime(axisId, timeRange.end) // callback
+                            setCurrentTime(axisId, timeRange.currentEnd()) // callback
                         }
                     }
                 })
@@ -196,10 +196,10 @@ export function subscriptionTimeSeriesWithCadenceFor(
                 xAxesState.axisIds().forEach(axisId => {
                     const range = timesWindows.get(axisId)
                     if (range !== undefined && data.currentTime !== undefined) {
-                        const timeWindow = (range.end - range.start)
+                        const timeWindow = range.currentDistance()
                         const timeRange = continuousAxisRangeFor(
-                            Math.max(0, Math.max(range.end, data.currentTime + maxTime) - timeWindow),
-                            Math.max(Math.max(range.end, data.currentTime + maxTime), timeWindow)
+                            Math.max(0, Math.max(range.currentEnd(), data.currentTime + maxTime) - timeWindow),
+                            Math.max(Math.max(range.currentEnd(), data.currentTime + maxTime), timeWindow)
                         )
                         timesWindows.set(axisId, timeRange)
                         setCurrentTime(axisId, data.currentTime + maxTime)

@@ -2,12 +2,48 @@
  * The continuous-axis range contract
  */
 export interface ContinuousAxisRange {
-    start: number
-    end: number
-    original: [start: number, end: number]
-    scaleFactor: number
-    matchesOriginal: (start: number, end: number) => boolean
+    // start: number
+    // end: number
     /**
+     * The current axis range (in pixel space)
+     */
+    current: [start: number, end: number]
+    /**
+     * The original axis range (in pixel space)
+     */
+    original: [start: number, end: number]
+
+    /**
+     * Accessor function to get the width of the current axis range (pixel space)
+     * @return The width of the current axis range (pixel space)
+     */
+    currentDistance: () => number
+    /**
+     * Access function to get the current start of the axis range (pixel space)
+     * @return The current start of the axis range (pixel space)
+     */
+    currentStart: () => number
+    /**
+     * Access function to get the current end of the axis range (pixel space)
+     * @return The current end of the axis range (pixel space)
+     */
+    currentEnd: () => number
+
+    /**
+     * Determines whether the specified (start, end) interval matches the original interval
+     * @param start The original start of the axis range
+     * @param end The original end of the axis range
+     * @return `true` if the specified interval matches the original interval; `false` otherwise
+     */
+    matchesOriginal: (start: number, end: number) => boolean
+
+    /**
+     * The current scale factor for zooming
+     */
+    scaleFactor: number
+
+    /**
+     *
      * Scales the axis-range by the specified scale factor from the specified {@link value}. The equations
      * are written so that the zooming (scaling) occurs at the specified {@link value}, and expands/contracts equally
      * from that {@link value}.
@@ -145,9 +181,13 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
         }
 
         return {
-            start: start,
-            end: end,
+            // start: start,
+            // end: end,
+            current: [start, end],
             original: [originalStart, originalEnd],
+            currentStart: () => start,
+            currentEnd: () => end,
+            currentDistance: () => end - start,
             matchesOriginal,
             scaleFactor,
             scale,

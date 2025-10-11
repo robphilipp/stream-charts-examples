@@ -569,7 +569,7 @@ export function calculatePanFor(
     constrainToOriginalRange: boolean = false
 ): ContinuousAxisRange {
     const scale = axis.generator.scale<ScaleLinear<number, number>>()
-    const currentValue = range.start
+    const [currentValue] = range.current
     const value = scale(currentValue)
     if (value !== undefined) {
         const deltaValue = scale.invert(value + delta) - currentValue
@@ -647,7 +647,7 @@ function panAxes(
                 // update the time-range for the axis
                 ranges.set(axisId, range)
 
-                const {start, end} = range
+                const [start, end] = range.current
                 setAxisRange(axisId, [start, end])
 
                 // update the axis' time-range
@@ -788,10 +788,12 @@ function calcZoomAndUpdate(
         // update the axis range
         ranges.set(axisId, zoom.range)
 
-        setRangeFor(axisId, [zoom.range.start, zoom.range.end])
+        setRangeFor(axisId, zoom.range.current)
+        // setRangeFor(axisId, [zoom.range.start, zoom.range.end])
 
         // update the axis' range
-        axis.update([zoom.range.start, zoom.range.end], plotDimensions, margin)
+        axis.update(zoom.range.current, plotDimensions, margin)
+        // axis.update([zoom.range.start, zoom.range.end], plotDimensions, margin)
     }
 }
 

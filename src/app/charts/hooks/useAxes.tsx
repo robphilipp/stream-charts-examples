@@ -13,11 +13,27 @@ const noop = () => {
     /* empty on purpose */
 }
 
+/**
+ * The range of an axis is the physical (start, end) pixels on the screen for the axis.
+ * This is the pixel-space of the axis (where as the domain is the data-space of the axis,
+ * for example, the tick values).
+ */
 type AxisRange = [start: number, end: number]
 const anEmptyRange: AxisRange = [NaN, NaN]
+
+/**
+ * Creates a copy of the specified map(axis_id, (start, end))
+ * @param ranges The ranges map to copy
+ * @return A copy of the specified map(axis_id, (start, end))
+ */
 const copyRangeMap = (ranges: Map<string, AxisRange>): Map<string, AxisRange> =>
     new Map(Array.from(ranges.entries()).map(([id, [start, end]]) => [id, [start, end]]))
 
+
+/**
+ * The values exposed by the hook
+ * @template AR The type of the axis range (e.g. {@link ContinuousAxisRange})
+ */
 export type UseAxesValues = {
     /**
      * The x-axes state holds the currently set x-axes, manipulation and accessor functions
@@ -184,7 +200,7 @@ export default function AxesProvider(props: Props): JSX.Element {
      */
     function updateAxesBounds(updates: Map<string, ContinuousAxisRange>): void {
         // update the current time-ranges reference
-        updates.forEach((range, id) => axesBoundsRef.current.set(id, [range.start, range.end]))
+        updates.forEach((range, id) => axesBoundsRef.current.set(id, range.current))
         // dispatch the updates to all the registered handlers
         axesBoundsUpdateHandlersRef.current.forEach((handler, ) => handler(updates, plotDimensions.plotDimensions))
     }
@@ -210,10 +226,10 @@ export default function AxesProvider(props: Props): JSX.Element {
     }
 
     /**
-     * Resets the bounds of all the axis to their original value, or to the values specified
+     * Resets the bounds of all the axes to their original value or to the values specified
      * in the optional bounds map.
      * @param [axisBounds=new Map()] An optional map holds bounds for specified axes. The map
-     * associates an axis ID to a new bounds.
+     * associates an axis ID with the new bounds.
      */
     function resetAxesBounds(axisBounds: Map<string, AxisRange> = new Map()): void {
         const updates: Map<string, ContinuousAxisRange> = new Map(Array.from(axesBoundsRef.current.entries())
