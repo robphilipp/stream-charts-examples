@@ -25,6 +25,7 @@ import {TooltipData} from "../hooks/useTooltip";
 import {DataFrame} from "data-frame-ts";
 import {Dimensions} from "../styling/margins";
 import {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
+import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
 
 /**
  # Want to write your own tooltip-content component?
@@ -131,7 +132,7 @@ export function PoincarePlotTooltipContent(props: Props): null {
         chartId,
         container,
         tooltip
-    } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata>()
+    } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
 
     const {registerTooltipContentProvider} = tooltip
 

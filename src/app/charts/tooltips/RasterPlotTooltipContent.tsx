@@ -8,6 +8,7 @@ import {CategoryAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
 import {TooltipData} from "../hooks/useTooltip";
+import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
 
 /**
  # Want to write your own tooltip-content component?
@@ -116,7 +117,7 @@ export function RasterPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
 
     const {registerTooltipContentProvider} = tooltip
 

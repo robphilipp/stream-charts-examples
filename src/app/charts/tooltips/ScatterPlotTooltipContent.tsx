@@ -10,6 +10,7 @@ import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {SeriesLineStyle} from "../axes/axes";
 import {Datum, emptyDatum} from "../series/timeSeries";
 import {TooltipData} from "../hooks/useTooltip";
+import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
 
 /**
 # Want to write your own tooltip-content component?
@@ -136,7 +137,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
         chartId,
         container,
         tooltip
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
 
     const {registerTooltipContentProvider} = tooltip
 
