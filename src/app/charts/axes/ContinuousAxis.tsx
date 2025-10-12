@@ -1,4 +1,4 @@
-import {AxesFont, AxisLocation, ContinuousNumericAxis, defaultAxesFont, SeriesStyle} from "./axes";
+import {AxesFont, AxisLocation, ContinuousNumericAxis, defaultAxesFont} from "./axes";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
@@ -8,7 +8,7 @@ import {Dimensions, Margin} from "../styling/margins";
 import {noop} from "../utils";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {Datum, TimeSeries} from "../series/timeSeries";
+import {Datum} from "../series/timeSeries";
 
 interface Props {
     // the unique ID of the axis

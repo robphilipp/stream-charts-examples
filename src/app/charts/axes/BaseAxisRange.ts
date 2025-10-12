@@ -56,14 +56,29 @@ export interface BaseAxisRange {
     update: (start: number, end: number) => BaseAxisRange
 }
 
+/**
+ * Convenience function for extracting the start value from a range
+ * @param range The range
+ * @return The start value
+ */
 export function startFrom(range: [start: number, end: number]): number {
     return range[0]
 }
 
+/**
+ * Convenience function for extracting the end value from a range
+ * @param range The range
+ * @return The end value
+ */
 export function endFrom(range: [start: number, end: number]): number {
     return range[1]
 }
 
+/**
+ * Convenience function for extracting the measure (end - start) from a range
+ * @param range The range
+ * @return The measure
+ */
 export function measureOf(range: [start: number, end: number]): number {
     return endFrom(range) - startFrom(range)
 }
