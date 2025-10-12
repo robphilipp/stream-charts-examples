@@ -9,22 +9,6 @@ export interface BaseAxisRange {
     original: [start: number, end: number]
 
     /**
-     * Accessor function to get the width of the current axis range (pixel space)
-     * @return The width of the current axis range (pixel space)
-     */
-    currentDistance: () => number
-    /**
-     * Access function to get the current start of the axis range (pixel space)
-     * @return The current start of the axis range (pixel space)
-     */
-    currentStart: () => number
-    /**
-     * Access function to get the current end of the axis range (pixel space)
-     * @return The current end of the axis range (pixel space)
-     */
-    currentEnd: () => number
-
-    /**
      * Determines whether the specified (start, end) interval matches the original interval
      * @param start The original start of the axis range
      * @param end The original end of the axis range
@@ -70,4 +54,16 @@ export interface BaseAxisRange {
      * @return The updated axis-range type, with all other values unchanged
      */
     update: (start: number, end: number) => BaseAxisRange
+}
+
+export function startFrom(range: [start: number, end: number]): number {
+    return range[0]
+}
+
+export function endFrom(range: [start: number, end: number]): number {
+    return range[1]
+}
+
+export function measureOf(range: [start: number, end: number]): number {
+    return endFrom(range) - startFrom(range)
 }

@@ -25,6 +25,7 @@ import {
 import {ChartData} from "../observables/ChartData";
 import {OrdinalDatum} from "../series/ordinalSeries";
 import {MutableRefObject} from "react";
+import {endFrom, measureOf} from "../axes/BaseAxisRange";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -107,8 +108,9 @@ export function subscriptionTimeSeriesFor(
                         // axis, update the time windows, and call the setCurrentTime
                         // callback to update the current time for the caller
                         const range = timesWindows.get(axisId)
-                        if (range !== undefined && range.currentEnd() < currentAxisTime) {
-                            const timeWindow = range.currentDistance()
+                        const [startTime, endTime] = range?.current || [0, 0]
+                        if (range !== undefined && endTime < currentAxisTime) {
+                            const timeWindow = endTime - startTime
                             const timeRange = continuousAxisRangeFor(
                                 // 0,
                                 timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
@@ -117,7 +119,7 @@ export function subscriptionTimeSeriesFor(
                                 Math.max(currentAxisTime, timeWindow)
                             )
                             timesWindows.set(axisId, timeRange)
-                            setCurrentTime(axisId, timeRange.currentEnd()) // callback
+                            setCurrentTime(axisId, endTime) // callback
                         }
                     }
                 })
@@ -196,10 +198,12 @@ export function subscriptionTimeSeriesWithCadenceFor(
                 xAxesState.axisIds().forEach(axisId => {
                     const range = timesWindows.get(axisId)
                     if (range !== undefined && data.currentTime !== undefined) {
-                        const timeWindow = range.currentDistance()
+                        const [startTime, endTime] = range.current
+                        const timeWindow = endTime - startTime
+                        // const timeWindow = measureOf(range.current)
                         const timeRange = continuousAxisRangeFor(
-                            Math.max(0, Math.max(range.currentEnd(), data.currentTime + maxTime) - timeWindow),
-                            Math.max(Math.max(range.currentEnd(), data.currentTime + maxTime), timeWindow)
+                            Math.max(0, Math.max(endTime, data.currentTime + maxTime) - timeWindow),
+                            Math.max(Math.max(endTime, data.currentTime + maxTime), timeWindow)
                         )
                         timesWindows.set(axisId, timeRange)
                         setCurrentTime(axisId, data.currentTime + maxTime)
