@@ -14,6 +14,7 @@ import {createTable, Padding, TableData, TableFont, TableFormatter, TableStyler}
 import {defaultOrdinalValueStats, OrdinalValueStats} from "../observables/ordinals";
 import {Dimension} from "svg-table/stylings";
 import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/BarPlot";
+import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
 
 /**
  # Want to write your own tooltip-content component?
@@ -110,7 +111,7 @@ export function BarPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<OrdinalDatum, SeriesLineStyle, WindowedOrdinalStats>()
+    } = useChart<OrdinalDatum, SeriesLineStyle, WindowedOrdinalStats, ContinuousAxisRange>()
 
     const {registerTooltipContentProvider} = tooltip
     const {yAxesState, axisAssignmentsFor} = axes

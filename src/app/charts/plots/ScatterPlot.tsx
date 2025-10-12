@@ -30,6 +30,7 @@ import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData} from "../hooks/useTooltip";
+import {AxisRangeTuple} from "../hooks/useAxes";
 
 interface Props {
     /**
@@ -105,7 +106,7 @@ export function ScatterPlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
 
     const {
         initialData
@@ -146,7 +147,7 @@ export function ScatterPlot(props: Props): null {
 
     const initialTimes = useMemo(
         () => new Map<string, number>(
-            Array.from(originalAxisBounds().entries())
+            Array.from<[string, AxisRangeTuple]>(originalAxisBounds().entries())
                 .map(([axisId, [start,]]) => ([axisId, start]))
         ),
         [originalAxisBounds]
@@ -180,7 +181,7 @@ export function ScatterPlot(props: Props): null {
 
     useEffect(
         () => {
-            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
         },
         [xAxesState]
     )
@@ -217,7 +218,7 @@ export function ScatterPlot(props: Props): null {
         () => {
             dataRef.current = initialData.slice()
             seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
-            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and

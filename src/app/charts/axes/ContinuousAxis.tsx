@@ -1,4 +1,4 @@
-import {AxesFont, AxisLocation, ContinuousNumericAxis, defaultAxesFont} from "./axes";
+import {AxesFont, AxisLocation, ContinuousNumericAxis, defaultAxesFont, SeriesStyle} from "./axes";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
@@ -6,8 +6,9 @@ import {ScaleContinuousNumeric} from "d3";
 import {SvgSelection} from "../d3types";
 import {Dimensions, Margin} from "../styling/margins";
 import {noop} from "../utils";
-import {ContinuousAxisRange} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {Datum, TimeSeries} from "../series/timeSeries";
 
 interface Props {
     // the unique ID of the axis
@@ -56,7 +57,7 @@ export function ContinuousAxis(props: Props): null {
         container,
         axes,
         color
-    } = useChart()
+    } = useChart<Datum, any, any, ContinuousAxisRange>()
 
     const {
         xAxesState,
@@ -156,13 +157,12 @@ export function ContinuousAxis(props: Props): null {
                             if (rangeUpdateHandlerIdRef.current !== undefined) {
                                 addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                             }
-                            // if (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1]) {
                             if (
                                 (updateAxisBasedOnDomainValues && (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1])) ||
                                 (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
                             ) {
                                 domainRef.current = domain
-                                resetAxisBoundsFor(axisId, domain)
+                                resetAxisBoundsFor(axisId, continuousAxisRangeFor, domain)
                             }
                         }
                     }
