@@ -1,9 +1,9 @@
 import {
-    addCategoryAxis,
+    addOrdinalStringAxis,
     AxesFont,
     AxisLocation,
     AxisTickStyle,
-    CategoryAxis,
+    OrdinalStringAxis,
     defaultAxesFont,
     defaultAxisTickStyle,
     labelIdFor
@@ -12,8 +12,10 @@ import * as d3 from "d3";
 import {ScaleBand} from "d3";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
-import {Margin} from "../styling/margins";
+import {Dimensions, Margin} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import {OrdinalAxisRange} from "./ordinalAxisRangeFor";
+import {Datum} from "../series/timeSeries";
 
 interface Props {
     // the unique ID of the axis
@@ -48,29 +50,39 @@ export function OrdinalAxis(props: Props): null {
         container,
         axes,
         color,
-    } = useChart()
+    } = useChart<Datum, any, any, OrdinalAxisRange>()
 
-    const {addXAxis, addYAxis} = axes
+    const {
+        xAxesState, yAxesState,
+        addXAxis, addYAxis,
+        setAxisBoundsFor,
+        axisBoundsFor,
+        addAxesBoundsUpdateHandler,
+        resetAxisBoundsFor
+    } = axes
 
     const {plotDimensions, margin} = usePlotDimensions()
 
     const {
         axisId,
         location,
+        scale = d3.scaleBand(),
         categories,
         label,
     } = props
 
-    const axisRef = useRef<CategoryAxis>(undefined)
+    const axisRef = useRef<OrdinalStringAxis>(undefined)
+    const rangeUpdateHandlerIdRef = useRef<string>(undefined)
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
+    const categoriesRef = useRef<Array<string>>(categories)
     useEffect(
         () => {
             axisIdRef.current = axisId
             marginRef.current = margin
         },
-        [axisId, margin]
+        [axisId, plotDimensions, margin]
     )
 
     useEffect(
@@ -80,25 +92,65 @@ export function OrdinalAxis(props: Props): null {
                 const font: AxesFont = {...defaultAxesFont(), color, ...props.font}
                 const axisTickStyle = {...defaultAxisTickStyle(), ...props.axisTickStyle}
 
+
+                const handleRangeUpdates = (updates: Map<string, OrdinalAxisRange>, plotDim: Dimensions): void => {
+                    if (rangeUpdateHandlerIdRef.current && axisRef.current) {
+                        const range = updates.get(axisId)
+                        if (range) {
+                            axisRef.current.update(range.current.slice() as [start: number, end: number], plotDim, marginRef.current)
+                            // axisRef.current.update(range.categories, range.originalCategories.length, plotDim, marginRef.current)
+                            // axisRef.current.update([range.start, range.end], plotDim, marginRef.current)
+                        }
+                    }
+                }
                 if (axisRef.current === undefined) {
-                    axisRef.current = addCategoryAxis(chartId, axisId, svg, location, categories, label, font, axisTickStyle, plotDimensions, margin)
+                    axisRef.current = addOrdinalStringAxis(chartId, axisId, svg, location, categories, label, font, axisTickStyle, plotDimensions, margin, setAxisBoundsFor)
 
                     // add the x-axis or y-axis to the chart context depending on its
                     // location
                     switch (location) {
                         case AxisLocation.Top:
                         case AxisLocation.Bottom:
+                            axisRef.current = addOrdinalStringAxis(
+                                chartId, axisId, svg, location, categories,
+                                label, font, axisTickStyle, plotDimensions, margin,
+                                setAxisBoundsFor
+                            )
                             // add the x-axis to the chart context
                             addXAxis(axisRef.current, axisId)
+
+                            // add an update handler
+                            rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
+                            addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                             break
                         case AxisLocation.Left:
                         case AxisLocation.Right:
+                            axisRef.current = addOrdinalStringAxis(
+                                chartId, axisId, svg, location, categories,
+                                label, font, axisTickStyle, plotDimensions, margin,
+                                setAxisBoundsFor
+                            )
                             // add the y-axis to the chart context
                             addYAxis(axisRef.current, axisId)
+                            // add an update handler
+                            rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
+                            addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                     }
                 } else {
+                    // const range = axisBoundsFor(axisId)
+                    const range = axisRef.current.generator.scale().range()
+                    if (range) {
+                        axisRef.current.update(range as [start: number, end: number], plotDimensions, margin)
+                        // axisRef.current.update(range, range.length, plotDimensions, margin)
+                    }
+                    if (rangeUpdateHandlerIdRef.current !== undefined) {
+                        addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
+                    }
+
                     // update the category size in case the plot dimensions changed
-                    axisRef.current.categorySize = axisRef.current.update(categories, categories.length, plotDimensions, margin)
+                    axisRef.current.update(range as [start: number, end: number], plotDimensions, margin)
+                    axisRef.current.categorySize = axisRef.current.scale.bandwidth()
+                    // axisRef.current.categorySize = axisRef.current.update(categories, categories.length, plotDimensions, margin)
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
             }

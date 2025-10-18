@@ -9,10 +9,9 @@ import {GSelection, SvgSelection} from "../d3types";
 import {
     axesForSeriesGen,
     BaseAxis,
-    CategoryAxis,
-    continuousAxisIntervals,
-    continuousAxisRanges,
+    OrdinalStringAxis,
     ContinuousNumericAxis,
+    ordinalAxisIntervals,
     ordinalAxisRanges,
     ordinalAxisZoomHandler
 } from "../axes/axes";
@@ -36,7 +35,8 @@ import {
 } from "../styling/svgStyle";
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
+import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
+import {OrdinalAxisRange, ordinalAxisRangeFor} from "../axes/ordinalAxisRangeFor";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -250,7 +250,7 @@ export function BarPlot(props: Props): null {
     // defined above allow the axes' times to be updated properly by avoid stale reference to these
     // functions.
     const updateTimingAndPlot = useCallback(
-        (ranges: Map<string, ContinuousAxisRange>): void => {
+        (ranges: Map<string, OrdinalAxisRange>): void => {
         // (): void => {
             if (mainG !== null) {
                 // onUpdateTimeRef.current(ranges)
@@ -281,7 +281,7 @@ export function BarPlot(props: Props): null {
             statsRef.current = initialOrdinalStats(dataRef.current)
             // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             // updateTimingAndPlot()
-            updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+            updateTimingAndPlot(new Map(Array.from(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>).entries())
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
@@ -296,7 +296,7 @@ export function BarPlot(props: Props): null {
                                 Infinity
                             )
                         const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
+                        return [id, ordinalAxisRangeFor(startTime, startTime + end - start, range.categories)]
                     })
                 )
             )
@@ -338,7 +338,7 @@ export function BarPlot(props: Props): null {
             transform: ZoomTransform,
             x: number,
             plotDimensions: Dimensions,
-            ranges: Map<string, ContinuousAxisRange>,
+            ranges: Map<string, OrdinalAxisRange>,
         ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
@@ -348,7 +348,7 @@ export function BarPlot(props: Props): null {
      * @param mainGElem
      */
     const updatePlot = useCallback(
-        (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
+        (timeRanges: Map<string, OrdinalAxisRange>, mainGElem: GSelection) => {
         // (mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
@@ -716,7 +716,7 @@ export function BarPlot(props: Props): null {
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef<(timeRanges: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
+    const updatePlotRef = useRef<(ordinalRange: Map<string, OrdinalAxisRange>, g: GSelection) => void>(noop)
     useEffect(
         () => {
             if (mainG !== null && container !== null) {
@@ -788,7 +788,7 @@ export function BarPlot(props: Props): null {
     //     [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
     // )
 
-    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
+    const timeRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
     useEffect(
         () => {
             if (container && mainG) {
@@ -801,19 +801,20 @@ export function BarPlot(props: Props): null {
                 if (timeRangesRef.current.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    timeRangesRef.current = ordinalAxisRanges(xAxesState.axes as Map<string, CategoryAxis>)
+                    timeRangesRef.current = ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>)
                     // timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
-                    const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    const intervals = ordinalAxisIntervals(xAxesState.axes as Map<string, OrdinalStringAxis>)
+                    // const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                     timeRangesRef.current
-                        .forEach((range, id, rangesMap) => {
-                            const [start, end] = intervals.get(id) || [NaN, NaN]
+                        .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
+                            const [[start, end], categories] = intervals.get(id) || [[NaN, NaN], []]
                             if (!isNaN(start) && !isNaN(end)) {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact
-                                rangesMap.set(id, range.update(start, end))
+                                rangesMap.set(id, {...range.update(start, end), categories} as OrdinalAxisRange)
                             }
                         })
                 }
@@ -997,10 +998,10 @@ function axesFor(
     axisAssignments: Map<string, AxesAssignment>,
     xAxisFor: (id: string) => BaseAxis | undefined,
     yAxisFor: (id: string) => BaseAxis | undefined,
-): [xAxis: CategoryAxis, yAxis: ContinuousNumericAxis] {
+): [xAxis: OrdinalStringAxis, yAxis: ContinuousNumericAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
-    const xAxisCategory = xAxis as CategoryAxis
+    const xAxisCategory = xAxis as OrdinalStringAxis
     if (xAxis && !xAxisCategory) {
         throw Error("Bar plot requires that x-axis be of type CategoryAxis")
     }

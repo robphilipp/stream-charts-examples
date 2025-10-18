@@ -7,6 +7,8 @@ import {AxesState} from "../hooks/AxesState";
 import {AxesAssignment} from "../plots/plot";
 import {BaseSeries} from "../series/baseSeries";
 import {noop} from "../utils";
+import {OrdinalAxisRange, ordinalAxisRangeFor} from "./ordinalAxisRangeFor";
+import {BaseAxisRange} from "./BaseAxisRange";
 
 export type AxisTickStyle = {
     font: AxesFont
@@ -70,11 +72,12 @@ export interface ContinuousNumericAxis extends BaseAxis {
     update: (domain: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => void
 }
 
-export interface CategoryAxis extends BaseAxis {
+export interface OrdinalStringAxis extends BaseAxis {
     scale: ScaleBand<string>
     generator: Axis<string>
     categorySize: number
-    update: (categoryNames: Array<string>, unfilteredSize: number, plotDimensions: Dimensions, margin: Margin) => number
+    // update: (categoryNames: Array<string>, unfilteredSize: number, plotDimensions: Dimensions, margin: Margin) => number
+    update: (range: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => void
 }
 
 export enum AxisLocation {
@@ -104,7 +107,7 @@ export enum AxisLocation {
  * @param margin The plot margin
  * @return A category axis
  */
-export function addCategoryAxis(
+export function addOrdinalStringAxis(
     chartId: number,
     axisId: string,
     svg: SvgSelection,
@@ -114,15 +117,16 @@ export function addCategoryAxis(
     axesLabelFont: AxesFont,
     axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
-    margin: Margin
-): CategoryAxis {
+    margin: Margin,
+    setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+): OrdinalStringAxis {
     switch (location) {
         case AxisLocation.Top:
         case AxisLocation.Bottom:
-            return addCategoryXAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin)
+            return addOrdinalStringXAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin, setAxisRangeFor)
         case AxisLocation.Left:
         case AxisLocation.Right:
-            return addCategoryYAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin)
+            return addOrdinalStringYAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin, setAxisRangeFor)
 
     }
 }
@@ -141,7 +145,7 @@ export function addCategoryAxis(
  * @param margin The plot margin
  * @return A category axis
  */
-function addCategoryXAxis(
+function addOrdinalStringXAxis(
     chartId: number,
     axisId: string,
     svg: SvgSelection,
@@ -152,8 +156,9 @@ function addCategoryXAxis(
     axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin,
-): CategoryAxis {
-    const categorySize = categorySizeFor(location, plotDimensions, margin, categories.length)
+    setAxisRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
+): OrdinalStringAxis {
+    const categorySize = ordinalSizeFor(location, plotDimensions, margin, categories.length)
     const scale = d3.scaleBand()
         .domain(categories)
         .range([0, categorySize * categories.length]);
@@ -204,8 +209,12 @@ function addCategoryXAxis(
 
     return {
         ...axis,
-        update: (categoryNames, unfilteredSize, dimensions) =>
-            updateCategoryXAxis(chartId, axis, svg, location, categoryNames, unfilteredSize, axesLabelFont, dimensions, margin, maxTickLabelHeight)
+        update: (range, plotDimensions, dimensions) => {
+            updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin, maxTickLabelHeight)
+            setAxisRangeFor(axisId, range)
+        }
+        // update: (range, plotDimensions, dimensions) =>
+        //     updateOrdinalStringXAxis(chartId, axis, svg, location, range, plotDimensions, axesLabelFont, dimensions, margin, maxTickLabelHeight)
     }
 }
 
@@ -223,7 +232,7 @@ function addCategoryXAxis(
  * @param margin The plot margin
  * @return A category axis
  */
-function addCategoryYAxis(
+function addOrdinalStringYAxis(
     chartId: number,
     axisId: string,
     svg: SvgSelection,
@@ -234,8 +243,9 @@ function addCategoryYAxis(
     axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin,
-): CategoryAxis {
-    const categorySize = categorySizeFor(location, plotDimensions, margin, categories.length)
+    setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+): OrdinalStringAxis {
+    const categorySize = ordinalSizeFor(location, plotDimensions, margin, categories.length)
     const scale = d3.scaleBand()
         .domain(categories)
         .range([0, categorySize * categories.length]);
@@ -274,15 +284,19 @@ function addCategoryYAxis(
         .attr('fill', font.color)
         .attr('font-family', font.family)
         .attr('font-weight', font.weight)
-        .attr('transform', `translate(${categoryLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${categoryLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
+        .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
         .text(axisLabel)
 
     const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
 
     return {
         ...axis,
-        update: (categoryNames, unfilteredSize, dimensions) =>
-            updateCategoryYAxis(chartId, axis, svg, location, categoryNames, unfilteredSize, axesLabelFont, dimensions, margin)
+        update: (range, plotDimensions, dimensions) => {
+            updateOrdinalStringYAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin)
+            setAxisRangeFor(axisId, range)
+        }
+        // update: (categoryNames, unfilteredSize, dimensions) =>
+        //     updateOrdinalStringYAxis(chartId, axis, svg, location, categoryNames, unfilteredSize, axesLabelFont, dimensions, margin)
     }
 }
 
@@ -305,29 +319,31 @@ function addCategoryYAxis(
  * adjust the axis label location when needed
  * @return The number of pixels for each category
  */
-function updateCategoryXAxis(
+function updateOrdinalStringXAxis(
     chartId: number,
-    axis: CategoryAxis,
+    axis: OrdinalStringAxis,
     svg: SvgSelection,
     location: AxisLocation.Bottom | AxisLocation.Top,
-    names: Array<string>,
+    names: Array<string>,   // domain
+    range: [start: number, end: number], // range
     unfilteredSize: number,
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
     margin: Margin,
     tickHeight: number
 ): number {
-    const categorySize = categorySizeFor(location, plotDimensions, margin, unfilteredSize)
+    const categorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize)
     axis.scale
         .domain(names)
-        .range([0, categorySize * names.length])
+        .range(range)
+        // .range([0, categorySize * names.length])
     axis.selection
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .call(axis.generator)
 
     svg
         .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${categoryLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${categoryLabelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)})`)
+        .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)})`)
 
     return categorySize
 }
@@ -349,28 +365,30 @@ function updateCategoryXAxis(
  * @param margin The plot margin
  * @return The number of pixels for each category
  */
-function updateCategoryYAxis(
+function updateOrdinalStringYAxis(
     chartId: number,
-    axis: CategoryAxis,
+    axis: OrdinalStringAxis,
     svg: SvgSelection,
     location: AxisLocation.Left | AxisLocation.Right,
-    names: Array<string>,
+    names: Array<string>,       // domain
+    range: [startValue: number, endValue: number], // range
     unfilteredSize: number,
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
     margin: Margin,
 ): number {
-    const categorySize = categorySizeFor(location, plotDimensions, margin, unfilteredSize)
+    const categorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize)
     axis.scale
         .domain(names)
-        .range([0, categorySize * names.length])
+        .range(range)
+        // .range([0, categorySize * names.length])
     axis.selection
         .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
         .call(axis.generator)
 
     svg
         .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${categoryLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${categoryLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
+        .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
 
     return categorySize
 }
@@ -383,7 +401,7 @@ function updateCategoryYAxis(
  * @param numCategories The number of categories
  * @return the number of pixels each category occupies on the axis
  */
-function categorySizeFor(location: AxisLocation, dimensions: Dimensions, margin: Margin, numCategories: number): number {
+function ordinalSizeFor(location: AxisLocation, dimensions: Dimensions, margin: Margin, numCategories: number): number {
     switch (location) {
         case AxisLocation.Left:
         case AxisLocation.Right:
@@ -404,7 +422,7 @@ function categorySizeFor(location: AxisLocation, dimensions: Dimensions, margin:
  * @param axesLabelFont The font for the axis label
  * @return The number of pixels to translate the label in the x-direction
  */
-function categoryLabelXTranslation(
+function ordinalLabelXTranslation(
     location: AxisLocation,
     plotDimensions: Dimensions,
     margin: Margin,
@@ -433,7 +451,7 @@ function categoryLabelXTranslation(
  * @param [axisLabelHeight=0] The axis label height for adjusting the location of the label
  * @return The number of pixels to translate the label for the y-direction
  */
-function categoryLabelYTranslation(
+function ordinalLabelYTranslation(
     location: AxisLocation,
     plotDimensions: Dimensions,
     margin: Margin,
@@ -729,8 +747,9 @@ export function labelIdFor(chartId: number, location: AxisLocation): string {
 /**
  * The result of a zoom action
  */
-export interface ZoomResult {
-    range: ContinuousAxisRange
+export interface ZoomResult<AR extends BaseAxisRange> {
+    range: AR
+    // range: ContinuousAxisRange
     zoomFactor: number
 }
 
@@ -744,17 +763,17 @@ export interface ZoomResult {
  * @param range The current range for the axis being zoomed
  * @return The updated range and the new zoom factor
  */
-export function calculateZoomFor(
+export function calculateZoomFor<AR extends BaseAxisRange>(
     transform: ZoomTransform,
     x: number,
     axis: ContinuousNumericAxis,
     range: ContinuousAxisRange,
-): ZoomResult {
+): ZoomResult<AR> {
     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
     return {
         range: range.scale(transform.k, time),
         zoomFactor: transform.k
-    };
+    } as ZoomResult<AR>
 }
 
 /**
@@ -774,29 +793,29 @@ export function calculateConstrainedZoomFor(
     axis: ContinuousNumericAxis,
     range: ContinuousAxisRange,
     constraint: [min: number, max: number],
-): ZoomResult {
+): ZoomResult<ContinuousAxisRange> {
     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
     return {
         range: range.constrainedScale(transform.k, time, constraint),
         zoomFactor: transform.k
-    }
+    } as ZoomResult<ContinuousAxisRange>
 }
 
 // todo this is not correct
 export function calculateOrdinalConstrainedZoomFor(
     transform: ZoomTransform,
     x: number,
-    axis: CategoryAxis,
-    // axis: ContinuousNumericAxis,
-    range: ContinuousAxisRange,
+    axis: OrdinalStringAxis,
+    range: OrdinalAxisRange,
     constraint: [min: number, max: number],
-): ZoomResult {
+): ZoomResult<OrdinalAxisRange> {
     const scale = axis.generator.scale<ScaleBand<string>>();
-    const categoryIndex = Math.floor((x / scale.bandwidth()) | 0)
+    // const categoryIndex = Math.floor((x / scale.bandwidth()) | 0)
     return {
-        range: range.constrainedScale(transform.k, categoryIndex * scale.bandwidth(), constraint),
+        range: range.constrainedScale(transform.k, x, constraint),
+        // range: range.constrainedScale(transform.k, categoryIndex * scale.bandwidth(), constraint),
         zoomFactor: transform.k
-    }
+    } as ZoomResult<OrdinalAxisRange>
 }
 
 /*
@@ -1051,7 +1070,7 @@ function calcOrdinalZoomAndUpdate(
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
     axesState: AxesState,
-    ranges: Map<string, ContinuousAxisRange>,
+    ranges: Map<string, OrdinalAxisRange>,
     scaleExtent: [min: number, max: number],
     transform: ZoomTransform,
     plotDimensions: Dimensions,
@@ -1060,7 +1079,7 @@ function calcOrdinalZoomAndUpdate(
 
     const range = ranges.get(axisId)
     if (range) {
-        const axis = axesState.axisFor(axisId) as CategoryAxis
+        const axis = axesState.axisFor(axisId) as OrdinalStringAxis
 
         const scale = axis.generator.scale<ScaleBand<string>>()
 
@@ -1082,8 +1101,10 @@ function calcOrdinalZoomAndUpdate(
         setRangeFor(axisId, zoom.range.current)
 
         // update the axis' range
-        const categories = scale.domain()
-        axis.update(categories, categories.length, plotDimensions, margin)
+        // axis.update(scale.range() as [start: number, end: number], plotDimensions, margin)
+        axis.update(zoom.range.current, plotDimensions, margin)
+        // const categories = scale.domain()
+        // axis.update(categories, categories.length, plotDimensions, margin)
     }
 }
 
@@ -1142,7 +1163,7 @@ export function ordinalAxisZoomHandler(
     transform: ZoomTransform,
     x: number,
     plotDimensions: Dimensions,
-    ranges: Map<string, ContinuousAxisRange>,
+    ranges: Map<string, OrdinalAxisRange>,
 ) => void {
 
     /**
@@ -1255,7 +1276,7 @@ export function continuousAxisRanges(axes: Map<string, ContinuousNumericAxis>): 
     return continuousRange(axes)
 }
 
-export function ordinalAxisRanges(axes: Map<string, CategoryAxis>): Map<string, ContinuousAxisRange> {
+export function ordinalAxisRanges(axes: Map<string, OrdinalStringAxis>): Map<string, OrdinalAxisRange> {
     return ordinalRange(axes)
 }
 
@@ -1267,6 +1288,11 @@ export function ordinalAxisRanges(axes: Map<string, CategoryAxis>): Map<string, 
 export function continuousAxisIntervals(axes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
     return new Map(Array.from(axes.entries())
         .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
+}
+
+export function ordinalAxisIntervals(axes: Map<string, OrdinalStringAxis>): Map<string, [interval: [start: number, end: number], categories: Array<string>]> {
+    return new Map(Array.from(axes.entries())
+        .map(([id, axis]) => [id, [axis.scale.range(), axis.scale.domain()]] as [string, [[number, number], Array<string>]]))
 }
 
 /**
@@ -1282,11 +1308,12 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
         }))
 }
 
-export function ordinalRange(axes: Map<string, CategoryAxis>): Map<string, ContinuousAxisRange> {
+export function ordinalRange(axes: Map<string, OrdinalStringAxis>): Map<string, OrdinalAxisRange> {
     return new Map(Array.from(axes.entries())
         .map(([id, axis]) => {
             const [start, end] = axis.scale.range()
-            return [id, continuousAxisRangeFor(start, end)]
+            const categories = axis.scale.domain()
+            return [id, ordinalAxisRangeFor(start, end, categories)]
         }))
 }
 

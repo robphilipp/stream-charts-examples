@@ -8,6 +8,10 @@ export interface BaseAxisRange {
      */
     original: [start: number, end: number]
 
+    currentDistance: number
+
+    originalDistance: number
+
     /**
      * Determines whether the specified (start, end) interval matches the original interval
      * @param start The original start of the axis range

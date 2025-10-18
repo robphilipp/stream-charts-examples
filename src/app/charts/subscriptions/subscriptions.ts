@@ -1,5 +1,5 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {continuousAxisRanges, ContinuousNumericAxis} from "../axes/axes";
+import {OrdinalStringAxis, continuousAxisRanges, ContinuousNumericAxis, ordinalAxisRanges} from "../axes/axes";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
@@ -24,8 +24,8 @@ import {
 } from "../observables/ordinals";
 import {ChartData} from "../observables/ChartData";
 import {OrdinalDatum} from "../series/ordinalSeries";
-import {MutableRefObject} from "react";
-import {endFrom, measureOf} from "../axes/BaseAxisRange";
+import {RefObject} from "react";
+import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -420,9 +420,10 @@ export function subscriptionOrdinalXFor(
     yAxesState: AxesState,
     onUpdateData: ((seriesName: string, data: Array<OrdinalDatum>) => void) | undefined,
     dropDataAfter: number,
-    updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
+    updateTimingAndPlot: (ranges: Map<string, OrdinalAxisRange>) => void,
     seriesMap: Map<string, BaseSeries<OrdinalDatum>>,
-    ordinalStatsRef: MutableRefObject<WindowedOrdinalStats>,
+    ordinalStatsRef: RefObject<WindowedOrdinalStats>,
+    // ordinalStatsRef: MutableRefObject<WindowedOrdinalStats>,
     setCurrentTime: (currentTime: number) => void,
 ): Subscription {
 
@@ -480,7 +481,7 @@ export function subscriptionOrdinalXFor(
         .subscribe(dataList => {
             dataList.forEach((data: OrdinalChartData) => {
                 // grab the axis ranges for the y-axes
-                const yAxisRanges = continuousAxisRanges(yAxesState.axes as Map<string, ContinuousNumericAxis>);
+                const yAxisRanges = ordinalAxisRanges(yAxesState.axes as Map<string, OrdinalStringAxis>);
 
                 //
                 // calculate the max times for each x-axis, which is the max time over all the

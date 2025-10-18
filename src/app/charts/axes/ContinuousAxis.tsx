@@ -115,7 +115,6 @@ export function ContinuousAxis(props: Props): null {
                         const range = updates.get(axisId)
                         if (range) {
                             axisRef.current.update(range.current, plotDim, marginRef.current)
-                            // axisRef.current.update([range.start, range.end], plotDim, marginRef.current)
                         }
                     }
                 }

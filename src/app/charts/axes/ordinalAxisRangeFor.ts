@@ -1,9 +1,54 @@
 import {BaseAxisRange} from "./BaseAxisRange";
 
+type AxisRange = [start: number, end: number]
+
 /**
  * The continuous-axis range contract
  */
-export interface ContinuousAxisRange extends BaseAxisRange {}
+export interface OrdinalAxisRange extends BaseAxisRange {
+    // // axis ranges
+    // range: AxisRange
+    // originalRange: AxisRange
+
+    // axis domain
+    categories: Array<string>
+    originalCategories: Array<string>
+
+    // scaleFactor: number
+    // matchesOriginal: (start: number, end: number) => boolean
+    // /**
+    //  * Scales the axis-range by the specified scale factor from the specified {@link value}. The equations
+    //  * are written so that the zooming (scaling) occurs at the specified {@link value}, and expands/contracts equally
+    //  * from that {@link value}.
+    //  * @param factor The scale factor
+    //  * @param categories The categories currently part of the domain
+    //  * @return A new continuous-axis range with updated values
+    //  */
+    // scale: (factor: number, value: number) => OrdinalAxisRange
+    // /**
+    //  * Scales the axis-range by the specified scale factor, but constrains the range to the specified
+    //  * {@link constraint} min and max. The equations are written so that the zooming (scaling) occurs
+    //  * at the specified {@link value}, and expands/contracts equally from that {@link value}.
+    //  * @param factor The scale factor
+    //  * @param categories The categories currently part of the domain
+    //  * @param constraint The min and max range
+    //  * @return A new continuous-axis range with updated values
+    //  */
+    // constrainedScale: (factor: number, value: number, constraint: [min: number, max: number]) => OrdinalAxisRange
+    // /**
+    //  * Translates the axis-range by the specified amount
+    //  * @param amount The amount by which to translate the axis-range
+    //  * @return An updated {@link OrdinalAxisRange} that has been translated by the specified amount
+    //  */
+    // translate: (amount: number, constraints?: [start: number, end: number]) => OrdinalAxisRange
+    // /**
+    //  * Updates the axis-range based on the new start and end values
+    //  * @param start The new start of the axis-range
+    //  * @param end The new end of the axis range
+    //  * @return The updated axis-range type, with all other values unchanged
+    //  */
+    // update: (start: number, end: number) => OrdinalAxisRange
+}
 
 /**
  * A time-range that can be scaled and transformed, all the while maintaining its original range values.
@@ -11,10 +56,12 @@ export interface ContinuousAxisRange extends BaseAxisRange {}
  * @param _end The end of the time-range
  * @return A time-range object that can be scaled and transformed
  */
-export function continuousAxisRangeFor(_start: number, _end: number): ContinuousAxisRange {
+// export function ordinalAxisRangeFor(categories: Array<string>): OrdinalAxisRange {
+export function ordinalAxisRangeFor(_start: number, _end: number, categories: Array<string>): OrdinalAxisRange {
     // form a closure on the original start and end of the time-range
     const originalStart = Math.min(_start, _end)
     const originalEnd = Math.max(_start, _end)
+    const originalCategories = categories.slice()
 
     /**
      * Updates the axis-range based on the new start and end values
@@ -22,17 +69,21 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
      * @param end The new end of the axis range
      * @return The updated axis-range type
      */
-    function updateAxisRange(start: number, end: number): ContinuousAxisRange {
+    // function updateAxisRange(categories: Array<string>): OrdinalAxisRange {
+    //     return updateRange(categories)
+    // }
+    function updateAxisRange(start: number, end: number): OrdinalAxisRange {
         return updateRange(start, end)
     }
 
     /**
-     * Updates the continuous range based on the new start and end times
-     * @param start The new start of the continuous range
-     * @param end The new end of the continuous range
-     * @return The updated continuous range type
+     * Updates the categories visible in the domain based on the new start and end indexes
+     * @param start The new start index of the ordinal
+     * @param end The new end index of the ordinal
+     * @return The updated categories
      */
-    function updateRange(start: number, end: number): ContinuousAxisRange {
+    // function updateRange(categories: Array<string>): OrdinalAxisRange {
+        function updateRange(start: number, end: number): OrdinalAxisRange {
 
         // the amount by which the time-range is currently scaled
         const scaleFactor = (end - start) / (originalEnd - originalStart)
@@ -64,13 +115,13 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
 
         /**
          * Scales the axis-range by the specified scale factor from the specified value. The equations
-         * are written so that the zooming (scaling) occurs at the specified value and expands/contracts equally
+         * are written so that the zooming (scaling) occurs at the specified value, and expands/contracts equally
          * from that value.
          * @param factor The scale factor
          * @param value The value from which to scale the interval
          * @return A new continuous-axis range with updated values
          */
-        function scale(factor: number, value: number): ContinuousAxisRange {
+        function scale(factor: number, value: number): OrdinalAxisRange {
             const [start, end] = scaledRange(factor, value)
             return updateAxisRange(start, end)
         }
@@ -78,13 +129,13 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
         /**
          * Scales the axis-range by the specified scale factor from the specified value, while keeping
          * the range within the constraints (start, end). The equations are written so that the zooming
-         * (scaling) occurs at the specified value and expands/contracts equally from that value.
+         * (scaling) occurs at the specified value, and expands/contracts equally from that value.
          * @param factor The scale factor
          * @param value The value from which to scale the interval
          * @param constraint The minimum and maximum values that range bounds can be
          * @return A new continuous-axis range with updated values
          */
-        function constrainedScale(factor: number, value: number, constraint: [min: number, max: number]): ContinuousAxisRange {
+        function constrainedScale(factor: number, value: number, constraint: [min: number, max: number]): OrdinalAxisRange {
             const [start, end] = scaledRange(factor, value)
             const [min, max] = constraint
             return updateAxisRange(Math.max(min, start), Math.min(max, end))
@@ -94,12 +145,12 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
          * Translates the axis-range by the specified amount
          * @param amount The amount by which to translate the axis-range
          * @param [constraint=[-Infinity, Infinity]] Optional constraint interval in which the axis range must be within
-         * @return An updated {@link ContinuousAxisRange} that has been translated by the specified amount
+         * @return An updated {@link OrdinalAxisRange} that has been translated by the specified amount
          */
-        function translate(amount: number, constraint: [start: number, end: number]  = [-Infinity, Infinity]): ContinuousAxisRange {
+        function translate(amount: number, constraint: [start: number, end: number]  = [-Infinity, Infinity]): OrdinalAxisRange {
             const [cs, ce] = constraint
             // when either of the constraints is infinite, or the pan keeps the new axis range
-            // within the origin axis range (i.e., zoomed in and the panned), then allow the pan,
+            // within the origin axis range (i.e. zoomed in and the panned), then allow the pan,
             // otherwise don't update
             if ((!isFinite(cs) && !isFinite(ce)) || (start + amount >= cs && end + amount <= ce)) {
                 start += amount
@@ -109,6 +160,17 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
         }
 
         return {
+            // start: start,
+            // end: end,
+            categories: categories,
+            originalCategories: originalCategories,
+            // original: [originalStart, originalEnd],
+            // matchesOriginal,
+            // scaleFactor,
+            // scale,
+            // constrainedScale,
+            // translate,
+            // update: updateAxisRange
             current: [start, end],
             original: [originalStart, originalEnd],
             currentDistance: Math.abs(end - start),
@@ -122,5 +184,6 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
         }
     }
 
+    // return updateAxisRange(categories);
     return updateAxisRange(originalStart, originalEnd);
 }

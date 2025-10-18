@@ -10,7 +10,7 @@ import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
     BaseAxis,
-    CategoryAxis,
+    OrdinalStringAxis,
     ContinuousNumericAxis,
     defaultLineStyle,
     panHandler,
@@ -587,7 +587,7 @@ function axesFor(
     axisAssignments: Map<string, AxesAssignment>,
     xAxisFor: (id: string) => BaseAxis | undefined,
     yAxisFor: (id: string) => BaseAxis | undefined,
-): [xAxis: ContinuousNumericAxis, yAxis: CategoryAxis] {
+): [xAxis: ContinuousNumericAxis, yAxis: OrdinalStringAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
     const xAxisLinear = xAxis as ContinuousNumericAxis
@@ -595,7 +595,7 @@ function axesFor(
         throw Error("Raster plot requires that x-axis be of type LinearAxis")
     }
     const yAxis = yAxisFor(axes?.yAxis || "")
-    const yAxisCategory = yAxis as CategoryAxis
+    const yAxisCategory = yAxis as OrdinalStringAxis
     if (yAxis && !yAxisCategory) {
         throw Error("Raster plot requires that y-axis be of type CategoryAxis")
     }
