@@ -1,13 +1,23 @@
 import {AxesAssignment, setClipPath} from "./plot";
 import * as d3 from "d3";
+import {ZoomTransform} from "d3";
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {GSelection, SvgSelection} from "../d3types";
-import {BaseAxis, CategoryAxis, ContinuousNumericAxis} from "../axes/axes";
+import {
+    axesForSeriesGen,
+    BaseAxis,
+    CategoryAxis,
+    continuousAxisIntervals,
+    continuousAxisRanges,
+    ContinuousNumericAxis,
+    ordinalAxisRanges,
+    ordinalAxisZoomHandler
+} from "../axes/axes";
 import {Subscription} from "rxjs";
-import {Margin} from "../styling/margins";
+import {Dimensions, Margin} from "../styling/margins";
 import {subscriptionOrdinalXFor, WindowedOrdinalStats} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
@@ -26,7 +36,7 @@ import {
 } from "../styling/svgStyle";
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
-import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
+import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -82,15 +92,15 @@ interface Props {
     //  * Enables panning (default is false)
     //  */
     // panEnabled?: boolean
-    // /**
-    //  * Enables zooming (default is false)
-    //  */
-    // zoomEnabled?: boolean
-    // /**
-    //  * When true, requires that the shift or control key be pressed while scrolling
-    //  * in order to activate the zoom
-    //  */
-    // zoomKeyModifiersRequired?: boolean
+    /**
+     * Enables zooming (default is false)
+     */
+    zoomEnabled?: boolean
+    /**
+     * When true, requires that the shift or control key be pressed while scrolling
+     * in order to activate the zoom
+     */
+    zoomKeyModifiersRequired?: boolean
     /**
      * The (optional, default = 2 pixels) top and bottom margin (in pixels) for the spike lines in the plot.
      * Margins on individual series can also be set through the {@link Chart.seriesStyles} property.
@@ -147,9 +157,9 @@ export function BarPlot(props: Props): null {
         xAxesState,
         yAxesState,
         setAxisAssignments,
-        // setAxisBoundsFor,
-        // updateAxesBounds = noop,
-        // onUpdateAxesBounds,
+        setAxisBoundsFor,
+        updateAxesBounds = noop,
+        onUpdateAxesBounds,
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -172,8 +182,8 @@ export function BarPlot(props: Props): null {
         axisAssignments = new Map<string, AxesAssignment>(),
         dropDataAfter = Infinity,
         // panEnabled = false,
-        // zoomEnabled = false,
-        // zoomKeyModifiersRequired = true,
+        zoomEnabled = false,
+        zoomKeyModifiersRequired = true,
         showMinMaxBars = true,
         showWindowedMinMaxBars = true,
         showValueLines = true,
@@ -230,33 +240,33 @@ export function BarPlot(props: Props): null {
         [axisAssignments, setAxisAssignments]
     )
 
-    // // calculates the distinct series IDs that cover all the series in the plot
-    // const axesForSeries = useMemo(
-    //     () => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
-    //     [initialData, axisAssignments, xAxesState]
-    // )
+    // calculates the distinct series IDs that cover all the series in the plot
+    const axesForSeries = useMemo(
+        () => axesForSeriesGen<OrdinalDatum>(initialData, axisAssignments, xAxesState),
+        [initialData, axisAssignments, xAxesState]
+    )
 
     // updates the timing using the onUpdateTime and updatePlot references. This and the references
     // defined above allow the axes' times to be updated properly by avoid stale reference to these
     // functions.
     const updateTimingAndPlot = useCallback(
-        // (ranges: Map<string, ContinuousAxisRange>): void => {
-        (): void => {
+        (ranges: Map<string, ContinuousAxisRange>): void => {
+        // (): void => {
             if (mainG !== null) {
                 // onUpdateTimeRef.current(ranges)
-                updatePlotRef.current(mainG)
+                updatePlotRef.current(ranges, mainG)
                 onUpdateChartTime(currentTimeRef.current)
-                // updatePlotRef.current(ranges, mainG)
-                // if (onUpdateAxesBounds) {
-                //     setTimeout(() => {
-                //         const times = new Map<string, [number, number]>()
-                //         ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
-                //         onUpdateAxesBounds(times)
-                //     }, 0)
-                // }
+                updatePlotRef.current(ranges, mainG)
+                if (onUpdateAxesBounds) {
+                    setTimeout(() => {
+                        const times = new Map<string, [number, number]>()
+                        ranges.forEach((range, name) => times.set(name, range.current))
+                        onUpdateAxesBounds(times)
+                    }, 0)
+                }
             }
         },
-        [mainG, onUpdateChartTime]
+        [mainG, onUpdateAxesBounds, onUpdateChartTime]
         // [mainG, onUpdateAxesBounds]
     )
 
@@ -270,7 +280,26 @@ export function BarPlot(props: Props): null {
             currentTimeRef.current = 0
             statsRef.current = initialOrdinalStats(dataRef.current)
             // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot()
+            // updateTimingAndPlot()
+            updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+                    .map(([id, range]) => {
+                        // grab the current range, then calculate the minimum time from the initial data, and
+                        // set that as the start, and then add the range to it for the end time
+                        const [start, end] = range.original
+                        const minTime = initialData
+                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+                            .reduce(
+                                (tMin, series) => Math.min(
+                                    tMin,
+                                    !series.isEmpty() ? series.data[0].time : tMin
+                                ),
+                                Infinity
+                            )
+                        const startTime = minTime === Infinity ? 0 : minTime
+                        return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
+                    })
+                )
+            )
         },
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
@@ -295,32 +324,32 @@ export function BarPlot(props: Props): null {
     //     [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     // )
     //
-    // /**
-    //  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-    //  * at the location of the mouse when the scroll wheel or gesture was applied.
-    //  * @param transform The d3 zoom transformation information
-    //  * @param x The x-position of the mouse when the scroll wheel or gesture is used
-    //  * @param plotDimensions The dimensions of the plot
-    //  * @param series An array of series names
-    //  * @param ranges A map holding the axis ID and its associated time-range
-    //  */
-    // const onZoom = useCallback(
-    //     (
-    //         transform: ZoomTransform,
-    //         x: number,
-    //         plotDimensions: Dimensions,
-    //         ranges: Map<string, ContinuousAxisRange>,
-    //     ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
-    //     [axesForSeries, margin, setAxisBoundsFor, xAxesState]
-    // )
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time-range
+     */
+    const onZoom = useCallback(
+        (
+            transform: ZoomTransform,
+            x: number,
+            plotDimensions: Dimensions,
+            ranges: Map<string, ContinuousAxisRange>,
+        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+    )
 
     /**
      * @param timeRanges
      * @param mainGElem
      */
     const updatePlot = useCallback(
-        // (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
-        (mainGElem: GSelection) => {
+        (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
+        // (mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
                 const svg: SvgSelection = d3.select<SVGSVGElement, any>(container)
@@ -346,25 +375,25 @@ export function BarPlot(props: Props): null {
                 //     svg.call(drag)
                 // }
                 //
-                // // set up for zooming
-                // if (zoomEnabled) {
-                //     const zoom = d3.zoom<SVGSVGElement, Datum>()
-                //         .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                //         .scaleExtent([0, 10])
-                //         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                //         .on("zoom", (event: any) => {
-                //                 onZoom(
-                //                     event.transform,
-                //                     event.sourceEvent.offsetX - margin.left,
-                //                     plotDimensions,
-                //                     timeRanges,
-                //                 )
-                //                 updatePlotRef.current(timeRanges, mainGElem)
-                //             }
-                //         )
-                //
-                //     svg.call(zoom)
-                // }
+                // set up for zooming
+                if (zoomEnabled) {
+                    const zoom = d3.zoom<SVGSVGElement, Datum>()
+                        .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                        .scaleExtent([0, 10])
+                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                        .on("zoom", (event: any) => {
+                                onZoom(
+                                    event.transform,
+                                    event.sourceEvent.offsetX - margin.left,
+                                    plotDimensions,
+                                    timeRanges,
+                                )
+                                updatePlotRef.current(timeRanges, mainGElem)
+                            }
+                        )
+
+                    svg.call(zoom)
+                }
 
                 // enter, update, delete the bar data
                 dataRef.current.forEach(series => {
@@ -687,7 +716,7 @@ export function BarPlot(props: Props): null {
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef<(g: GSelection) => void>(noop)
+    const updatePlotRef = useRef<(timeRanges: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
     useEffect(
         () => {
             if (mainG !== null && container !== null) {
@@ -714,6 +743,13 @@ export function BarPlot(props: Props): null {
             }
         },
         [chartId, container, mainG, margin, plotDimensions, updatePlot]
+    )
+    const onUpdateTimeRef = useRef(updateAxesBounds)
+    useEffect(
+        () => {
+            onUpdateTimeRef.current = updateAxesBounds
+        },
+        [updateAxesBounds]
     )
 
     // memoized function for subscribing to the chart-data observable
@@ -743,13 +779,50 @@ export function BarPlot(props: Props): null {
         ]
     )
 
+    // useEffect(
+    //     () => {
+    //         if (container && mainG) {
+    //             updatePlot(mainG)
+    //         }
+    //     },
+    //     [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
+    // )
+
+    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
     useEffect(
         () => {
             if (container && mainG) {
-                updatePlot(mainG)
+                // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
+                // change. for example, as data is streamed in, the times change, and then we need to update the
+                // time-range. however, we want to keep the time-ranges to reflect their original scale so that
+                // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
+                // interpolation changes, then the update plot changes, and the time-ranges must maintain their
+                // original scale as well.
+                if (timeRangesRef.current.size === 0) {
+                    // when no time-ranges have yet been created, then create them and hold on to a mutable
+                    // reference to them
+                    timeRangesRef.current = ordinalAxisRanges(xAxesState.axes as Map<string, CategoryAxis>)
+                    // timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                } else {
+                    // when the time-ranges already exist, then we want to update the time-ranges for each
+                    // existing time-range in a way that maintains the original scale.
+                    const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    timeRangesRef.current
+                        .forEach((range, id, rangesMap) => {
+                            const [start, end] = intervals.get(id) || [NaN, NaN]
+                            if (!isNaN(start) && !isNaN(end)) {
+                                // update the reference map with the new (start, end) portion of the range,
+                                // while keeping the original scale intact
+                                rangesMap.set(id, range.update(start, end))
+                            }
+                        })
+                }
+                updatePlot(timeRangesRef.current, mainG)
+
+                onUpdateTimeRef.current = updateAxesBounds
             }
         },
-        [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
+        [chartId, color, container, mainG, plotDimensions, updateAxesBounds, updatePlot, xAxesState]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`

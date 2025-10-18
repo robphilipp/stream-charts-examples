@@ -277,8 +277,7 @@ export function ScatterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)
-        (transform, x, plotDimensions, ranges),
+        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 

@@ -1,9 +1,9 @@
-import * as axes from "./axes"
 import {
     addCategoryAxis,
     AxesFont,
     AxisLocation,
     AxisTickStyle,
+    CategoryAxis,
     defaultAxesFont,
     defaultAxisTickStyle,
     labelIdFor
@@ -61,7 +61,7 @@ export function OrdinalAxis(props: Props): null {
         label,
     } = props
 
-    const axisRef = useRef<axes.CategoryAxis>(undefined)
+    const axisRef = useRef<CategoryAxis>(undefined)
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
@@ -86,13 +86,15 @@ export function OrdinalAxis(props: Props): null {
                     // add the x-axis or y-axis to the chart context depending on its
                     // location
                     switch (location) {
-                        case AxisLocation.Left:
-                        case AxisLocation.Right:
-                            addYAxis(axisRef.current, axisId)
-                            break
                         case AxisLocation.Top:
                         case AxisLocation.Bottom:
+                            // add the x-axis to the chart context
                             addXAxis(axisRef.current, axisId)
+                            break
+                        case AxisLocation.Left:
+                        case AxisLocation.Right:
+                            // add the y-axis to the chart context
+                            addYAxis(axisRef.current, axisId)
                     }
                 } else {
                     // update the category size in case the plot dimensions changed

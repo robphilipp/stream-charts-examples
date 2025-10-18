@@ -400,8 +400,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         barMargin={1}
                         dropDataAfter={5000}
                         // panEnabled={true}
-                        // zoomEnabled={true}
-                        // zoomKeyModifiersRequired={true}
+                        zoomEnabled={true}
+                        zoomKeyModifiersRequired={true}
                         // withCadenceOf={50}
 
                         showMinMaxBars={showMinMax}
