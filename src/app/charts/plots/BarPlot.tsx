@@ -13,7 +13,7 @@ import {
     ContinuousNumericAxis,
     ordinalAxisIntervals,
     ordinalAxisRanges,
-    ordinalAxisZoomHandler
+    ordinalAxisZoomHandler, ordinalPanHandler
 } from "../axes/axes";
 import {Subscription} from "rxjs";
 import {Dimensions, Margin} from "../styling/margins";
@@ -88,10 +88,10 @@ interface Props {
      * infinity (i.e. no data is dropped)
      */
     dropDataAfter?: number
-    // /**
-    //  * Enables panning (default is false)
-    //  */
-    // panEnabled?: boolean
+    /**
+     * Enables panning (default is false)
+     */
+    panEnabled?: boolean
     /**
      * Enables zooming (default is false)
      */
@@ -181,7 +181,7 @@ export function BarPlot(props: Props): null {
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
         dropDataAfter = Infinity,
-        // panEnabled = false,
+        panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
         showMinMaxBars = true,
@@ -296,7 +296,7 @@ export function BarPlot(props: Props): null {
                                 Infinity
                             )
                         const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, ordinalAxisRangeFor(startTime, startTime + end - start, range.categories)]
+                        return [id, ordinalAxisRangeFor(startTime, startTime + end - start)]
                     })
                 )
             )
@@ -308,22 +308,22 @@ export function BarPlot(props: Props): null {
         [initialData]
     )
 
-    // /**
-    //  * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-    //  * @param deltaX The amount that the plot is dragged
-    //  * @param plotDimensions The dimensions of the plot
-    //  * @param series An array of series names
-    //  * @param ranges A map holding the axis ID and its associated time range
-    //  */
-    // const onPan = useCallback(
-    //     (x: number,
-    //      plotDimensions: Dimensions,
-    //      series: Array<string>,
-    //      ranges: Map<string, ContinuousAxisRange>
-    //     ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
-    //     [axesForSeries, margin, setAxisBoundsFor, xAxesState]
-    // )
-    //
+    /**
+     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+     * @param deltaX The amount that the plot is dragged
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time range
+     */
+    const onPan = useCallback(
+        (x: number,
+         plotDimensions: Dimensions,
+         series: Array<string>,
+         ranges: Map<string, OrdinalAxisRange>
+        ) => ordinalPanHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+    )
+
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
@@ -353,27 +353,27 @@ export function BarPlot(props: Props): null {
                 // select the svg element bind the data to them
                 const svg: SvgSelection = d3.select<SVGSVGElement, any>(container)
 
-                // // set up panning
-                // if (panEnabled) {
-                //     const drag = d3.drag<SVGSVGElement, Datum>()
-                //         .on("start", () => {
-                //             d3.select(container).style("cursor", "move")
-                //             allowTooltipRef.current = false
-                //         })
-                //         .on("drag", (event: any) => {
-                //             const names = dataRef.current.map(series => series.name)
-                //             onPan(event.dx, plotDimensions, names, timeRanges)
-                //             // need to update the plot with the new time-ranges
-                //             updatePlotRef.current(timeRanges, mainGElem)
-                //         })
-                //         .on("end", () => {
-                //             d3.select(container).style("cursor", "auto")
-                //             allowTooltipRef.current = isSubscriptionClosed()
-                //         })
-                //
-                //     svg.call(drag)
-                // }
-                //
+                // set up panning
+                if (panEnabled) {
+                    const drag = d3.drag<SVGSVGElement, Datum>()
+                        .on("start", () => {
+                            d3.select(container).style("cursor", "move")
+                            allowTooltipRef.current = false
+                        })
+                        .on("drag", (event: any) => {
+                            const names = dataRef.current.map(series => series.name)
+                            onPan(event.dx, plotDimensions, names, ordinalRanges)
+                            // need to update the plot with the new time-ranges
+                            updatePlotRef.current(ordinalRanges, mainGElem)
+                        })
+                        .on("end", () => {
+                            d3.select(container).style("cursor", "auto")
+                            allowTooltipRef.current = isSubscriptionClosed()
+                        })
+
+                    svg.call(drag)
+                }
+
                 // set up for zooming
                 if (zoomEnabled) {
                     const zoom = d3.zoom<SVGSVGElement, Datum>()

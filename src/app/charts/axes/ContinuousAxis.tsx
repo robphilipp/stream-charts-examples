@@ -150,27 +150,19 @@ export function ContinuousAxis(props: Props): null {
                             addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                     }
                 } else {
-                    switch (location) {
-                        case AxisLocation.Bottom:
-                        case AxisLocation.Top:
-                        case AxisLocation.Left:
-                        case AxisLocation.Right: {
-                            const range = axisBoundsFor(axisId)
-                            if (range) {
-                                axisRef.current.update(range, plotDimensions, margin)
-                            }
-                            if (rangeUpdateHandlerIdRef.current !== undefined) {
-                                addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
-                            }
-                            if (
-                                (updateAxisBasedOnDomainValues && (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1])) ||
-                                (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
-                            ) {
-                                domainRef.current = domain
-                                resetAxisBoundsFor(axisId, continuousAxisRangeFor, domain)
-                            }
-                        }
+                    const domain = axisBoundsFor(axisId)
+                    if (domain) {
+                        axisRef.current.update(domain, plotDimensions, margin)
                     }
+
+                    if (
+                        (updateAxisBasedOnDomainValues && (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1])) ||
+                        (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
+                    ) {
+                        domainRef.current = domain
+                        resetAxisBoundsFor(axisId, continuousAxisRangeFor, domain)
+                    }
+
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
             }

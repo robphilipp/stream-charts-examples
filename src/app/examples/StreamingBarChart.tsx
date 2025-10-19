@@ -408,7 +408,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     <BarPlot
                         barMargin={1}
                         dropDataAfter={5000}
-                        // panEnabled={true}
+                        panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
                         // withCadenceOf={50}

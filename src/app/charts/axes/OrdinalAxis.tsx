@@ -14,8 +14,9 @@ import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import {Dimensions, Margin} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {OrdinalAxisRange} from "./ordinalAxisRangeFor";
+import {OrdinalAxisRange, ordinalAxisRangeFor} from "./ordinalAxisRangeFor";
 import {Datum} from "../series/timeSeries";
+import {continuousAxisRangeFor} from "./continuousAxisRangeFor";
 
 interface Props {
     // the unique ID of the axis
@@ -33,6 +34,22 @@ interface Props {
     axisTickStyle?: Partial<AxisTickStyle>
     // the axis label
     label: string
+    // The domain prop holds the axis bounds as a (min, max) tuple. The default
+    // behavior is to update the axis bounds when the **values** of the domain
+    // prop change, rather than when the object reference changes. This allows
+    // a user of the chart to specify a tuple-literal as the ranges, rather than
+    // forcing the user of the chart to create a ref and use that ref.
+    //
+    // This behavior is important when allowing the axes to scroll in time, as
+    // is done in the scatter plot or the raster plot. In this case, if the user
+    // of the raster chart specifies the axis domain as a tuple-literal, then
+    // the bounds will get reset to their original value with each render.
+    //
+    // However, for charts that don't scroll, such as the iterates chart, but where
+    // the user would like to change axis-bounds, say for a different iterates
+    // function, we would like the axis bounds to be reset based on a change to
+    // the object ref instead. In this case, we can set this property to false.
+    updateAxisBasedOnDomainValues?: boolean
 }
 
 /**
@@ -53,8 +70,10 @@ export function OrdinalAxis(props: Props): null {
     } = useChart<Datum, any, any, OrdinalAxisRange>()
 
     const {
-        xAxesState, yAxesState,
-        addXAxis, addYAxis,
+        xAxesState,
+        yAxesState,
+        addXAxis,
+        addYAxis,
         setAxisBoundsFor,
         axisBoundsFor,
         addAxesBoundsUpdateHandler,
@@ -68,6 +87,7 @@ export function OrdinalAxis(props: Props): null {
         location,
         scale = d3.scaleBand(),
         categories,
+        updateAxisBasedOnDomainValues = true,
         label,
     } = props
 
@@ -77,6 +97,7 @@ export function OrdinalAxis(props: Props): null {
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
     const categoriesRef = useRef<Array<string>>(categories)
+    const rangeRef = useRef<[start: number, end: number]>(scale.range())
     useEffect(
         () => {
             axisIdRef.current = axisId
@@ -93,16 +114,16 @@ export function OrdinalAxis(props: Props): null {
                 const axisTickStyle = {...defaultAxisTickStyle(), ...props.axisTickStyle}
 
 
+                // lambda that gets called when the axes need to be updated
                 const handleRangeUpdates = (updates: Map<string, OrdinalAxisRange>, plotDim: Dimensions): void => {
                     if (rangeUpdateHandlerIdRef.current && axisRef.current) {
                         const range = updates.get(axisId)
                         if (range) {
-                            axisRef.current.update(range.current.slice() as [start: number, end: number], plotDim, marginRef.current)
-                            // axisRef.current.update(range.categories, range.originalCategories.length, plotDim, marginRef.current)
-                            // axisRef.current.update([range.start, range.end], plotDim, marginRef.current)
+                            axisRef.current.categorySize = axisRef.current.update(range.current, plotDim, marginRef.current)
                         }
                     }
                 }
+
                 if (axisRef.current === undefined) {
                     // add the x-axis or y-axis to the chart context depending on its
                     // location
@@ -112,10 +133,11 @@ export function OrdinalAxis(props: Props): null {
                             axisRef.current = addOrdinalStringAxis(
                                 chartId, axisId, svg, location, categories,
                                 label, font, axisTickStyle, plotDimensions, margin,
-                                setAxisBoundsFor)
+                                setAxisBoundsFor
+                            )
 
                             // add the x-axis to the chart context
-                            addXAxis(axisRef.current, axisId)
+                            addXAxis(axisRef.current, axisId, axisRef.current.scale.range())
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
@@ -129,44 +151,42 @@ export function OrdinalAxis(props: Props): null {
                                 setAxisBoundsFor
                             )
                             // add the y-axis to the chart context
-                            addYAxis(axisRef.current, axisId)
+                            addYAxis(axisRef.current, axisId, axisRef.current.scale.range())
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
                             addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                     }
                 } else {
-                    // const range = axisBoundsFor(axisId)
-                    const range = axisRef.current.scale.range()
+                    const range = axisBoundsFor(axisId)
+                    // const range = axisRef.current.scale.range()
                     if (range) {
                         axisRef.current.update(range as [start: number, end: number], plotDimensions, margin)
-                        // axisRef.current.update(range, range.length, plotDimensions, margin)
                     }
-                    if (rangeUpdateHandlerIdRef.current !== undefined) {
-                        addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
+                    if (
+                        (updateAxisBasedOnDomainValues && (rangeRef.current[0] !== range[0] || rangeRef.current[1] !== range[1])) ||
+                        (!updateAxisBasedOnDomainValues && rangeRef.current !== range)
+                    ) {
+                        rangeRef.current = range
+                        resetAxisBoundsFor(axisId, ordinalAxisRangeFor, range)
                     }
 
-                    // update the category size in case the plot dimensions changed
-                    axisRef.current.update(range as [start: number, end: number], plotDimensions, margin)
-                    axisRef.current.categorySize = axisRef.current.scale.bandwidth()
-                    // axisRef.current.categorySize = axisRef.current.update(categories, categories.length, plotDimensions, margin)
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
             }
         },
         [
             addXAxis, addYAxis,
-            addAxesBoundsUpdateHandler, setAxisBoundsFor,
-            axisId,
-            categories,
-            chartId,
-            color,
-            container,
-            label,
-            location,
-            margin,
-            plotDimensions,
+            addAxesBoundsUpdateHandler,
+            setAxisBoundsFor,
+            axisId, categories, chartId, color, container, label, location,
+            margin, plotDimensions,
             props.axisTickStyle,
-            props.font
+            props.font,
+            xAxesState,
+            yAxesState,
+            axisBoundsFor,
+            updateAxisBasedOnDomainValues,
+            resetAxisBoundsFor
         ]
     )
 

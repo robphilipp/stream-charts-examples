@@ -10,9 +10,9 @@ export interface OrdinalAxisRange extends BaseAxisRange {
     // range: AxisRange
     // originalRange: AxisRange
 
-    // axis domain
-    categories: Array<string>
-    originalCategories: Array<string>
+    // // axis domain
+    // categories: Array<string>
+    // originalCategories: Array<string>
 
     // scaleFactor: number
     // matchesOriginal: (start: number, end: number) => boolean
@@ -57,11 +57,12 @@ export interface OrdinalAxisRange extends BaseAxisRange {
  * @return A time-range object that can be scaled and transformed
  */
 // export function ordinalAxisRangeFor(categories: Array<string>): OrdinalAxisRange {
-export function ordinalAxisRangeFor(_start: number, _end: number, categories: Array<string>): OrdinalAxisRange {
+// export function ordinalAxisRangeFor(_start: number, _end: number, categories: Array<string>): OrdinalAxisRange {
+export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRange {
     // form a closure on the original start and end of the time-range
     const originalStart = Math.min(_start, _end)
     const originalEnd = Math.max(_start, _end)
-    const originalCategories = categories.slice()
+    // const originalCategories = categories.slice()
 
     /**
      * Updates the axis-range based on the new start and end values
@@ -162,8 +163,8 @@ export function ordinalAxisRangeFor(_start: number, _end: number, categories: Ar
         return {
             // start: start,
             // end: end,
-            categories: categories,
-            originalCategories: originalCategories,
+            // categories: categories,
+            // originalCategories: originalCategories,
             // original: [originalStart, originalEnd],
             // matchesOriginal,
             // scaleFactor,

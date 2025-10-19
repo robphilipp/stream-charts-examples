@@ -86,18 +86,18 @@ export type UseAxesValues<AR extends BaseAxisRange> = {
      */
     originalAxisBounds: () => Map<string, AxisRangeTuple>
     /**
-     * Sets the time-range for the specified axis ID to the specified range
+     * Sets the domain (interval) for the specified axis ID to the specified range
      * @param axisId The ID of the axis for which to set the range
-     * @param timeRange The new time range as an `[t_start, t_end]` tuple
+     * @param domain The new domain as a `[start: number, end: number]` tuple
      */
-    setAxisBoundsFor: (axisId: string, timeRange: [start: number, end: number]) => void
+    setAxisBoundsFor: (axisId: string, domain: [start: number, end: number]) => void
     /**
      * Callback function that is called when the time ranges change. The time ranges could
      * change because of a zoom action, a pan action, or as new data is streamed in.
-     * @param times A `map(axis_id -> time_range)` that associates the axis ID with the
+     * @param domains A `map(axis_id -> domain)` that associates the axis ID with the
      * current time range.
      */
-    updateAxesBounds: (times: Map<string, AR>) => void
+    updateAxesBounds: (domains: Map<string, AR>) => void
     /**
      * Resets the axis bounds to its original bounds
      * @param axisId The ID of the axis
@@ -121,14 +121,14 @@ export type UseAxesValues<AR extends BaseAxisRange> = {
      */
     onUpdateAxesBounds?: (times: Map<string, AxisRangeTuple>) => void
     /**
-     * Adds a handler for when the time is updated. The time could change because of a zoom action,
+     * Adds a handler for when the axes are updated. An axis domain/range could change because of a zoom action,
      * a pan action, or as new data is streamed in.
      * @param handlerId The unique ID of the handler to register/add
      * @param handler The handler function that accepts a map of updates and a plot dimension
      */
     addAxesBoundsUpdateHandler: (handlerId: string, handler: (updates: Map<string, AR>, plotDim: Dimensions) => void) => void
     /**
-     * Removes the time-update handler with the specified ID
+     * Removes the axis-update handler with the specified ID
      * @param handlerId The ID of the handler to remove
      */
     removeAxesBoundsUpdateHandler: (handlerId: string) => void
@@ -265,6 +265,26 @@ export default function AxesProvider<AR extends BaseAxisRange>(props: Props): JS
         updateAxesBounds(updates)
     }
 
+    /**
+     * Adds a handler to deal with updates to the bounds of the axes
+     * @param handlerId the unique ID of the handler
+     * @param handler The handler function that accepts a map of updates and a plot dimension
+     * @return A map with all the handlers
+     */
+    function addAxesBoundsUpdateHandler(
+        handlerId: string,
+        handler: (updates: Map<string, AR>, plotDim: Dimensions) => void
+    ): Map<string, (updates: Map<string, AR>, plotDim: Dimensions) => void> {
+        // if (axesBoundsUpdateHandlersRef.current.has(handlerId)) {
+        //     throw new Error(
+        //         `Handler with ID already exists, please remove it before adding it; ` +
+        //         `handler_id: ${handlerId}; ` +
+        //         `existing_handler_ids: [${Array.from(axesBoundsUpdateHandlersRef.current.keys()).join(", ")}]`
+        //     )
+        // }
+      return axesBoundsUpdateHandlersRef.current.set(handlerId, handler)
+    }
+
     return <AxesContext.Provider
         value={{
             xAxesState: xAxesStateRef.current,
@@ -293,7 +313,8 @@ export default function AxesProvider<AR extends BaseAxisRange>(props: Props): JS
             resetAxisBoundsFor,
             resetAxesBounds,
             onUpdateAxesBounds,
-            addAxesBoundsUpdateHandler: (handlerId, handler) => axesBoundsUpdateHandlersRef.current.set(handlerId, handler),
+            addAxesBoundsUpdateHandler,
+            // addAxesBoundsUpdateHandler: (handlerId: string, handler: (updates: Map<string, AR>, plotDim: Dimensions) => void) => axesBoundsUpdateHandlersRef.current.set(handlerId, handler),
             removeAxesBoundsUpdateHandler: handlerId => axesBoundsUpdateHandlersRef.current.delete(handlerId),
         }}
     >
