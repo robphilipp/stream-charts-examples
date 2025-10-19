@@ -772,7 +772,7 @@ export function BarPlot(props: Props): null {
     // useEffect(
     //     () => {
     //         if (container && mainG) {
-    //             updatePlot(mainG)
+    //             updatePlot(ordinalAxesRangesRef.current, mainG)
     //         }
     //     },
     //     [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
@@ -800,11 +800,12 @@ export function BarPlot(props: Props): null {
                     // const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                     ordinalAxesRangesRef.current
                         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
-                            const [[start, end], categories] = intervals.get(id) || [[NaN, NaN], []]
+                            const [[start, end]] = intervals.get(id) || [[NaN, NaN], []]
                             if (!isNaN(start) && !isNaN(end)) {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact
-                                rangesMap.set(id, {...range.update(start, end), categories} as OrdinalAxisRange)
+                                rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
+                                // rangesMap.set(id, {...range.update(start, end), categories} as OrdinalAxisRange)
                             }
                         })
                 }
