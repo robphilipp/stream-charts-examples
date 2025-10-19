@@ -76,8 +76,7 @@ export interface OrdinalStringAxis extends BaseAxis {
     scale: ScaleBand<string>
     generator: Axis<string>
     categorySize: number
-    // update: (categoryNames: Array<string>, unfilteredSize: number, plotDimensions: Dimensions, margin: Margin) => number
-    update: (range: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => void
+    update: (range: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => number
 }
 
 export enum AxisLocation {
@@ -156,7 +155,7 @@ function addOrdinalStringXAxis(
     axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin,
-    setAxisRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
+    setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
 ): OrdinalStringAxis {
     const categorySize = ordinalSizeFor(location, plotDimensions, margin, categories.length)
     const scale = d3.scaleBand()
@@ -210,11 +209,10 @@ function addOrdinalStringXAxis(
     return {
         ...axis,
         update: (range, plotDimensions, dimensions) => {
-            updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin, maxTickLabelHeight)
+            const categorySize = updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin, maxTickLabelHeight)
             setAxisRangeFor(axisId, range)
+            return categorySize
         }
-        // update: (range, plotDimensions, dimensions) =>
-        //     updateOrdinalStringXAxis(chartId, axis, svg, location, range, plotDimensions, axesLabelFont, dimensions, margin, maxTickLabelHeight)
     }
 }
 
@@ -292,11 +290,10 @@ function addOrdinalStringYAxis(
     return {
         ...axis,
         update: (range, plotDimensions, dimensions) => {
-            updateOrdinalStringYAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin)
+            const categorySize = updateOrdinalStringYAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin)
             setAxisRangeFor(axisId, range)
+            return categorySize
         }
-        // update: (categoryNames, unfilteredSize, dimensions) =>
-        //     updateOrdinalStringYAxis(chartId, axis, svg, location, categoryNames, unfilteredSize, axesLabelFont, dimensions, margin)
     }
 }
 
@@ -332,7 +329,10 @@ function updateOrdinalStringXAxis(
     margin: Margin,
     tickHeight: number
 ): number {
-    const categorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize)
+    const [currentStart, currentEnd] = axis.scale.range()
+    const [newStart, newEnd] = range
+    const newCategorySize = axis.categorySize * (currentEnd - currentStart) / (newEnd - newStart)
+    const updatedCategorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize * (currentEnd - currentStart) / (newEnd - newStart))
     axis.scale
         .domain(names)
         .range(range)
@@ -345,7 +345,7 @@ function updateOrdinalStringXAxis(
         .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)})`)
 
-    return categorySize
+    return updatedCategorySize
 }
 
 /**
@@ -794,9 +794,9 @@ export function calculateConstrainedZoomFor(
     range: ContinuousAxisRange,
     constraint: [min: number, max: number],
 ): ZoomResult<ContinuousAxisRange> {
-    const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
+    const domainValue = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
     return {
-        range: range.constrainedScale(transform.k, time, constraint),
+        range: range.constrainedScale(transform.k, domainValue, constraint),
         zoomFactor: transform.k
     } as ZoomResult<ContinuousAxisRange>
 }
@@ -809,11 +809,14 @@ export function calculateOrdinalConstrainedZoomFor(
     range: OrdinalAxisRange,
     constraint: [min: number, max: number],
 ): ZoomResult<OrdinalAxisRange> {
-    const scale = axis.generator.scale<ScaleBand<string>>();
+    // const scale = axis.generator.scale<ScaleBand<string>>()
+    // const [start, end] = axis.scale.range()
+    // const index = x / axis.scale.bandwidth()
+    // const domainValue = (index * axis.scale.bandwidth()) / (end - start)
+
     // const categoryIndex = Math.floor((x / scale.bandwidth()) | 0)
     return {
         range: range.constrainedScale(transform.k, x, constraint),
-        // range: range.constrainedScale(transform.k, categoryIndex * scale.bandwidth(), constraint),
         zoomFactor: transform.k
     } as ZoomResult<OrdinalAxisRange>
 }
@@ -1081,7 +1084,7 @@ function calcOrdinalZoomAndUpdate(
     if (range) {
         const axis = axesState.axisFor(axisId) as OrdinalStringAxis
 
-        const scale = axis.generator.scale<ScaleBand<string>>()
+        // const scale = axis.generator.scale<ScaleBand<string>>()
 
         // calculate the constraint for the zoom
         // const [originalStart, originalEnd] = scale.range()
@@ -1091,7 +1094,7 @@ function calcOrdinalZoomAndUpdate(
         const [originalStart, originalEnd] = range.original
         const constraint: [number, number] = isFinite(zoomMax) ?
             [originalStart * zoomMax, originalEnd * zoomMax] :
-            [0, Infinity]
+            [-Infinity, Infinity]
 
         const zoom = calculateOrdinalConstrainedZoomFor(transform, value, axis, range, constraint)
 

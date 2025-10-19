@@ -104,8 +104,6 @@ export function OrdinalAxis(props: Props): null {
                     }
                 }
                 if (axisRef.current === undefined) {
-                    axisRef.current = addOrdinalStringAxis(chartId, axisId, svg, location, categories, label, font, axisTickStyle, plotDimensions, margin, setAxisBoundsFor)
-
                     // add the x-axis or y-axis to the chart context depending on its
                     // location
                     switch (location) {
@@ -114,8 +112,8 @@ export function OrdinalAxis(props: Props): null {
                             axisRef.current = addOrdinalStringAxis(
                                 chartId, axisId, svg, location, categories,
                                 label, font, axisTickStyle, plotDimensions, margin,
-                                setAxisBoundsFor
-                            )
+                                setAxisBoundsFor)
+
                             // add the x-axis to the chart context
                             addXAxis(axisRef.current, axisId)
 
@@ -138,7 +136,7 @@ export function OrdinalAxis(props: Props): null {
                     }
                 } else {
                     // const range = axisBoundsFor(axisId)
-                    const range = axisRef.current.generator.scale().range()
+                    const range = axisRef.current.scale.range()
                     if (range) {
                         axisRef.current.update(range as [start: number, end: number], plotDimensions, margin)
                         // axisRef.current.update(range, range.length, plotDimensions, margin)
@@ -157,6 +155,7 @@ export function OrdinalAxis(props: Props): null {
         },
         [
             addXAxis, addYAxis,
+            addAxesBoundsUpdateHandler, setAxisBoundsFor,
             axisId,
             categories,
             chartId,

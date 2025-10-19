@@ -348,8 +348,7 @@ export function BarPlot(props: Props): null {
      * @param mainGElem
      */
     const updatePlot = useCallback(
-        (timeRanges: Map<string, OrdinalAxisRange>, mainGElem: GSelection) => {
-        // (mainGElem: GSelection) => {
+        (ordinalRanges: Map<string, OrdinalAxisRange>, mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
                 const svg: SvgSelection = d3.select<SVGSVGElement, any>(container)
@@ -386,9 +385,9 @@ export function BarPlot(props: Props): null {
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
                                     plotDimensions,
-                                    timeRanges,
+                                    ordinalRanges,
                                 )
-                                updatePlotRef.current(timeRanges, mainGElem)
+                                updatePlotRef.current(ordinalRanges, mainGElem)
                             }
                         )
 
@@ -701,16 +700,7 @@ export function BarPlot(props: Props): null {
                 })
             }
         },
-        [
-            container,
-            axisAssignments, xAxesState.axisFor, yAxesState.axisFor,
-            barMargin, seriesStyles, barSeriesStyle,
-            seriesFilter,
-            chartId,
-            margin,
-            mouseOverHandlerFor, mouseLeaveHandlerFor,
-            showMinMaxBars, showValueLines, showMeanValueLines, showWindowedMinMaxBars, showWindowedMeanValueLines,
-        ]
+        [container, zoomEnabled, margin, plotDimensions, zoomKeyModifiersRequired, onZoom, axisAssignments, xAxesState.axisFor, yAxesState.axisFor, barMargin, seriesStyles, barSeriesStyle, seriesFilter, chartId, showValueLines, showMinMaxBars, mouseOverHandlerFor, mouseLeaveHandlerFor, showMeanValueLines, showWindowedMeanValueLines, showWindowedMinMaxBars]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -719,7 +709,7 @@ export function BarPlot(props: Props): null {
     const updatePlotRef = useRef<(ordinalRange: Map<string, OrdinalAxisRange>, g: GSelection) => void>(noop)
     useEffect(
         () => {
-            if (mainG !== null && container !== null) {
+            if (mainG != null && container != null) {
                 // when the update plot function doesn't yet exist, then create the container holding the plot
                 const svg = d3.select<SVGSVGElement, any>(container)
                 const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
@@ -788,7 +778,7 @@ export function BarPlot(props: Props): null {
     //     [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
     // )
 
-    const timeRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
+    const ordinalAxesRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
     useEffect(
         () => {
             if (container && mainG) {
@@ -798,17 +788,17 @@ export function BarPlot(props: Props): null {
                 // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
                 // interpolation changes, then the update plot changes, and the time-ranges must maintain their
                 // original scale as well.
-                if (timeRangesRef.current.size === 0) {
+                if (ordinalAxesRangesRef.current.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    timeRangesRef.current = ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>)
+                    ordinalAxesRangesRef.current = ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>)
                     // timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
                     const intervals = ordinalAxisIntervals(xAxesState.axes as Map<string, OrdinalStringAxis>)
                     // const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                    timeRangesRef.current
+                    ordinalAxesRangesRef.current
                         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
                             const [[start, end], categories] = intervals.get(id) || [[NaN, NaN], []]
                             if (!isNaN(start) && !isNaN(end)) {
@@ -818,12 +808,13 @@ export function BarPlot(props: Props): null {
                             }
                         })
                 }
-                updatePlot(timeRangesRef.current, mainG)
+                updatePlot(ordinalAxesRangesRef.current, mainG)
 
-                onUpdateTimeRef.current = updateAxesBounds
+                // onUpdateTimeRef.current = updateAxesBounds
             }
         },
-        [chartId, color, container, mainG, plotDimensions, updateAxesBounds, updatePlot, xAxesState]
+        [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
+        // [chartId, color, container, mainG, plotDimensions, updateAxesBounds, updatePlot, xAxesState]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`

@@ -435,7 +435,7 @@ export function ScatterPlot(props: Props): null {
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef(updatePlot)
+    const updatePlotRef = useRef<(ordinalRange: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
     useEffect(
         () => {
             updatePlotRef.current = updatePlot
