@@ -47,7 +47,7 @@ export function Tabs(props: Props): JSX.Element {
         style={props.style}
         activeStyle={props.activeStyle}
     />
-    const tabContents = <>
+    const tabContents = <span>
         {children
             .filter((_, index) => index === activeTab)
             .map((child, _) => cloneElement(child, {
@@ -55,7 +55,7 @@ export function Tabs(props: Props): JSX.Element {
                 name: tabNames[activeTab]
             }))
         }
-    </>
+    </span>
 
     if (withGrids) {
         return wrapWithGrid(tabHeader, tabContents)
