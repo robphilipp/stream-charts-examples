@@ -9,11 +9,12 @@ import {GSelection, SvgSelection} from "../d3types";
 import {
     axesForSeriesGen,
     BaseAxis,
-    OrdinalStringAxis,
     ContinuousNumericAxis,
     ordinalAxisIntervals,
     ordinalAxisRanges,
-    ordinalAxisZoomHandler, ordinalPanHandler
+    ordinalAxisZoomHandler,
+    ordinalPanHandler,
+    OrdinalStringAxis
 } from "../axes/axes";
 import {Subscription} from "rxjs";
 import {Dimensions, Margin} from "../styling/margins";
@@ -36,7 +37,7 @@ import {
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
 import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
-import {OrdinalAxisRange, ordinalAxisRangeFor} from "../axes/ordinalAxisRangeFor";
+import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -281,25 +282,25 @@ export function BarPlot(props: Props): null {
             statsRef.current = initialOrdinalStats(dataRef.current)
             // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
             // updateTimingAndPlot()
-            updateTimingAndPlot(new Map(Array.from(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>).entries())
-                    .map(([id, range]) => {
-                        // grab the current range, then calculate the minimum time from the initial data, and
-                        // set that as the start, and then add the range to it for the end time
-                        const [start, end] = range.original
-                        const minTime = initialData
-                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-                            .reduce(
-                                (tMin, series) => Math.min(
-                                    tMin,
-                                    !series.isEmpty() ? series.data[0].time : tMin
-                                ),
-                                Infinity
-                            )
-                        const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, ordinalAxisRangeFor(startTime, startTime + end - start)]
-                    })
-                )
-            )
+            // updateTimingAndPlot(new Map(Array.from(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>).entries())
+            //         .map(([id, range]) => {
+            //             // grab the current range, then calculate the minimum time from the initial data, and
+            //             // set that as the start, and then add the range to it for the end time
+            //             const [start, end] = range.original
+            //             const minTime = initialData
+            //                 .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+            //                 .reduce(
+            //                     (tMin, series) => Math.min(
+            //                         tMin,
+            //                         !series.isEmpty() ? series.data[0].time : tMin
+            //                     ),
+            //                     Infinity
+            //                 )
+            //             const startTime = minTime === Infinity ? 0 : minTime
+            //             return [id, ordinalAxisRangeFor(startTime, startTime + end - start)]
+            //         })
+            //     )
+            // )
         },
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
@@ -378,7 +379,7 @@ export function BarPlot(props: Props): null {
                 if (zoomEnabled) {
                     const zoom = d3.zoom<SVGSVGElement, Datum>()
                         .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                        .scaleExtent([0, 10])
+                        .scaleExtent([1, 10])
                         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                         .on("zoom", (event: any) => {
                                 onZoom(
@@ -390,7 +391,6 @@ export function BarPlot(props: Props): null {
                                 updatePlotRef.current(ordinalRanges, mainGElem)
                             }
                         )
-
                     svg.call(zoom)
                 }
 
@@ -418,7 +418,7 @@ export function BarPlot(props: Props): null {
                     const {
                         lower,
                         upper
-                    } = xAxisCategoryBoundsFn(xAxis.categorySize, valueLineStyle.regular.width, categoryMargin)
+                    } = xAxisCategoryBoundsFn(xAxis.scale.bandwidth(), valueLineStyle.regular.width, categoryMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
@@ -700,7 +700,7 @@ export function BarPlot(props: Props): null {
                 })
             }
         },
-        [container, zoomEnabled, margin, plotDimensions, zoomKeyModifiersRequired, onZoom, axisAssignments, xAxesState.axisFor, yAxesState.axisFor, barMargin, seriesStyles, barSeriesStyle, seriesFilter, chartId, showValueLines, showMinMaxBars, mouseOverHandlerFor, mouseLeaveHandlerFor, showMeanValueLines, showWindowedMeanValueLines, showWindowedMinMaxBars]
+        [container, panEnabled, zoomEnabled, onPan, plotDimensions, margin, zoomKeyModifiersRequired, onZoom, axisAssignments, xAxesState.axisFor, yAxesState.axisFor, barMargin, seriesStyles, barSeriesStyle, seriesFilter, chartId, showValueLines, showMinMaxBars, mouseOverHandlerFor, mouseLeaveHandlerFor, showMeanValueLines, showWindowedMeanValueLines, showWindowedMinMaxBars]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
@@ -734,13 +734,13 @@ export function BarPlot(props: Props): null {
         },
         [chartId, container, mainG, margin, plotDimensions, updatePlot]
     )
-    const onUpdateTimeRef = useRef(updateAxesBounds)
-    useEffect(
-        () => {
-            onUpdateTimeRef.current = updateAxesBounds
-        },
-        [updateAxesBounds]
-    )
+    // const onUpdateTimeRef = useRef(updateAxesBounds)
+    // useEffect(
+    //     () => {
+    //         onUpdateTimeRef.current = updateAxesBounds
+    //     },
+    //     [updateAxesBounds]
+    // )
 
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
@@ -769,14 +769,14 @@ export function BarPlot(props: Props): null {
         ]
     )
 
-    // useEffect(
-    //     () => {
-    //         if (container && mainG) {
-    //             updatePlot(ordinalAxesRangesRef.current, mainG)
-    //         }
-    //     },
-    //     [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
-    // )
+    useEffect(
+        () => {
+            if (container && mainG) {
+                updatePlot(ordinalAxesRangesRef.current, mainG)
+            }
+        },
+        [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
+    )
 
     const ordinalAxesRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
     useEffect(

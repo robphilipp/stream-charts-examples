@@ -208,7 +208,7 @@ function addOrdinalStringXAxis(
 
     return {
         ...axis,
-        update: (range, plotDimensions, dimensions) => {
+        update: (range, plotDimensions, margin) => {
             const categorySize = updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin, maxTickLabelHeight)
             setAxisRangeFor(axisId, range)
             return categorySize
@@ -348,9 +348,11 @@ function updateOrdinalStringXAxis(
     //     'categorySize', categorySize,
     //     'axis.bandwidth', axis.scale.bandwidth(),
     // )
+    const updatedRange = [Math.min(range[0], 0), Math.max(range[1], plotDimensions.width)]
     axis.scale
         // .domain(names)
         // todo uncomment this and zoom works, but not window resizing
+        // .range(updatedRange)
         .range(range)
         // todo uncomment this and window resizing works, but not zoom
         // .range([0, categorySize * names.length])
@@ -366,7 +368,9 @@ function updateOrdinalStringXAxis(
         .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)})`)
 
-    return categorySize
+    // return categorySize
+    // return axis.categorySize
+    return axis.scale.bandwidth()
 }
 
 function measure(range: [start: number, end: number]): number {
@@ -845,9 +849,14 @@ export function calculateOrdinalConstrainedZoomFor(
     // const domainValue = (index * axis.scale.bandwidth()) / (end - start)
 
     // const categoryIndex = Math.floor((x / scale.bandwidth()) | 0)
+    const updatedRange = range.constrainedScale(transform.k, x, constraint)
+    const [os, oe] = range.original
+    const k = updatedRange.matchesOriginal(os, oe) ? 1 : transform.k
     return {
-        range: range.constrainedScale(transform.k, x, constraint),
-        zoomFactor: transform.k
+        range: updatedRange,
+        // range: range.constrainedScale(transform.k, x, constraint),
+        zoomFactor: k
+        // zoomFactor: transform.k
     } as ZoomResult<OrdinalAxisRange>
 }
 
@@ -892,7 +901,7 @@ export function calculateOrdinalPanFor(
     const constraint: [start: number, end: number] = constrainToOriginalRange ?
         range.original :
         [-Infinity, Infinity]
-    return range.translate(delta, constraint)
+    return range.translate(delta, constraint) as OrdinalAxisRange
 }
 
 /*
@@ -1191,7 +1200,7 @@ function calcOrdinalZoomAndUpdate(
         const [originalStart, originalEnd] = range.original
         const constraint: [number, number] = isFinite(zoomMax) ?
             [originalStart * zoomMax, originalEnd * zoomMax] :
-            [-Infinity, Infinity]
+            [originalStart, originalEnd]
 
         const zoom = calculateOrdinalConstrainedZoomFor(transform, value, axis, range, constraint)
 
@@ -1201,10 +1210,7 @@ function calcOrdinalZoomAndUpdate(
         setRangeFor(axisId, zoom.range.current)
 
         // update the axis' range
-        // axis.update(scale.range() as [start: number, end: number], plotDimensions, margin)
         axis.update(zoom.range.current, plotDimensions, margin)
-        // const categories = scale.domain()
-        // axis.update(categories, categories.length, plotDimensions, margin)
     }
 }
 

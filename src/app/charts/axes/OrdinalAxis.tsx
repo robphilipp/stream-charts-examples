@@ -12,11 +12,12 @@ import * as d3 from "d3";
 import {ScaleBand} from "d3";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
-import {Dimensions, Margin} from "../styling/margins";
+import {Dimensions, dimensionsEqual, dimensionsNotEqual, Margin} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalAxisRange, ordinalAxisRangeFor} from "./ordinalAxisRangeFor";
 import {Datum} from "../series/timeSeries";
 import {continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {AxisRangeTuple} from "../hooks/useAxes";
 
 interface Props {
     // the unique ID of the axis
@@ -96,14 +97,16 @@ export function OrdinalAxis(props: Props): null {
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
+    const plotDimensionsRef = useRef<Dimensions>(plotDimensions)
     const categoriesRef = useRef<Array<string>>(categories)
-    const rangeRef = useRef<[start: number, end: number]>(scale.range())
+    // const rangeRef = useRef<[start: number, end: number]>(scale.range())
+
     useEffect(
         () => {
             axisIdRef.current = axisId
             marginRef.current = margin
         },
-        [axisId, plotDimensions, margin]
+        [axisId, margin]
     )
 
     useEffect(
@@ -160,15 +163,26 @@ export function OrdinalAxis(props: Props): null {
                     const range = axisBoundsFor(axisId)
                     // const range = axisRef.current.scale.range()
                     if (range) {
-                        axisRef.current.update(range as [start: number, end: number], plotDimensions, margin)
+                        // when the plot-dimensions aren't equal, then the window must have resized,
+                        // and so we need to update the plot-range of the axis accordingly
+                        if (dimensionsNotEqual(plotDimensions, plotDimensionsRef.current)) {
+                            // todo deal with y-axis ordinal ranges
+                            const widthChange = plotDimensions.width - plotDimensionsRef.current.width
+                            const updatedRange = [range[0], range[1] + widthChange] as AxisRangeTuple
+                            // plotDimensionsRef.current = plotDimensions
+                            axisRef.current.update(updatedRange, plotDimensions, margin)
+                        } else {
+                            axisRef.current.update(range, plotDimensions, margin)
+                        }
+                        // axisRef.current.update(range as [start: number, end: number], plotDimensionsRef.current, margin)
                     }
-                    if (
-                        (updateAxisBasedOnDomainValues && (rangeRef.current[0] !== range[0] || rangeRef.current[1] !== range[1])) ||
-                        (!updateAxisBasedOnDomainValues && rangeRef.current !== range)
-                    ) {
-                        rangeRef.current = range
-                        resetAxisBoundsFor(axisId, ordinalAxisRangeFor, range)
-                    }
+                    // if (
+                    //     (updateAxisBasedOnDomainValues && (rangeRef.current[0] !== range[0] || rangeRef.current[1] !== range[1])) ||
+                    //     (!updateAxisBasedOnDomainValues && rangeRef.current !== range)
+                    // ) {
+                    //     rangeRef.current = range
+                    //     resetAxisBoundsFor(axisId, ordinalAxisRangeFor, range)
+                    // }
 
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
@@ -179,7 +193,8 @@ export function OrdinalAxis(props: Props): null {
             addAxesBoundsUpdateHandler,
             setAxisBoundsFor,
             axisId, categories, chartId, color, container, label, location,
-            margin, plotDimensions,
+            margin,
+            plotDimensions,
             props.axisTickStyle,
             props.font,
             xAxesState,
@@ -189,6 +204,10 @@ export function OrdinalAxis(props: Props): null {
             resetAxisBoundsFor
         ]
     )
+
+    useEffect(() => {
+        plotDimensionsRef.current = plotDimensions
+    }, [plotDimensions]);
 
     return null
 }

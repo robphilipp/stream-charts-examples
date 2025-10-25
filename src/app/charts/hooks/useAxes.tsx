@@ -33,7 +33,7 @@ type AxisRangeProvider<AR extends BaseAxisRange> = (start: number, end: number) 
 
 /**
  * The values exposed by the hook
- * @template AR The type of the axis range (e.g. {@link ContinuousAxisRange})
+ * @template AR The type of the axis range (e.g. {@link ContinuousAxisRange} or {@link OrdinalAxisRange})
  */
 export type UseAxesValues<AR extends BaseAxisRange> = {
     /**
