@@ -1,6 +1,64 @@
 import {BaseAxisRange} from "./BaseAxisRange";
 
-type AxisRange = [start: number, end: number]
+type Interval = [start: number, end: number]
+
+function copyInterval(interval: Interval): Interval {
+    return [...interval] as Interval
+}
+function intervalOf(start: number, end: number): Interval {
+    return [Math.min(start, end), Math.max(start, end)]
+}
+
+function intervalMeasure(interval: Interval): number {
+    return Math.abs(interval[1] - interval[0])
+}
+
+function intervalsEqual(interval1: Interval, interval2: Interval): boolean {
+    return interval1[0] === interval2[0] && interval1[1] === interval2[1]
+}
+
+function intervalsDiffer(interval1: Interval, interval2: Interval): boolean {
+    return !intervalsEqual(interval1, interval2)
+}
+
+// export class OrdinalAxisRange2 implements BaseAxisRange {
+//     private readonly originalRange: Interval
+//     // private readonly originalEnd: number
+//     private readonly currentRange: Interval
+//     // private readonly end: number
+//     private readonly scaleFactor: number
+//
+//     constructor(start: number, end: number, originalStart?: number, originalEnd?: number) {
+//         if (originalStart && originalEnd) {
+//             this.currentRange = intervalOf(start, end)
+//             this.originalRange = intervalOf(originalStart, originalEnd)
+//         } else {
+//             this.currentRange = intervalOf(start, end)
+//             this.originalRange = intervalOf(start, end)
+//         }
+//         this.scaleFactor = intervalMeasure(this.currentRange) / intervalMeasure(this.originalRange)
+//     }
+//
+//     get current(): Interval {
+//         return copyInterval(this.currentRange)
+//     }
+//
+//     get original(): Interval {
+//         return copyInterval(this.originalRange)
+//     }
+//
+//     get currentDistance(): number {
+//         return intervalMeasure(this.currentRange)
+//     }
+//
+//     get originalDistance(): number {
+//         return intervalMeasure(this.originalRange)
+//     }
+//
+//     get currentDiffersFromOriginal(): boolean {
+//         return intervalsDiffer(this.currentRange, this.originalRange)
+//     }
+// }
 
 /**
  * The continuous-axis range contract

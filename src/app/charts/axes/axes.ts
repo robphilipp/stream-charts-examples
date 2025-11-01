@@ -77,6 +77,7 @@ export interface OrdinalStringAxis extends BaseAxis {
     generator: Axis<string>
     categorySize: number
     update: (range: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => number
+    // updateOriginalRange: (range: [startValue: number, endValue: number]) => void
 }
 
 export enum AxisLocation {
@@ -142,6 +143,7 @@ export function addOrdinalStringAxis(
  * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
+ * @param setAxisRangeFor Lambda that sets the axis range for the specified axis
  * @return A category axis
  */
 function addOrdinalStringXAxis(
@@ -157,10 +159,10 @@ function addOrdinalStringXAxis(
     margin: Margin,
     setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
 ): OrdinalStringAxis {
-    const categorySize = ordinalSizeFor(location, plotDimensions, margin, categories.length)
     const scale = d3.scaleBand()
         .domain(categories)
-        .range([0, categorySize * categories.length]);
+        .range([0, plotDimensions.width])
+    const categorySize = scale.bandwidth()
 
     // create and add the axes
     const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
@@ -228,6 +230,7 @@ function addOrdinalStringXAxis(
  * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
+ * @param setAxisRangeFor Lambda that sets the axis range for the specified axis
  * @return A category axis
  */
 function addOrdinalStringYAxis(
@@ -243,10 +246,10 @@ function addOrdinalStringYAxis(
     margin: Margin,
     setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
 ): OrdinalStringAxis {
-    const categorySize = ordinalSizeFor(location, plotDimensions, margin, categories.length)
     const scale = d3.scaleBand()
         .domain(categories)
-        .range([0, categorySize * categories.length]);
+        .range([0, plotDimensions.width])
+    const categorySize = scale.bandwidth()
 
     // create and add the axes
     const generator = location === AxisLocation.Left ? d3.axisLeft(scale) : d3.axisRight(scale)
@@ -331,7 +334,7 @@ function updateOrdinalStringXAxis(
 ): number {
     // const axisRange = axis.scale.range()
     // const alpha = measure(axisRange) / measure(range)
-    const categorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize) // / alpha
+    // const categorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize) // / alpha
     // const measureRangeEqualsCatName = measure(range) === categorySize * names.length
     // const updatedRange = measureRangeEqualsCatName ? range: [0, categorySize * names.length]
     // console.log('(before) bandwidth', axis.scale.bandwidth(), 'categorySize', categorySize)
@@ -352,8 +355,8 @@ function updateOrdinalStringXAxis(
     axis.scale
         // .domain(names)
         // todo uncomment this and zoom works, but not window resizing
-        // .range(updatedRange)
-        .range(range)
+        .range(updatedRange)
+        // .range(range)
         // todo uncomment this and window resizing works, but not zoom
         // .range([0, categorySize * names.length])
         // .range([range[0], range[0] + categorySize * names.length])
@@ -1193,10 +1196,6 @@ function calcOrdinalZoomAndUpdate(
         // const scale = axis.generator.scale<ScaleBand<string>>()
 
         // calculate the constraint for the zoom
-        // const [originalStart, originalEnd] = scale.range()
-        // const constraint: [number, number] = isFinite(zoomMax) ?
-        //     [originalStart * zoomMax, originalEnd * zoomMax] :
-        //     [0, Infinity]
         const [originalStart, originalEnd] = range.original
         const constraint: [number, number] = isFinite(zoomMax) ?
             [originalStart * zoomMax, originalEnd * zoomMax] :

@@ -73,7 +73,7 @@ export function ContinuousAxis(props: Props): null {
         setAxisBoundsFor,
         axisBoundsFor,
         addAxesBoundsUpdateHandler,
-        resetAxisBoundsFor,
+        setOriginalAxesBounds
     } = axes
 
     const {
@@ -160,7 +160,7 @@ export function ContinuousAxis(props: Props): null {
                         (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
                     ) {
                         domainRef.current = domain
-                        resetAxisBoundsFor(axisId, continuousAxisRangeFor, domain)
+                        setOriginalAxesBounds(axisId, continuousAxisRangeFor, domain)
                     }
 
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
@@ -170,7 +170,8 @@ export function ContinuousAxis(props: Props): null {
         [
             chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis, domain,
             scale, container, margin, plotDimensions, setAxisBoundsFor, axisBoundsFor, addAxesBoundsUpdateHandler,
-            color, resetAxisBoundsFor, updateAxisBasedOnDomainValues
+            setOriginalAxesBounds,
+            color, updateAxisBasedOnDomainValues
         ]
     )
 

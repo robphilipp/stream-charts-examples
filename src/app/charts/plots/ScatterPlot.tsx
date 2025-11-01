@@ -118,7 +118,7 @@ export function ScatterPlot(props: Props): null {
         setAxisBoundsFor,
         updateAxesBounds = noop,
         onUpdateAxesBounds,
-        originalAxisBounds
+        originalAxesBounds
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -147,10 +147,10 @@ export function ScatterPlot(props: Props): null {
 
     const initialTimes = useMemo(
         () => new Map<string, number>(
-            Array.from<[string, AxisRangeTuple]>(originalAxisBounds().entries())
+            Array.from<[string, AxisRangeTuple]>(originalAxesBounds().entries())
                 .map(([axisId, [start,]]) => ([axisId, start]))
         ),
-        [originalAxisBounds]
+        [originalAxesBounds]
     )
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.

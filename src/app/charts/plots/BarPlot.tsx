@@ -37,7 +37,7 @@ import {
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
 import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
-import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
+import {OrdinalAxisRange, ordinalAxisRangeFor} from "../axes/ordinalAxisRangeFor";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -152,15 +152,17 @@ export function BarPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse
-    } = useChart<OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats, ContinuousAxisRange>()
+    } = useChart<OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats, OrdinalAxisRange>()
+    // } = useChart<OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats, ContinuousAxisRange>()
 
     const {
         xAxesState,
         yAxesState,
         setAxisAssignments,
         setAxisBoundsFor,
-        updateAxesBounds = noop,
-        onUpdateAxesBounds,
+        axisBoundsFor,
+        originalAxisBoundsFor,
+        axesBounds
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -218,8 +220,9 @@ export function BarPlot(props: Props): null {
 
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<number>(0)
-
     const subscriptionRef = useRef<Subscription>(undefined)
+
+    const ordinalAxesRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
 
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
@@ -258,17 +261,16 @@ export function BarPlot(props: Props): null {
                 updatePlotRef.current(ranges, mainG)
                 onUpdateChartTime(currentTimeRef.current)
                 updatePlotRef.current(ranges, mainG)
-                if (onUpdateAxesBounds) {
-                    setTimeout(() => {
-                        const times = new Map<string, [number, number]>()
-                        ranges.forEach((range, name) => times.set(name, range.current))
-                        onUpdateAxesBounds(times)
-                    }, 0)
-                }
+                // if (onUpdateAxesBounds) {
+                //     setTimeout(() => {
+                //         const bounds = new Map<string, [number, number]>()
+                //         ranges.forEach((range, name) => bounds.set(name, range.current))
+                //         onUpdateAxesBounds(bounds)
+                //     }, 0)
+                // }
             }
         },
-        [mainG, onUpdateAxesBounds, onUpdateChartTime]
-        // [mainG, onUpdateAxesBounds]
+        [mainG, onUpdateChartTime]
     )
 
     // todo find better way
@@ -280,27 +282,6 @@ export function BarPlot(props: Props): null {
             seriesRef.current = new Map(initialData.map(series => [series.name, series]))
             currentTimeRef.current = 0
             statsRef.current = initialOrdinalStats(dataRef.current)
-            // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
-            // updateTimingAndPlot()
-            // updateTimingAndPlot(new Map(Array.from(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>).entries())
-            //         .map(([id, range]) => {
-            //             // grab the current range, then calculate the minimum time from the initial data, and
-            //             // set that as the start, and then add the range to it for the end time
-            //             const [start, end] = range.original
-            //             const minTime = initialData
-            //                 .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-            //                 .reduce(
-            //                     (tMin, series) => Math.min(
-            //                         tMin,
-            //                         !series.isEmpty() ? series.data[0].time : tMin
-            //                     ),
-            //                     Infinity
-            //                 )
-            //             const startTime = minTime === Infinity ? 0 : minTime
-            //             return [id, ordinalAxisRangeFor(startTime, startTime + end - start)]
-            //         })
-            //     )
-            // )
         },
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
@@ -772,13 +753,12 @@ export function BarPlot(props: Props): null {
     useEffect(
         () => {
             if (container && mainG) {
-                updatePlot(ordinalAxesRangesRef.current, mainG)
+                updatePlot(axesBounds(), mainG)
             }
         },
-        [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
+        [axesBounds, axisAssignments, axisBoundsFor, chartId, color, container, mainG, originalAxisBoundsFor, plotDimensions, updatePlot, xAxesState]
     )
 
-    const ordinalAxesRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
     useEffect(
         () => {
             if (container && mainG) {
@@ -805,17 +785,13 @@ export function BarPlot(props: Props): null {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact
                                 rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
-                                // rangesMap.set(id, {...range.update(start, end), categories} as OrdinalAxisRange)
                             }
                         })
                 }
                 updatePlot(ordinalAxesRangesRef.current, mainG)
-
-                // onUpdateTimeRef.current = updateAxesBounds
             }
         },
-        [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
-        // [chartId, color, container, mainG, plotDimensions, updateAxesBounds, updatePlot, xAxesState]
+        [chartId, color, container, mainG, updatePlot, xAxesState]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
