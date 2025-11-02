@@ -63,7 +63,7 @@ export function ContinuousAxis(props: Props): null {
         container,
         axes,
         color
-    } = useChart<Datum, any, any, ContinuousAxisRange>()
+    } = useChart<Datum, any, any, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         xAxesState,

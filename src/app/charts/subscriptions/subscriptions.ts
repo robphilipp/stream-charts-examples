@@ -1,5 +1,11 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {OrdinalStringAxis, continuousAxisRanges, ContinuousNumericAxis, ordinalAxisRanges} from "../axes/axes";
+import {
+    OrdinalStringAxis,
+    continuousAxisRanges,
+    ContinuousNumericAxis,
+    ordinalAxisRanges,
+    BaseAxis
+} from "../axes/axes";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
@@ -52,7 +58,7 @@ export function subscriptionTimeSeriesFor(
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
-    xAxesState: AxesState,
+    xAxesState: AxesState<ContinuousNumericAxis>,
     onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
@@ -159,7 +165,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
-    xAxesState: AxesState,
+    xAxesState: AxesState<ContinuousNumericAxis>,
     onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
@@ -276,8 +282,8 @@ export function subscriptionIteratesFor(
     seriesObservable: Observable<IterateChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
-    xAxesState: AxesState,
-    yAxesState: AxesState,
+    xAxesState: AxesState<ContinuousNumericAxis>,
+    yAxesState: AxesState<ContinuousNumericAxis>,
     onUpdateData: ((seriesName: string, data: Array<IterateDatum>) => void) | undefined,
     dropDataAfter: number,
     updateRangesAndPlot: () => void,
@@ -417,7 +423,7 @@ export function subscriptionOrdinalXFor(
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
-    yAxesState: AxesState,
+    yAxesState: AxesState<OrdinalStringAxis>,
     onUpdateData: ((seriesName: string, data: Array<OrdinalDatum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, OrdinalAxisRange>) => void,
@@ -596,7 +602,7 @@ export function subscriptionOrdinalXFor(
 function associatedSeriesForXAxes(
     data: TimeSeriesChartData,
     axisAssignments: Map<string, AxesAssignment>,
-    xAxesState: AxesState
+    xAxesState: AxesState<ContinuousNumericAxis>
 ): Map<string, Array<string>> {
     return associatedSeriesFor(
         assignment => assignment?.xAxis || xAxesState.axisDefaultId(),
@@ -616,7 +622,7 @@ function associatedSeriesForXAxes(
 function associatedSeriesForYAxes(
     data: ChartData,
     axisAssignments: Map<string, AxesAssignment>,
-    yAxesState: AxesState
+    yAxesState: AxesState<OrdinalStringAxis>
 ): Map<string, Array<string>> {
     return associatedSeriesFor(
         assignment => assignment?.yAxis || yAxesState.axisDefaultId(),

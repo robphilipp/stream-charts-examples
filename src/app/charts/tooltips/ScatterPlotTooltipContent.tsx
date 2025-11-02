@@ -7,7 +7,7 @@ import {TextSelection} from "../d3types";
 import {useEffect, useMemo} from "react";
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {SeriesLineStyle} from "../axes/axes";
+import {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
 import {Datum, emptyDatum} from "../series/timeSeries";
 import {TooltipData} from "../hooks/useTooltip";
 import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
@@ -137,7 +137,7 @@ export function ScatterPlotTooltipContent(props: Props): null {
         chartId,
         container,
         tooltip
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {registerTooltipContentProvider} = tooltip
 

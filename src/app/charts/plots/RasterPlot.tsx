@@ -100,7 +100,7 @@ export function RasterPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         xAxesState,
@@ -180,7 +180,7 @@ export function RasterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        () => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
+        () => axesForSeriesGen<Datum, ContinuousNumericAxis>(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 

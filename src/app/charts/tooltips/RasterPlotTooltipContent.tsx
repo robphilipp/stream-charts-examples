@@ -4,7 +4,7 @@ import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
-import {OrdinalStringAxis, SeriesLineStyle} from "../axes/axes";
+import {ContinuousNumericAxis, OrdinalStringAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
 import {TooltipData} from "../hooks/useTooltip";
@@ -117,7 +117,7 @@ export function RasterPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, OrdinalStringAxis>()
 
     const {registerTooltipContentProvider} = tooltip
 

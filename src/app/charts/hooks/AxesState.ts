@@ -5,19 +5,19 @@ import {BaseAxis} from "../axes/axes";
  * These objects hold the axis ID, its location on the chart (i.e. left, right, bottom, upper)
  * and the underlying D3 selection objects for managing the axes.
  */
-export interface AxesState {
+export interface AxesState<A extends BaseAxis> {
     /**
      * Attempts to retrieve the x-axis for the specified ID
      * @param axisId The unique ID of the axis
      * @return The axis, or undefined if no axis with the specified ID is found
      */
-    readonly axisFor: (axisId: string) => BaseAxis | undefined
+    readonly axisFor: (axisId: string) => A | undefined
     /**
      * Returns the default axis
      * @return The default axis
      * @see axisDefaultId
      */
-    readonly defaultAxis: () => BaseAxis
+    readonly defaultAxis: () => A
     /**
      * @return An array holding all existing the x-axis IDs
      */
@@ -29,14 +29,14 @@ export interface AxesState {
     /**
      * Mapping of the axis IDs to their axis objects
      */
-    readonly axes: Map<string, BaseAxis>
+    readonly axes: Map<string, A>
 }
 
 /**
  * @return a new, empty {@link AxesState}
  */
-export function createAxesState(): AxesState {
-    return axesStateFrom(new Map<string, BaseAxis>())
+export function createAxesState<A extends BaseAxis>(): AxesState<A> {
+    return axesStateFrom(new Map<string, A>())
 }
 
 /**
@@ -50,7 +50,7 @@ export function createAxesState(): AxesState {
  * @see UseChartValues.addXAxis
  * @see UseChartValues.addYAxis
  */
-export function addAxisTo(axesState: AxesState, axis: BaseAxis, id: string): AxesState {
+export function addAxisTo<A extends BaseAxis>(axesState: AxesState<A>, axis: A, id: string): AxesState<A> {
     const updatedAxes = axesState.axes.set(id, axis)
     return axesStateFrom(updatedAxes)
 }
@@ -61,7 +61,7 @@ export function addAxisTo(axesState: AxesState, axis: BaseAxis, id: string): Axe
  * @param axes The map associating the axes IDs to their respective axes
  * @return An {@link AxesState}
  */
-function axesStateFrom(axes: Map<string, BaseAxis>): AxesState {
+function axesStateFrom<A extends BaseAxis>(axes: Map<string, A>): AxesState<A> {
     return {
         axisFor: id => {
             const axis = axes.get(id)
@@ -84,7 +84,7 @@ function axesStateFrom(axes: Map<string, BaseAxis>): AxesState {
  * @param axesState The axes state to copy
  * @return A new axes state copied from the specified one
  */
-export function copyAxesState(axesState: AxesState): AxesState {
+export function copyAxesState<A extends BaseAxis>(axesState: AxesState<A>): AxesState<A> {
     const {axes} = axesState
     return {
         axisFor: (id: string) => {
@@ -99,7 +99,7 @@ export function copyAxesState(axesState: AxesState): AxesState {
         axisIds: () => Array.from(axes.keys()),
         axisDefaultId: () => Array.from(axes.keys())[0],
         defaultAxis: () => Array.from(axes.values())[0],
-        axes: new Map<string, BaseAxis>(
+        axes: new Map<string, A>(
             Array.from(axes.entries()).map(([id, axis]) => [id, {...axis}])
         ),
     }

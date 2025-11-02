@@ -35,29 +35,29 @@ type AxisRangeProvider<AR extends BaseAxisRange> = (start: number, end: number) 
  * The values exposed by the hook
  * @template AR The type of the axis range (e.g. {@link ContinuousAxisRange} or {@link OrdinalAxisRange})
  */
-export type UseAxesValues<AR extends BaseAxisRange> = {
+export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
     /**
      * The x-axes state holds the currently set x-axes, manipulation and accessor functions
      */
-    xAxesState: AxesState
+    xAxesState: AxesState<A>
     /**
      * Adds an x-axis to the axes and updates the internal state
      * @param axis The axis to add
      * @param id The ID of the axis to add
      * @param domain The initial axis range (start, end)
      */
-    addXAxis: (axis: BaseAxis, id: string, range?: [start: number, end: number]) => void
+    addXAxis: (axis: A, id: string, range?: [start: number, end: number]) => void
     /**
      * The y-axes state holds the currently set x-axes, manipulation and accessor functions
      */
-    yAxesState: AxesState
+    yAxesState: AxesState<A>
     /**
      * Adds a y-axis to the axes and updates the internal state
      * @param axis The axis to add
      * @param id The ID of the axis to add
      * @param domain The initial axis range (start, end)
      */
-    addYAxis: (axis: BaseAxis, id: string, range?: [start: number, end: number]) => void
+    addYAxis: (axis: A, id: string, range?: [start: number, end: number]) => void
     /**
      * Sets the axis assigned to each series. This should contain **all** the series used in
      * the chart.
@@ -152,7 +152,7 @@ export type UseAxesValues<AR extends BaseAxisRange> = {
     removeAxesBoundsUpdateHandler: (handlerId: string) => void
 }
 
-export const defaultAxesValues = (): UseAxesValues<any> => ({
+export const defaultAxesValues = (): UseAxesValues<any, any> => ({
     xAxesState: createAxesState(),
     yAxesState: createAxesState(),
     addXAxis: noop,
@@ -174,7 +174,7 @@ export const defaultAxesValues = (): UseAxesValues<any> => ({
 })
 
 // the context for axes
-const AxesContext = createContext<UseAxesValues<any>>(defaultAxesValues())
+const AxesContext = createContext<UseAxesValues<any, any>>(defaultAxesValues())
 
 type Props = {
     /**y
@@ -192,13 +192,13 @@ type Props = {
  * @return The children wrapped in this provider
  * @constructor
  */
-export default function AxesProvider<AR extends BaseAxisRange>(props: Props): JSX.Element {
+export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxis>(props: Props): JSX.Element {
     const {onUpdateAxesBounds, children} = props
 
     const plotDimensions = usePlotDimensions()
 
-    const xAxesStateRef = useRef<AxesState>(createAxesState())
-    const yAxesStateRef = useRef<AxesState>(createAxesState())
+    const xAxesStateRef = useRef<AxesState<A>>(createAxesState<A>())
+    const yAxesStateRef = useRef<AxesState<A>>(createAxesState<A>())
     const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
     // holds the current axis bounds, map(axis_id -> (start, end)
     const axesBoundsRef = useRef<Map<string, AxisRangeTuple>>(new Map())
@@ -342,14 +342,14 @@ export default function AxesProvider<AR extends BaseAxisRange>(props: Props): JS
             xAxesState: xAxesStateRef.current,
             yAxesState: yAxesStateRef.current,
             addXAxis: (axis, id, range) => {
-                xAxesStateRef.current = addAxisTo(xAxesStateRef.current, axis, id)
+                xAxesStateRef.current = addAxisTo<A>(xAxesStateRef.current, axis, id)
                 if (range !== undefined) {
                     originalAxesBoundsRef.current.set(id, range)
                     axesBoundsRef.current.set(id, range)
                 }
             },
             addYAxis: (axis, id, range) => {
-                yAxesStateRef.current = addAxisTo(yAxesStateRef.current, axis, id)
+                yAxesStateRef.current = addAxisTo<A>(yAxesStateRef.current, axis, id)
                 if (range !== undefined) {
                     originalAxesBoundsRef.current.set(id, range)
                     axesBoundsRef.current.set(id, range)
@@ -380,8 +380,8 @@ export default function AxesProvider<AR extends BaseAxisRange>(props: Props): JS
  * React hook that sets up the React context for the chart values.
  * @return The {@link UseAxesValues} held in the React context.
  */
-export function useAxes<AR extends BaseAxisRange>(): UseAxesValues<AR> {
-    const context = useContext<UseAxesValues<AR>>(AxesContext)
+export function useAxes<AR extends BaseAxisRange, A extends BaseAxis>(): UseAxesValues<AR, A> {
+    const context = useContext<UseAxesValues<AR, A>>(AxesContext)
     const {xAxesState} = context
     if (xAxesState === undefined || xAxesState === null) {
         throw new Error("useAxes can only be used when the parent is a <AxesProvider/>")

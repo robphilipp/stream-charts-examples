@@ -106,7 +106,7 @@ export function ScatterPlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         initialData
@@ -188,7 +188,7 @@ export function ScatterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
+        (): Array<string> => axesForSeriesGen<Datum, ContinuousNumericAxis>(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 

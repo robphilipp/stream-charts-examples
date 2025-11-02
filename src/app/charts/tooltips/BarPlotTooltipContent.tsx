@@ -4,7 +4,7 @@ import * as d3 from "d3";
 import {formatNumber, formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
-import {SeriesLineStyle} from "../axes/axes";
+import {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {emptyOrdinalDatum, OrdinalDatum} from "../series/ordinalSeries";
 import {TooltipData} from "../hooks/useTooltip";
@@ -111,7 +111,7 @@ export function BarPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<OrdinalDatum, SeriesLineStyle, WindowedOrdinalStats, ContinuousAxisRange>()
+    } = useChart<OrdinalDatum, SeriesLineStyle, WindowedOrdinalStats, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {registerTooltipContentProvider} = tooltip
     const {yAxesState, axisAssignmentsFor} = axes

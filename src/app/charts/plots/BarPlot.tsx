@@ -152,8 +152,7 @@ export function BarPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse
-    } = useChart<OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats, OrdinalAxisRange>()
-    // } = useChart<OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats, ContinuousAxisRange>()
+    } = useChart<OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats, OrdinalAxisRange, OrdinalStringAxis>()
 
     const {
         xAxesState,
@@ -246,7 +245,7 @@ export function BarPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        () => axesForSeriesGen<OrdinalDatum>(initialData, axisAssignments, xAxesState),
+        () => axesForSeriesGen<OrdinalDatum, OrdinalStringAxis>(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 
@@ -759,6 +758,8 @@ export function BarPlot(props: Props): null {
         [axesBounds, axisAssignments, axisBoundsFor, chartId, color, container, mainG, originalAxisBoundsFor, plotDimensions, updatePlot, xAxesState]
     )
 
+    // todo now with axesBounds, we can remove the ordinalAxesRangesRef
+
     useEffect(
         () => {
             if (container && mainG) {
@@ -789,6 +790,7 @@ export function BarPlot(props: Props): null {
                         })
                 }
                 updatePlot(ordinalAxesRangesRef.current, mainG)
+                // updatePlot(axesBounds(), mainG)
             }
         },
         [chartId, color, container, mainG, updatePlot, xAxesState]

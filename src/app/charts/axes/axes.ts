@@ -920,10 +920,10 @@ export function calculateOrdinalPanFor(
  * @param axesState The current axis state
  * @return an array of the distinct axes that cover all the series in the plot
  */
-export function axesForSeriesGen<D>(
+export function axesForSeriesGen<D, A extends BaseAxis>(
     series: Array<BaseSeries<D>>,
     axisAssignments: Map<string, AxesAssignment>,
-    axesState: AxesState
+    axesState: AxesState<A>
 ): Array<string> {
     return series.map(srs => srs.name)
         // grab the x-axis assigned to the series, or use the default x-axis if not
@@ -954,7 +954,7 @@ export function axesForSeriesGen<D>(
 function panAxes(
     delta: number,
     axesForSeries: Array<string>,
-    axesState: AxesState,
+    axesState: AxesState<ContinuousNumericAxis>,
     ranges: Map<string, ContinuousAxisRange>,
     setAxisRange: (axisId: string, axisRange: [start: number, end: number]) => void,
     plotDimensions: Dimensions,
@@ -984,7 +984,7 @@ function panAxes(
 function ordinalPanAxes(
     delta: number,
     axesForSeries: Array<string>,
-    axesState: AxesState,
+    axesState: AxesState<OrdinalStringAxis>,
     ranges: Map<string, OrdinalAxisRange>,
     setAxisRange: (axisId: string, axisRange: [start: number, end: number]) => void,
     plotDimensions: Dimensions,
@@ -1031,7 +1031,7 @@ export function panHandler(
     axesForSeries: Array<string>,
     margin: Margin,
     setAxisRangeFor: (axisId: string, axisRange: [start: number, end: number]) => void,
-    axesState: AxesState,
+    axesState: AxesState<ContinuousNumericAxis>,
     constrainToOriginalRange: boolean = false
 ): (
     x: number,
@@ -1057,7 +1057,7 @@ export function ordinalPanHandler(
     axesForSeries: Array<string>,
     margin: Margin,
     setAxisRangeFor: (axisId: string, axisRange: [start: number, end: number]) => void,
-    axesState: AxesState,
+    axesState: AxesState<OrdinalStringAxis>,
     constrainToOriginalRange: boolean = false
 ): (
     x: number,
@@ -1103,8 +1103,8 @@ export function panHandler2D(
     yAxesForSeries: Array<string>,
     margin: Margin,
     setAxisRange: (axisId: string, axisRange: [start: number, end: number]) => void,
-    xAxesState: AxesState,
-    yAxesState: AxesState,
+    xAxesState: AxesState<ContinuousNumericAxis>,
+    yAxesState: AxesState<ContinuousNumericAxis>,
     constrainToOriginalRange: boolean = true
 ): (
     x: number,
@@ -1146,7 +1146,7 @@ function calcZoomAndUpdate(
     axisId: string,
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
-    axesState: AxesState,
+    axesState: AxesState<ContinuousNumericAxis>,
     ranges: Map<string, ContinuousAxisRange>,
     scaleExtent: [min: number, max: number],
     transform: ZoomTransform,
@@ -1155,8 +1155,8 @@ function calcZoomAndUpdate(
     const [, zoomMax] = scaleExtent
 
     const range = ranges.get(axisId)
-    if (range) {
-        const axis = axesState.axisFor(axisId) as ContinuousNumericAxis
+    const axis = axesState.axisFor(axisId)
+    if (range && axis) {
 
         // calculate the constraint for the zoom
         const [originalStart, originalEnd] = range.original
@@ -1181,7 +1181,7 @@ function calcOrdinalZoomAndUpdate(
     axisId: string,
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
-    axesState: AxesState,
+    axesState: AxesState<OrdinalStringAxis>,
     ranges: Map<string, OrdinalAxisRange>,
     scaleExtent: [min: number, max: number],
     transform: ZoomTransform,
@@ -1190,8 +1190,8 @@ function calcOrdinalZoomAndUpdate(
     const [, zoomMax] = scaleExtent
 
     const range = ranges.get(axisId)
-    if (range) {
-        const axis = axesState.axisFor(axisId) as OrdinalStringAxis
+    const axis = axesState.axisFor(axisId)
+    if (range && axis) {
 
         // const scale = axis.generator.scale<ScaleBand<string>>()
 
@@ -1232,7 +1232,7 @@ export function axisZoomHandler(
     axesForSeries: Array<string>,
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
-    axesState: AxesState,
+    axesState: AxesState<ContinuousNumericAxis>,
     scaleExtent: [min: number, max: number] = [0, Infinity],
 ): (
     transform: ZoomTransform,
@@ -1262,7 +1262,7 @@ export function ordinalAxisZoomHandler(
     axesForSeries: Array<string>,
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
-    axesState: AxesState,
+    axesState: AxesState<OrdinalStringAxis>,
     scaleExtent: [min: number, max: number] = [0, Infinity],
 ): (
     transform: ZoomTransform,
@@ -1340,8 +1340,8 @@ export function axesZoomHandler(
     yAxesForSeries: Array<string>,
     margin: Margin,
     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
-    xAxesState: AxesState,
-    yAxesState: AxesState,
+    xAxesState: AxesState<ContinuousNumericAxis>,
+    yAxesState: AxesState<ContinuousNumericAxis>,
     scaleExtent: [min: number, max: number],
 ): (
     transform: ZoomTransform,
