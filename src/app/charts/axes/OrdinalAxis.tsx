@@ -12,7 +12,7 @@ import * as d3 from "d3";
 import {ScaleBand} from "d3";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
-import {Dimensions, Margin} from "../styling/margins";
+import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalAxisRange, ordinalAxisRangeFor} from "./ordinalAxisRangeFor";
 import {Datum} from "../series/timeSeries";
@@ -96,27 +96,40 @@ export function OrdinalAxis(props: Props): null {
         label,
     } = props
 
-    const axisRef = useRef<OrdinalStringAxis>(undefined)
     const rangeUpdateHandlerIdRef = useRef<string>(undefined)
-    const axis = xAxesState.axisFor(axisId)
+    const axis = location === AxisLocation.Top || location === AxisLocation.Bottom ?
+        xAxesState.axisFor(axisId) :
+        yAxesState.axisFor(axisId)
 
     // handles plot size changes by updating the range of the axis and the original range of the axis
     // based on the change in the size
     useEffect(
         () => {
             const handlerId = registerPlotDimensionChangeHandler((oldDimension, newDimension) => {
-                if (axisRef.current !== undefined) {
-                    // todo deal with y-axis ordinal ranges
-                    const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
+                // if (axisRef.current !== undefined) {
+                if (axis !== undefined) {
+                    if (location === AxisLocation.Top || location === AxisLocation.Bottom) {
+                        const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
 
-                    const widthChange = newDimension.width - oldDimension.width
-                    const updatedRange = [rangeStart, rangeEnd + widthChange] as AxisRangeTuple
-                    setOriginalAxesBounds(axisId, ordinalAxisRangeFor, updatedRange)
-                    axisRef.current.update(updatedRange, plotDimensions, margin)
-                    //
-                    // const [originalStart, originalEnds] = originalAxisBoundsFor(axisId)
-                    // const updatedOriginalRange = [originalStart, originalEnds + widthChange] as AxisRangeTuple
-                    // setOriginalAxisBoundsFor(axisId, updatedOriginalRange)
+                        const widthChange = newDimension.width - oldDimension.width
+                        const updatedRange = [rangeStart, rangeEnd + widthChange] as AxisRangeTuple
+                        setOriginalAxesBounds(axisId, ordinalAxisRangeFor, updatedRange)
+                        axis.update(updatedRange, plotDimensions, margin)
+                        //
+                        // const [originalStart, originalEnds] = originalAxisBoundsFor(axisId)
+                        // const updatedOriginalRange = [originalStart, originalEnds + widthChange] as AxisRangeTuple
+                        // setOriginalAxisBoundsFor(axisId, updatedOriginalRange)
+                    }
+                    if (location === AxisLocation.Left || location === AxisLocation.Right) {
+                        // todo deal with y-axis ordinal ranges
+                        const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
+
+                        const heightChange = newDimension.height - oldDimension.height
+                        const updatedRange = [rangeStart, rangeEnd + heightChange] as AxisRangeTuple
+                        setOriginalAxesBounds(axisId, ordinalAxisRangeFor, updatedRange)
+                        axis.update(updatedRange, plotDimensions, margin)
+
+                    }
                 }
 
             })
@@ -135,28 +148,28 @@ export function OrdinalAxis(props: Props): null {
 
                 // lambda that gets called when the axes need to be updated
                 const handleRangeUpdates = (updates: Map<string, OrdinalAxisRange>, plotDim: Dimensions): void => {
-                    if (rangeUpdateHandlerIdRef.current && axisRef.current) {
+                    if (rangeUpdateHandlerIdRef.current && axis) {
                         const range = updates.get(axisId)
                         if (range) {
-                            axisRef.current.categorySize = axisRef.current.update(range.current, plotDim, margin)
+                            axis.update(range.current, plotDim, margin)
                         }
                     }
                 }
 
-                if (axisRef.current === undefined) {
+                if (axis === undefined) {
                     // add the x-axis or y-axis to the chart context depending on its
                     // location
                     switch (location) {
                         case AxisLocation.Top:
                         case AxisLocation.Bottom:
-                            axisRef.current = addOrdinalStringAxis(
+                            const xAxis = addOrdinalStringAxis(
                                 chartId, axisId, svg, location, categories,
                                 label, font, axisTickStyle, plotDimensions, margin,
                                 setAxisBoundsFor
                             )
 
                             // add the x-axis to the chart context
-                            addXAxis(axisRef.current, axisId, axisRef.current.scale.range())
+                            addXAxis(xAxis, axisId, xAxis.scale.range())
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
@@ -164,20 +177,19 @@ export function OrdinalAxis(props: Props): null {
                             break
                         case AxisLocation.Left:
                         case AxisLocation.Right:
-                            axisRef.current = addOrdinalStringAxis(
+                            const yAxis = addOrdinalStringAxis(
                                 chartId, axisId, svg, location, categories,
                                 label, font, axisTickStyle, plotDimensions, margin,
                                 setAxisBoundsFor
                             )
                             // add the y-axis to the chart context
-                            addYAxis(axisRef.current, axisId, axisRef.current.scale.range())
+                            addYAxis(yAxis, axisId, yAxis.scale.range())
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
                             addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                     }
                 } else {
                     const range = axisBoundsFor(axisId)
-                    // const range = axisRef.current.scale.range()
                     if (range) {
                         // when the plot-dimensions aren't equal, then the window must have resized,
                         // and so we need to update the plot-range of the axis accordingly
@@ -191,7 +203,7 @@ export function OrdinalAxis(props: Props): null {
                         //     axisRef.current.update(updatedRange, plotDimensions, margin)
                         //     // setOriginalAxisBoundsFor(axisId, updatedRange)
                         // } else {
-                            axisRef.current.update(range, plotDimensions, margin)
+                            axis.update(range, plotDimensions, margin)
                         // }
                         // axisRef.current.update(range as [start: number, end: number], plotDimensionsRef.current, margin)
                     }

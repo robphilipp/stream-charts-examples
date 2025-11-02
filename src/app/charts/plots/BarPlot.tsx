@@ -221,7 +221,7 @@ export function BarPlot(props: Props): null {
     const currentTimeRef = useRef<number>(0)
     const subscriptionRef = useRef<Subscription>(undefined)
 
-    const ordinalAxesRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
+    // const ordinalAxesRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
 
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
@@ -763,23 +763,25 @@ export function BarPlot(props: Props): null {
     useEffect(
         () => {
             if (container && mainG) {
+                const ordinalAxesRanges = axesBounds()
                 // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
                 // change. for example, as data is streamed in, the times change, and then we need to update the
                 // time-range. however, we want to keep the time-ranges to reflect their original scale so that
                 // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
                 // interpolation changes, then the update plot changes, and the time-ranges must maintain their
                 // original scale as well.
-                if (ordinalAxesRangesRef.current.size === 0) {
+                if (ordinalAxesRanges.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    ordinalAxesRangesRef.current = ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>)
+                    updatePlot(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>), mainG)
                     // timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
                     const intervals = ordinalAxisIntervals(xAxesState.axes as Map<string, OrdinalStringAxis>)
                     // const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                    ordinalAxesRangesRef.current
+                    // todo instead of updating the underlying map, this should use setter methods to make the updates
+                    ordinalAxesRanges
                         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
                             const [[start, end]] = intervals.get(id) || [[NaN, NaN], []]
                             if (!isNaN(start) && !isNaN(end)) {
@@ -788,9 +790,33 @@ export function BarPlot(props: Props): null {
                                 rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
                             }
                         })
+                    updatePlot(ordinalAxesRanges, mainG)
+
                 }
-                updatePlot(ordinalAxesRangesRef.current, mainG)
+                // updatePlot(ordinalAxesRanges, mainG)
                 // updatePlot(axesBounds(), mainG)
+                // if (ordinalAxesRangesRef.current.size === 0) {
+                //     // when no time-ranges have yet been created, then create them and hold on to a mutable
+                //     // reference to them
+                //     ordinalAxesRangesRef.current = ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>)
+                //     // timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                // } else {
+                //     // when the time-ranges already exist, then we want to update the time-ranges for each
+                //     // existing time-range in a way that maintains the original scale.
+                //     const intervals = ordinalAxisIntervals(xAxesState.axes as Map<string, OrdinalStringAxis>)
+                //     // const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                //     ordinalAxesRangesRef.current
+                //         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
+                //             const [[start, end]] = intervals.get(id) || [[NaN, NaN], []]
+                //             if (!isNaN(start) && !isNaN(end)) {
+                //                 // update the reference map with the new (start, end) portion of the range,
+                //                 // while keeping the original scale intact
+                //                 rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
+                //             }
+                //         })
+                // }
+                // updatePlot(ordinalAxesRangesRef.current, mainG)
+                // // updatePlot(axesBounds(), mainG)
             }
         },
         [chartId, color, container, mainG, updatePlot, xAxesState]
