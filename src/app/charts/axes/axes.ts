@@ -9,6 +9,7 @@ import {BaseSeries} from "../series/baseSeries";
 import {noop} from "../utils";
 import {OrdinalAxisRange, ordinalAxisRangeFor} from "./ordinalAxisRangeFor";
 import {BaseAxisRange} from "./BaseAxisRange";
+import {AxisRangeTuple} from "../hooks/useAxes";
 
 export type AxisTickStyle = {
     font: AxesFont
@@ -76,7 +77,7 @@ export interface OrdinalStringAxis extends BaseAxis {
     scale: ScaleBand<string>
     generator: Axis<string>
     categorySize: number
-    update: (range: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => number
+    update: (range: AxisRangeTuple, originalRange: AxisRangeTuple, plotDimensions: Dimensions, margin: Margin) => number
     // updateOriginalRange: (range: [startValue: number, endValue: number]) => void
 }
 
@@ -118,15 +119,16 @@ export function addOrdinalStringAxis(
     axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin,
-    setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+    setAxisRangeFor: (axisId: string, range: AxisRangeTuple) => void,
+    setOriginalAxisRangeFor: (axisId: string, range: AxisRangeTuple) => void,
 ): OrdinalStringAxis {
     switch (location) {
         case AxisLocation.Top:
         case AxisLocation.Bottom:
-            return addOrdinalStringXAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin, setAxisRangeFor)
+            return addOrdinalStringXAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin, setAxisRangeFor, setOriginalAxisRangeFor)
         case AxisLocation.Left:
         case AxisLocation.Right:
-            return addOrdinalStringYAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin, setAxisRangeFor)
+            return addOrdinalStringYAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin, setAxisRangeFor, setOriginalAxisRangeFor)
 
     }
 }
@@ -157,7 +159,8 @@ function addOrdinalStringXAxis(
     axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin,
-    setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+    setAxisRangeFor: (axisId: string, range: AxisRangeTuple) => void,
+    setOriginalAxisRangeFor: (axisId: string, range: AxisRangeTuple) => void,
 ): OrdinalStringAxis {
     const scale = d3.scaleBand()
         .domain(categories)
@@ -210,9 +213,10 @@ function addOrdinalStringXAxis(
 
     return {
         ...axis,
-        update: (range, plotDimensions, margin) => {
-            const categorySize = updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin, maxTickLabelHeight)
+        update: (range: AxisRangeTuple, originalRange: AxisRangeTuple, plotDimensions: Dimensions, margin: Margin) => {
+            const categorySize = updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, axesLabelFont, plotDimensions, margin, maxTickLabelHeight)
             setAxisRangeFor(axisId, range)
+            setOriginalAxisRangeFor(axisId, originalRange)
             return categorySize
         }
     }
@@ -244,7 +248,8 @@ function addOrdinalStringYAxis(
     axisTickStyle: AxisTickStyle,
     plotDimensions: Dimensions,
     margin: Margin,
-    setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+    setAxisRangeFor: (axisId: string, range: AxisRangeTuple) => void,
+    setOriginalAxisRangeFor: (axisId: string, range: AxisRangeTuple) => void,
 ): OrdinalStringAxis {
     const scale = d3.scaleBand()
         .domain(categories)
@@ -292,9 +297,10 @@ function addOrdinalStringYAxis(
 
     return {
         ...axis,
-        update: (range, plotDimensions, margin) => {
+        update: (range: AxisRangeTuple, originalRange: AxisRangeTuple, plotDimensions: Dimensions, margin: Margin) => {
             const categorySize = updateOrdinalStringYAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin)
             setAxisRangeFor(axisId, range)
+            setOriginalAxisRangeFor(axisId, originalRange)
             return categorySize
         }
     }
@@ -326,43 +332,16 @@ function updateOrdinalStringXAxis(
     location: AxisLocation.Bottom | AxisLocation.Top,
     names: Array<string>,   // domain
     range: [start: number, end: number], // range
-    unfilteredSize: number,
+    // unfilteredSize: number,
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
     margin: Margin,
     tickHeight: number
 ): number {
-    // const axisRange = axis.scale.range()
-    // const alpha = measure(axisRange) / measure(range)
-    // const categorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize) // / alpha
-    // const measureRangeEqualsCatName = measure(range) === categorySize * names.length
-    // const updatedRange = measureRangeEqualsCatName ? range: [0, categorySize * names.length]
-    // console.log('(before) bandwidth', axis.scale.bandwidth(), 'categorySize', categorySize)
-    // axis.scale.range(range)
-    // console.log('(after ) bandwidth', axis.scale.bandwidth(), 'categorySize', categorySize)
-    // console.log(
-    //     'categories', names.length,
-    //     'domains', axis.scale.domain().length,
-    //     'axisRange', axisRange,
-    //     'cat * names', categorySize * names.length,
-    //     'range', range,
-    //     'updatedRange', updatedRange,
-    //     '(' + measureRangeEqualsCatName ? 'range' : '[0, categorySize * names.length]',
-    //     'categorySize', categorySize,
-    //     'axis.bandwidth', axis.scale.bandwidth(),
-    // )
     const updatedRange = [Math.min(range[0], 0), Math.max(range[1], plotDimensions.width)]
     axis.scale
-        // .domain(names)
-        // todo uncomment this and zoom works, but not window resizing
+        .domain(names)
         .range(updatedRange)
-        // .range(range)
-        // todo uncomment this and window resizing works, but not zoom
-        // .range([0, categorySize * names.length])
-        // .range([range[0], range[0] + categorySize * names.length])
-        // .range([range[0], range[0] + categorySize * names.length])
-        // .range(updatedRange)
-        // .range([0, plotDimensions.width])
     axis.selection
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .call(axis.generator)
@@ -371,8 +350,6 @@ function updateOrdinalStringXAxis(
         .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)})`)
 
-    // return categorySize
-    // return axis.categorySize
     return axis.scale.bandwidth()
 }
 
@@ -413,12 +390,7 @@ function updateOrdinalStringYAxis(
     const updatedRange = (measure(range) === categorySize * names.length) ? range: [0, categorySize * names.length]
     axis.scale
         .domain(names)
-        // todo uncomment this and zoom works, but not window resizing
-        // .range(range)
-        // todo uncomment this and window resizing works, but not zoom
-        // .range([0, categorySize * names.length])
         .range(updatedRange)
-        // .range([0, plotDimensions.height - margin.bottom])
     axis.selection
         .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
         .call(axis.generator)
@@ -846,20 +818,12 @@ export function calculateOrdinalConstrainedZoomFor(
     range: OrdinalAxisRange,
     constraint: [min: number, max: number],
 ): ZoomResult<OrdinalAxisRange> {
-    // const scale = axis.generator.scale<ScaleBand<string>>()
-    // const [start, end] = axis.scale.range()
-    // const index = x / axis.scale.bandwidth()
-    // const domainValue = (index * axis.scale.bandwidth()) / (end - start)
-
-    // const categoryIndex = Math.floor((x / scale.bandwidth()) | 0)
-    const updatedRange = range.constrainedScale(transform.k, x, constraint)
+    const updatedRange = range.constrainedScale(transform.k, x, constraint) as OrdinalAxisRange
     const [os, oe] = range.original
     const k = updatedRange.matchesOriginal(os, oe) ? 1 : transform.k
     return {
         range: updatedRange,
-        // range: range.constrainedScale(transform.k, x, constraint),
         zoomFactor: k
-        // zoomFactor: transform.k
     } as ZoomResult<OrdinalAxisRange>
 }
 
@@ -897,13 +861,19 @@ export function calculatePanFor(
 
 export function calculateOrdinalPanFor(
     delta: number,
-    axis: OrdinalStringAxis,
     range: OrdinalAxisRange,
+    plotDimensions: Dimensions,
     constrainToOriginalRange: boolean = false
 ): OrdinalAxisRange {
+    const [currentStart, currentEnd] = range.current
     const constraint: [start: number, end: number] = constrainToOriginalRange ?
         range.original :
         [-Infinity, Infinity]
+    // only allow panning if the plot dimensions (i.e. [0, width]) is in the current axis range
+    // todo deal with the fact that this could be a pan of the y-axis
+    if (currentStart + delta > 0 || currentEnd + delta < plotDimensions.width) {
+        return range
+    }
     return range.translate(delta, constraint) as OrdinalAxisRange
 }
 
@@ -963,9 +933,9 @@ function panAxes(
 ): void {
     axesForSeries
         .forEach(axisId => {
-            const axis = axesState.axisFor(axisId) as ContinuousNumericAxis
+            const axis = axesState.axisFor(axisId)
             const currentRange = ranges.get(axisId)
-            if (currentRange) {
+            if (currentRange && axis) {
                 // calculate the change in the axis-range based on the pixel change from the drag event
                 const range = calculatePanFor(delta, axis, currentRange, constrainToOriginalRange)
 
@@ -989,24 +959,23 @@ function ordinalPanAxes(
     setAxisRange: (axisId: string, axisRange: [start: number, end: number]) => void,
     plotDimensions: Dimensions,
     margin: Margin,
-    constrainToOriginalRange: boolean = true
+    constrainToOriginalRange: boolean = false
 ): void {
     axesForSeries
         .forEach(axisId => {
-            const axis = axesState.axisFor(axisId) as OrdinalStringAxis
+            const axis = axesState.axisFor(axisId)
             const currentRange = ranges.get(axisId)
-            if (currentRange) {
+            if (currentRange && axis) {
                 // calculate the change in the axis-range based on the pixel change from the drag event
-                const range = calculateOrdinalPanFor(delta, axis, currentRange, constrainToOriginalRange)
+                const range = calculateOrdinalPanFor(delta, currentRange, plotDimensions, constrainToOriginalRange)
 
                 // update the time-range for the axis
                 ranges.set(axisId, range)
 
-                const [start, end] = range.current
-                setAxisRange(axisId, [start, end])
+                setAxisRange(axisId, range.current)
 
                 // update the axis' time-range
-                axis.update([start, end], plotDimensions, margin)
+                axis.update(range.current, range.original, plotDimensions, margin)
             }
         })
 }
@@ -1075,7 +1044,7 @@ export function ordinalPanHandler(
     return (delta: number, plotDimensions: Dimensions, series: Array<string>, ranges: Map<string, OrdinalAxisRange>) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         ordinalPanAxes(delta, axesForSeries, axesState, ranges, setAxisRangeFor, plotDimensions, margin, constrainToOriginalRange)
-        // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
+        // hey, don't forget to update the plot with the new ranges in the code calling this... :)
     }
 }
 
@@ -1180,7 +1149,8 @@ function calcOrdinalZoomAndUpdate(
     value: number,
     axisId: string,
     margin: Margin,
-    setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+    setRangeFor: (axisId: string, range: AxisRangeTuple) => void,
+    setOriginalRangeFor: (axisId: string, range: AxisRangeTuple) => void,
     axesState: AxesState<OrdinalStringAxis>,
     ranges: Map<string, OrdinalAxisRange>,
     scaleExtent: [min: number, max: number],
@@ -1192,9 +1162,6 @@ function calcOrdinalZoomAndUpdate(
     const range = ranges.get(axisId)
     const axis = axesState.axisFor(axisId)
     if (range && axis) {
-
-        // const scale = axis.generator.scale<ScaleBand<string>>()
-
         // calculate the constraint for the zoom
         const [originalStart, originalEnd] = range.original
         const constraint: [number, number] = isFinite(zoomMax) ?
@@ -1207,9 +1174,10 @@ function calcOrdinalZoomAndUpdate(
         ranges.set(axisId, zoom.range)
 
         setRangeFor(axisId, zoom.range.current)
+        setOriginalRangeFor(axisId, zoom.range.original)
 
         // update the axis' range
-        axis.update(zoom.range.current, plotDimensions, margin)
+        axis.update(zoom.range.current, zoom.range.original, plotDimensions, margin)
     }
 }
 
@@ -1261,7 +1229,8 @@ export function axisZoomHandler(
 export function ordinalAxisZoomHandler(
     axesForSeries: Array<string>,
     margin: Margin,
-    setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+    setRangeFor: (axisId: string, range: AxisRangeTuple) => void,
+    setOriginalRangeFor: (axisId: string, range: AxisRangeTuple) => void,
     axesState: AxesState<OrdinalStringAxis>,
     scaleExtent: [min: number, max: number] = [0, Infinity],
 ): (
@@ -1282,41 +1251,11 @@ export function ordinalAxisZoomHandler(
     return (transform, x, plotDimensions, ranges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         axesForSeries.forEach(axisId =>
-            calcOrdinalZoomAndUpdate(x, axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
+            calcOrdinalZoomAndUpdate(x, axisId, margin, setRangeFor, setOriginalRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
         )
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }
 }
-
-// export function ordinalAxisZoomHandler(
-//     axesForSeries: Array<string>,
-//     margin: Margin,
-//     setRangeFor: (axisId: string, range: [start: number, end: number]) => void,
-//     axesState: AxesState,
-//     scaleExtent: [min: number, max: number] = [0, Infinity],
-// ): (
-//     transform: ZoomTransform,
-//     x: number,
-//     plotDimensions: Dimensions,
-//     ranges: Map<string, OrdinalAxisRange>,
-// ) => void {
-//
-//     /**
-//      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-//      * at the location of the mouse when the scroll wheel or gesture was applied.
-//      * @param transform The d3 zoom transformation information
-//      * @param x The x-position of the mouse when the scroll wheel or gesture is used
-//      * @param plotDimensions The dimensions of the plot
-//      * @param ranges A map holding the axis ID and its associated time-range
-//      */
-//     return (transform, x, plotDimensions, ranges) => {
-//         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
-//         axesForSeries.forEach(axisId =>
-//             calcZoomAndUpdate(x, axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
-//         )
-//         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
-//     }
-// }
 
 /**
  * Higher-order function that generates a handler for zoom events, given the distinct series IDs that cover all

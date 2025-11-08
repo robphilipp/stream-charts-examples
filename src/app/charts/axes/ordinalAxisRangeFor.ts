@@ -162,14 +162,13 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
          * @param [constraint=[-Infinity, Infinity]] Optional constraint interval in which the axis range must be within
          * @return An updated {@link OrdinalAxisRange} that has been translated by the specified amount
          */
-        function translate(amount: number, constraint: [start: number, end: number]  = [-Infinity, Infinity]): OrdinalAxisRange {
+        function translate(amount: number, constraint: [start: number, end: number] = [-Infinity, Infinity]): OrdinalAxisRange {
             const [cs, ce] = constraint
             // when either of the constraints is infinite, or the pan keeps the new axis range
             // within the origin axis range (i.e. zoomed in and the panned), then allow the pan,
             // otherwise don't update
             if ((!isFinite(cs) && !isFinite(ce)) || (start + amount >= cs && end + amount <= ce)) {
-                start += amount
-                end += amount
+                return updateAxisRange(start + amount, end + amount)
             }
             return updateAxisRange(start, end)
         }

@@ -36,8 +36,7 @@ import {
 } from "../styling/svgStyle";
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
-import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
-import {OrdinalAxisRange, ordinalAxisRangeFor} from "../axes/ordinalAxisRangeFor";
+import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -159,8 +158,7 @@ export function BarPlot(props: Props): null {
         yAxesState,
         setAxisAssignments,
         setAxisBoundsFor,
-        axisBoundsFor,
-        originalAxisBoundsFor,
+        setOriginalAxisBoundsFor,
         axesBounds
     } = axes
 
@@ -221,8 +219,6 @@ export function BarPlot(props: Props): null {
     const currentTimeRef = useRef<number>(0)
     const subscriptionRef = useRef<Subscription>(undefined)
 
-    // const ordinalAxesRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
-
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
@@ -230,7 +226,6 @@ export function BarPlot(props: Props): null {
     useEffect(
         () => {
             currentTimeRef.current = 0
-            // currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
         },
         [xAxesState]
     )
@@ -254,19 +249,10 @@ export function BarPlot(props: Props): null {
     // functions.
     const updateTimingAndPlot = useCallback(
         (ranges: Map<string, OrdinalAxisRange>): void => {
-        // (): void => {
             if (mainG !== null) {
-                // onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
                 onUpdateChartTime(currentTimeRef.current)
                 updatePlotRef.current(ranges, mainG)
-                // if (onUpdateAxesBounds) {
-                //     setTimeout(() => {
-                //         const bounds = new Map<string, [number, number]>()
-                //         ranges.forEach((range, name) => bounds.set(name, range.current))
-                //         onUpdateAxesBounds(bounds)
-                //     }, 0)
-                // }
             }
         },
         [mainG, onUpdateChartTime]
@@ -320,12 +306,12 @@ export function BarPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, OrdinalAxisRange>,
-        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisBoundsFor, setOriginalAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisBoundsFor, setOriginalAxisBoundsFor, xAxesState]
     )
 
     /**
-     * @param timeRanges
+     * @param ordinalRanges
      * @param mainGElem
      */
     const updatePlot = useCallback(
@@ -483,7 +469,7 @@ export function BarPlot(props: Props): null {
                                 update => barFor(
                                     update,
                                     windowedBar,
-                                    barStyleFor(showWindowedMinMaxBars, windowedBarStyle)                                ),
+                                    barStyleFor(showWindowedMinMaxBars, windowedBarStyle)),
                                 exit => exit.remove()
                             )
                             .on(
@@ -714,13 +700,6 @@ export function BarPlot(props: Props): null {
         },
         [chartId, container, mainG, margin, plotDimensions, updatePlot]
     )
-    // const onUpdateTimeRef = useRef(updateAxesBounds)
-    // useEffect(
-    //     () => {
-    //         onUpdateTimeRef.current = updateAxesBounds
-    //     },
-    //     [updateAxesBounds]
-    // )
 
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
@@ -752,17 +731,6 @@ export function BarPlot(props: Props): null {
     useEffect(
         () => {
             if (container && mainG) {
-                updatePlot(axesBounds(), mainG)
-            }
-        },
-        [axesBounds, axisAssignments, axisBoundsFor, chartId, color, container, mainG, originalAxisBoundsFor, plotDimensions, updatePlot, xAxesState]
-    )
-
-    // todo now with axesBounds, we can remove the ordinalAxesRangesRef
-
-    useEffect(
-        () => {
-            if (container && mainG) {
                 const ordinalAxesRanges = axesBounds()
                 // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
                 // change. for example, as data is streamed in, the times change, and then we need to update the
@@ -774,12 +742,10 @@ export function BarPlot(props: Props): null {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
                     updatePlot(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>), mainG)
-                    // timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                 } else {
-                    // when the time-ranges already exist, then we want to update the time-ranges for each
-                    // existing time-range in a way that maintains the original scale.
+                    // when the ordinal-ranges already exist, then we want to update the ordinal-ranges for each
+                    // existing ordinal-range in a way that maintains the original scale.
                     const intervals = ordinalAxisIntervals(xAxesState.axes as Map<string, OrdinalStringAxis>)
-                    // const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                     // todo instead of updating the underlying map, this should use setter methods to make the updates
                     ordinalAxesRanges
                         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
@@ -791,35 +757,11 @@ export function BarPlot(props: Props): null {
                             }
                         })
                     updatePlot(ordinalAxesRanges, mainG)
-
                 }
-                // updatePlot(ordinalAxesRanges, mainG)
-                // updatePlot(axesBounds(), mainG)
-                // if (ordinalAxesRangesRef.current.size === 0) {
-                //     // when no time-ranges have yet been created, then create them and hold on to a mutable
-                //     // reference to them
-                //     ordinalAxesRangesRef.current = ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>)
-                //     // timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                // } else {
-                //     // when the time-ranges already exist, then we want to update the time-ranges for each
-                //     // existing time-range in a way that maintains the original scale.
-                //     const intervals = ordinalAxisIntervals(xAxesState.axes as Map<string, OrdinalStringAxis>)
-                //     // const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                //     ordinalAxesRangesRef.current
-                //         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
-                //             const [[start, end]] = intervals.get(id) || [[NaN, NaN], []]
-                //             if (!isNaN(start) && !isNaN(end)) {
-                //                 // update the reference map with the new (start, end) portion of the range,
-                //                 // while keeping the original scale intact
-                //                 rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
-                //             }
-                //         })
-                // }
-                // updatePlot(ordinalAxesRangesRef.current, mainG)
-                // // updatePlot(axesBounds(), mainG)
+
             }
         },
-        [chartId, color, container, mainG, updatePlot, xAxesState]
+        [axesBounds, container, mainG, updatePlot, xAxesState.axes]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
