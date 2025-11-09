@@ -77,6 +77,7 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
     // form a closure on the original start and end of the time-range
     const originalStart = Math.min(_start, _end)
     const originalEnd = Math.max(_start, _end)
+    console.log("ordinalAxisRangeFor", originalStart, originalEnd)
 
     /**
      * Updates the axis-range based on the new start and end values
@@ -85,10 +86,12 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
      * @return The updated axis-range type
      */
     function updateAxisRange(start: number, end: number): OrdinalAxisRange {
+        console.log("updateAxisRange", start, end)
         return updateRange(start, end)
     }
 
     function updateOriginalAxisRange(start: number, end: number): OrdinalAxisRange {
+        console.log("updateOriginalAxisRange", start, end)
         return ordinalAxisRangeFor(start, end)
     }
 
@@ -153,6 +156,7 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
         function constrainedScale(factor: number, value: number, constraint: [min: number, max: number]): OrdinalAxisRange {
             const [start, end] = scaledRange(factor, value)
             const [min, max] = constraint
+            console.log("constrainedScale", min, max, start, end, originalStart, originalEnd)
             return updateAxisRange(Math.min(min, start), Math.max(max, end))
         }
 

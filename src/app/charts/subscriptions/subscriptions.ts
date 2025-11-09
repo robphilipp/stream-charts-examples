@@ -32,6 +32,7 @@ import {ChartData} from "../observables/ChartData";
 import {OrdinalDatum} from "../series/ordinalSeries";
 import {RefObject} from "react";
 import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
+import {AxisRangeTuple} from "../hooks/useAxes";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -431,6 +432,7 @@ export function subscriptionOrdinalXFor(
     ordinalStatsRef: RefObject<WindowedOrdinalStats>,
     // ordinalStatsRef: MutableRefObject<WindowedOrdinalStats>,
     setCurrentTime: (currentTime: number) => void,
+    originalRange: AxisRangeTuple,
 ): Subscription {
 
     /**
@@ -487,7 +489,10 @@ export function subscriptionOrdinalXFor(
         .subscribe(dataList => {
             dataList.forEach((data: OrdinalChartData) => {
                 // grab the axis ranges for the y-axes
-                const yAxisRanges = ordinalAxisRanges(yAxesState.axes as Map<string, OrdinalStringAxis>);
+                const yAxisRanges = ordinalAxisRanges(
+                    yAxesState.axes as Map<string, OrdinalStringAxis>,
+                    originalRange
+                );
 
                 //
                 // calculate the max times for each x-axis, which is the max time over all the

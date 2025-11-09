@@ -110,6 +110,7 @@ export function OrdinalAxis(props: Props): null {
             // todo when resizing the original axis range is set to the plot dimensions but should include the current range
             const handlerId = registerPlotDimensionChangeHandler((oldDimension, newDimension) => {
                 if (axis !== undefined) {
+                    console.log("register")
                     if (location === AxisLocation.Top || location === AxisLocation.Bottom) {
                         // update the current axis range
                         const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
@@ -117,12 +118,13 @@ export function OrdinalAxis(props: Props): null {
                         const updatedRange = [rangeStart, rangeEnd + widthChange] as AxisRangeTuple
 
                         // update the original axis range
-                        const originalRange = originalAxisBoundsFor(axisId)
-                        const originalWidthChange = newDimension.width - oldDimension.width
-                        const originalUpdatedRange = [originalRange[0], originalRange[1] + originalWidthChange] as AxisRangeTuple
-                        // setOriginalAxesBounds(axisId, ordinalAxisRangeFor, originalUpdatedRange)
+                        // const originalRange = originalAxisBoundsFor(axisId)
+                        // const originalWidthChange = newDimension.width - oldDimension.width
+                        // const originalUpdatedRange = [originalRange[0], originalRange[1] + originalWidthChange] as AxisRangeTuple
 
+                        const originalUpdatedRange = [0, plotDimensions.width] as AxisRangeTuple
                         axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
+                        console.log(axisId, axisBoundsFor(axisId), originalAxisBoundsFor(axisId), newDimension, oldDimension,)
                     }
                     if (location === AxisLocation.Left || location === AxisLocation.Right) {
                         const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
@@ -136,11 +138,13 @@ export function OrdinalAxis(props: Props): null {
                         axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
                     }
                 }
-
             })
-            return () => unregisterPlotDimensionChangeHandler(handlerId)
+            return () => {
+                console.log("unregister")
+                unregisterPlotDimensionChangeHandler(handlerId)
+            }
         },
-        [axis, axisBoundsFor, axisId, location, margin, originalAxisBoundsFor, plotDimensions, registerPlotDimensionChangeHandler, setOriginalAxesBounds, unregisterPlotDimensionChangeHandler]
+        [axis, axisBoundsFor, axisId, location, margin, originalAxisBoundsFor, plotDimensions, registerPlotDimensionChangeHandler, unregisterPlotDimensionChangeHandler]
     );
 
     useEffect(
@@ -198,26 +202,14 @@ export function OrdinalAxis(props: Props): null {
                     const originalRange = originalAxisBoundsFor(axisId)
                     if (range && originalRange) {
                         axis.update(range, originalRange, plotDimensions, margin)
+                        console.log("update", axisId, axisBoundsFor(axisId), originalAxisBoundsFor(axisId))
                     }
 
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
                 }
             }
         },
-        [
-            addXAxis, addYAxis,
-            addAxesBoundsUpdateHandler,
-            setAxisBoundsFor,
-            axisId, categories, chartId, color, container, label, location,
-            margin,
-            plotDimensions,
-            props.axisTickStyle,
-            props.font,
-            xAxesState,
-            yAxesState,
-            axisBoundsFor,
-            updateAxisBasedOnDomainValues,
-        ]
+        [addXAxis, addYAxis, addAxesBoundsUpdateHandler, setAxisBoundsFor, axisId, categories, chartId, color, container, label, location, margin, plotDimensions, props.axisTickStyle, props.font, xAxesState, yAxesState, axisBoundsFor, updateAxisBasedOnDomainValues, axis, setOriginalAxisBoundsFor, originalAxisBoundsFor]
     )
 
     return null

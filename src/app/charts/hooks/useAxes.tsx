@@ -327,13 +327,13 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
         handlerId: string,
         handler: (updates: Map<string, AR>, plotDim: Dimensions) => void
     ): Map<string, (updates: Map<string, AR>, plotDim: Dimensions) => void> {
-        // if (axesBoundsUpdateHandlersRef.current.has(handlerId)) {
-        //     throw new Error(
-        //         `Handler with ID already exists, please remove it before adding it; ` +
-        //         `handler_id: ${handlerId}; ` +
-        //         `existing_handler_ids: [${Array.from(axesBoundsUpdateHandlersRef.current.keys()).join(", ")}]`
-        //     )
-        // }
+        if (axesBoundsUpdateHandlersRef.current.has(handlerId)) {
+            throw new Error(
+                `Handler with ID already exists, please remove it before adding it; ` +
+                `handler_id: ${handlerId}; ` +
+                `existing_handler_ids: [${Array.from(axesBoundsUpdateHandlersRef.current.keys()).join(", ")}]`
+            )
+        }
       return axesBoundsUpdateHandlersRef.current.set(handlerId, handler)
     }
 

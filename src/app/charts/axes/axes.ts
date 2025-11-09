@@ -1169,15 +1169,20 @@ function calcOrdinalZoomAndUpdate(
             [originalStart, originalEnd]
 
         const zoom = calculateOrdinalConstrainedZoomFor(transform, value, axis, range, constraint)
+        console.log("zoom", scaleExtent, zoom.range.current, zoom.range.original)
 
         // update the axis range
         ranges.set(axisId, zoom.range)
 
         setRangeFor(axisId, zoom.range.current)
-        setOriginalRangeFor(axisId, zoom.range.original)
+        const origRange = [0, plotDimensions.width] as AxisRangeTuple
+        setOriginalRangeFor(axisId, origRange)
+        // setOriginalRangeFor(axisId, zoom.range.original)
 
         // update the axis' range
-        axis.update(zoom.range.current, zoom.range.original, plotDimensions, margin)
+        axis.update(zoom.range.current, origRange, plotDimensions, margin)
+        // axis.update(zoom.range.current, zoom.range.original, plotDimensions, margin)
+        console.log("zoom after update", scaleExtent, zoom.range.current, zoom.range.original, origRange)
     }
 }
 
@@ -1320,8 +1325,8 @@ export function continuousAxisRanges(axes: Map<string, ContinuousNumericAxis>): 
     return continuousRange(axes)
 }
 
-export function ordinalAxisRanges(axes: Map<string, OrdinalStringAxis>): Map<string, OrdinalAxisRange> {
-    return ordinalRange(axes)
+export function ordinalAxisRanges(axes: Map<string, OrdinalStringAxis>, originalRange: AxisRangeTuple): Map<string, OrdinalAxisRange> {
+    return ordinalRange(axes, originalRange)
 }
 
 /**
@@ -1352,16 +1357,10 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
         }))
 }
 
-export function ordinalRange(axes: Map<string, OrdinalStringAxis>): Map<string, OrdinalAxisRange> {
+export function ordinalRange(axes: Map<string, OrdinalStringAxis>, originalRange: AxisRangeTuple): Map<string, OrdinalAxisRange> {
     return new Map(Array.from(axes.entries())
         .map(([id, axis]) => {
-            const [start, end] = axis.scale.range()
-            // const categories = axis.scale.domain()
+            const [start, end] = originalRange
             return [id, ordinalAxisRangeFor(start, end)]
         }))
 }
-
-// export function continuousRangeForDefaultAxis(axis: ContinuousNumericAxis): ContinuousAxisRange {
-//     const [start, end] = axis.scale.domain()
-//     return continuousAxisRangeFor(start, end)
-// }
