@@ -9,7 +9,7 @@ import {BaseSeries} from "../series/baseSeries";
 import {noop} from "../utils";
 import {OrdinalAxisRange, ordinalAxisRangeFor} from "./ordinalAxisRangeFor";
 import {BaseAxisRange} from "./BaseAxisRange";
-import {AxisRangeTuple} from "../hooks/useAxes";
+import {AxisRangeTuple, axisRangeTupleFrom} from "../hooks/useAxes";
 
 export type AxisTickStyle = {
     font: AxesFont
@@ -1169,20 +1169,17 @@ function calcOrdinalZoomAndUpdate(
             [originalStart, originalEnd]
 
         const zoom = calculateOrdinalConstrainedZoomFor(transform, value, axis, range, constraint)
-        console.log("zoom", scaleExtent, zoom.range.current, zoom.range.original)
 
         // update the axis range
         ranges.set(axisId, zoom.range)
 
         setRangeFor(axisId, zoom.range.current)
-        const origRange = [0, plotDimensions.width] as AxisRangeTuple
+        const origRange = axisRangeTupleFrom(0, plotDimensions.width)
         setOriginalRangeFor(axisId, origRange)
         // setOriginalRangeFor(axisId, zoom.range.original)
 
         // update the axis' range
         axis.update(zoom.range.current, origRange, plotDimensions, margin)
-        // axis.update(zoom.range.current, zoom.range.original, plotDimensions, margin)
-        console.log("zoom after update", scaleExtent, zoom.range.current, zoom.range.original, origRange)
     }
 }
 

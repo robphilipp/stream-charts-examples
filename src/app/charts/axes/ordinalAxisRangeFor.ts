@@ -1,65 +1,5 @@
 import {BaseAxisRange} from "./BaseAxisRange";
 
-type Interval = [start: number, end: number]
-
-function copyInterval(interval: Interval): Interval {
-    return [...interval] as Interval
-}
-function intervalOf(start: number, end: number): Interval {
-    return [Math.min(start, end), Math.max(start, end)]
-}
-
-function intervalMeasure(interval: Interval): number {
-    return Math.abs(interval[1] - interval[0])
-}
-
-function intervalsEqual(interval1: Interval, interval2: Interval): boolean {
-    return interval1[0] === interval2[0] && interval1[1] === interval2[1]
-}
-
-function intervalsDiffer(interval1: Interval, interval2: Interval): boolean {
-    return !intervalsEqual(interval1, interval2)
-}
-
-// export class OrdinalAxisRange2 implements BaseAxisRange {
-//     private readonly originalRange: Interval
-//     // private readonly originalEnd: number
-//     private readonly currentRange: Interval
-//     // private readonly end: number
-//     private readonly scaleFactor: number
-//
-//     constructor(start: number, end: number, originalStart?: number, originalEnd?: number) {
-//         if (originalStart && originalEnd) {
-//             this.currentRange = intervalOf(start, end)
-//             this.originalRange = intervalOf(originalStart, originalEnd)
-//         } else {
-//             this.currentRange = intervalOf(start, end)
-//             this.originalRange = intervalOf(start, end)
-//         }
-//         this.scaleFactor = intervalMeasure(this.currentRange) / intervalMeasure(this.originalRange)
-//     }
-//
-//     get current(): Interval {
-//         return copyInterval(this.currentRange)
-//     }
-//
-//     get original(): Interval {
-//         return copyInterval(this.originalRange)
-//     }
-//
-//     get currentDistance(): number {
-//         return intervalMeasure(this.currentRange)
-//     }
-//
-//     get originalDistance(): number {
-//         return intervalMeasure(this.originalRange)
-//     }
-//
-//     get currentDiffersFromOriginal(): boolean {
-//         return intervalsDiffer(this.currentRange, this.originalRange)
-//     }
-// }
-
 /**
  * The continuous-axis range contract
  */
@@ -68,7 +8,10 @@ export interface OrdinalAxisRange extends BaseAxisRange {
 }
 
 /**
- * A time-range that can be scaled and transformed, all the while maintaining its original range values.
+ * An ordinal-range that can be scaled and transformed, all the while maintaining its original range values.
+ * Unlike the continuous-axis range, zooming changes the range, but the original range is the same as the
+ * plot dimensions. What this means is that if the window resizes, the original range must be updated to the
+ * new plot dimensions, and the current range must be updated to account for the change in the window size.
  * @param _start The start of the time-range
  * @param _end The end of the time-range
  * @return A time-range object that can be scaled and transformed
@@ -77,7 +20,6 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
     // form a closure on the original start and end of the time-range
     const originalStart = Math.min(_start, _end)
     const originalEnd = Math.max(_start, _end)
-    console.log("ordinalAxisRangeFor", originalStart, originalEnd)
 
     /**
      * Updates the axis-range based on the new start and end values
@@ -86,12 +28,10 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
      * @return The updated axis-range type
      */
     function updateAxisRange(start: number, end: number): OrdinalAxisRange {
-        console.log("updateAxisRange", start, end)
         return updateRange(start, end)
     }
 
     function updateOriginalAxisRange(start: number, end: number): OrdinalAxisRange {
-        console.log("updateOriginalAxisRange", start, end)
         return ordinalAxisRangeFor(start, end)
     }
 
@@ -156,7 +96,6 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
         function constrainedScale(factor: number, value: number, constraint: [min: number, max: number]): OrdinalAxisRange {
             const [start, end] = scaledRange(factor, value)
             const [min, max] = constraint
-            console.log("constrainedScale", min, max, start, end, originalStart, originalEnd)
             return updateAxisRange(Math.min(min, start), Math.max(max, end))
         }
 

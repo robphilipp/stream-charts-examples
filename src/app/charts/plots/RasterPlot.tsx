@@ -1,4 +1,4 @@
-import {AxesAssignment, setClipPath, Series} from "./plot";
+import {AxesAssignment, setClipPath} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {noop} from "../utils";
@@ -9,15 +9,15 @@ import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxi
 import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
+    axisZoomHandler,
     BaseAxis,
-    OrdinalStringAxis,
-    ContinuousNumericAxis,
-    defaultLineStyle,
-    panHandler,
-    SeriesLineStyle,
     continuousAxisIntervals,
     continuousAxisRanges,
-    axisZoomHandler
+    ContinuousNumericAxis,
+    defaultLineStyle,
+    OrdinalStringAxis,
+    panHandler,
+    SeriesLineStyle
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
 import {Dimensions, Margin} from "../styling/margins";
@@ -50,7 +50,7 @@ interface Props {
     zoomEnabled?: boolean
     /**
      * When true, requires that the shift or control key be pressed while scrolling
-     * in order to activate the zoom
+     * to activate the zoom
      */
     zoomKeyModifiersRequired?: boolean
     /**

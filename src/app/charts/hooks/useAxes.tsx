@@ -19,6 +19,26 @@ const noop = () => {
  * for example, the tick values).
  */
 export type AxisRangeTuple = [start: number, end: number]
+
+/**
+ * Creates an axis range tuple from the specified start and end values
+ * @param start The axis-range start value
+ * @param end The axis-range end value
+ * @return The axis-range tuple
+ */
+export function axisRangeTupleFrom(start: number, end: number): AxisRangeTuple {
+    return [Math.min(start, end), Math.max(start, end)]
+}
+
+/**
+ * Creates an axis range tuple from the specified tuple
+ * @param tuple The tuple to convert
+ * @return The axis-range tuple
+ */
+export function asAxisRangeTuple(tuple: [start: number, end: number]): AxisRangeTuple {
+    return axisRangeTupleFrom(tuple[0], tuple[1])
+}
+
 const anEmptyRange: AxisRangeTuple = [NaN, NaN]
 
 /**
@@ -27,8 +47,18 @@ const anEmptyRange: AxisRangeTuple = [NaN, NaN]
  * @return A copy of the specified map(axis_id, (start, end))
  */
 const copyRangeMap = (ranges: Map<string, AxisRangeTuple>): Map<string, AxisRangeTuple> =>
-    new Map(Array.from(ranges.entries()).map(([id, [start, end]]) => [id, [start, end]]))
+    new Map(Array.from(ranges.entries())
+        .map(([id, [start, end]]) => [id, axisRangeTupleFrom(start, end)])
+    )
 
+/**
+ * Type definition for an axis-range provider function. This type defines a function that
+ * takes a start and end value and returns an axis range.
+ * @template AR The type of the axis range (e.g. {@link ContinuousAxisRange} or {@link OrdinalAxisRange})
+ * @param start The start value of the axis range
+ * @param end The end value of the axis range
+ * @return The axis range tuple
+ */
 type AxisRangeProvider<AR extends BaseAxisRange> = (start: number, end: number) => AR
 
 /**
@@ -115,6 +145,10 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
      * current time range.
      */
     updateAxesBounds: (domains: Map<string, AR>) => void
+    /**
+     * Retrieves the current axis bounds for the specified axis ID
+     * @return The current axis bounds as a map(axis_id, (start, end))
+     */
     axesBounds: () => Map<string, AR>
     /**
      * Resets the axis bounds to its original bounds
@@ -252,9 +286,6 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
         if (range !== undefined) {
             range.current = updatedRange.current
         }
-        // const updates = new Map<string, AR>([[axisId, updatedRange]])
-        // updateAxesBounds(updates)
-        // axesBoundsUpdateHandlersRef.current.forEach((handler, ) => handler(updates, plotDimensions.plotDimensions))
     }
 
     /**
@@ -269,19 +300,6 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
             updateAxesBounds(updates)
         }
     }
-    // function resetAxisBoundsFor(axisId: string, axisRangeProvider: AxisRangeProvider<AR>, axisRange?: AxisRangeTuple): void {
-    //     if (axisRange !== undefined) {
-    //         const [start, end] = axisRange
-    //         const updatedRange = axisRangeProvider(start, end)
-    //         originalAxesBoundsRef.current.set(axisId, updatedRange.current)
-    //         const updates = new Map<string, AR>([[axisId, updatedRange]])
-    //         updateAxesBounds(updates)
-    //     } else if (axesBoundsRef.current.has(axisId) && originalAxesBoundsRef.current.has(axisId)) {
-    //         const [start, end] = originalAxesBoundsRef.current.get(axisId) || anEmptyRange
-    //         const updates = new Map<string, AR>([[axisId, axisRangeProvider(start, end)]])
-    //         updateAxesBounds(updates)
-    //     }
-    // }
 
     /**
      * Resets the bounds of all the axes to their original value or to the values specified

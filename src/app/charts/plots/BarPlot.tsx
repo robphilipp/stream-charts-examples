@@ -37,7 +37,7 @@ import {
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
 import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
-import {AxisRangeTuple} from "../hooks/useAxes";
+import {AxisRangeTuple, axisRangeTupleFrom} from "../hooks/useAxes";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -720,7 +720,7 @@ export function BarPlot(props: Props): null {
                 seriesRef.current,
                 statsRef,
                 (currentTime: number) => currentTimeRef.current = currentTime,
-                [0, plotDimensions.width] as AxisRangeTuple
+                axisRangeTupleFrom(0, plotDimensions.width)
             )
         },
         [
@@ -743,7 +743,7 @@ export function BarPlot(props: Props): null {
                 if (ordinalAxesRanges.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    updatePlot(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>, [0, plotDimensions.width] as AxisRangeTuple), mainG)
+                    updatePlot(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>, axisRangeTupleFrom(0, plotDimensions.width)), mainG)
                 } else {
                     // when the ordinal-ranges already exist, then we want to update the ordinal-ranges for each
                     // existing ordinal-range in a way that maintains the original scale.

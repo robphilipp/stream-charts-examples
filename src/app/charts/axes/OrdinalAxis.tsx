@@ -16,7 +16,7 @@ import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalAxisRange} from "./ordinalAxisRangeFor";
 import {Datum} from "../series/timeSeries";
-import {AxisRangeTuple} from "../hooks/useAxes";
+import {axisRangeTupleFrom} from "../hooks/useAxes";
 
 interface Props {
     // the unique ID of the axis
@@ -79,7 +79,6 @@ export function OrdinalAxis(props: Props): null {
         addAxesBoundsUpdateHandler,
         originalAxisBoundsFor,
         setOriginalAxisBoundsFor,
-        setOriginalAxesBounds,
     } = axes
 
     const {
@@ -110,37 +109,29 @@ export function OrdinalAxis(props: Props): null {
             // todo when resizing the original axis range is set to the plot dimensions but should include the current range
             const handlerId = registerPlotDimensionChangeHandler((oldDimension, newDimension) => {
                 if (axis !== undefined) {
-                    console.log("register")
                     if (location === AxisLocation.Top || location === AxisLocation.Bottom) {
                         // update the current axis range
                         const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
                         const widthChange = newDimension.width - oldDimension.width
-                        const updatedRange = [rangeStart, rangeEnd + widthChange] as AxisRangeTuple
+                        const updatedRange = axisRangeTupleFrom(rangeStart, rangeEnd + widthChange)
 
-                        // update the original axis range
-                        // const originalRange = originalAxisBoundsFor(axisId)
-                        // const originalWidthChange = newDimension.width - oldDimension.width
-                        // const originalUpdatedRange = [originalRange[0], originalRange[1] + originalWidthChange] as AxisRangeTuple
-
-                        const originalUpdatedRange = [0, plotDimensions.width] as AxisRangeTuple
+                        const originalUpdatedRange = axisRangeTupleFrom(0, plotDimensions.width)
                         axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
-                        console.log(axisId, axisBoundsFor(axisId), originalAxisBoundsFor(axisId), newDimension, oldDimension,)
                     }
                     if (location === AxisLocation.Left || location === AxisLocation.Right) {
                         const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
                         const heightChange = newDimension.height - oldDimension.height
-                        const updatedRange = [rangeStart, rangeEnd + heightChange] as AxisRangeTuple
+                        const updatedRange = axisRangeTupleFrom(rangeStart, rangeEnd + heightChange)
 
                         const originalRange = originalAxisBoundsFor(axisId)
                         const originalHeightChange = newDimension.height - oldDimension.height
-                        const originalUpdatedRange = [originalRange[0], originalRange[1] + originalHeightChange] as AxisRangeTuple
+                        const originalUpdatedRange = axisRangeTupleFrom(originalRange[0], originalRange[1] + originalHeightChange)
 
                         axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
                     }
                 }
             })
             return () => {
-                console.log("unregister")
                 unregisterPlotDimensionChangeHandler(handlerId)
             }
         },
@@ -202,7 +193,6 @@ export function OrdinalAxis(props: Props): null {
                     const originalRange = originalAxisBoundsFor(axisId)
                     if (range && originalRange) {
                         axis.update(range, originalRange, plotDimensions, margin)
-                        console.log("update", axisId, axisBoundsFor(axisId), originalAxisBoundsFor(axisId))
                     }
 
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
