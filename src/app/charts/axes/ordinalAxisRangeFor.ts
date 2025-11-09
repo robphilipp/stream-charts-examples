@@ -3,9 +3,7 @@ import {BaseAxisRange} from "./BaseAxisRange";
 /**
  * The continuous-axis range contract
  */
-export interface OrdinalAxisRange extends BaseAxisRange {
-    updateOriginalAxisRange: (start: number, end: number) => void
-}
+export interface OrdinalAxisRange extends BaseAxisRange {}
 
 /**
  * An ordinal-range that can be scaled and transformed, all the while maintaining its original range values.
@@ -29,10 +27,6 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
      */
     function updateAxisRange(start: number, end: number): OrdinalAxisRange {
         return updateRange(start, end)
-    }
-
-    function updateOriginalAxisRange(start: number, end: number): OrdinalAxisRange {
-        return ordinalAxisRangeFor(start, end)
     }
 
     /**
@@ -127,7 +121,6 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
             constrainedScale,
             translate,
             update: updateAxisRange,
-            updateOriginalAxisRange
         }
     }
 
