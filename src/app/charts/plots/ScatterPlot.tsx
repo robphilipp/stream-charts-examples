@@ -14,7 +14,7 @@ import {
     SeriesLineStyle,
     continuousAxisIntervals,
     continuousAxisRanges,
-    continuousAxisZoomHandler
+    axisZoomHandler
 } from "../axes/axes";
 import {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
@@ -30,6 +30,7 @@ import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData} from "../hooks/useTooltip";
+import {AxisRangeTuple} from "../hooks/useAxes";
 
 interface Props {
     /**
@@ -105,7 +106,7 @@ export function ScatterPlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         initialData
@@ -117,7 +118,7 @@ export function ScatterPlot(props: Props): null {
         setAxisBoundsFor,
         updateAxesBounds = noop,
         onUpdateAxesBounds,
-        originalAxisBounds
+        originalAxesBounds
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -146,10 +147,10 @@ export function ScatterPlot(props: Props): null {
 
     const initialTimes = useMemo(
         () => new Map<string, number>(
-            Array.from(originalAxisBounds().entries())
+            Array.from<[string, AxisRangeTuple]>(originalAxesBounds().entries())
                 .map(([axisId, [start,]]) => ([axisId, start]))
         ),
-        [originalAxisBounds]
+        [originalAxesBounds]
     )
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
@@ -180,14 +181,14 @@ export function ScatterPlot(props: Props): null {
 
     useEffect(
         () => {
-            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
         },
         [xAxesState]
     )
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
+        (): Array<string> => axesForSeriesGen<Datum, ContinuousNumericAxis>(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 
@@ -201,7 +202,7 @@ export function ScatterPlot(props: Props): null {
                 if (onUpdateAxesBounds) {
                     setTimeout(() => {
                         const times = new Map<string, [number, number]>()
-                        ranges.forEach((range, name) => times.set(name, [range.start, range.end]))
+                        ranges.forEach((range, name) => times.set(name, range.current))
                         onUpdateAxesBounds(times)
                     }, 0)
                 }
@@ -217,7 +218,7 @@ export function ScatterPlot(props: Props): null {
         () => {
             dataRef.current = initialData.slice()
             seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
-            currentTimeRef.current = new Map(Array.from(xAxesState.axes.keys()).map(id => [id, 0]))
+            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
@@ -276,8 +277,7 @@ export function ScatterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)
-        (transform, x, plotDimensions, ranges),
+        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisBoundsFor, xAxesState]
     )
 
@@ -435,7 +435,7 @@ export function ScatterPlot(props: Props): null {
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef(updatePlot)
+    const updatePlotRef = useRef<(ordinalRange: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
     useEffect(
         () => {
             updatePlotRef.current = updatePlot

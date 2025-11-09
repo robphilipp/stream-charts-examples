@@ -11,7 +11,7 @@ import {
 } from "./trackerUtils";
 import * as d3 from "d3";
 import {useEffect, useMemo, useRef} from "react";
-import {AxisLocation, ContinuousNumericAxis} from "../axes/axes";
+import {AxisLocation, BaseAxis, ContinuousNumericAxis} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 
 export interface TrackerAxisInfo {
@@ -69,7 +69,7 @@ export function Tracker(props: Props): null {
     useEffect(
         () => {
             const axes = new Map<string, ContinuousNumericAxis>()
-            xAxesState.axes.forEach((axis, id) => axes.set(id, axis as ContinuousNumericAxis))
+            xAxesState.axes.forEach((axis: BaseAxis, id: string) => axes.set(id, axis as ContinuousNumericAxis))
             xAxisRef.current = axes
         },
         [xAxesState]

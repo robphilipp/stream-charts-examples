@@ -127,7 +127,7 @@ export function PoincarePlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata>()
+    } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         xAxesState,

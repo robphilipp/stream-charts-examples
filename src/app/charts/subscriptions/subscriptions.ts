@@ -1,5 +1,11 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {continuousAxisRanges, ContinuousNumericAxis} from "../axes/axes";
+import {
+    OrdinalStringAxis,
+    continuousAxisRanges,
+    ContinuousNumericAxis,
+    ordinalAxisRanges,
+    BaseAxis
+} from "../axes/axes";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
@@ -24,7 +30,9 @@ import {
 } from "../observables/ordinals";
 import {ChartData} from "../observables/ChartData";
 import {OrdinalDatum} from "../series/ordinalSeries";
-import {MutableRefObject} from "react";
+import {RefObject} from "react";
+import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
+import {AxisRangeTuple} from "../hooks/useAxes";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -51,7 +59,7 @@ export function subscriptionTimeSeriesFor(
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
-    xAxesState: AxesState,
+    xAxesState: AxesState<ContinuousNumericAxis>,
     onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
@@ -107,8 +115,9 @@ export function subscriptionTimeSeriesFor(
                         // axis, update the time windows, and call the setCurrentTime
                         // callback to update the current time for the caller
                         const range = timesWindows.get(axisId)
-                        if (range !== undefined && range.end < currentAxisTime) {
-                            const timeWindow = range.end - range.start
+                        const [startTime, endTime] = range?.current || [0, 0]
+                        if (range !== undefined && endTime < currentAxisTime) {
+                            const timeWindow = endTime - startTime
                             const timeRange = continuousAxisRangeFor(
                                 // 0,
                                 timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
@@ -117,7 +126,7 @@ export function subscriptionTimeSeriesFor(
                                 Math.max(currentAxisTime, timeWindow)
                             )
                             timesWindows.set(axisId, timeRange)
-                            setCurrentTime(axisId, timeRange.end) // callback
+                            setCurrentTime(axisId, endTime) // callback
                         }
                     }
                 })
@@ -157,7 +166,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
-    xAxesState: AxesState,
+    xAxesState: AxesState<ContinuousNumericAxis>,
     onUpdateData: ((seriesName: string, data: Array<Datum>) => void) | undefined,
     dropDataAfter: number,
     updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
@@ -196,10 +205,12 @@ export function subscriptionTimeSeriesWithCadenceFor(
                 xAxesState.axisIds().forEach(axisId => {
                     const range = timesWindows.get(axisId)
                     if (range !== undefined && data.currentTime !== undefined) {
-                        const timeWindow = (range.end - range.start)
+                        const [startTime, endTime] = range.current
+                        const timeWindow = endTime - startTime
+                        // const timeWindow = measureOf(range.current)
                         const timeRange = continuousAxisRangeFor(
-                            Math.max(0, Math.max(range.end, data.currentTime + maxTime) - timeWindow),
-                            Math.max(Math.max(range.end, data.currentTime + maxTime), timeWindow)
+                            Math.max(0, Math.max(endTime, data.currentTime + maxTime) - timeWindow),
+                            Math.max(Math.max(endTime, data.currentTime + maxTime), timeWindow)
                         )
                         timesWindows.set(axisId, timeRange)
                         setCurrentTime(axisId, data.currentTime + maxTime)
@@ -272,8 +283,8 @@ export function subscriptionIteratesFor(
     seriesObservable: Observable<IterateChartData>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
-    xAxesState: AxesState,
-    yAxesState: AxesState,
+    xAxesState: AxesState<ContinuousNumericAxis>,
+    yAxesState: AxesState<ContinuousNumericAxis>,
     onUpdateData: ((seriesName: string, data: Array<IterateDatum>) => void) | undefined,
     dropDataAfter: number,
     updateRangesAndPlot: () => void,
@@ -413,13 +424,15 @@ export function subscriptionOrdinalXFor(
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
     axisAssignments: Map<string, AxesAssignment>,
-    yAxesState: AxesState,
+    yAxesState: AxesState<OrdinalStringAxis>,
     onUpdateData: ((seriesName: string, data: Array<OrdinalDatum>) => void) | undefined,
     dropDataAfter: number,
-    updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
+    updateTimingAndPlot: (ranges: Map<string, OrdinalAxisRange>) => void,
     seriesMap: Map<string, BaseSeries<OrdinalDatum>>,
-    ordinalStatsRef: MutableRefObject<WindowedOrdinalStats>,
+    ordinalStatsRef: RefObject<WindowedOrdinalStats>,
+    // ordinalStatsRef: MutableRefObject<WindowedOrdinalStats>,
     setCurrentTime: (currentTime: number) => void,
+    originalRange: AxisRangeTuple,
 ): Subscription {
 
     /**
@@ -476,7 +489,10 @@ export function subscriptionOrdinalXFor(
         .subscribe(dataList => {
             dataList.forEach((data: OrdinalChartData) => {
                 // grab the axis ranges for the y-axes
-                const yAxisRanges = continuousAxisRanges(yAxesState.axes as Map<string, ContinuousNumericAxis>);
+                const yAxisRanges = ordinalAxisRanges(
+                    yAxesState.axes as Map<string, OrdinalStringAxis>,
+                    originalRange
+                );
 
                 //
                 // calculate the max times for each x-axis, which is the max time over all the
@@ -591,7 +607,7 @@ export function subscriptionOrdinalXFor(
 function associatedSeriesForXAxes(
     data: TimeSeriesChartData,
     axisAssignments: Map<string, AxesAssignment>,
-    xAxesState: AxesState
+    xAxesState: AxesState<ContinuousNumericAxis>
 ): Map<string, Array<string>> {
     return associatedSeriesFor(
         assignment => assignment?.xAxis || xAxesState.axisDefaultId(),
@@ -611,7 +627,7 @@ function associatedSeriesForXAxes(
 function associatedSeriesForYAxes(
     data: ChartData,
     axisAssignments: Map<string, AxesAssignment>,
-    yAxesState: AxesState
+    yAxesState: AxesState<OrdinalStringAxis>
 ): Map<string, Array<string>> {
     return associatedSeriesFor(
         assignment => assignment?.yAxis || yAxesState.axisDefaultId(),

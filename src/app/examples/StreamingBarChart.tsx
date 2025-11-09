@@ -147,6 +147,14 @@ export function StreamingBarChart(props: Props): JSX.Element {
         setChartTime(time)
     }
 
+    /**
+     * Updates the time from the chart (the max value of the axes ranges)
+     * @param times A map associating the axis with its time range
+     */
+    function handleChartRangeUpdate(times: Map<string, [start: number, end: number]>): void {
+        setChartTime(Math.max(...Array.from(times.values()).map(([, end]) => end)))
+    }
+
     const inputStyle = {
         backgroundColor: theme.backgroundColor,
         outlineStyle: 'none',
@@ -349,6 +357,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     shouldSubscribe={running}
                     onUpdateChartTime={handleChartTimeUpdate}
+                    onUpdateAxesBounds={handleChartRangeUpdate}
                     windowingTime={25}
                 >
                     <OrdinalAxis
@@ -399,9 +408,9 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     <BarPlot
                         barMargin={1}
                         dropDataAfter={5000}
-                        // panEnabled={true}
-                        // zoomEnabled={true}
-                        // zoomKeyModifiersRequired={true}
+                        panEnabled={true}
+                        zoomEnabled={true}
+                        zoomKeyModifiersRequired={true}
                         // withCadenceOf={50}
 
                         showMinMaxBars={showMinMax}

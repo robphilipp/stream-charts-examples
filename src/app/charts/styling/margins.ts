@@ -13,8 +13,8 @@ export function noMargins(): Margin {
 }
 
 export interface Dimensions {
-    width: number
-    height: number
+    readonly width: number
+    readonly height: number
 }
 
 /**
@@ -46,3 +46,10 @@ export const containerDimensionsFrom = (plotDimensions: Dimensions, plotMargin: 
     height: plotDimensions.height + plotMargin.top + plotMargin.bottom
 })
 
+export function dimensionsEqual(dimension1: Dimensions, dimension2: Dimensions) {
+    return dimension1.height === dimension2.height && dimension1.width === dimension2.width
+}
+
+export function dimensionsNotEqual(dimension1: Dimensions, dimension2: Dimensions) {
+    return !dimensionsEqual(dimension1, dimension2)
+}

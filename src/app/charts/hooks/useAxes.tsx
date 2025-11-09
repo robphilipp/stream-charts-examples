@@ -2,9 +2,9 @@ import {addAxisTo, AxesState, createAxesState} from "./AxesState";
 import {BaseAxis} from "../axes/axes";
 import {AxesAssignment} from "../plots/plot";
 import {createContext, JSX, useContext, useRef} from "react";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "./usePlotDimensions";
+import {BaseAxisRange} from "../axes/BaseAxisRange";
 
 /**
  * No operation function for use when a default function is needed
@@ -13,34 +13,51 @@ const noop = () => {
     /* empty on purpose */
 }
 
-type AxisRange = [start: number, end: number]
-const anEmptyRange: AxisRange = [NaN, NaN]
-const copyRangeMap = (ranges: Map<string, AxisRange>): Map<string, AxisRange> =>
+/**
+ * The range of an axis is the physical (start, end) pixels on the screen for the axis.
+ * This is the pixel-space of the axis (where as the domain is the data-space of the axis,
+ * for example, the tick values).
+ */
+export type AxisRangeTuple = [start: number, end: number]
+const anEmptyRange: AxisRangeTuple = [NaN, NaN]
+
+/**
+ * Creates a copy of the specified map(axis_id, (start, end))
+ * @param ranges The ranges map to copy
+ * @return A copy of the specified map(axis_id, (start, end))
+ */
+const copyRangeMap = (ranges: Map<string, AxisRangeTuple>): Map<string, AxisRangeTuple> =>
     new Map(Array.from(ranges.entries()).map(([id, [start, end]]) => [id, [start, end]]))
 
-export type UseAxesValues<AR> = {
+type AxisRangeProvider<AR extends BaseAxisRange> = (start: number, end: number) => AR
+
+/**
+ * The values exposed by the hook
+ * @template AR The type of the axis range (e.g. {@link ContinuousAxisRange} or {@link OrdinalAxisRange})
+ */
+export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
     /**
      * The x-axes state holds the currently set x-axes, manipulation and accessor functions
      */
-    xAxesState: AxesState
+    xAxesState: AxesState<A>
     /**
      * Adds an x-axis to the axes and updates the internal state
      * @param axis The axis to add
      * @param id The ID of the axis to add
      * @param domain The initial axis range (start, end)
      */
-    addXAxis: (axis: BaseAxis, id: string, range?: [start: number, end: number]) => void
+    addXAxis: (axis: A, id: string, range?: [start: number, end: number]) => void
     /**
      * The y-axes state holds the currently set x-axes, manipulation and accessor functions
      */
-    yAxesState: AxesState
+    yAxesState: AxesState<A>
     /**
      * Adds a y-axis to the axes and updates the internal state
      * @param axis The axis to add
      * @param id The ID of the axis to add
      * @param domain The initial axis range (start, end)
      */
-    addYAxis: (axis: BaseAxis, id: string, range?: [start: number, end: number]) => void
+    addYAxis: (axis: A, id: string, range?: [start: number, end: number]) => void
     /**
      * Sets the axis assigned to each series. This should contain **all** the series used in
      * the chart.
@@ -57,63 +74,85 @@ export type UseAxesValues<AR> = {
      * @param axisId The ID of the axis for which to retrieve the axis-range
      * @return The axis-range as a `[start, end]` tuple if the axis ID is found, `undefined` otherwise
      */
-    axisBoundsFor: (axisId: string) => AxisRange
+    axisBoundsFor: (axisId: string) => AxisRangeTuple
     /**
      * Retrieves the original axis range for the specified axis ID
      * @param axisId The ID of the axis for which to retrieve the axis-range
      * @return The axis-range as a `[start, end]` tuple if the axis ID is found, `undefined` otherwise
      */
-    originalAxisBoundsFor: (axisId: string) => AxisRange
+    originalAxisBoundsFor: (axisId: string) => AxisRangeTuple
     /**
+     * Sets the original axis bounds for the specified axis ID to the specified range
+     * @param axisId The ID of the axis for which to set the range
+     * @param range The new range as a `[start, end]` tuple
+     */
+    setOriginalAxisBoundsFor: (axisId: string, range: AxisRangeTuple) => void
+    /**
+     * @param axisId The ID of the axis for which to set the range
      * @return The original axis bounds as a map(axis_id, (start, end))
      */
-    originalAxisBounds: () => Map<string, AxisRange>
+    originalAxesBounds: () => Map<string, AxisRangeTuple>
     /**
-     * Sets the time-range for the specified axis ID to the specified range
+     * Sets the domain (interval) for the specified axis ID to the specified range
      * @param axisId The ID of the axis for which to set the range
-     * @param timeRange The new time range as an `[t_start, t_end]` tuple
+     * @param domain The new domain as a `[start: number, end: number]` tuple
      */
-    setAxisBoundsFor: (axisId: string, timeRange: [start: number, end: number]) => void
+    setAxisBoundsFor: (axisId: string, domain: [start: number, end: number]) => void
+    /**
+     * Sets the original bounds for the specified axis to the specified range.
+     * This function is helpful when the axis ranges are changing in response to a
+     * domain change or window resizing (ordinal axes), and the original bounds need to
+     * reflect that change.
+     * @param axisId The ID of the axis
+     * @param axisRangeProvider The axis range provider for the axis
+     * @param axisRange The range to which to set the original axis range
+     */
+    setOriginalAxesBounds: (axisId: string, axisRangeProvider: AxisRangeProvider<AR>, axisRange: AxisRangeTuple) => void
     /**
      * Callback function that is called when the time ranges change. The time ranges could
      * change because of a zoom action, a pan action, or as new data is streamed in.
-     * @param times A `map(axis_id -> time_range)` that associates the axis ID with the
+     * @param domains A `map(axis_id -> domain)` that associates the axis ID with the
      * current time range.
      */
-    updateAxesBounds: (times: Map<string, AR>) => void
+    updateAxesBounds: (domains: Map<string, AR>) => void
+    axesBounds: () => Map<string, AR>
     /**
-     * Resets the axes bounds to their original bounds
+     * Resets the axis bounds to its original bounds
      * @param axisId The ID of the axis
+     * @param axisRangeProvider The axis range provider for the axis
      * @param [axisBounds] An optional bounds that resets the original bounds
      */
-    resetAxisBoundsFor: (axisId: string, axisBounds?: AxisRange) => void
+    resetAxisBoundsFor: (axisId: string, axisRangeProvider: AxisRangeProvider<AR>, axisBounds?: AxisRangeTuple) => void
     /**
      * Resets all the axes bound to the original bounds
+     * @param axisRangeProviders The axis range providers for the axes
+     * @param [axesBounds] An optional map holds the new bounds for specified axes. The map
+     * associates an axis ID with the new bounds.
      */
-    resetAxesBounds: (axesBounds?: Map<string, AxisRange>) => void
+    resetAxesBounds: (axisRangeProviders: Map<string, AxisRangeProvider<AR>>, axesBounds?: Map<string, AxisRangeTuple>) => void
     /**
      * Callback when the time range changes.
-     * @param times The times (start, end) times for each axis in the plot. The times argument is a
+     * @param times The times (start, end) times for each axis in the plot. The `times` argument is a
      * map(axis_id -> (start, end)). Where start and end refer to the time-range for the
      * axis.
      * @return void
      */
-    onUpdateAxesBounds?: (times: Map<string, AxisRange>) => void
+    onUpdateAxesBounds?: (times: Map<string, AxisRangeTuple>) => void
     /**
-     * Adds a handler for when the time is updated. The time could change because of a zoom action,
+     * Adds a handler for when the axes are updated. An axis domain/range could change because of a zoom action,
      * a pan action, or as new data is streamed in.
      * @param handlerId The unique ID of the handler to register/add
      * @param handler The handler function that accepts a map of updates and a plot dimension
      */
     addAxesBoundsUpdateHandler: (handlerId: string, handler: (updates: Map<string, AR>, plotDim: Dimensions) => void) => void
     /**
-     * Removes the time-update handler with the specified ID
+     * Removes the axis-update handler with the specified ID
      * @param handlerId The ID of the handler to remove
      */
     removeAxesBoundsUpdateHandler: (handlerId: string) => void
 }
 
-export const defaultAxesValues = (): UseAxesValues<any> => ({
+export const defaultAxesValues = (): UseAxesValues<any, any> => ({
     xAxesState: createAxesState(),
     yAxesState: createAxesState(),
     addXAxis: noop,
@@ -122,9 +161,12 @@ export const defaultAxesValues = (): UseAxesValues<any> => ({
     axisAssignmentsFor: () => ({xAxis: "", yAxis: ""}),
     axisBoundsFor: () => anEmptyRange,
     originalAxisBoundsFor: () => anEmptyRange,
-    originalAxisBounds: () => new Map<string, AxisRange>(),
+    setOriginalAxesBounds: noop,
+    setOriginalAxisBoundsFor: noop,
+    originalAxesBounds: () => new Map<string, AxisRangeTuple>(),
     setAxisBoundsFor: noop,
     updateAxesBounds: noop,
+    axesBounds: () => new Map<string, any>(),
     resetAxisBoundsFor: noop,
     resetAxesBounds: noop,
     addAxesBoundsUpdateHandler: () => noop,
@@ -132,11 +174,11 @@ export const defaultAxesValues = (): UseAxesValues<any> => ({
 })
 
 // the context for axes
-const AxesContext = createContext<UseAxesValues<any>>(defaultAxesValues())
+const AxesContext = createContext<UseAxesValues<any, any>>(defaultAxesValues())
 
 type Props = {
-    /**
-     * Callback when the axes bounds change.
+    /**y
+     * Callback when axes bounds change.
      * @param ranges The ranges (start, end) for each axis in the plot
      */
     onUpdateAxesBounds?: (ranges: Map<string, [start: number, end: number]>) => void
@@ -150,99 +192,164 @@ type Props = {
  * @return The children wrapped in this provider
  * @constructor
  */
-export default function AxesProvider<AR>(props: Props): JSX.Element {
+export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxis>(props: Props): JSX.Element {
     const {onUpdateAxesBounds, children} = props
 
     const plotDimensions = usePlotDimensions()
 
-    const xAxesRef = useRef<AxesState>(createAxesState())
-    const yAxesRef = useRef<AxesState>(createAxesState())
+    const xAxesStateRef = useRef<AxesState<A>>(createAxesState<A>())
+    const yAxesStateRef = useRef<AxesState<A>>(createAxesState<A>())
     const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
     // holds the current axis bounds, map(axis_id -> (start, end)
-    const axesBoundsRef = useRef<Map<string, AxisRange>>(new Map())
+    const axesBoundsRef = useRef<Map<string, AxisRangeTuple>>(new Map())
     // holds the original axis bounds, map(axis_id -> (start, end)
-    const originalAxesBoundsRef =  useRef<Map<string, AxisRange>>(new Map())
+    const originalAxesBoundsRef =  useRef<Map<string, AxisRangeTuple>>(new Map())
     const axesBoundsUpdateHandlersRef = useRef<Map<string, (updates: Map<string, AR>, plotDim: Dimensions) => void>>(new Map())
-
+    const axesRangeRef = useRef<Map<string, AR>>(new Map())
     /**
-     * Retrieves the x-axis and y-axis assignments for the specified series. If the axes does not have
-     * an assignment, then is assumed to be using the default x- and y-axes.
+     * Retrieves the x-axis and y-axis assignments for the specified series. If the axis does not have
+     * an assignment, then we assume it is using the default x- and y-axes.
      * @param seriesName The name of the series for which to retrieve the axes assignments
      * @return An {@link AxesAssignment} for the specified axes.
      */
     function axisAssignmentsFor(seriesName: string): AxesAssignment {
         return axisAssignmentsRef.current.get(seriesName) || {
-            xAxis: xAxesRef.current.axisDefaultId(),
-            yAxis: yAxesRef.current.axisDefaultId()
+            xAxis: xAxesStateRef.current.axisDefaultId(),
+            yAxis: yAxesStateRef.current.axisDefaultId()
         }
     }
 
     /**
-     * Called when the time is updated on one or more of the chart's axes (generally x-axes). In turn,
-     * dispatches the update to all the internal time update handlers.
-     * @param updates A map holding the axis ID to the updated axis time-range (i.e. map(axis_id, axis_time_range))
+     * Called when the domain/range is updated on one or more of the chart's axes (generally x-axes). In turn,
+     * dispatches the update to all the internal domain/range update handlers.
+     * @param updates A map holding the axis ID to the updated axis time-range (i.e., map(axis_id, axis_time_range))
      */
     function updateAxesBounds(updates: Map<string, AR>): void {
         // update the current time-ranges reference
-        updates.forEach((range, id) => axesBoundsRef.current.set(id, [range.start, range.end]))
+        updates.forEach((range, id) => {
+            axesBoundsRef.current.set(id, range.current)
+            axesRangeRef.current.set(id, range)
+        })
         // dispatch the updates to all the registered handlers
         axesBoundsUpdateHandlersRef.current.forEach((handler, ) => handler(updates, plotDimensions.plotDimensions))
     }
 
     /**
-     * Resets the bounds for the specified axis to the original range, or if the optional
-     * range is specified, then to the specified range. The optional range is helpful when
-     * the axes ranges are changing in response to a domain change, and the original bounds
-     * need to reflect that change.
+     * Sets the original bounds for the specified axis to the specified range.
+     * This function is helpful when the axis ranges are changing in response to a
+     * domain change or window resizing (ordinal axes), and the original bounds need to
+     * reflect that change.
      * @param axisId The ID of the axis
-     * @param axisRange The optional range to which to set the axis
+     * @param axisRangeProvider The axis range provider for the axis
+     * @param axisRange The range to which to set the original axis range
      */
-    function resetAxisBoundsFor(axisId: string, axisRange?: AxisRange): void {
-        if (axisRange !== undefined) {
-            const [start, end] = axisRange
-            const updates = new Map<string, ContinuousAxisRange>([[axisId, continuousAxisRangeFor(start, end)]])
-            updateAxesBounds(updates)
-        } else if (axesBoundsRef.current.has(axisId) && originalAxesBoundsRef.current.has(axisId)) {
-            const [start, end] = originalAxesBoundsRef.current.get(axisId) || anEmptyRange
-            const updates = new Map<string, ContinuousAxisRange>([[axisId, continuousAxisRangeFor(start, end)]])
-            updateAxesBounds(updates)
+    function setOriginalAxesBounds(axisId: string, axisRangeProvider: AxisRangeProvider<AR>, axisRange: AxisRangeTuple): void {
+        const [start, end] = axisRange
+        const updatedRange = axisRangeProvider(start, end)
+        originalAxesBoundsRef.current.set(axisId, updatedRange.current)
+
+        const range = axesRangeRef.current.get(axisId)
+        if (range !== undefined) {
+            range.current = updatedRange.current
         }
+        // const updates = new Map<string, AR>([[axisId, updatedRange]])
+        // updateAxesBounds(updates)
+        // axesBoundsUpdateHandlersRef.current.forEach((handler, ) => handler(updates, plotDimensions.plotDimensions))
     }
 
     /**
-     * Resets the bounds of all the axis to their original value, or to the values specified
-     * in the optional bounds map.
-     * @param [axisBounds=new Map()] An optional map holds bounds for specified axes. The map
-     * associates an axis ID to a new bounds.
+     * Resets the bounds for the specified axis to the original range
+     * @param axisId The ID of the axis
+     * @param axisRangeProvider The axis range provider for the axis
      */
-    function resetAxesBounds(axisBounds: Map<string, AxisRange> = new Map()): void {
-        const updates: Map<string, ContinuousAxisRange> = new Map(Array.from(axesBoundsRef.current.entries())
+    function resetAxisBoundsFor(axisId: string, axisRangeProvider: AxisRangeProvider<AR>): void {
+        if (axesBoundsRef.current.has(axisId) && originalAxesBoundsRef.current.has(axisId)) {
+            const [start, end] = originalAxesBoundsRef.current.get(axisId) || anEmptyRange
+            const updates = new Map<string, AR>([[axisId, axisRangeProvider(start, end)]])
+            updateAxesBounds(updates)
+        }
+    }
+    // function resetAxisBoundsFor(axisId: string, axisRangeProvider: AxisRangeProvider<AR>, axisRange?: AxisRangeTuple): void {
+    //     if (axisRange !== undefined) {
+    //         const [start, end] = axisRange
+    //         const updatedRange = axisRangeProvider(start, end)
+    //         originalAxesBoundsRef.current.set(axisId, updatedRange.current)
+    //         const updates = new Map<string, AR>([[axisId, updatedRange]])
+    //         updateAxesBounds(updates)
+    //     } else if (axesBoundsRef.current.has(axisId) && originalAxesBoundsRef.current.has(axisId)) {
+    //         const [start, end] = originalAxesBoundsRef.current.get(axisId) || anEmptyRange
+    //         const updates = new Map<string, AR>([[axisId, axisRangeProvider(start, end)]])
+    //         updateAxesBounds(updates)
+    //     }
+    // }
+
+    /**
+     * Resets the bounds of all the axes to their original value or to the values specified
+     * in the optional bounds map.
+     * @param axisRangeProviders The axis range providers for the axes.
+     * @param [axisBounds=new Map()] An optional map holds bounds for specified axes. The map
+     * associates an axis ID with the new bounds.
+     */
+    function resetAxesBounds(
+        axisRangeProviders: Map<string, AxisRangeProvider<AR>>,
+        axisBounds: Map<string, AxisRangeTuple> = new Map()
+    ): void {
+        const updates: Map<string, AR> = new Map(Array.from<[string, AxisRangeTuple]>(axesBoundsRef.current.entries())
             .filter(([id, _]) => originalAxesBoundsRef.current.has(id) || axisBounds.has(id))
             .map(([id, _]) => {
+                // grab the axis range provider for the axis
+                const axisRangeProvider = axisRangeProviders.get(id)
+                if (axisRangeProvider === undefined) {
+                    throw new Error(`No axis range provider for axis. Did you forget to add it to the axis range providers map? ` +
+                        `axis_id ${id}; ` +
+                        `specified_providers; [${Array.from(axisRangeProviders.keys()).join(", ")}]`
+                    )
+                }
+
                 // because of the filter, this will never be an empty range
                 if (axisBounds.has(id)) {
                     const [start, end] = axisBounds.get(id) || anEmptyRange
-                    return [id, continuousAxisRangeFor(start, end)]
+                    return [id, axisRangeProvider(start, end)]
                 }
                 const [start, end] = originalAxesBoundsRef.current.get(id) || anEmptyRange
-                return [id, continuousAxisRangeFor(start, end)]
+                return [id, axisRangeProvider(start, end)]
             }))
         updateAxesBounds(updates)
     }
 
+    /**
+     * Adds a handler to deal with updates to the bounds of the axes
+     * @param handlerId the unique ID of the handler
+     * @param handler The handler function that accepts a map of updates and a plot dimension
+     * @return A map with all the handlers
+     */
+    function addAxesBoundsUpdateHandler(
+        handlerId: string,
+        handler: (updates: Map<string, AR>, plotDim: Dimensions) => void
+    ): Map<string, (updates: Map<string, AR>, plotDim: Dimensions) => void> {
+        if (axesBoundsUpdateHandlersRef.current.has(handlerId)) {
+            throw new Error(
+                `Handler with ID already exists, please remove it before adding it; ` +
+                `handler_id: ${handlerId}; ` +
+                `existing_handler_ids: [${Array.from(axesBoundsUpdateHandlersRef.current.keys()).join(", ")}]`
+            )
+        }
+      return axesBoundsUpdateHandlersRef.current.set(handlerId, handler)
+    }
+
     return <AxesContext.Provider
         value={{
-            xAxesState: xAxesRef.current,
-            yAxesState: yAxesRef.current,
+            xAxesState: xAxesStateRef.current,
+            yAxesState: yAxesStateRef.current,
             addXAxis: (axis, id, range) => {
-                xAxesRef.current = addAxisTo(xAxesRef.current, axis, id)
+                xAxesStateRef.current = addAxisTo<A>(xAxesStateRef.current, axis, id)
                 if (range !== undefined) {
                     originalAxesBoundsRef.current.set(id, range)
                     axesBoundsRef.current.set(id, range)
                 }
             },
             addYAxis: (axis, id, range) => {
-                yAxesRef.current = addAxisTo(yAxesRef.current, axis, id)
+                yAxesStateRef.current = addAxisTo<A>(yAxesStateRef.current, axis, id)
                 if (range !== undefined) {
                     originalAxesBoundsRef.current.set(id, range)
                     axesBoundsRef.current.set(id, range)
@@ -252,13 +359,16 @@ export default function AxesProvider<AR>(props: Props): JSX.Element {
             axisAssignmentsFor: seriesName => axisAssignmentsFor(seriesName),
             axisBoundsFor: axisId => axesBoundsRef.current.get(axisId) || anEmptyRange,
             originalAxisBoundsFor: axisId => originalAxesBoundsRef.current.get(axisId) || anEmptyRange,
-            originalAxisBounds: () => copyRangeMap(originalAxesBoundsRef.current),
-            setAxisBoundsFor: ((axisId, range) => axesBoundsRef.current.set(axisId, range)),
+            setOriginalAxisBoundsFor: (axisId, range) => originalAxesBoundsRef.current.set(axisId, range),
+            setOriginalAxesBounds,
+            originalAxesBounds: () => copyRangeMap(originalAxesBoundsRef.current),
+            setAxisBoundsFor: (axisId, range) => axesBoundsRef.current.set(axisId, range),
             updateAxesBounds,
+            axesBounds: () => new Map(axesRangeRef.current),
             resetAxisBoundsFor,
             resetAxesBounds,
             onUpdateAxesBounds,
-            addAxesBoundsUpdateHandler: (handlerId, handler) => axesBoundsUpdateHandlersRef.current.set(handlerId, handler),
+            addAxesBoundsUpdateHandler,
             removeAxesBoundsUpdateHandler: handlerId => axesBoundsUpdateHandlersRef.current.delete(handlerId),
         }}
     >
@@ -270,8 +380,8 @@ export default function AxesProvider<AR>(props: Props): JSX.Element {
  * React hook that sets up the React context for the chart values.
  * @return The {@link UseAxesValues} held in the React context.
  */
-export function useAxes(): UseAxesValues {
-    const context = useContext<UseAxesValues>(AxesContext)
+export function useAxes<AR extends BaseAxisRange, A extends BaseAxis>(): UseAxesValues<AR, A> {
+    const context = useContext<UseAxesValues<AR, A>>(AxesContext)
     const {xAxesState} = context
     if (xAxesState === undefined || xAxesState === null) {
         throw new Error("useAxes can only be used when the parent is a <AxesProvider/>")
