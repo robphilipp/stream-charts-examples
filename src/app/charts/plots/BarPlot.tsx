@@ -37,7 +37,7 @@ import {
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
 import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
-import {AxisRangeTuple, axisRangeTupleFrom} from "../hooks/useAxes";
+import {axisRangeTupleFrom} from "../axes/axisRangeTuple";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {

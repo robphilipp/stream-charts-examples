@@ -16,7 +16,7 @@ import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalAxisRange} from "./ordinalAxisRangeFor";
 import {Datum} from "../series/timeSeries";
-import {axisRangeTupleFrom} from "../hooks/useAxes";
+import {axisRangeTupleFrom, updateAxisRangeEnd} from "./axisRangeTuple";
 
 interface Props {
     // the unique ID of the axis
@@ -91,7 +91,6 @@ export function OrdinalAxis(props: Props): null {
     const {
         axisId,
         location,
-        // scale = d3.scaleBand(),
         categories,
         updateAxisBasedOnDomainValues = true,
         label,
@@ -106,26 +105,22 @@ export function OrdinalAxis(props: Props): null {
     // based on the change in the size
     useEffect(
         () => {
-            // todo when resizing the original axis range is set to the plot dimensions but should include the current range
             const handlerId = registerPlotDimensionChangeHandler((oldDimension, newDimension) => {
                 if (axis !== undefined) {
                     if (location === AxisLocation.Top || location === AxisLocation.Bottom) {
                         // update the current axis range
-                        const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
                         const widthChange = newDimension.width - oldDimension.width
-                        const updatedRange = axisRangeTupleFrom(rangeStart, rangeEnd + widthChange)
+                        const updatedRange = updateAxisRangeEnd(axisBoundsFor(axisId), widthChange)
 
                         const originalUpdatedRange = axisRangeTupleFrom(0, plotDimensions.width)
                         axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
                     }
                     if (location === AxisLocation.Left || location === AxisLocation.Right) {
-                        const [rangeStart, rangeEnd] = axisBoundsFor(axisId)
                         const heightChange = newDimension.height - oldDimension.height
-                        const updatedRange = axisRangeTupleFrom(rangeStart, rangeEnd + heightChange)
+                        const updatedRange = updateAxisRangeEnd(axisBoundsFor(axisId), heightChange)
 
-                        const originalRange = originalAxisBoundsFor(axisId)
                         const originalHeightChange = newDimension.height - oldDimension.height
-                        const originalUpdatedRange = axisRangeTupleFrom(originalRange[0], originalRange[1] + originalHeightChange)
+                        const originalUpdatedRange = updateAxisRangeEnd(originalAxisBoundsFor(axisId), originalHeightChange)
 
                         axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
                     }

@@ -30,7 +30,7 @@ import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData} from "../hooks/useTooltip";
-import {AxisRangeTuple} from "../hooks/useAxes";
+import {AxisRangeTuple} from "../axes/axisRangeTuple";
 
 interface Props {
     /**

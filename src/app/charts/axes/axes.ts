@@ -9,7 +9,7 @@ import {BaseSeries} from "../series/baseSeries";
 import {noop} from "../utils";
 import {OrdinalAxisRange, ordinalAxisRangeFor} from "./ordinalAxisRangeFor";
 import {BaseAxisRange} from "./BaseAxisRange";
-import {AxisRangeTuple, axisRangeTupleFrom} from "../hooks/useAxes";
+import {axisRangeEnd, axisRangeStart, AxisRangeTuple, axisRangeTupleFrom} from "./axisRangeTuple";
 
 export type AxisTickStyle = {
     font: AxesFont
@@ -70,7 +70,7 @@ export interface BaseAxis {
 export interface ContinuousNumericAxis extends BaseAxis {
     scale: ScaleContinuousNumeric<number, number>
     generator: Axis<number | { valueOf(): number }>
-    update: (domain: [startValue: number, endValue: number], plotDimensions: Dimensions, margin: Margin) => void
+    update: (domain: AxisRangeTuple, plotDimensions: Dimensions, margin: Margin) => void
 }
 
 export interface OrdinalStringAxis extends BaseAxis {
@@ -78,7 +78,6 @@ export interface OrdinalStringAxis extends BaseAxis {
     generator: Axis<string>
     categorySize: number
     update: (range: AxisRangeTuple, originalRange: AxisRangeTuple, plotDimensions: Dimensions, margin: Margin) => number
-    // updateOriginalRange: (range: [startValue: number, endValue: number]) => void
 }
 
 export enum AxisLocation {
@@ -331,7 +330,7 @@ function updateOrdinalStringXAxis(
     svg: SvgSelection,
     location: AxisLocation.Bottom | AxisLocation.Top,
     names: Array<string>,   // domain
-    range: [start: number, end: number], // range
+    range: AxisRangeTuple, // range
     // unfilteredSize: number,
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
@@ -353,8 +352,13 @@ function updateOrdinalStringXAxis(
     return axis.scale.bandwidth()
 }
 
-function measure(range: [start: number, end: number]): number {
-    return Math.abs(range[1] - range[0])
+/**
+ * Calculates the measure of the axis range
+ * @param rangeTuple The tuple representing the ordinal-axis range (e.g. start and end)
+ * @return The measure of the axis range
+ */
+function measure(rangeTuple: AxisRangeTuple): number {
+    return Math.abs(axisRangeEnd(rangeTuple) - axisRangeStart(rangeTuple))
 }
 
 /**
@@ -380,7 +384,7 @@ function updateOrdinalStringYAxis(
     svg: SvgSelection,
     location: AxisLocation.Left | AxisLocation.Right,
     names: Array<string>,       // domain
-    range: [startValue: number, endValue: number], // range
+    range: AxisRangeTuple, // range
     unfilteredSize: number,
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
@@ -509,7 +513,7 @@ export function addContinuousNumericXAxis(
     axesLabelFont: AxesFont,
     margin: Margin,
     axisLabel: string,
-    setAxisRangeFor: (axisId: string, timeRange: [start: number, end: number]) => void,
+    setAxisRangeFor: (axisId: string, timeRange: AxisRangeTuple) => void,
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([0, plotDimensions.width])
 
@@ -538,7 +542,7 @@ export function addContinuousNumericXAxis(
     }
     return {
         ...axis,
-        update: (domain: [start: number, end: number], plotDimensions: Dimensions, margin: Margin) => {
+        update: (domain: AxisRangeTuple, plotDimensions: Dimensions, margin: Margin) => {
             updateLinearXAxis(domain, axisLabel, chartId, svg, axis, plotDimensions, margin, location)
             setAxisRangeFor(axisId, domain)
         }
@@ -557,7 +561,7 @@ export function addContinuousNumericXAxis(
  * @param location The location of the axis (i.e. top, bottom, left, right)
  */
 function updateLinearXAxis(
-    domain: [startValue: number, endValue: number],
+    domain: AxisRangeTuple,
     label: string,
     chartId: number,
     svg: SvgSelection,
@@ -616,7 +620,7 @@ export function addContinuousNumericYAxis(
     axesLabelFont: AxesFont,
     margin: Margin,
     axisLabel: string,
-    setAxisRangeFor: (axisId: string, range: [start: number, end: number]) => void,
+    setAxisRangeFor: (axisId: string, range: AxisRangeTuple) => void,
 ): ContinuousNumericAxis {
     const scale = scaleGenerator
         .domain(domain)
@@ -648,7 +652,7 @@ export function addContinuousNumericYAxis(
     }
     return {
         ...axis,
-        update: (domain: [start: number, end: number], plotDimensions: Dimensions, margin: Margin) => {
+        update: (domain: AxisRangeTuple, plotDimensions: Dimensions, margin: Margin) => {
             updateLinearYAxis(domain, axisLabel, chartId, svg, axis, plotDimensions, margin, axesLabelFont, location)
             setAxisRangeFor(axisId, domain)
         }
@@ -668,7 +672,7 @@ export function addContinuousNumericYAxis(
  * @param location The location of the axis (i.e. top, bottom, left, right)
  */
 function updateLinearYAxis(
-    domain: [startValue: number, endValue: number],
+    domain: AxisRangeTuple,
     label: string,
     chartId: number,
     svg: SvgSelection,

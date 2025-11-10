@@ -5,6 +5,7 @@ import {createContext, JSX, useContext, useRef} from "react";
 import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "./usePlotDimensions";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
+import {anEmptyRange, AxisRangeTuple, copyRangeMap} from "../axes/axisRangeTuple";
 
 /**
  * No operation function for use when a default function is needed
@@ -12,44 +13,6 @@ import {BaseAxisRange} from "../axes/BaseAxisRange";
 const noop = () => {
     /* empty on purpose */
 }
-
-/**
- * The range of an axis is the physical (start, end) pixels on the screen for the axis.
- * This is the pixel-space of the axis (where as the domain is the data-space of the axis,
- * for example, the tick values).
- */
-export type AxisRangeTuple = [start: number, end: number]
-
-/**
- * Creates an axis range tuple from the specified start and end values
- * @param start The axis-range start value
- * @param end The axis-range end value
- * @return The axis-range tuple
- */
-export function axisRangeTupleFrom(start: number, end: number): AxisRangeTuple {
-    return [Math.min(start, end), Math.max(start, end)]
-}
-
-/**
- * Creates an axis range tuple from the specified tuple
- * @param tuple The tuple to convert
- * @return The axis-range tuple
- */
-export function asAxisRangeTuple(tuple: [start: number, end: number]): AxisRangeTuple {
-    return axisRangeTupleFrom(tuple[0], tuple[1])
-}
-
-const anEmptyRange: AxisRangeTuple = [NaN, NaN]
-
-/**
- * Creates a copy of the specified map(axis_id, (start, end))
- * @param ranges The ranges map to copy
- * @return A copy of the specified map(axis_id, (start, end))
- */
-const copyRangeMap = (ranges: Map<string, AxisRangeTuple>): Map<string, AxisRangeTuple> =>
-    new Map(Array.from(ranges.entries())
-        .map(([id, [start, end]]) => [id, axisRangeTupleFrom(start, end)])
-    )
 
 /**
  * Type definition for an axis-range provider function. This type defines a function that
@@ -127,7 +90,7 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
      * @param axisId The ID of the axis for which to set the range
      * @param domain The new domain as a `[start: number, end: number]` tuple
      */
-    setAxisBoundsFor: (axisId: string, domain: [start: number, end: number]) => void
+    setAxisBoundsFor: (axisId: string, domain: AxisRangeTuple) => void
     /**
      * Sets the original bounds for the specified axis to the specified range.
      * This function is helpful when the axis ranges are changing in response to a
@@ -215,7 +178,7 @@ type Props = {
      * Callback when axes bounds change.
      * @param ranges The ranges (start, end) for each axis in the plot
      */
-    onUpdateAxesBounds?: (ranges: Map<string, [start: number, end: number]>) => void
+    onUpdateAxesBounds?: (ranges: Map<string, AxisRangeTuple>) => void
 
     children: JSX.Element | Array<JSX.Element>
 }

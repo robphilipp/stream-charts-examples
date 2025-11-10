@@ -32,7 +32,7 @@ import {ChartData} from "../observables/ChartData";
 import {OrdinalDatum} from "../series/ordinalSeries";
 import {RefObject} from "react";
 import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
-import {AxisRangeTuple} from "../hooks/useAxes";
+import {AxisRangeTuple} from "../axes/axisRangeTuple";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 

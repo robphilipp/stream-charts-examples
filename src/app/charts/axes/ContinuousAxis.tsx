@@ -15,6 +15,7 @@ import {Dimensions, Margin} from "../styling/margins";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
+import {AxisRangeTuple} from "./axisRangeTuple";
 
 interface Props {
     // the unique ID of the axis
@@ -95,7 +96,7 @@ export function ContinuousAxis(props: Props): null {
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
-    const domainRef = useRef<[start: number, end: number]>(domain)
+    const domainRef = useRef<AxisRangeTuple>(domain)
     useEffect(
         () => {
             axisIdRef.current = axisId
