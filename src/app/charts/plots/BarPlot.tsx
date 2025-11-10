@@ -953,25 +953,6 @@ function axesFor(
     return [xAxisCategory, yAxisContinuous]
 }
 
-// /**
-//  * Calculates the upper and lower coordinate for the category
-//  * @param categorySize The size of the category (i.e. plot_height / num_series)
-//  * @param lineWidth The width of the series line
-//  * @param margin The margin applied to the top and bottom of the spike line (vertical spacing)
-//  * @return An object with two functions, that when handed a y-coordinate, return the location
-//  * for the start (yUpper) or end (yLower) of the spikes line.
-//  */
-// function yAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: number): CategoryBounds {
-//     if (categorySize <= margin) return {
-//         upper: value => value,
-//         lower: value => value + lineWidth
-//     }
-//     return {
-//         upper: value => value + margin,
-//         lower: value => value + categorySize - margin
-//     }
-// }
-
 /**
  * Calculates the upper and lower coordinate for the category
  * @param categorySize The size of the category (i.e. plot_height / num_series)
@@ -1003,6 +984,7 @@ function xAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: 
  * @param defaultBarSeriesStyle The default bar series style that is used if no style is found for the series
  * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
+ * @param tooltipProvider The ID of the tooltip provider
  */
 function handleMouseOverBar(
     container: SVGSVGElement,
@@ -1027,26 +1009,6 @@ function handleMouseOverBar(
     const value = yAxis.scale.invert(y - margin.top)
 
     const {name: categoryName, data: selectedData} = selectedSeries
-    // const {valueLine, windowedMeanValueLine} = barStyles.get(categoryName) || defaultBarSeriesStyle
-    //
-    // // // Use d3 to select element, change color and size
-    // // d3.select<SVGPathElement, Datum>(event.currentTarget)
-    // //     .style(STROKE_COLOR, valueLine.highlight.color)
-    // //     .style(STROKE_WIDTH, valueLine.highlight.width)
-    // //     .style(STROKE_OPACITY, valueLine.highlight.opacity)
-    // if (tooltipProvider === CURRENT_VALUE_TOOLTIP_PROVIDER) {
-    //     // Use d3 to select element, change color and size
-    //     d3.select<SVGPathElement, Datum>(event.currentTarget)
-    //         .style(STROKE_COLOR, valueLine.highlight.color)
-    //         .style(STROKE_WIDTH, valueLine.highlight.width)
-    //         .style(STROKE_OPACITY, valueLine.highlight.opacity)
-    // } else if (tooltipProvider === WINDOWED_MEAN_VALUE_TOOLTIP_PROVIDER) {
-    //     // Use d3 to select element, change color and size
-    //     d3.select<SVGPathElement, Datum>(event.currentTarget)
-    //         .style(STROKE_COLOR, windowedMeanValueLine.highlight.color)
-    //         .style(STROKE_WIDTH, windowedMeanValueLine.highlight.width)
-    //         .style(STROKE_OPACITY, windowedMeanValueLine.highlight.opacity)
-    // }
 
     const barSeriesStyle = barStyles.get(categoryName) || defaultBarSeriesStyle
     const lineStyle = lineStyleFor(tooltipProvider, barSeriesStyle)

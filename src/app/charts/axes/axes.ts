@@ -88,6 +88,48 @@ export enum AxisLocation {
 }
 
 /*
+        axis clip path definition
+ */
+
+/**
+ * Adds a clip area for the chart to the specified SVG element. The clip-area is given
+ * an `id` of `clip-series-<chart_id>`, which because the chart ID should be unique, makes
+ * this unique as well
+ * @param chartId The ID of the chart to which the clip area is to be added
+ * @param axisId The ID of the axis to which the clip area is to be added
+ * @param svg The SVG element to which the clip area is to be added
+ * @param location The location of the axis
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins around the plot
+ * @return The ID of the clip-path
+ */
+export function setClipPath(
+    chartId: number,
+    axisId: string,
+    svg: SvgSelection,
+    location: AxisLocation,
+    plotDimensions: Dimensions,
+    margin: Margin
+): string {
+    const clipPathId = `chart-clip-path-${chartId}-${axisId}`
+
+    // todo fix this and the setClipPath method in plot.ts (this removes all the defs, which includes the plot's clip path)
+    // remove the old clipping region and add a new one with the updated plot dimensions
+    svg.select(`#${clipPathId}-defs`).remove();
+    svg
+        .append('defs')
+        .attr('id', `${clipPathId}-defs`)
+        .append("clipPath")
+        .attr("id", clipPathId)
+        .append("rect")
+        .attr("width", Math.max(0, plotDimensions.width))
+        .attr("height", Math.max(margin.bottom, plotDimensions.height - margin.bottom))
+
+    return clipPathId
+}
+
+
+/*
         category axes
  */
 
@@ -105,6 +147,8 @@ export enum AxisLocation {
  * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
+ * @param setAxisRangeFor Lambda that sets the axis range for the specified axis
+ * @param setOriginalAxisRangeFor Lambda that sets the original axis range for the specified axis
  * @return A category axis
  */
 export function addOrdinalStringAxis(
@@ -124,10 +168,30 @@ export function addOrdinalStringAxis(
     switch (location) {
         case AxisLocation.Top:
         case AxisLocation.Bottom:
-            return addOrdinalStringXAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin, setAxisRangeFor, setOriginalAxisRangeFor)
+            return addOrdinalStringXAxis(
+                chartId, axisId,
+                svg,
+                location,
+                categories,
+                axisLabel, axesLabelFont, axisTickStyle,
+                plotDimensions,
+                margin,
+                setAxisRangeFor,
+                setOriginalAxisRangeFor
+            )
         case AxisLocation.Left:
         case AxisLocation.Right:
-            return addOrdinalStringYAxis(chartId, axisId, svg, location, categories, axisLabel, axesLabelFont, axisTickStyle, plotDimensions, margin, setAxisRangeFor, setOriginalAxisRangeFor)
+            return addOrdinalStringYAxis(
+                chartId, axisId,
+                svg,
+                location,
+                categories,
+                axisLabel, axesLabelFont, axisTickStyle,
+                plotDimensions,
+                margin,
+                setAxisRangeFor,
+                setOriginalAxisRangeFor
+            )
 
     }
 }
@@ -145,6 +209,7 @@ export function addOrdinalStringAxis(
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
  * @param setAxisRangeFor Lambda that sets the axis range for the specified axis
+ * @param setOriginalAxisRangeFor Lambda that sets the original axis range for the specified axis
  * @return A category axis
  */
 function addOrdinalStringXAxis(
@@ -234,6 +299,7 @@ function addOrdinalStringXAxis(
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
  * @param setAxisRangeFor Lambda that sets the axis range for the specified axis
+ * @param setOriginalAxisRangeFor Lambda that sets the original axis range for the specified axis
  * @return A category axis
  */
 function addOrdinalStringYAxis(
@@ -316,7 +382,7 @@ function addOrdinalStringYAxis(
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
- * @param unfilteredSize The number of categories before any filtering has been applied
+ * @param range The range of the axis (e.g. start and end)
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
@@ -331,7 +397,6 @@ function updateOrdinalStringXAxis(
     location: AxisLocation.Bottom | AxisLocation.Top,
     names: Array<string>,   // domain
     range: AxisRangeTuple, // range
-    // unfilteredSize: number,
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
     margin: Margin,
@@ -345,9 +410,11 @@ function updateOrdinalStringXAxis(
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .call(axis.generator)
 
+    const xLabelTranslation = ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)
+    const yLabelTranslation = ordinalLabelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)
     svg
         .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)})`)
+        .attr('transform', `translate(${xLabelTranslation}, ${yLabelTranslation})`)
 
     return axis.scale.bandwidth()
 }
@@ -369,6 +436,7 @@ function measure(rangeTuple: AxisRangeTuple): number {
  * @param svg The SVG selection (d3)
  * @param location The location of the axis
  * @param names An array holding the category names
+ * @param range The range of the axis (e.g. start and end)
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin

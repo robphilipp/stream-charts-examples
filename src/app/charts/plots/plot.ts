@@ -40,9 +40,10 @@ export function setClipPath(chartId: number, svg: SvgSelection, plotDimensions: 
     const clipPathId = `chart-clip-path-${chartId}`
 
     // remove the old clipping region and add a new one with the updated plot dimensions
-    svg.select('defs').remove();
+    svg.select(`#${clipPathId}-defs`).remove();
     svg
         .append('defs')
+        .attr('id', `${clipPathId}-defs`)
         .append("clipPath")
         .attr("id", clipPathId)
         .append("rect")

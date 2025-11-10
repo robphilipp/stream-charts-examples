@@ -39,7 +39,7 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
      * @param id The ID of the axis to add
      * @param domain The initial axis range (start, end)
      */
-    addXAxis: (axis: A, id: string, range?: [start: number, end: number]) => void
+    addXAxis: (axis: A, id: string, range?: AxisRangeTuple) => void
     /**
      * The y-axes state holds the currently set x-axes, manipulation and accessor functions
      */
@@ -50,7 +50,7 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
      * @param id The ID of the axis to add
      * @param domain The initial axis range (start, end)
      */
-    addYAxis: (axis: A, id: string, range?: [start: number, end: number]) => void
+    addYAxis: (axis: A, id: string, range?: AxisRangeTuple) => void
     /**
      * Sets the axis assigned to each series. This should contain **all** the series used in
      * the chart.
