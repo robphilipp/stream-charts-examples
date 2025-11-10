@@ -4,7 +4,7 @@ import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
-import {ContinuousNumericAxis, OrdinalStringAxis, SeriesLineStyle} from "../axes/axes";
+import {OrdinalStringAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
 import {TooltipData} from "../hooks/useTooltip";
@@ -244,7 +244,6 @@ function addTooltipContent(
         .attr('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
         .text(() => `${formatters.x(spikeTime)}, ${formatters.y(value)}`)
-        // .text(() => `${d3.format(",.0f")(spikeTime)} ms, ${d3.format(",.2f")(value)} mV`)
 
     // calculate the max width and height of the text
     const tooltipWidth = Math.max(header.node()?.getBBox()?.width || 0, text.node()?.getBBox()?.width || 0);
