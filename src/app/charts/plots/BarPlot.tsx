@@ -763,7 +763,7 @@ export function BarPlot(props: Props): null {
 
             }
         },
-        [axesBounds, container, mainG, updatePlot, xAxesState.axes]
+        [axesBounds, container, mainG, plotDimensions.width, updatePlot, xAxesState.axes]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`

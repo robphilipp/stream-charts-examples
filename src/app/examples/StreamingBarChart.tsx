@@ -35,6 +35,7 @@ import {OrdinalDatum} from "../charts/series/ordinalSeries";
 import {BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
 import {WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
 import {AxisRangeTuple} from "../charts/axes/axisRangeTuple";
+import {assignAxes} from "../charts/plots/plot";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -413,6 +414,12 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
                         // withCadenceOf={50}
+
+                        // to have the upper axis zoom when the series zoom, we must have at
+                        // least one series assigned to this axis.
+                        axisAssignments={new Map([
+                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                        ])}
 
                         showMinMaxBars={showMinMax}
                         showValueLines={showValue}
