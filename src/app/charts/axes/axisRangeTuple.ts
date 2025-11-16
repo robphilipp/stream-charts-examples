@@ -46,9 +46,9 @@ export function axisRangeEnd(rangeTuple: AxisRangeTuple): number {
  * Updates the start value of the specified axis range tuple
  * @param rangeTuple The tuple representing the ordinal-axis range (e.g. start and end)
  * @param delta The amount by which to update the start value
- * @return The updated axis range tuple
+ * @return A new axis range tuple
  */
-export function updateAxisRangeStart(rangeTuple: AxisRangeTuple, delta: number) {
+export function translateAxisRangeStart(rangeTuple: AxisRangeTuple, delta: number) {
     const start = axisRangeStart(rangeTuple) + delta
     const end = axisRangeEnd(rangeTuple)
     return axisRangeTupleFrom(start, end)
@@ -58,9 +58,9 @@ export function updateAxisRangeStart(rangeTuple: AxisRangeTuple, delta: number) 
  * Updates the end value of the specified axis range tuple
  * @param rangeTuple The tuple representing the ordinal-axis range (e.g. start and end)
  * @param delta The amount by which to update the end value
- * @return The updated axis range tuple
+ * @return The new axis range tuple
  */
-export function updateAxisRangeEnd(rangeTuple: AxisRangeTuple, delta: number) {
+export function translateAxisRangeEnd(rangeTuple: AxisRangeTuple, delta: number) {
     const start = axisRangeStart(rangeTuple)
     const end = axisRangeEnd(rangeTuple) + delta
     return axisRangeTupleFrom(start, end)

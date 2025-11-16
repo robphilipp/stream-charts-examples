@@ -16,7 +16,7 @@ import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalAxisRange} from "./ordinalAxisRangeFor";
 import {Datum} from "../series/timeSeries";
-import {axisRangeTupleFrom, updateAxisRangeEnd} from "./axisRangeTuple";
+import {axisRangeTupleFrom, translateAxisRangeEnd} from "./axisRangeTuple";
 
 interface Props {
     // the unique ID of the axis
@@ -110,17 +110,22 @@ export function OrdinalAxis(props: Props): null {
                     if (location === AxisLocation.Top || location === AxisLocation.Bottom) {
                         // update the current axis range
                         const widthChange = newDimension.width - oldDimension.width
-                        const updatedRange = updateAxisRangeEnd(axisBoundsFor(axisId), widthChange)
+                        const updatedRange = translateAxisRangeEnd(axisBoundsFor(axisId), widthChange)
+                        // const [currentStart, currentEnd] = axisBoundsFor(axisId)
+                        // const updatedRange = axisRangeTupleFrom(
+                        //     currentStart - widthChange / 2,
+                        //     currentEnd + widthChange / 2
+                        // )
 
                         const originalUpdatedRange = axisRangeTupleFrom(0, plotDimensions.width)
                         axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
                     }
                     if (location === AxisLocation.Left || location === AxisLocation.Right) {
                         const heightChange = newDimension.height - oldDimension.height
-                        const updatedRange = updateAxisRangeEnd(axisBoundsFor(axisId), heightChange)
+                        const updatedRange = translateAxisRangeEnd(axisBoundsFor(axisId), heightChange)
 
                         const originalHeightChange = newDimension.height - oldDimension.height
-                        const originalUpdatedRange = updateAxisRangeEnd(originalAxisBoundsFor(axisId), originalHeightChange)
+                        const originalUpdatedRange = translateAxisRangeEnd(originalAxisBoundsFor(axisId), originalHeightChange)
 
                         axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
                     }

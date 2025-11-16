@@ -113,17 +113,28 @@ export function setClipPath(
 ): string {
     const clipPathId = `chart-clip-path-${chartId}-${axisId}`
 
-    // todo fix this and the setClipPath method in plot.ts (this removes all the defs, which includes the plot's clip path)
+    // calculate the width and height of the clip-area for the axis
+    const width = location === AxisLocation.Left ? margin.right :
+        location === AxisLocation.Right ? margin.left :
+            plotDimensions.width
+
+    const height = location === AxisLocation.Top ? margin.bottom :
+        location === AxisLocation.Bottom ? margin.top :
+            plotDimensions.height
+
     // remove the old clipping region and add a new one with the updated plot dimensions
     svg.select(`#${clipPathId}-defs`).remove();
     svg
         .append('defs')
-        .attr('id', `${clipPathId}-defs`)
+            .attr('id', `${clipPathId}-defs`)
         .append("clipPath")
-        .attr("id", clipPathId)
+            .attr("id", clipPathId)
         .append("rect")
-        .attr("width", Math.max(0, plotDimensions.width))
-        .attr("height", Math.max(margin.bottom, plotDimensions.height - margin.bottom))
+            .attr("x", 0)
+            .attr("y", 0)
+            .attr("width", width)
+            .attr("height", height)
+            // .attr("height", Math.max(margin.bottom, plotDimensions.height - margin.bottom))
 
     return clipPathId
 }
@@ -234,12 +245,14 @@ function addOrdinalStringXAxis(
     // create and add the axes
     const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
 
+    const clipPathId = setClipPath(chartId, axisId, svg, location, plotDimensions, margin)
     const selection = svg
         .append<SVGGElement>('g')
-        .attr('id', `x-axis-selection-${chartId}`)
+        .attr('id', `x-axis-selection-${chartId}-${axisId}`)
+        .attr("clip-path", `url(#${clipPathId})`)
         .classed('x-axis', true)
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
-        .call(generator);
+        .call(generator)
 
     // rotate the tick-labels by the specified amount (in degrees)
     let maxTickLabelHeight = 0
@@ -247,12 +260,12 @@ function addOrdinalStringXAxis(
     selection
         .selectAll("text")
         .style("text-anchor", "end")
-        .each(function()  {
+        .each(function () {
             const degrees = location === AxisLocation.Bottom ? -rotation : rotation
             const radians = degrees * Math.PI / 180
             const {width, height, x, y} = (this as SVGTextElement).getBBox()
             const xOrigin = x + width
-            const yOrigin = location === AxisLocation.Bottom ? y + height / 2: y + height / 2
+            const yOrigin = location === AxisLocation.Bottom ? y + height / 2 : y + height / 2
 
             d3.select(this)
                 .attr("transform", () => `translate(${width * Math.cos(radians) / 2}, 0) rotate(${degrees}, ${xOrigin}, ${yOrigin})`)
@@ -318,7 +331,8 @@ function addOrdinalStringYAxis(
 ): OrdinalStringAxis {
     const scale = d3.scaleBand()
         .domain(categories)
-        .range([0, plotDimensions.width])
+        .range([0, plotDimensions.height - margin.bottom])
+        // .range([0, plotDimensions.width])
     const categorySize = scale.bandwidth()
 
     // create and add the axes
@@ -336,12 +350,12 @@ function addOrdinalStringYAxis(
     selection
         .selectAll("text")
         .style("text-anchor", "end")
-        .each(function()  {
+        .each(function () {
             const degrees = location === AxisLocation.Left ? -rotation : rotation
             const {width, height, x, y} = (this as SVGTextElement).getBBox()
-            const xTranslation = location === AxisLocation.Left ? 0: width
+            const xTranslation = location === AxisLocation.Left ? 0 : width
             const xOrigin = x + width
-            const yOrigin = location === AxisLocation.Left ? y + height / 2: y + height / 2
+            const yOrigin = location === AxisLocation.Left ? y + height / 2 : y + height / 2
 
             d3.select(this)
                 .attr("transform", () => `translate(${xTranslation}, 0) rotate(${degrees}, ${xOrigin}, ${yOrigin})`)
@@ -402,12 +416,23 @@ function updateOrdinalStringXAxis(
     margin: Margin,
     tickHeight: number
 ): number {
-    const updatedRange = [Math.min(range[0], 0), Math.max(range[1], plotDimensions.width)]
-    axis.scale
+    const updatedRange = axisRangeTupleFrom(
+        Math.min(axisRangeStart(range), 0),
+        Math.max(axisRangeEnd(range), plotDimensions.width)
+    )
+
+    // axis.scale
+    axis.scale = axis.scale
         .domain(names)
         .range(updatedRange)
-    axis.selection
+
+    axis.categorySize = axis.scale.bandwidth()
+
+    const clipPathId = setClipPath(chartId, axis.axisId, svg, location, plotDimensions, margin)
+    // axis.selection
+    axis.selection = axis.selection
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
+        .attr("clip-path", `url(#${clipPathId})`)
         .call(axis.generator)
 
     const xLabelTranslation = ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)
@@ -416,7 +441,7 @@ function updateOrdinalStringXAxis(
         .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${xLabelTranslation}, ${yLabelTranslation})`)
 
-    return axis.scale.bandwidth()
+    return axis.categorySize
 }
 
 /**
@@ -458,12 +483,18 @@ function updateOrdinalStringYAxis(
     plotDimensions: Dimensions,
     margin: Margin,
 ): number {
-    const categorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize)
-    const updatedRange = (measure(range) === categorySize * names.length) ? range: [0, categorySize * names.length]
-    axis.scale
+    const updatedRange = axisRangeTupleFrom(
+        Math.min(axisRangeStart(range), 0),
+        Math.max(axisRangeEnd(range), plotDimensions.height - margin.bottom)
+    )
+    // const categorySize = ordinalSizeFor(location, plotDimensions, margin, unfilteredSize)
+    // const updatedRange = (measure(range) === categorySize * names.length) ? range : [0, categorySize * names.length]
+
+    axis.scale = axis.scale
         .domain(names)
         .range(updatedRange)
-    axis.selection
+    axis.categorySize = axis.scale.bandwidth()
+    axis.selection = axis.selection
         .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
         .call(axis.generator)
 
@@ -471,7 +502,7 @@ function updateOrdinalStringYAxis(
         .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
 
-    return categorySize
+    return axis.categorySize
 }
 
 /**
@@ -517,7 +548,7 @@ function ordinalLabelXTranslation(
                 margin.left + plotDimensions.width + margin.right - axesLabelFont.size
         case AxisLocation.Top:
         case AxisLocation.Bottom:
-                return (plotDimensions.width + margin.left + margin.right) / 2
+            return (plotDimensions.width + margin.left + margin.right) / 2
     }
 }
 
@@ -937,6 +968,7 @@ export function calculateOrdinalPanFor(
     plotDimensions: Dimensions,
     constrainToOriginalRange: boolean = false
 ): OrdinalAxisRange {
+    console.log('calculateOrdinalPanFor', delta, range, plotDimensions)
     const [currentStart, currentEnd] = range.current
     const constraint: [start: number, end: number] = constrainToOriginalRange ?
         range.original :
@@ -1248,7 +1280,6 @@ function calcOrdinalZoomAndUpdate(
         setRangeFor(axisId, zoom.range.current)
         const origRange = axisRangeTupleFrom(0, plotDimensions.width)
         setOriginalRangeFor(axisId, origRange)
-        // setOriginalRangeFor(axisId, zoom.range.original)
 
         // update the axis' range
         axis.update(zoom.range.current, origRange, plotDimensions, margin)
