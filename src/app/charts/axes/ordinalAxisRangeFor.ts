@@ -1,4 +1,5 @@
 import {BaseAxisRange} from "./BaseAxisRange";
+import {AxisRangeTuple, axisRangeTupleFrom} from "./axisRangeTuple";
 
 /**
  * The continuous-axis range contract
@@ -125,4 +126,27 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
     }
 
     return updateAxisRange(originalStart, originalEnd);
+}
+
+export type AxisRanges = {
+    range: AxisRangeTuple,
+    original: AxisRangeTuple
+}
+
+/**
+ * Assumes that the original ranges start at 0 and end at the width or height of the plot
+ * @param previousDimension
+ * @param currentDimension
+ * @param previousRange
+ */
+export function scaleOrdinalBounds(previousDimension: number, currentDimension: number, previousRange: AxisRangeTuple): AxisRanges {
+    const [start, end] = previousRange
+    const delta = (end - start ) * (currentDimension - previousDimension) / previousDimension
+    const lowerBound = start / (end - start) * delta + start
+    const upperBound = end / (end - start) * delta + end
+    // console.log("orig scale: ", currentWidth / previousWidth, "scale: ", (upperBound - lowerBound) / (x2 - x1))
+    return {
+        range: axisRangeTupleFrom(lowerBound, upperBound),
+        original: axisRangeTupleFrom(0, currentDimension)
+    }
 }

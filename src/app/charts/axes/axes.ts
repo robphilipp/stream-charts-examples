@@ -421,7 +421,6 @@ function updateOrdinalStringXAxis(
         Math.max(axisRangeEnd(range), plotDimensions.width)
     )
 
-    // axis.scale
     axis.scale = axis.scale
         .domain(names)
         .range(updatedRange)
@@ -429,7 +428,6 @@ function updateOrdinalStringXAxis(
     axis.categorySize = axis.scale.bandwidth()
 
     const clipPathId = setClipPath(chartId, axis.axisId, svg, location, plotDimensions, margin)
-    // axis.selection
     axis.selection = axis.selection
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .attr("clip-path", `url(#${clipPathId})`)
@@ -968,7 +966,7 @@ export function calculateOrdinalPanFor(
     plotDimensions: Dimensions,
     constrainToOriginalRange: boolean = false
 ): OrdinalAxisRange {
-    console.log('calculateOrdinalPanFor', delta, range, plotDimensions)
+    // console.log('calculateOrdinalPanFor', delta, range, plotDimensions)
     const [currentStart, currentEnd] = range.current
     const constraint: [start: number, end: number] = constrainToOriginalRange ?
         range.original :
@@ -1434,14 +1432,14 @@ export function ordinalAxisRanges(axes: Map<string, OrdinalStringAxis>, original
  * @param axes The axes representing the time
  * @return A map associating each axis with a (start, end) interval
  */
-export function continuousAxisIntervals(axes: Map<string, ContinuousNumericAxis>): Map<string, [start: number, end: number]> {
+export function continuousAxisIntervals(axes: Map<string, ContinuousNumericAxis>): Map<string, AxisRangeTuple> {
     return new Map(Array.from(axes.entries())
         .map(([id, axis]) => [id, axis.scale.domain()] as [string, [number, number]]))
 }
 
-export function ordinalAxisIntervals(axes: Map<string, OrdinalStringAxis>): Map<string, [interval: [start: number, end: number], categories: Array<string>]> {
+export function ordinalAxisIntervals(axes: Map<string, OrdinalStringAxis>): Map<string, [interval: AxisRangeTuple, categories: Array<string>]> {
     return new Map(Array.from(axes.entries())
-        .map(([id, axis]) => [id, [axis.scale.range(), axis.scale.domain()]] as [string, [[number, number], Array<string>]]))
+        .map(([id, axis]) => [id, [axis.scale.range(), axis.scale.domain()]] as [string, [AxisRangeTuple, Array<string>]]))
 }
 
 /**

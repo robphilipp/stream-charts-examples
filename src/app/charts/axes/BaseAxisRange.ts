@@ -1,3 +1,5 @@
+import {AxisRangeTuple} from "./axisRangeTuple";
+
 export interface BaseAxisRange {
     /**
      * The current axis range (in pixel space)
@@ -65,7 +67,7 @@ export interface BaseAxisRange {
  * @param range The range
  * @return The start value
  */
-export function startFrom(range: [start: number, end: number]): number {
+export function startFrom(range: AxisRangeTuple): number {
     return range[0]
 }
 
@@ -74,7 +76,7 @@ export function startFrom(range: [start: number, end: number]): number {
  * @param range The range
  * @return The end value
  */
-export function endFrom(range: [start: number, end: number]): number {
+export function endFrom(range: AxisRangeTuple): number {
     return range[1]
 }
 
@@ -83,6 +85,6 @@ export function endFrom(range: [start: number, end: number]): number {
  * @param range The range
  * @return The measure
  */
-export function measureOf(range: [start: number, end: number]): number {
+export function measureOf(range: AxisRangeTuple): number {
     return endFrom(range) - startFrom(range)
 }

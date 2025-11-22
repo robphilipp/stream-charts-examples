@@ -748,7 +748,7 @@ export function BarPlot(props: Props): null {
                 } else {
                     // when the ordinal-ranges already exist, then we want to update the ordinal-ranges for each
                     // existing ordinal-range in a way that maintains the original scale.
-                    const intervals = ordinalAxisIntervals(xAxesState.axes as Map<string, OrdinalStringAxis>)
+                    const intervals = ordinalAxisIntervals(xAxesState.axes)
                     // todo instead of updating the underlying map, this should use setter methods to make the updates
                     ordinalAxesRanges
                         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {

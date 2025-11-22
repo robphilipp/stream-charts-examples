@@ -14,9 +14,8 @@ import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {OrdinalAxisRange} from "./ordinalAxisRangeFor";
+import {OrdinalAxisRange, scaleOrdinalBounds} from "./ordinalAxisRangeFor";
 import {Datum} from "../series/timeSeries";
-import {axisRangeTupleFrom, translateAxisRangeEnd} from "./axisRangeTuple";
 
 interface Props {
     // the unique ID of the axis
@@ -108,26 +107,12 @@ export function OrdinalAxis(props: Props): null {
             const handlerId = registerPlotDimensionChangeHandler((oldDimension, newDimension) => {
                 if (axis !== undefined) {
                     if (location === AxisLocation.Top || location === AxisLocation.Bottom) {
-                        // update the current axis range
-                        const widthChange = newDimension.width - oldDimension.width
-                        const updatedRange = translateAxisRangeEnd(axisBoundsFor(axisId), widthChange)
-                        // const [currentStart, currentEnd] = axisBoundsFor(axisId)
-                        // const updatedRange = axisRangeTupleFrom(
-                        //     currentStart - widthChange / 2,
-                        //     currentEnd + widthChange / 2
-                        // )
-
-                        const originalUpdatedRange = axisRangeTupleFrom(0, plotDimensions.width)
-                        axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
+                        const {range, original} = scaleOrdinalBounds(oldDimension.width, newDimension.width, axisBoundsFor(axisId))
+                        axis.update(range, original, plotDimensions, margin)
                     }
                     if (location === AxisLocation.Left || location === AxisLocation.Right) {
-                        const heightChange = newDimension.height - oldDimension.height
-                        const updatedRange = translateAxisRangeEnd(axisBoundsFor(axisId), heightChange)
-
-                        const originalHeightChange = newDimension.height - oldDimension.height
-                        const originalUpdatedRange = translateAxisRangeEnd(originalAxisBoundsFor(axisId), originalHeightChange)
-
-                        axis.update(updatedRange, originalUpdatedRange, plotDimensions, margin)
+                        const {range, original} = scaleOrdinalBounds(oldDimension.height, newDimension.height, axisBoundsFor(axisId))
+                        axis.update(range, original, plotDimensions, margin)
                     }
                 }
             })
@@ -135,7 +120,7 @@ export function OrdinalAxis(props: Props): null {
                 unregisterPlotDimensionChangeHandler(handlerId)
             }
         },
-        [axis, axisBoundsFor, axisId, location, margin, originalAxisBoundsFor, plotDimensions, registerPlotDimensionChangeHandler, unregisterPlotDimensionChangeHandler]
+        [axis, axisBoundsFor, axisId, location, margin, originalAxisBoundsFor, plotDimensions, registerPlotDimensionChangeHandler, setAxisBoundsFor, setOriginalAxisBoundsFor, unregisterPlotDimensionChangeHandler]
     );
 
     useEffect(
@@ -204,3 +189,4 @@ export function OrdinalAxis(props: Props): null {
 
     return null
 }
+
