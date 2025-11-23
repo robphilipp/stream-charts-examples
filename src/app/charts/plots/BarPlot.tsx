@@ -36,7 +36,7 @@ import {
 } from "../styling/svgStyle";
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
-import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
+import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {AxisInterval} from "../axes/axisInterval";
 import {Optional} from "result-fn";
 

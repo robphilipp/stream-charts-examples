@@ -14,7 +14,7 @@ import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {OrdinalAxisRange, scaleOrdinalBounds} from "./ordinalAxisRangeFor";
+import {OrdinalAxisRange} from "./OrdinalAxisRange";
 import {Datum} from "../series/timeSeries";
 import {AxisInterval} from "./axisInterval";
 
@@ -108,12 +108,18 @@ export function OrdinalAxis(props: Props): null {
             const handlerId = registerPlotDimensionChangeHandler((oldDimension, newDimension) => {
                 if (axis !== undefined) {
                     if (location === AxisLocation.Top || location === AxisLocation.Bottom) {
-                        const {range, original} = scaleOrdinalBounds(oldDimension.width, newDimension.width, axisBoundsFor(axisId))
-                        axis.update(range, original, plotDimensions, margin)
+                        const [start, end] = axisBoundsFor(axisId).asTuple()
+                        const {current, original} = OrdinalAxisRange
+                            .from(start, end, 0, oldDimension.width)
+                            .zoom(oldDimension.width, newDimension.width)
+                        axis.update(current, original, plotDimensions, margin)
                     }
                     if (location === AxisLocation.Left || location === AxisLocation.Right) {
-                        const {range, original} = scaleOrdinalBounds(oldDimension.height, newDimension.height, axisBoundsFor(axisId))
-                        axis.update(range, original, plotDimensions, margin)
+                        const [start, end] = axisBoundsFor(axisId).asTuple()
+                        const {current, original} = OrdinalAxisRange
+                            .from(start, end, 0, oldDimension.height)
+                            .zoom(oldDimension.height, newDimension.height)
+                        axis.update(current, original, plotDimensions, margin)
                     }
                 }
             })

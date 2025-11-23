@@ -1,5 +1,3 @@
-import {AxisRanges} from "./ordinalAxisRangeFor";
-
 /**
  * The range of an axis is the physical (start, end) pixels on the screen for the axis.
  * This is the pixel-space of the axis (where as the domain is the data-space of the axis,
@@ -43,6 +41,17 @@ export class AxisInterval {
     }
 
     /**
+     * @return `true` if the specified axis range tuple is equal to this one, `false` otherwise
+     */
+    equalsInterval(start: number, end: number): boolean {
+        return this.start === start && this.end === end
+    }
+
+    equals(other: AxisInterval): boolean {
+        return this.start === other.start && this.end === other.end
+    }
+
+    /**
      * Creates a copy of the specified axis range tuple
      * @return A copy of the specified axis range tuple
      */
@@ -58,10 +67,14 @@ export class AxisInterval {
         return [this.start, this.end]
     }
 
+    /**
+     * Applies the specified function to the axis range tuple and returns the result
+     * @param fn The function to apply to the axis range tuple
+     * @return The result of the function application
+     */
     map(fn: (start: number, end: number) => [start: number, end: number]): AxisInterval {
         const [start, end] = fn(this.start, this.end)
         return AxisInterval.from(start, end)
-        // return AxisRangeTuple.from(fn(this.start, this.end)[0], fn(this.start, this.end)[1])
     }
 
     /**

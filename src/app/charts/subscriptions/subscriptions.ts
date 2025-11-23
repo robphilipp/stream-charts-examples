@@ -31,9 +31,9 @@ import {
 import {ChartData} from "../observables/ChartData";
 import {OrdinalDatum} from "../series/ordinalSeries";
 import {RefObject} from "react";
-import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
 import {AxisInterval} from "../axes/axisInterval";
 import {Optional} from "result-fn";
+import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 

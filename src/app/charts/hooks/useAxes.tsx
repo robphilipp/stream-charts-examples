@@ -245,9 +245,8 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
         const updatedRange = axisRangeProvider(axisRange.start, axisRange.end)
         originalAxesBoundsRef.current.set(axisId, updatedRange.current)
 
-        const range = axesRangeRef.current.get(axisId)
-        if (range !== undefined) {
-            range.current = updatedRange.current
+        if (axesRangeRef.current.has(axisId)) {
+            axesRangeRef.current.set(axisId, updatedRange)
         }
     }
 

@@ -7,7 +7,7 @@ import {AxesState} from "../hooks/AxesState";
 import {AxesAssignment} from "../plots/plot";
 import {BaseSeries} from "../series/baseSeries";
 import {noop} from "../utils";
-import {OrdinalAxisRange, ordinalAxisRangeFor} from "./ordinalAxisRangeFor";
+import {OrdinalAxisRange} from "./OrdinalAxisRange";
 import {BaseAxisRange} from "./BaseAxisRange";
 import {AxisInterval} from "./axisInterval";
 
@@ -1463,7 +1463,7 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
 export function ordinalRange(axes: Map<string, OrdinalStringAxis>, originalRange: AxisInterval): Map<string, OrdinalAxisRange> {
     return new Map(Array.from(axes.entries())
         .map(([id, axis]) =>
-            [id, ordinalAxisRangeFor(originalRange.start, originalRange.end)]
+            [id, OrdinalAxisRange.from(originalRange.start, originalRange.end)]
         )
     )
 }
