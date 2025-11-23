@@ -32,7 +32,8 @@ import {ChartData} from "../observables/ChartData";
 import {OrdinalDatum} from "../series/ordinalSeries";
 import {RefObject} from "react";
 import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
-import {AxisRangeTuple} from "../axes/axisRangeTuple";
+import {AxisInterval} from "../axes/axisInterval";
+import {Optional} from "result-fn";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -115,7 +116,9 @@ export function subscriptionTimeSeriesFor(
                         // axis, update the time windows, and call the setCurrentTime
                         // callback to update the current time for the caller
                         const range = timesWindows.get(axisId)
-                        const [startTime, endTime] = range?.current || [0, 0]
+                        const [startTime, endTime] = Optional.ofNullable(range?.current)
+                            .map(interval => interval.asTuple())
+                            .getOrElse([0, 0])
                         if (range !== undefined && endTime < currentAxisTime) {
                             const timeWindow = endTime - startTime
                             const timeRange = continuousAxisRangeFor(
@@ -205,7 +208,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
                 xAxesState.axisIds().forEach(axisId => {
                     const range = timesWindows.get(axisId)
                     if (range !== undefined && data.currentTime !== undefined) {
-                        const [startTime, endTime] = range.current
+                        const [startTime, endTime] = range.current.asTuple()
                         const timeWindow = endTime - startTime
                         // const timeWindow = measureOf(range.current)
                         const timeRange = continuousAxisRangeFor(
@@ -432,7 +435,7 @@ export function subscriptionOrdinalXFor(
     ordinalStatsRef: RefObject<WindowedOrdinalStats>,
     // ordinalStatsRef: MutableRefObject<WindowedOrdinalStats>,
     setCurrentTime: (currentTime: number) => void,
-    originalRange: AxisRangeTuple,
+    originalRange: AxisInterval,
 ): Subscription {
 
     /**

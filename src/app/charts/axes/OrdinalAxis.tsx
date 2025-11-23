@@ -16,6 +16,7 @@ import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalAxisRange, scaleOrdinalBounds} from "./ordinalAxisRangeFor";
 import {Datum} from "../series/timeSeries";
+import {AxisInterval} from "./axisInterval";
 
 interface Props {
     // the unique ID of the axis
@@ -154,7 +155,7 @@ export function OrdinalAxis(props: Props): null {
                             )
 
                             // add the x-axis to the chart context
-                            addXAxis(xAxis, axisId, xAxis.scale.range())
+                            addXAxis(xAxis, axisId, AxisInterval.as(xAxis.scale.range()))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
@@ -168,7 +169,7 @@ export function OrdinalAxis(props: Props): null {
                                 setAxisBoundsFor, setOriginalAxisBoundsFor
                             )
                             // add the y-axis to the chart context
-                            addYAxis(yAxis, axisId, yAxis.scale.range())
+                            addYAxis(yAxis, axisId, AxisInterval.as(yAxis.scale.range()))
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
                             addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)

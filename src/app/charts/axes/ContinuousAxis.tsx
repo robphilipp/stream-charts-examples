@@ -15,7 +15,7 @@ import {Dimensions, Margin} from "../styling/margins";
 import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
-import {AxisRangeTuple} from "./axisRangeTuple";
+import {AxisInterval} from "./axisInterval";
 
 interface Props {
     // the unique ID of the axis
@@ -96,7 +96,7 @@ export function ContinuousAxis(props: Props): null {
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
-    const domainRef = useRef<AxisRangeTuple>(domain)
+    const domainRef = useRef<AxisInterval>(AxisInterval.as(domain))
     useEffect(
         () => {
             axisIdRef.current = axisId
@@ -129,7 +129,7 @@ export function ContinuousAxis(props: Props): null {
                                 font, margin, label, setAxisBoundsFor
                             )
                             // add the x-axis to the chart context
-                            addXAxis(axisRef.current, axisId, domain)
+                            addXAxis(axisRef.current, axisId, AxisInterval.as(domain))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
@@ -144,7 +144,7 @@ export function ContinuousAxis(props: Props): null {
                                 font, margin, label, setAxisBoundsFor
                             )
                             // add the y-axis to the chart context
-                            addYAxis(axisRef.current, axisId, domain)
+                            addYAxis(axisRef.current, axisId, AxisInterval.as(domain))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
@@ -157,7 +157,7 @@ export function ContinuousAxis(props: Props): null {
                     }
 
                     if (
-                        (updateAxisBasedOnDomainValues && (domainRef.current[0] !== domain[0] || domainRef.current[1] !== domain[1])) ||
+                        (updateAxisBasedOnDomainValues && (domainRef.current.start !== domain.start || domainRef.current.end !== domain.end)) ||
                         (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
                     ) {
                         domainRef.current = domain

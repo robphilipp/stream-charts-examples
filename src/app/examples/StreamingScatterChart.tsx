@@ -49,7 +49,7 @@ import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
-import {AxisRangeTuple} from "../charts/axes/axisRangeTuple";
+import {AxisInterval} from "../charts/axes/axisInterval";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -160,8 +160,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      * Updates the time from the chart (the max value of the axes ranges)
      * @param times A map associating the axis with its time range
      */
-    function handleChartTimeUpdate(times: Map<string, AxisRangeTuple>): void {
-        setChartTime(Math.max(...Array.from(times.values()).map(([, end]) => end)))
+    function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
+        setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
     // function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
     //     chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))

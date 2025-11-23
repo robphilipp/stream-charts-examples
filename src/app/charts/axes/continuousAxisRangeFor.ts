@@ -1,4 +1,5 @@
 import {BaseAxisRange} from "./BaseAxisRange";
+import {AxisInterval} from "./axisInterval";
 
 /**
  * The continuous-axis range contract
@@ -109,8 +110,8 @@ export function continuousAxisRangeFor(_start: number, _end: number): Continuous
         }
 
         return {
-            current: [start, end],
-            original: [originalStart, originalEnd],
+            current: AxisInterval.from(start, end),
+            original: AxisInterval.from(originalStart, originalEnd),
             currentDistance: Math.abs(end - start),
             originalDistance: Math.abs(originalEnd - originalStart),
             matchesOriginal,

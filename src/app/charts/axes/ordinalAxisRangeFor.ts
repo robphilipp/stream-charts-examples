@@ -1,5 +1,5 @@
 import {BaseAxisRange} from "./BaseAxisRange";
-import {AxisRangeTuple, axisRangeTupleFrom} from "./axisRangeTuple";
+import {AxisInterval} from "./axisInterval";
 
 /**
  * The continuous-axis range contract
@@ -112,8 +112,8 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
         }
 
         return {
-            current: [start, end],
-            original: [originalStart, originalEnd],
+            current: AxisInterval.from(start, end),
+            original: AxisInterval.from(originalStart, originalEnd),
             currentDistance: Math.abs(end - start),
             originalDistance: Math.abs(originalEnd - originalStart),
             matchesOriginal,
@@ -129,8 +129,8 @@ export function ordinalAxisRangeFor(_start: number, _end: number): OrdinalAxisRa
 }
 
 export type AxisRanges = {
-    range: AxisRangeTuple,
-    original: AxisRangeTuple
+    range: AxisInterval,
+    original: AxisInterval
 }
 
 /**
@@ -139,14 +139,14 @@ export type AxisRanges = {
  * @param currentDimension
  * @param previousRange
  */
-export function scaleOrdinalBounds(previousDimension: number, currentDimension: number, previousRange: AxisRangeTuple): AxisRanges {
-    const [start, end] = previousRange
+export function scaleOrdinalBounds(previousDimension: number, currentDimension: number, previousRange: AxisInterval): AxisRanges {
+    const [start, end] = previousRange.asTuple()
     const delta = (end - start ) * (currentDimension - previousDimension) / previousDimension
     const lowerBound = start / (end - start) * delta + start
     const upperBound = end / (end - start) * delta + end
     // console.log("orig scale: ", currentWidth / previousWidth, "scale: ", (upperBound - lowerBound) / (x2 - x1))
     return {
-        range: axisRangeTupleFrom(lowerBound, upperBound),
-        original: axisRangeTupleFrom(0, currentDimension)
+        range: AxisInterval.from(lowerBound, upperBound),
+        original: AxisInterval.from(0, currentDimension)
     }
 }

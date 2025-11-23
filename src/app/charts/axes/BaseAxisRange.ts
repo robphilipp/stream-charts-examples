@@ -1,14 +1,14 @@
-import {AxisRangeTuple} from "./axisRangeTuple";
+import {AxisInterval} from "./axisInterval";
 
 export interface BaseAxisRange {
     /**
      * The current axis range (in pixel space)
      */
-    current: [start: number, end: number]
+    current: AxisInterval
     /**
      * The original axis range (in pixel space)
      */
-    original: [start: number, end: number]
+    original: AxisInterval
 
     currentDistance: number
 
@@ -62,29 +62,29 @@ export interface BaseAxisRange {
     update: (start: number, end: number) => BaseAxisRange
 }
 
-/**
- * Convenience function for extracting the start value from a range
- * @param range The range
- * @return The start value
- */
-export function startFrom(range: AxisRangeTuple): number {
-    return range[0]
-}
-
-/**
- * Convenience function for extracting the end value from a range
- * @param range The range
- * @return The end value
- */
-export function endFrom(range: AxisRangeTuple): number {
-    return range[1]
-}
-
-/**
- * Convenience function for extracting the measure (end - start) from a range
- * @param range The range
- * @return The measure
- */
-export function measureOf(range: AxisRangeTuple): number {
-    return endFrom(range) - startFrom(range)
-}
+// /**
+//  * Convenience function for extracting the start value from a range
+//  * @param range The range
+//  * @return The start value
+//  */
+// export function startFrom(range: AxisRangeTuple): number {
+//     return range[0]
+// }
+//
+// /**
+//  * Convenience function for extracting the end value from a range
+//  * @param range The range
+//  * @return The end value
+//  */
+// export function endFrom(range: AxisRangeTuple): number {
+//     return range[1]
+// }
+//
+// /**
+//  * Convenience function for extracting the measure (end - start) from a range
+//  * @param range The range
+//  * @return The measure
+//  */
+// export function measureOf(range: AxisRangeTuple): number {
+//     return endFrom(range) - startFrom(range)
+// }

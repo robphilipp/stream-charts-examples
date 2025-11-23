@@ -37,7 +37,8 @@ import {
 import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
 import {TooltipData} from "../hooks/useTooltip";
 import {OrdinalAxisRange} from "../axes/ordinalAxisRangeFor";
-import {axisRangeTupleFrom} from "../axes/axisRangeTuple";
+import {AxisInterval} from "../axes/axisInterval";
+import {Optional} from "result-fn";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -721,7 +722,7 @@ export function BarPlot(props: Props): null {
                 seriesRef.current,
                 statsRef,
                 (currentTime: number) => currentTimeRef.current = currentTime,
-                axisRangeTupleFrom(0, plotDimensions.width)
+                AxisInterval.from(0, plotDimensions.width)
             )
         },
         [
@@ -744,7 +745,7 @@ export function BarPlot(props: Props): null {
                 if (ordinalAxesRanges.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    updatePlot(ordinalAxisRanges(xAxesState.axes as Map<string, OrdinalStringAxis>, axisRangeTupleFrom(0, plotDimensions.width)), mainG)
+                    updatePlot(ordinalAxisRanges(xAxesState.axes, AxisInterval.from(0, plotDimensions.width)), mainG)
                 } else {
                     // when the ordinal-ranges already exist, then we want to update the ordinal-ranges for each
                     // existing ordinal-range in a way that maintains the original scale.
@@ -752,7 +753,9 @@ export function BarPlot(props: Props): null {
                     // todo instead of updating the underlying map, this should use setter methods to make the updates
                     ordinalAxesRanges
                         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
-                            const [[start, end]] = intervals.get(id) || [[NaN, NaN], []]
+                            const [start, end] = Optional.ofNullable(intervals.get(id))
+                                .map(intervalInfo => intervalInfo.interval.asTuple())
+                                .getOrElse([NaN, NaN])
                             if (!isNaN(start) && !isNaN(end)) {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact

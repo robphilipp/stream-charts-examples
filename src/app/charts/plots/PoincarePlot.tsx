@@ -451,8 +451,8 @@ export function PoincarePlot(props: Props): null {
                     .y(d => yAxis.scale(d[1] || 0))
                 // ---
 
-                const [xStart, xEnd] = xAxisRangesRef.current.get(xAxesState.axisDefaultId())?.original || [0, 0]
-                const [yStart, yEnd] = yAxisRangesRef.current.get(yAxesState.axisDefaultId())?.original || [0, 0]
+                const [xStart, xEnd] = xAxisRangesRef.current.get(xAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
+                const [yStart, yEnd] = yAxisRangesRef.current.get(yAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
 
                 mainGElem
                     .selectAll(`#fn-equals-fn1-${chartId}-poincare`)

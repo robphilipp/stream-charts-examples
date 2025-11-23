@@ -27,6 +27,8 @@ import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData} from "../hooks/useTooltip";
+import {AxisInterval} from "../axes/axisInterval";
+import {Optional} from "result-fn";
 
 interface Props {
     /**
@@ -193,7 +195,7 @@ export function RasterPlot(props: Props): null {
                 updatePlotRef.current(ranges, mainG)
                 if (onUpdateAxesBounds) {
                     setTimeout(() => {
-                        const times = new Map<string, [number, number]>()
+                        const times = new Map<string, AxisInterval>()
                         ranges.forEach((range, name) => times.set(name, range.current))
                         onUpdateAxesBounds(times)
                     }, 0)
@@ -215,7 +217,7 @@ export function RasterPlot(props: Props): null {
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
-                        const [start, end] = range.original
+                        const [start, end] = range.original.asTuple()
                         const minTime = (initialData as Array<TimeSeries>)
                             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
                             .reduce(
@@ -535,7 +537,9 @@ export function RasterPlot(props: Props): null {
                     const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                     timeRangesRef.current
                         .forEach((range, id, rangesMap) => {
-                            const [start, end] = intervals.get(id) || [NaN, NaN]
+                            const [start, end] = Optional.ofNullable(intervals.get(id))
+                                .map(interval => interval.asTuple())
+                                .getOrElse([NaN, NaN])
                             if (!isNaN(start) && !isNaN(end)) {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact
