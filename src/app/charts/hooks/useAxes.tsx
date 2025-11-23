@@ -198,6 +198,7 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
     const xAxesStateRef = useRef<AxesState<A>>(createAxesState<A>())
     const yAxesStateRef = useRef<AxesState<A>>(createAxesState<A>())
     const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
+    // todo remove axesBoundRef and originalAxesBoundRef and switch to using axesRangeRef instead
     // holds the current axis bounds, map(axis_id -> (start, end)
     const axesBoundsRef = useRef<Map<string, AxisInterval>>(new Map())
     // holds the original axis bounds, map(axis_id -> (start, end)
