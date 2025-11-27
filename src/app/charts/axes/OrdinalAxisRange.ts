@@ -1,18 +1,13 @@
 import {BaseAxisRange} from "./BaseAxisRange";
-import {AxisInterval} from "./axisInterval";
 
 /**
  * An immutable ordinal-axis range that holds the current range and the original (no zoom) range.
  * Create an instance using the {@link OrdinalAxisRange.from} factory method.
  */
-export class OrdinalAxisRange implements BaseAxisRange {
-    readonly current: AxisInterval
-    // the range when there is no zoom, which is the interval (0, width | height)
-    readonly original: AxisInterval
+export class OrdinalAxisRange extends BaseAxisRange {
 
     private constructor(start: number, end: number, originalStart: number = start, originalEnd: number = end) {
-        this.current = AxisInterval.from(start, end)
-        this.original = AxisInterval.from(originalStart, originalEnd)
+        super(start, end, originalStart, originalEnd)
     }
 
     /**
@@ -27,51 +22,6 @@ export class OrdinalAxisRange implements BaseAxisRange {
      */
     static from(start: number, end: number, originalStart: number = start, originalEnd: number = end): OrdinalAxisRange {
         return new OrdinalAxisRange(start, end, originalStart, originalEnd)
-    }
-
-    /**
-     * Determines whether the specified (start, end) interval matches the original interval
-     * @param start The start of the interval
-     * @param end The end of the interval
-     * @return `true` if the specified interval matches the original interval; `false` otherwise
-     */
-    matchesOriginal(start: number, end: number): boolean {
-        return this.original.equalsInterval(start, end)
-    }
-
-    /**
-     * Returns the current distance between the start and end of the range.
-     */
-    get currentDistance(): number {
-        return this.current.measure()
-    }
-
-    /**
-     * Returns the original (e.g. before any zooming or panning) distance between the start and end of the range.
-     */
-    get originalDistance(): number {
-        return this.original.measure()
-    }
-
-    /**
-     * The ratio between the current and original distance.
-     */
-    get scaleFactor(): number {
-        return this.currentDistance / this.originalDistance
-    }
-
-    /**
-     * Scales the range using the current scale-factor (closure on `scaleFactor`)
-     * @param factor The factor used to update the range
-     * @param value The current value being scaled
-     * @return The new range, represented by an array holding the start and end value
-     */
-    private scaledRange(factor: number, value: number): AxisInterval {
-        const dtStart = value - this.current.start
-        const dtEnd = this.current.end - value
-        const start = value - dtStart * factor / this.scaleFactor
-        const end = value + dtEnd * factor / this.scaleFactor
-        return AxisInterval.from(start, end)
     }
 
     /**
@@ -129,7 +79,8 @@ export class OrdinalAxisRange implements BaseAxisRange {
      * based on the change in the dimensions.
      * @param beforeDimension The width or height before the change in dimensions
      * @param afterDimension The width or height after the change in dimensions
-     * @param beforeRange
+     * @return An updated {@link OrdinalAxisRange} that has been zoomed based on the change in
+     * the dimensions.
      */
     zoom(beforeDimension: number, afterDimension: number): OrdinalAxisRange {
         const [start, end] = this.current.asTuple()
@@ -139,6 +90,12 @@ export class OrdinalAxisRange implements BaseAxisRange {
         return new OrdinalAxisRange(lowerBound, upperBound, 0, afterDimension)
     }
 
+    /**
+     * Updates the axis-range with the new start and end values, leaving the original range unchanged.
+     * @param start The new start of the axis-range
+     * @param end The new end of the axis range
+     * @return The updated axis-range type, with all other values unchanged.
+     */
     update(start: number, end: number): OrdinalAxisRange {
         return new OrdinalAxisRange(start, end, this.original.start, this.original.end)
     }
