@@ -1,4 +1,4 @@
-import {AxisInterval} from "./axisInterval";
+import {AxisInterval} from "./AxisInterval";
 
 /**
  * An immutable axis range that holds the current range and the original (no zoom) range.

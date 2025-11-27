@@ -14,7 +14,7 @@ import {ScaleContinuousNumeric} from "d3";
 import {Dimensions, Margin} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
-import {AxisInterval} from "./axisInterval";
+import {AxisInterval} from "./AxisInterval";
 import {ContinuousAxisRange} from "./ContinuousAxisRange";
 
 interface Props {

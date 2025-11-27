@@ -29,7 +29,7 @@ import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData} from "../hooks/useTooltip";
-import {AxisInterval} from "../axes/axisInterval";
+import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 

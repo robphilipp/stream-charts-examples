@@ -5,7 +5,7 @@ import {createContext, JSX, useContext, useRef} from "react";
 import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "./usePlotDimensions";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
-import {AxisInterval, copyRangeMap} from "../axes/axisInterval";
+import {AxisInterval, copyRangeMap} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 
 /**

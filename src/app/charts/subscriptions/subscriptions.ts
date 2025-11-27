@@ -30,7 +30,7 @@ import {
 import {ChartData} from "../observables/ChartData";
 import {OrdinalDatum} from "../series/ordinalSeries";
 import {RefObject} from "react";
-import {AxisInterval} from "../axes/axisInterval";
+import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";

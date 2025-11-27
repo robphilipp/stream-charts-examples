@@ -16,7 +16,7 @@ import DataObservableProvider from './hooks/useDataObservable';
 import {BaseSeries} from "./series/baseSeries";
 import InitialDataProvider from "./hooks/useInitialData";
 import {ChartData} from "./observables/ChartData";
-import {AxisInterval} from "./axes/axisInterval";
+import {AxisInterval} from "./axes/AxisInterval";
 
 const defaultBackground = '#202020';
 

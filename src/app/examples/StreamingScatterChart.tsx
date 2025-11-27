@@ -49,7 +49,7 @@ import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
-import {AxisInterval} from "../charts/axes/axisInterval";
+import {AxisInterval} from "../charts/axes/AxisInterval";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],

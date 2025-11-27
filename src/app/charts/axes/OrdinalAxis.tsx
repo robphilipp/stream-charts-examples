@@ -16,7 +16,7 @@ import {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalAxisRange} from "./OrdinalAxisRange";
 import {Datum} from "../series/timeSeries";
-import {AxisInterval} from "./axisInterval";
+import {AxisInterval} from "./AxisInterval";
 
 interface Props {
     // the unique ID of the axis

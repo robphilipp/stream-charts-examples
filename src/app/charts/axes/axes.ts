@@ -9,7 +9,7 @@ import {BaseSeries} from "../series/baseSeries";
 import {noop} from "../utils";
 import {OrdinalAxisRange} from "./OrdinalAxisRange";
 import {BaseAxisRange} from "./BaseAxisRange";
-import {AxisInterval} from "./axisInterval";
+import {AxisInterval} from "./AxisInterval";
 
 export type AxisTickStyle = {
     font: AxesFont

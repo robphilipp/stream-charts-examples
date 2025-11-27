@@ -34,7 +34,7 @@ import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordina
 import {OrdinalDatum} from "../charts/series/ordinalSeries";
 import {BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
 import {WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
-import {AxisInterval} from "../charts/axes/axisInterval";
+import {AxisInterval} from "../charts/axes/AxisInterval";
 import {assignAxes} from "../charts/plots/plot";
 // import {
 //     AxisLocation,

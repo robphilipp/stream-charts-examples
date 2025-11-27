@@ -34,7 +34,7 @@ import {RasterPlot} from "../charts/plots/RasterPlot";
 import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {assignAxes} from "../charts/plots/plot";
-import {AxisInterval} from "../charts/axes/axisInterval";
+import {AxisInterval} from "../charts/axes/AxisInterval";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
