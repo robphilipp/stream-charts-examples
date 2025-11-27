@@ -7,7 +7,6 @@ import {
     BaseAxis
 } from "../axes/axes";
 import {Datum, TimeSeries} from "../series/timeSeries";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {interval, Observable, Subscription} from "rxjs";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {AxesAssignment} from "../plots/plot";
@@ -34,6 +33,7 @@ import {RefObject} from "react";
 import {AxisInterval} from "../axes/axisInterval";
 import {Optional} from "result-fn";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
@@ -121,7 +121,7 @@ export function subscriptionTimeSeriesFor(
                             .getOrElse([0, 0])
                         if (range !== undefined && endTime < currentAxisTime) {
                             const timeWindow = endTime - startTime
-                            const timeRange = continuousAxisRangeFor(
+                            const timeRange = ContinuousAxisRange.from(
                                 // 0,
                                 timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
                                     initialTimes.get(axisId)! :
@@ -211,7 +211,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
                         const [startTime, endTime] = range.current.asTuple()
                         const timeWindow = endTime - startTime
                         // const timeWindow = measureOf(range.current)
-                        const timeRange = continuousAxisRangeFor(
+                        const timeRange = ContinuousAxisRange.from(
                             Math.max(0, Math.max(endTime, data.currentTime + maxTime) - timeWindow),
                             Math.max(Math.max(endTime, data.currentTime + maxTime), timeWindow)
                         )
@@ -298,12 +298,12 @@ export function subscriptionIteratesFor(
     const xAxesRanges = new Map<string, ContinuousAxisRange>(Array.from(xAxesState.axes.entries())
         .map(([id, axis]) => {
             const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
-            return [id, continuousAxisRangeFor(start, end)]
+            return [id, ContinuousAxisRange.from(start, end)]
         }))
     const yAxesRanges = new Map<string, ContinuousAxisRange>(Array.from(yAxesState.axes.entries())
         .map(([id, axis]) => {
             const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
-            return [id, continuousAxisRangeFor(start, end)]
+            return [id, ContinuousAxisRange.from(start, end)]
         }))
 
     /**
@@ -315,7 +315,7 @@ export function subscriptionIteratesFor(
     function updateRange(originals: Map<string, ContinuousAxisRange>, axes: Map<string, ContinuousNumericAxis>): void {
         axes.forEach((axis, id) => {
             const [start, end] = axis.scale.domain()
-            const original: ContinuousAxisRange = originals.get(id) || continuousAxisRangeFor(start, end)
+            const original: ContinuousAxisRange = originals.get(id) || ContinuousAxisRange.from(start, end)
             originals.set(id, original.update(start, end))
         })
     }

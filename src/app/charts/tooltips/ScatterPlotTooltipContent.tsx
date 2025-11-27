@@ -10,7 +10,7 @@ import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
 import {Datum, emptyDatum} from "../series/timeSeries";
 import {TooltipData} from "../hooks/useTooltip";
-import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 /**
 # Want to write your own tooltip-content component?

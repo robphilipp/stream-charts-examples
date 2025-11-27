@@ -5,7 +5,6 @@ import {noop} from "../utils";
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
@@ -29,6 +28,7 @@ import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData} from "../hooks/useTooltip";
 import {AxisInterval} from "../axes/axisInterval";
 import {Optional} from "result-fn";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 interface Props {
     /**
@@ -228,7 +228,7 @@ export function RasterPlot(props: Props): null {
                                 Infinity
                             )
                         const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
+                        return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
                     })
                 )
             )
@@ -534,12 +534,13 @@ export function RasterPlot(props: Props): null {
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
-                    const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    const intervals = continuousAxisIntervals(xAxesState.axes)
                     timeRangesRef.current
                         .forEach((range, id, rangesMap) => {
                             const [start, end] = Optional.ofNullable(intervals.get(id))
                                 .map(interval => interval.asTuple())
-                                .getOrElse([NaN, NaN])
+                                .getOrThrow(() => new Error(`Unable to retrieve interval for axis; axis_id: ${id}`))
+                                // .getOrElse([NaN, NaN])
                             if (!isNaN(start) && !isNaN(end)) {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact

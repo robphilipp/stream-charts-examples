@@ -11,10 +11,10 @@ import {TooltipData} from "../hooks/useTooltip";
 import {WindowedOrdinalStats} from "../subscriptions/subscriptions";
 import {DataFrame} from "data-frame-ts";
 import {createTable, Padding, TableData, TableFont, TableFormatter, TableStyler} from "svg-table";
-import {defaultOrdinalValueStats, OrdinalValueStats} from "../observables/ordinals";
+import {defaultOrdinalValueStats} from "../observables/ordinals";
 import {Dimension} from "svg-table/stylings";
 import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/BarPlot";
-import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 /**
  # Want to write your own tooltip-content component?

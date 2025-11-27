@@ -1,5 +1,5 @@
 import {Dimensions, Margin} from "../styling/margins";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange} from "./ContinuousAxisRange";
 import * as d3 from "d3";
 import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
 import {AxisElementSelection, SvgSelection} from "../d3types";
@@ -865,28 +865,29 @@ export interface ZoomResult<AR extends BaseAxisRange> {
     zoomFactor: number
 }
 
-/**
- * todo this can be generalized to any continuous numeric axis, replace x with value
- * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
- * at the location of the mouse when the scroll wheel or gesture was applied.
- * @param transform The d3 zoom transformation information
- * @param x The x-position of the mouse when the scroll wheel or gesture is used
- * @param axis The axis being zoomed
- * @param range The current range for the axis being zoomed
- * @return The updated range and the new zoom factor
- */
-export function calculateZoomFor<AR extends BaseAxisRange>(
-    transform: ZoomTransform,
-    x: number,
-    axis: ContinuousNumericAxis,
-    range: ContinuousAxisRange,
-): ZoomResult<AR> {
-    const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
-    return {
-        range: range.scale(transform.k, time),
-        zoomFactor: transform.k
-    } as ZoomResult<AR>
-}
+// /**
+//  * todo this can be generalized to any continuous numeric axis, replace x with value
+//  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+//  * at the location of the mouse when the scroll wheel or gesture was applied.
+//  * @param transform The d3 zoom transformation information
+//  * @param x The x-position of the mouse when the scroll wheel or gesture is used
+//  * @param axis The axis being zoomed
+//  * @param range The current range for the axis being zoomed
+//  * @return The updated range and the new zoom factor
+//  */
+// // export function calculateZoomFor<AR extends BaseAxisRange>(
+// export function calculateZoomFor(
+//     transform: ZoomTransform,
+//     x: number,
+//     axis: ContinuousNumericAxis,
+//     range: ContinuousAxisRange,
+// ): ZoomResult<ContinuousAxisRange> {
+//     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
+//     return {
+//         range: range.scale(transform.k, time),
+//         zoomFactor: transform.k
+//     } as ZoomResult<ContinuousAxisRange>
+// }
 
 /**
  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
@@ -1456,7 +1457,7 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
     return new Map(Array.from(axes.entries())
         .map(([id, axis]) => {
             const [start, end] = axis.scale.domain()
-            return [id, continuousAxisRangeFor(start, end)]
+            return [id, ContinuousAxisRange.from(start, end)]
         }))
 }
 

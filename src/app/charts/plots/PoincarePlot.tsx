@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import * as d3 from "d3";
 import {CurveFactory, ZoomTransform} from "d3";
 import {setClipPath} from "./plot";
@@ -25,6 +24,7 @@ import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData, useTooltip} from "../hooks/useTooltip";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
 type IteratePointSeries = Array<IteratePoint>
@@ -33,7 +33,7 @@ function generateAxisRangeMap(axes: Map<string, BaseAxis>): Map<string, Continuo
     return new Map(
         Array.from(axes.entries()).map(([id, axis]) => {
             const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
-            return [id, continuousAxisRangeFor(start, end)]
+            return [id, ContinuousAxisRange.from(start, end)]
         })
     )
 }

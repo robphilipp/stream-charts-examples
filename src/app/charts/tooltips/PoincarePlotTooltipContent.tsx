@@ -25,7 +25,7 @@ import {TooltipData} from "../hooks/useTooltip";
 import {DataFrame} from "data-frame-ts";
 import {Dimensions} from "../styling/margins";
 import {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
-import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 /**
  # Want to write your own tooltip-content component?

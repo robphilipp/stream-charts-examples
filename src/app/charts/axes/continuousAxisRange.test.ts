@@ -1,14 +1,14 @@
-import {continuousAxisRangeFor} from "./continuousAxisRangeFor";
+import {ContinuousAxisRange} from "./ContinuousAxisRange";
 
 
 test('creates a time-range', () => {
-    const timeRange = continuousAxisRangeFor(10, 100);
+    const timeRange = ContinuousAxisRange.from(10, 100);
     expect(timeRange.current).toEqual({start: 10, end: 100});
     expect(timeRange.scaleFactor).toBe(1);
 });
 
 test('scaling a time-range', () => {
-    const timeRange = continuousAxisRangeFor(0, 100).scale(2, 50);
+    const timeRange = ContinuousAxisRange.from(0, 100).scale(2, 50);
     // the midpoint must remain at 50, so the new range will be 50 - 2 * (50 - 0) to
     // 50 + 2 * (100 - 50) => (-50, 150)
     expect(timeRange.current).toEqual({start: -50, end: 150})
@@ -29,13 +29,13 @@ test('scaling a time-range', () => {
 });
 
 test('translating a time-range', () => {
-    const timeRange = continuousAxisRangeFor(0, 100).translate(50);
+    const timeRange = ContinuousAxisRange.from(0, 100).translate(50);
     expect(timeRange.current).toEqual({start: 50, end: 150});
     expect(timeRange.scaleFactor).toBe(1);
 });
 
 test('scaling and translating', () => {
-    const original = continuousAxisRangeFor(0, 100);
+    const original = ContinuousAxisRange.from(0, 100);
     const scaled = original.scale(2, 50);
     const translated = scaled.translate(50);
 
