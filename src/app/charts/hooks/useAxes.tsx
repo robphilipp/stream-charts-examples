@@ -40,7 +40,8 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
      * @param id The ID of the axis to add
      * @param domain The initial axis range (start, end)
      */
-    addXAxis: (axis: A, id: string, range?: AxisInterval) => void
+    addXAxis: (axis: A, id: string, range?: AR) => void
+    // addXAxis: (axis: A, id: string, range?: AxisInterval) => void
     /**
      * The y-axes state holds the currently set x-axes, manipulation and accessor functions
      */
@@ -51,7 +52,8 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
      * @param id The ID of the axis to add
      * @param domain The initial axis range (start, end)
      */
-    addYAxis: (axis: A, id: string, range?: AxisInterval) => void
+    addYAxis: (axis: A, id: string, range?: AR) => void
+    // addYAxis: (axis: A, id: string, range?: AxisInterval) => void
     /**
      * Sets the axis assigned to each series. This should contain **all** the series used in
      * the chart.
@@ -205,6 +207,7 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
     const originalAxesBoundsRef =  useRef<Map<string, AxisInterval>>(new Map())
     const axesBoundsUpdateHandlersRef = useRef<Map<string, (updates: Map<string, AR>, plotDim: Dimensions) => void>>(new Map())
     const axesRangeRef = useRef<Map<string, AR>>(new Map())
+
     /**
      * Retrieves the x-axis and y-axis assignments for the specified series. If the axis does not have
      * an assignment, then we assume it is using the default x- and y-axes.
@@ -328,18 +331,20 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
         value={{
             xAxesState: xAxesStateRef.current,
             yAxesState: yAxesStateRef.current,
-            addXAxis: (axis, id, range) => {
+            addXAxis: (axis, id, range: AR) => {
                 xAxesStateRef.current = xAxesStateRef.current.addAxis(axis, id)
                 if (range !== undefined) {
-                    originalAxesBoundsRef.current.set(id, range)
-                    axesBoundsRef.current.set(id, range)
+                    originalAxesBoundsRef.current.set(id, range.original)
+                    axesBoundsRef.current.set(id, range.current)
+                    axesRangeRef.current.set(id, range)
                 }
             },
-            addYAxis: (axis, id, range) => {
+            addYAxis: (axis, id, range: AR) => {
                 yAxesStateRef.current = yAxesStateRef.current.addAxis(axis, id)
                 if (range !== undefined) {
-                    originalAxesBoundsRef.current.set(id, range)
-                    axesBoundsRef.current.set(id, range)
+                    originalAxesBoundsRef.current.set(id, range.original)
+                    axesBoundsRef.current.set(id, range.current)
+                    axesRangeRef.current.set(id, range)
                 }
             },
             setAxisAssignments: assignments => axisAssignmentsRef.current = assignments,

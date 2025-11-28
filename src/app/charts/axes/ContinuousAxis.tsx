@@ -123,32 +123,38 @@ export function ContinuousAxis(props: Props): null {
                 if (axisRef.current === undefined) {
                     switch (location) {
                         case AxisLocation.Bottom:
-                        case AxisLocation.Top:
+                        case AxisLocation.Top: {
                             axisRef.current = addContinuousNumericXAxis(
                                 chartId, axisId, svg, plotDimensions, location, scale, domain,
                                 font, margin, label, setAxisBoundsFor
                             )
                             // add the x-axis to the chart context
-                            addXAxis(axisRef.current, axisId, AxisInterval.as(domain))
+                            const [start, end] = AxisInterval.as(domain).asTuple()
+                            addXAxis(axisRef.current, axisId, ContinuousAxisRange.from(start, end))
+                            // addXAxis(axisRef.current, axisId, AxisInterval.as(domain))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
                             addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
 
                             break
+                        }
 
                         case AxisLocation.Left:
-                        case AxisLocation.Right:
+                        case AxisLocation.Right: {
                             axisRef.current = addContinuousNumericYAxis(
                                 chartId, axisId, svg, plotDimensions, location, scale, domain,
                                 font, margin, label, setAxisBoundsFor
                             )
                             // add the y-axis to the chart context
-                            addYAxis(axisRef.current, axisId, AxisInterval.as(domain))
+                            const [start, end] = AxisInterval.as(domain).asTuple()
+                            addYAxis(axisRef.current, axisId, ContinuousAxisRange.from(start, end))
+                            // addYAxis(axisRef.current, axisId, AxisInterval.as(domain))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
                             addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
+                        }
                     }
                 } else {
                     const domain = axisBoundsFor(axisId)

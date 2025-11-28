@@ -153,7 +153,7 @@ export function OrdinalAxis(props: Props): null {
                     // location
                     switch (location) {
                         case AxisLocation.Top:
-                        case AxisLocation.Bottom:
+                        case AxisLocation.Bottom: {
                             const xAxis = addOrdinalStringAxis(
                                 chartId, axisId, svg, location, categories,
                                 label, font, axisTickStyle, plotDimensions, margin,
@@ -161,24 +161,30 @@ export function OrdinalAxis(props: Props): null {
                             )
 
                             // add the x-axis to the chart context
-                            addXAxis(xAxis, axisId, AxisInterval.as(xAxis.scale.range()))
+                            const [start, end] = AxisInterval.as(xAxis.scale.range()).asTuple()
+                            addXAxis(xAxis, axisId, OrdinalAxisRange.from(start, end))
+                            // addXAxis(xAxis, axisId, AxisInterval.as(xAxis.scale.range()))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
                             addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                             break
+                        }
+
                         case AxisLocation.Left:
-                        case AxisLocation.Right:
+                        case AxisLocation.Right: {
                             const yAxis = addOrdinalStringAxis(
                                 chartId, axisId, svg, location, categories,
                                 label, font, axisTickStyle, plotDimensions, margin,
                                 setAxisBoundsFor, setOriginalAxisBoundsFor
                             )
                             // add the y-axis to the chart context
-                            addYAxis(yAxis, axisId, AxisInterval.as(yAxis.scale.range()))
+                            const [start, end] = AxisInterval.as(yAxis.scale.range()).asTuple()
+                            addYAxis(yAxis, axisId, OrdinalAxisRange.from(start, end))
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
                             addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
+                            }
                     }
                 } else {
                     const range = axisBoundsFor(axisId)
