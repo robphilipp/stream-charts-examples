@@ -348,7 +348,12 @@ export function RasterPlot(props: Props): null {
 
                 // enter, update, delete the raster data
                 dataRef.current.forEach(series => {
-                    const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
+                    const [xAxis, yAxis] = axesFor(
+                        series.name,
+                        axisAssignments,
+                        axisId => xAxesState.axisFor(axisId),
+                        axisId => yAxesState.axisFor(axisId)
+                    )
 
                     // grab the series styles, or the defaults if none exist
                     const {color, lineWidth, margin: spikeLineMargin = spikeMargin} = seriesStyles.get(series.name) || {
@@ -427,7 +432,8 @@ export function RasterPlot(props: Props): null {
             panEnabled,
             plotDimensions,
             seriesFilter, seriesStyles,
-            xAxesState.axisFor, yAxesState.axisFor,
+            // xAxesState.axisFor, yAxesState.axisFor,
+            xAxesState, yAxesState,
             zoomEnabled, zoomKeyModifiersRequired,
             spikeMargin
         ]

@@ -1,4 +1,4 @@
-import {addAxisTo, AxesState, createAxesState} from "./AxesState";
+import {AxesState} from "./AxesState";
 import {BaseAxis} from "../axes/axes";
 import {AxesAssignment} from "../plots/plot";
 import {createContext, JSX, useContext, useRef} from "react";
@@ -151,8 +151,8 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
 }
 
 export const defaultAxesValues = (): UseAxesValues<any, any> => ({
-    xAxesState: createAxesState(),
-    yAxesState: createAxesState(),
+    xAxesState: AxesState.empty(),
+    yAxesState: AxesState.empty(),
     addXAxis: noop,
     addYAxis: noop,
     setAxisAssignments: noop,
@@ -195,8 +195,8 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
 
     const plotDimensions = usePlotDimensions()
 
-    const xAxesStateRef = useRef<AxesState<A>>(createAxesState<A>())
-    const yAxesStateRef = useRef<AxesState<A>>(createAxesState<A>())
+    const xAxesStateRef = useRef<AxesState<A>>(AxesState.empty<A>())
+    const yAxesStateRef = useRef<AxesState<A>>(AxesState.empty<A>())
     const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
     // todo remove axesBoundRef and originalAxesBoundRef and switch to using axesRangeRef instead
     // holds the current axis bounds, map(axis_id -> (start, end)
@@ -329,14 +329,14 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
             xAxesState: xAxesStateRef.current,
             yAxesState: yAxesStateRef.current,
             addXAxis: (axis, id, range) => {
-                xAxesStateRef.current = addAxisTo<A>(xAxesStateRef.current, axis, id)
+                xAxesStateRef.current = xAxesStateRef.current.addAxis(axis, id)
                 if (range !== undefined) {
                     originalAxesBoundsRef.current.set(id, range)
                     axesBoundsRef.current.set(id, range)
                 }
             },
             addYAxis: (axis, id, range) => {
-                yAxesStateRef.current = addAxisTo<A>(yAxesStateRef.current, axis, id)
+                yAxesStateRef.current = yAxesStateRef.current.addAxis(axis, id)
                 if (range !== undefined) {
                     originalAxesBoundsRef.current.set(id, range)
                     axesBoundsRef.current.set(id, range)

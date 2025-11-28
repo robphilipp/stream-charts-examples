@@ -364,7 +364,12 @@ export function BarPlot(props: Props): null {
 
                 // enter, update, delete the bar data
                 dataRef.current.forEach(series => {
-                    const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
+                    const [xAxis, yAxis] = axesFor(
+                        series.name,
+                        axisAssignments,
+                        axisId => xAxesState.axisFor(axisId),
+                        axisId => yAxesState.axisFor(axisId)
+                    )
 
                     // grab the series styles, or the defaults if none exist
                     const {
@@ -668,7 +673,22 @@ export function BarPlot(props: Props): null {
                 })
             }
         },
-        [container, panEnabled, zoomEnabled, onPan, plotDimensions, margin, zoomKeyModifiersRequired, onZoom, axisAssignments, xAxesState.axisFor, yAxesState.axisFor, barMargin, seriesStyles, barSeriesStyle, seriesFilter, chartId, showValueLines, showMinMaxBars, mouseOverHandlerFor, mouseLeaveHandlerFor, showMeanValueLines, showWindowedMeanValueLines, showWindowedMinMaxBars]
+        [
+            container,
+            panEnabled, zoomEnabled,
+            onPan, onZoom,
+            plotDimensions, margin, zoomKeyModifiersRequired,
+            axisAssignments, xAxesState, yAxesState,
+            barMargin, seriesStyles, barSeriesStyle,
+            seriesFilter,
+            chartId,
+            showValueLines,
+            showMinMaxBars,
+            mouseOverHandlerFor, mouseLeaveHandlerFor,
+            showMeanValueLines,
+            showWindowedMeanValueLines,
+            showWindowedMinMaxBars
+        ]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure

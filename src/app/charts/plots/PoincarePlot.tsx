@@ -478,7 +478,10 @@ export function PoincarePlot(props: Props): null {
                 boundedSeries.forEach((data, name) => {
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
-                    const [xAxisLinear, yAxisLinear] = axesFor(xAxesState.axisFor, yAxesState.axisFor)
+                    const [xAxisLinear, yAxisLinear] = axesFor(
+                        axisId => xAxesState.axisFor(axisId),
+                        axisId => yAxesState.axisFor(axisId)
+                    )
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 
                     // grab the style for the series

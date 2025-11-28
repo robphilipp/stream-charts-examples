@@ -361,7 +361,12 @@ export function ScatterPlot(props: Props): null {
                 boundedSeries.forEach((data, name) => {
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
-                    const [xAxisLinear, yAxisLinear] = axesFor(name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
+                    const [xAxisLinear, yAxisLinear] = axesFor(
+                        name,
+                        axisAssignments,
+                        axisId => xAxesState.axisFor(axisId),
+                        axisId => yAxesState.axisFor(axisId)
+                    )
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 
                     // grab the style for the series
@@ -427,8 +432,10 @@ export function ScatterPlot(props: Props): null {
         },
         [
             container, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
-            zoomKeyModifiersRequired, onZoom, axisAssignments, xAxesState.axisFor,
-            yAxesState.axisFor, seriesStyles, seriesFilter, interpolation,
+            zoomKeyModifiersRequired, onZoom, axisAssignments,
+            // xAxesState.axisFor, yAxesState.axisFor,
+            xAxesState, yAxesState,
+            seriesStyles, seriesFilter, interpolation,
             mouseOverHandlerFor, mouseLeaveHandlerFor
         ]
     )
