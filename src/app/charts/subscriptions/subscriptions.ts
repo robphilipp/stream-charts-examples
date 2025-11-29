@@ -1,11 +1,5 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {
-    OrdinalStringAxis,
-    continuousAxisRanges,
-    ContinuousNumericAxis,
-    ordinalAxisRanges,
-    BaseAxis
-} from "../axes/axes";
+import {continuousAxisRanges, ContinuousNumericAxis, ordinalAxisRanges, OrdinalStringAxis} from "../axes/axes";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {interval, Observable, Subscription} from "rxjs";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
@@ -16,10 +10,8 @@ import {IterateChartData} from "../observables/iterates";
 import {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {
     copyOrdinalDatumExtremum,
-    copyOrdinalStats,
     copyOrdinalValueStats,
     copyValueStatsForSeries,
-    defaultOrdinalStats,
     defaultOrdinalValueStats,
     initialMaxValueDatum,
     initialMinValueDatum,
@@ -375,34 +367,11 @@ export function subscriptionIteratesFor(
     return subscription
 }
 
-
-// interface WindowedOrdinalValueStats {
-//     count: number
-//     sum: number
-//     mean: number
-//     sumSquared: number
-// }
-
 export interface WindowedOrdinalStats extends OrdinalStats {
     /**
      * A map associating each series to stats about that series (e.g. map(series_name -> stats))
      */
     windowedValueStatsForSeries: Map<string, OrdinalValueStats>
-}
-
-export function defaultWindowedOrdinalStats(): WindowedOrdinalStats {
-    return {
-        ...defaultOrdinalStats(),
-        windowedValueStatsForSeries: new Map<string, OrdinalValueStats>(),
-    }
-}
-
-function copyWindowedOrdinalStats(data: WindowedOrdinalStats): WindowedOrdinalStats {
-    return {
-        ...copyOrdinalStats(data),
-        windowedValueStatsForSeries: new Map<string, OrdinalValueStats>(
-            Array.from(data.windowedValueStatsForSeries.entries()))
-    }
 }
 
 /**
@@ -420,6 +389,7 @@ function copyWindowedOrdinalStats(data: WindowedOrdinalStats): WindowedOrdinalSt
  * @param seriesMap The series-name and the associated series
  * @param ordinalStatsRef The statistics about the data in the chart and about each series
  * @param setCurrentTime Callback to update the current time based on the streamed data
+ * @param originalRange The original range of the axes
  * @return A subscription to the observable (for cancelling and the likes)
  */
 export function subscriptionOrdinalXFor(
@@ -433,7 +403,6 @@ export function subscriptionOrdinalXFor(
     updateTimingAndPlot: (ranges: Map<string, OrdinalAxisRange>) => void,
     seriesMap: Map<string, BaseSeries<OrdinalDatum>>,
     ordinalStatsRef: RefObject<WindowedOrdinalStats>,
-    // ordinalStatsRef: MutableRefObject<WindowedOrdinalStats>,
     setCurrentTime: (currentTime: number) => void,
     originalRange: AxisInterval,
 ): Subscription {

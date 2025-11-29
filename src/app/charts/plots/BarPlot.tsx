@@ -1,4 +1,4 @@
-import {AxesAssignment, setClipPath, setClipPathG} from "./plot";
+import {AxesAssignment, setClipPathG} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {noop} from "../utils";
@@ -149,7 +149,6 @@ export function BarPlot(props: Props): null {
         container,
         mainG,
         axes,
-        color,
         seriesStyles,
         seriesFilter,
         mouse
@@ -159,9 +158,9 @@ export function BarPlot(props: Props): null {
         xAxesState,
         yAxesState,
         setAxisAssignments,
-        setAxisBoundsFor,
-        setOriginalAxisBoundsFor,
-        axesBounds
+        setAxisIntervalFor,
+        setOriginalAxisIntervalFor,
+        axesRanges
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -289,8 +288,8 @@ export function BarPlot(props: Props): null {
          plotDimensions: Dimensions,
          series: Array<string>,
          ranges: Map<string, OrdinalAxisRange>
-        ) => ordinalPanHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => ordinalPanHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
     /**
@@ -308,8 +307,8 @@ export function BarPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, OrdinalAxisRange>,
-        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisBoundsFor, setOriginalAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, setOriginalAxisBoundsFor, xAxesState]
+        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState]
     )
 
     /**
@@ -749,13 +748,14 @@ export function BarPlot(props: Props): null {
             axisAssignments, dropDataAfter, mainG,
             onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, yAxesState,
+            plotDimensions.width
         ]
     )
 
     useEffect(
         () => {
             if (container && mainG) {
-                const ordinalAxesRanges = axesBounds()
+                const ordinalAxesRanges = axesRanges()
                 // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
                 // change. for example, as data is streamed in, the times change, and then we need to update the
                 // time-range. however, we want to keep the time-ranges to reflect their original scale so that
@@ -787,7 +787,7 @@ export function BarPlot(props: Props): null {
 
             }
         },
-        [axesBounds, container, mainG, plotDimensions.width, updatePlot, xAxesState.axes]
+        [axesRanges, container, mainG, plotDimensions.width, updatePlot, xAxesState.axes]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`

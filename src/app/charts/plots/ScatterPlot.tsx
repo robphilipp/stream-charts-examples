@@ -116,10 +116,10 @@ export function ScatterPlot(props: Props): null {
     const {
         xAxesState,
         yAxesState,
-        setAxisBoundsFor,
-        updateAxesBounds = noop,
-        onUpdateAxesBounds,
-        originalAxesBounds
+        setAxisIntervalFor,
+        updateAxisRanges = noop,
+        onUpdateAxesInterval,
+        axesRanges,
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -147,11 +147,13 @@ export function ScatterPlot(props: Props): null {
     } = props
 
     const initialTimes = useMemo(
-        () => new Map<string, number>(
-            Array.from<[string, AxisInterval]>(originalAxesBounds().entries())
-                .map(([axisId, range]) => ([axisId, range.start]))
-        ),
-        [originalAxesBounds]
+        () => {
+            return new Map<string, number>(
+                Array.from<[string, ContinuousAxisRange]>(axesRanges().entries())
+                    .map(([axisId, range]) => ([axisId, range.original.start]))
+            )
+        },
+        [axesRanges]
     )
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
@@ -200,16 +202,16 @@ export function ScatterPlot(props: Props): null {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
-                if (onUpdateAxesBounds) {
+                if (onUpdateAxesInterval) {
                     setTimeout(() => {
                         const times = new Map<string, AxisInterval>()
                         ranges.forEach((range, name) => times.set(name, range.current))
-                        onUpdateAxesBounds(times)
+                        onUpdateAxesInterval(times)
                     }, 0)
                 }
             }
         },
-        [mainG, onUpdateAxesBounds]
+        [mainG, onUpdateAxesInterval]
     )
 
     // todo find better way
@@ -259,8 +261,8 @@ export function ScatterPlot(props: Props): null {
          plotDimensions: Dimensions,
          series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>,
-        ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
     /**
@@ -278,8 +280,8 @@ export function ScatterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => axisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
     const updatePlot = useCallback(
@@ -450,12 +452,12 @@ export function ScatterPlot(props: Props): null {
         },
         [updatePlot]
     )
-    const onUpdateTimeRef = useRef(updateAxesBounds)
+    const onUpdateTimeRef = useRef(updateAxisRanges)
     useEffect(
         () => {
-            onUpdateTimeRef.current = updateAxesBounds
+            onUpdateTimeRef.current = updateAxisRanges
         },
-        [updateAxesBounds]
+        [updateAxisRanges]
     )
 
     // memoized function for subscribing to the chart-data observable

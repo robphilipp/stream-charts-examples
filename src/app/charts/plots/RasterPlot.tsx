@@ -108,9 +108,9 @@ export function RasterPlot(props: Props): null {
         xAxesState,
         yAxesState,
         setAxisAssignments,
-        setAxisBoundsFor,
-        updateAxesBounds = noop,
-        onUpdateAxesBounds,
+        setAxisIntervalFor,
+        updateAxisRanges = noop,
+        onUpdateAxesInterval,
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -193,16 +193,16 @@ export function RasterPlot(props: Props): null {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
-                if (onUpdateAxesBounds) {
+                if (onUpdateAxesInterval) {
                     setTimeout(() => {
                         const times = new Map<string, AxisInterval>()
                         ranges.forEach((range, name) => times.set(name, range.current))
-                        onUpdateAxesBounds(times)
+                        onUpdateAxesInterval(times)
                     }, 0)
                 }
             }
         },
-        [mainG, onUpdateAxesBounds]
+        [mainG, onUpdateAxesInterval]
     )
 
     // todo find better way
@@ -272,8 +272,8 @@ export function RasterPlot(props: Props): null {
          plotDimensions: Dimensions,
          series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>
-        ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
     /**
@@ -291,8 +291,8 @@ export function RasterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => axisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
     /**
@@ -473,12 +473,12 @@ export function RasterPlot(props: Props): null {
 
     // grab a reference to the function used to update the time ranges and update that reference
     // if the function changes (solve for stale closures)
-    const onUpdateTimeRef = useRef(updateAxesBounds)
+    const onUpdateTimeRef = useRef(updateAxisRanges)
     useEffect(
         () => {
-            onUpdateTimeRef.current = updateAxesBounds
+            onUpdateTimeRef.current = updateAxisRanges
         },
-        [updateAxesBounds]
+        [updateAxisRanges]
     )
 
     // memoized function for subscribing to the chart-data observable

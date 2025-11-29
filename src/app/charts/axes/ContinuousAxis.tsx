@@ -71,10 +71,10 @@ export function ContinuousAxis(props: Props): null {
         yAxesState,
         addXAxis,
         addYAxis,
-        setAxisBoundsFor,
-        axisBoundsFor,
-        addAxesBoundsUpdateHandler,
-        setOriginalAxesBounds
+        axisRangeFor,
+        setAxisIntervalFor,
+        setAxisRangeFor,
+        addAxesRangesUpdateHandler,
     } = axes
 
     const {
@@ -126,7 +126,7 @@ export function ContinuousAxis(props: Props): null {
                         case AxisLocation.Top: {
                             axisRef.current = addContinuousNumericXAxis(
                                 chartId, axisId, svg, plotDimensions, location, scale, domain,
-                                font, margin, label, setAxisBoundsFor
+                                font, margin, label, setAxisIntervalFor
                             )
                             // add the x-axis to the chart context
                             const [start, end] = AxisInterval.as(domain).asTuple()
@@ -135,7 +135,7 @@ export function ContinuousAxis(props: Props): null {
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
-                            addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
+                            addAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
 
                             break
                         }
@@ -144,7 +144,7 @@ export function ContinuousAxis(props: Props): null {
                         case AxisLocation.Right: {
                             axisRef.current = addContinuousNumericYAxis(
                                 chartId, axisId, svg, plotDimensions, location, scale, domain,
-                                font, margin, label, setAxisBoundsFor
+                                font, margin, label, setAxisIntervalFor
                             )
                             // add the y-axis to the chart context
                             const [start, end] = AxisInterval.as(domain).asTuple()
@@ -153,12 +153,15 @@ export function ContinuousAxis(props: Props): null {
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
-                            addAxesBoundsUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
+                            addAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                         }
                     }
                 } else {
-                    const domain = axisBoundsFor(axisId)
-                    if (domain) {
+                    const axisRange = axisRangeFor(axisId)
+                    const domain = axisRange
+                        .map(range => range.current)
+                        .getOrElse(AxisInterval.empty())
+                    if (domain.isNotEmpty()) {
                         axisRef.current.update(domain, plotDimensions, margin)
                     }
 
@@ -167,7 +170,8 @@ export function ContinuousAxis(props: Props): null {
                         (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
                     ) {
                         domainRef.current = domain
-                        setOriginalAxesBounds(axisId, ContinuousAxisRange.from, domain)
+                        axisRange.ifPresent(range => setAxisRangeFor(axisId, range.updateOriginal(domain.start, domain.end)))
+
                     }
 
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
@@ -176,8 +180,10 @@ export function ContinuousAxis(props: Props): null {
         },
         [
             chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis, domain,
-            scale, container, margin, plotDimensions, setAxisBoundsFor, axisBoundsFor, addAxesBoundsUpdateHandler,
-            setOriginalAxesBounds,
+            scale, container, margin, plotDimensions, setAxisIntervalFor,
+            axisRangeFor,
+            addAxesRangesUpdateHandler,
+            setAxisRangeFor,
             color, updateAxisBasedOnDomainValues
         ]
     )

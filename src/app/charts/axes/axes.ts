@@ -506,25 +506,6 @@ function updateOrdinalStringYAxis(
 }
 
 /**
- * Calculates the number of pixels each category occupies on the axis
- * @param location The axis location (i.e. top, bottom, left, right)
- * @param dimensions The dimensions of the plot
- * @param margin The margins for the plot
- * @param numCategories The number of categories
- * @return the number of pixels each category occupies on the axis
- */
-function ordinalSizeFor(location: AxisLocation, dimensions: Dimensions, margin: Margin, numCategories: number): number {
-    switch (location) {
-        case AxisLocation.Left:
-        case AxisLocation.Right:
-            return Math.max(margin.bottom, dimensions.height - margin.bottom) / numCategories
-        case AxisLocation.Top:
-        case AxisLocation.Bottom:
-            return Math.max(margin.right, dimensions.width) / numCategories
-    }
-}
-
-/**
  * Calculates the number of pixels by which to translate the label in the x-direction for the axis.
  * The calculation uses the dimensions and margins of the plot, the location of the
  * axis, and the font for the label.

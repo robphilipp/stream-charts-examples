@@ -291,7 +291,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM>(props:
         <>
             <svg ref={containerRef}/>
             <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
-                <AxesProvider onUpdateAxesBounds={onUpdateAxesBounds}>
+                <AxesProvider onUpdateAxesInterval={onUpdateAxesBounds}>
                     <MouseProvider<D, TM>>
                         <TooltipProvider<D, TM>>
                             <InitialDataProvider<CD, D>

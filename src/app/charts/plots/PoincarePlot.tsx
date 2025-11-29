@@ -132,11 +132,11 @@ export function PoincarePlot(props: Props): null {
     const {
         xAxesState,
         yAxesState,
-        setAxisBoundsFor,
-        updateAxesBounds = noop,
-        axisBoundsFor,
-        addAxesBoundsUpdateHandler,
-        removeAxesBoundsUpdateHandler,
+        setAxisIntervalFor,
+        updateAxisRanges = noop,
+        axisRangeFor,
+        addAxesRangesUpdateHandler,
+        removeAxesRangesUpdateHandler,
     } = axes
 
     const {
@@ -280,8 +280,8 @@ export function PoincarePlot(props: Props): null {
     // the update handler is needed so that when the axes bounds are changed (say to accommodate a
     // different iterate function's domain/range), then the handler needs to update the x and y
     // axes range refs
-    const addAxesBoundsUpdateHandlerRef = useRef(addAxesBoundsUpdateHandler)
-    const removeAxesBoundsUpdateHandlerRef = useRef(removeAxesBoundsUpdateHandler)
+    const addAxesBoundsUpdateHandlerRef = useRef(addAxesRangesUpdateHandler)
+    const removeAxesBoundsUpdateHandlerRef = useRef(removeAxesRangesUpdateHandler)
     useEffect(
         () => {
             addAxesBoundsUpdateHandlerRef.current(`handler-${chartId}`, updatedBoundsHandler)
@@ -312,10 +312,10 @@ export function PoincarePlot(props: Props): null {
         ) => panHandler2D(
             xAxesForSeries, yAxesForSeries,
             margin,
-            setAxisBoundsFor,
+            setAxisIntervalFor,
             xAxesState, yAxesState
         )(x, y, plotDimensions, series, xRanges, yRanges),
-        [xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState]
+        [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState]
     )
 
     /**
@@ -338,9 +338,9 @@ export function PoincarePlot(props: Props): null {
             xRanges: Map<string, ContinuousAxisRange>,
             yRanges: Map<string, ContinuousAxisRange>
         ) => axesZoomHandler(
-            xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState, [zoomMinScaleFactor, zoomMaxScaleFactor]
+            xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, [zoomMinScaleFactor, zoomMaxScaleFactor]
         )(transform, [x, y], plotDimensions, xRanges, yRanges),
-        [xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState, zoomMinScaleFactor, zoomMaxScaleFactor]
+        [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, zoomMinScaleFactor, zoomMaxScaleFactor]
     )
 
     const updatePlot = useCallback(
@@ -659,12 +659,12 @@ export function PoincarePlot(props: Props): null {
         },
         [updatePlot]
     )
-    const onUpdateAxesBoundsRef = useRef(updateAxesBounds)
+    const onUpdateAxesBoundsRef = useRef(updateAxisRanges)
     useEffect(
         () => {
-            onUpdateAxesBoundsRef.current = updateAxesBounds
+            onUpdateAxesBoundsRef.current = updateAxisRanges
         },
-        [updateAxesBounds]
+        [updateAxisRanges]
     )
 
     // memoized function for subscribing to the chart-data observable
@@ -702,7 +702,7 @@ export function PoincarePlot(props: Props): null {
                 updatePlot(mainG)
             }
         },
-        [axisBoundsFor, container, mainG, updatePlot]
+        [axisRangeFor, container, mainG, updatePlot]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`

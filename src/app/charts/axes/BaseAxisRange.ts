@@ -95,4 +95,12 @@ export abstract class BaseAxisRange {
      * @return The updated axis-range type, with all other values unchanged
      */
     abstract update(start: number, end: number): BaseAxisRange
+
+    /**
+     * Updates the original range with the new start and end values.
+     * @param start The new value for the start of the original range
+     * @param end The new value for the end of the original range
+     * @return The updated original range.
+     */
+    abstract updateOriginal(start: number, end: number): BaseAxisRange
 }

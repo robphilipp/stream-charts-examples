@@ -99,4 +99,14 @@ export class OrdinalAxisRange extends BaseAxisRange {
     update(start: number, end: number): OrdinalAxisRange {
         return new OrdinalAxisRange(start, end, this.original.start, this.original.end)
     }
+
+    /**
+     * Updates the original range with the new start and end values.
+     * @param start The new value for the start of the original range
+     * @param end The new value for the end of the original range
+     * @return The updated original range.
+     */
+    updateOriginal(start: number, end: number): BaseAxisRange {
+        return new OrdinalAxisRange(this.current.start, this.current.end, start, end)
+    }
 }
