@@ -131,10 +131,9 @@ export function setClipPath(
             .attr("id", clipPathId)
         .append("rect")
             .attr("x", 0)
-            .attr("y", 0)
+            .attr("y", location === AxisLocation.Bottom ? 0 : -margin.bottom)
             .attr("width", width)
             .attr("height", height)
-            // .attr("height", Math.max(margin.bottom, plotDimensions.height - margin.bottom))
 
     return clipPathId
 }

@@ -170,18 +170,16 @@ export function OrdinalAxis(props: Props): null {
             }
         },
         [
-            addXAxis, addYAxis,
-            addAxesRangesUpdateHandler, setAxisIntervalFor,
-            chartId,
-            axisId,
-            categories,
             container,
-            color, label, location, margin, plotDimensions, props.axisTickStyle, props.font,
-            xAxesState, yAxesState,
-            axisRangeFor,
-            updateAxisBasedOnDomainValues,
             axis,
-            setOriginalAxisIntervalFor,
+            addXAxis, addYAxis,
+            addAxesRangesUpdateHandler,
+            setAxisIntervalFor, setOriginalAxisIntervalFor, axisRangeFor,
+            xAxesState, yAxesState,
+            updateAxisBasedOnDomainValues,
+            chartId, axisId,
+            categories,
+            color, label, location, margin, plotDimensions, props.axisTickStyle, props.font,
         ]
     )
 
@@ -215,9 +213,10 @@ export function OrdinalAxis(props: Props): null {
         },
         [
             axis,
-            axisRangeFor,
+            axisRangeFor, setAxisIntervalFor, setOriginalAxisIntervalFor,
             axisId, location, margin,
-            plotDimensions, registerPlotDimensionChangeHandler, setAxisIntervalFor, setOriginalAxisIntervalFor, unregisterPlotDimensionChangeHandler]
+            plotDimensions, registerPlotDimensionChangeHandler, unregisterPlotDimensionChangeHandler,
+        ]
     );
 
     return null

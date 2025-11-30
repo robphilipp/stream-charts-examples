@@ -699,11 +699,9 @@ export function BarPlot(props: Props): null {
             if (mainG != null && container != null) {
                 // when the update plot function doesn't yet exist, then create the container holding the plot
                 const clipPathId = setClipPathG(chartId, mainG, plotDimensions, margin)
-                // const svg = d3.select<SVGSVGElement, any>(container)
-                // const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
                 if (updatePlotRef.current === noop) {
                     mainG
-                        .selectAll<SVGGElement, TimeSeries>('g')
+                        .selectAll<SVGGElement, BaseSeries<OrdinalDatum>>('g')
                         .attr("clip-path", `url(#${clipPathId})`)
                         .data<BaseSeries<OrdinalDatum>>(dataRef.current)
                         .enter()
