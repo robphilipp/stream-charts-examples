@@ -1,23 +1,22 @@
-import {AxesAssignment, setClipPath, Series} from "./plot";
+import {AxesAssignment, setClipPath} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {noop} from "../utils";
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
+    axisZoomHandler,
     BaseAxis,
-    CategoryAxis,
-    ContinuousNumericAxis,
-    defaultLineStyle,
-    panHandler,
-    SeriesLineStyle,
     continuousAxisIntervals,
     continuousAxisRanges,
-    axisZoomHandler
+    ContinuousNumericAxis,
+    defaultLineStyle,
+    OrdinalStringAxis,
+    panHandler,
+    SeriesLineStyle
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
 import {Dimensions, Margin} from "../styling/margins";
@@ -27,6 +26,9 @@ import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData} from "../hooks/useTooltip";
+import {AxisInterval} from "../axes/AxisInterval";
+import {Optional} from "result-fn";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 interface Props {
     /**
@@ -50,7 +52,7 @@ interface Props {
     zoomEnabled?: boolean
     /**
      * When true, requires that the shift or control key be pressed while scrolling
-     * in order to activate the zoom
+     * to activate the zoom
      */
     zoomKeyModifiersRequired?: boolean
     /**
@@ -100,15 +102,15 @@ export function RasterPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         xAxesState,
         yAxesState,
         setAxisAssignments,
-        setAxisBoundsFor,
-        updateAxesBounds = noop,
-        onUpdateAxesBounds,
+        setAxisIntervalFor,
+        updateAxisRanges = noop,
+        onUpdateAxesInterval,
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -180,7 +182,7 @@ export function RasterPlot(props: Props): null {
 
     // calculates the distinct series IDs that cover all the series in the plot
     const axesForSeries = useMemo(
-        () => axesForSeriesGen<Datum>(initialData, axisAssignments, xAxesState),
+        () => axesForSeriesGen<Datum, ContinuousNumericAxis>(initialData, axisAssignments, xAxesState),
         [initialData, axisAssignments, xAxesState]
     )
 
@@ -191,16 +193,16 @@ export function RasterPlot(props: Props): null {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
-                if (onUpdateAxesBounds) {
+                if (onUpdateAxesInterval) {
                     setTimeout(() => {
-                        const times = new Map<string, [number, number]>()
+                        const times = new Map<string, AxisInterval>()
                         ranges.forEach((range, name) => times.set(name, range.current))
-                        onUpdateAxesBounds(times)
+                        onUpdateAxesInterval(times)
                     }, 0)
                 }
             }
         },
-        [mainG, onUpdateAxesBounds]
+        [mainG, onUpdateAxesInterval]
     )
 
     // todo find better way
@@ -215,7 +217,7 @@ export function RasterPlot(props: Props): null {
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
-                        const [start, end] = range.original
+                        const [start, end] = range.original.asTuple()
                         const minTime = (initialData as Array<TimeSeries>)
                             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
                             .reduce(
@@ -226,7 +228,7 @@ export function RasterPlot(props: Props): null {
                                 Infinity
                             )
                         const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, continuousAxisRangeFor(startTime, startTime + end - start)]
+                        return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
                     })
                 )
             )
@@ -270,8 +272,8 @@ export function RasterPlot(props: Props): null {
          plotDimensions: Dimensions,
          series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>
-        ) => panHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
     /**
@@ -289,8 +291,8 @@ export function RasterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisBoundsFor, xAxesState)(transform, x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisBoundsFor, xAxesState]
+        ) => axisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
     /**
@@ -346,7 +348,12 @@ export function RasterPlot(props: Props): null {
 
                 // enter, update, delete the raster data
                 dataRef.current.forEach(series => {
-                    const [xAxis, yAxis] = axesFor(series.name, axisAssignments, xAxesState.axisFor, yAxesState.axisFor)
+                    const [xAxis, yAxis] = axesFor(
+                        series.name,
+                        axisAssignments,
+                        axisId => xAxesState.axisFor(axisId),
+                        axisId => yAxesState.axisFor(axisId)
+                    )
 
                     // grab the series styles, or the defaults if none exist
                     const {color, lineWidth, margin: spikeLineMargin = spikeMargin} = seriesStyles.get(series.name) || {
@@ -364,7 +371,7 @@ export function RasterPlot(props: Props): null {
 
                     //
                     // enter new elements
-                    const {yUpper, yLower} = yCoordsFn(yAxis.categorySize, lineWidth, spikeLineMargin)
+                    const {yUpper, yLower} = yCoordsFn(yAxis.scale.bandwidth(), lineWidth, spikeLineMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const y = yAxis.scale(series.name) || 0
@@ -425,7 +432,8 @@ export function RasterPlot(props: Props): null {
             panEnabled,
             plotDimensions,
             seriesFilter, seriesStyles,
-            xAxesState.axisFor, yAxesState.axisFor,
+            // xAxesState.axisFor, yAxesState.axisFor,
+            xAxesState, yAxesState,
             zoomEnabled, zoomKeyModifiersRequired,
             spikeMargin
         ]
@@ -465,12 +473,12 @@ export function RasterPlot(props: Props): null {
 
     // grab a reference to the function used to update the time ranges and update that reference
     // if the function changes (solve for stale closures)
-    const onUpdateTimeRef = useRef(updateAxesBounds)
+    const onUpdateTimeRef = useRef(updateAxisRanges)
     useEffect(
         () => {
-            onUpdateTimeRef.current = updateAxesBounds
+            onUpdateTimeRef.current = updateAxisRanges
         },
-        [updateAxesBounds]
+        [updateAxisRanges]
     )
 
     // memoized function for subscribing to the chart-data observable
@@ -532,10 +540,13 @@ export function RasterPlot(props: Props): null {
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
-                    const intervals = continuousAxisIntervals(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    const intervals = continuousAxisIntervals(xAxesState.axes)
                     timeRangesRef.current
                         .forEach((range, id, rangesMap) => {
-                            const [start, end] = intervals.get(id) || [NaN, NaN]
+                            const [start, end] = Optional.ofNullable(intervals.get(id))
+                                .map(interval => interval.asTuple())
+                                .getOrThrow(() => new Error(`Unable to retrieve interval for axis; axis_id: ${id}`))
+                                // .getOrElse([NaN, NaN])
                             if (!isNaN(start) && !isNaN(end)) {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact
@@ -587,7 +598,7 @@ function axesFor(
     axisAssignments: Map<string, AxesAssignment>,
     xAxisFor: (id: string) => BaseAxis | undefined,
     yAxisFor: (id: string) => BaseAxis | undefined,
-): [xAxis: ContinuousNumericAxis, yAxis: CategoryAxis] {
+): [xAxis: ContinuousNumericAxis, yAxis: OrdinalStringAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
     const xAxisLinear = xAxis as ContinuousNumericAxis
@@ -595,7 +606,7 @@ function axesFor(
         throw Error("Raster plot requires that x-axis be of type LinearAxis")
     }
     const yAxis = yAxisFor(axes?.yAxis || "")
-    const yAxisCategory = yAxis as CategoryAxis
+    const yAxisCategory = yAxis as OrdinalStringAxis
     if (yAxis && !yAxisCategory) {
         throw Error("Raster plot requires that y-axis be of type CategoryAxis")
     }

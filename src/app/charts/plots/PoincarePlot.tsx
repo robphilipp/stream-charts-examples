@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
-import {ContinuousAxisRange, continuousAxisRangeFor} from "../axes/continuousAxisRangeFor";
 import * as d3 from "d3";
 import {CurveFactory, ZoomTransform} from "d3";
 import {setClipPath} from "./plot";
@@ -25,6 +24,7 @@ import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {TooltipData, useTooltip} from "../hooks/useTooltip";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
 type IteratePointSeries = Array<IteratePoint>
@@ -33,7 +33,7 @@ function generateAxisRangeMap(axes: Map<string, BaseAxis>): Map<string, Continuo
     return new Map(
         Array.from(axes.entries()).map(([id, axis]) => {
             const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
-            return [id, continuousAxisRangeFor(start, end)]
+            return [id, ContinuousAxisRange.from(start, end)]
         })
     )
 }
@@ -127,16 +127,16 @@ export function PoincarePlot(props: Props): null {
         seriesFilter,
 
         mouse
-    } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
+    } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         xAxesState,
         yAxesState,
-        setAxisBoundsFor,
-        updateAxesBounds = noop,
-        axisBoundsFor,
-        addAxesBoundsUpdateHandler,
-        removeAxesBoundsUpdateHandler,
+        setAxisIntervalFor,
+        updateAxisRanges = noop,
+        axisRangeFor,
+        addAxesRangesUpdateHandler,
+        removeAxesRangesUpdateHandler,
     } = axes
 
     const {
@@ -280,8 +280,8 @@ export function PoincarePlot(props: Props): null {
     // the update handler is needed so that when the axes bounds are changed (say to accommodate a
     // different iterate function's domain/range), then the handler needs to update the x and y
     // axes range refs
-    const addAxesBoundsUpdateHandlerRef = useRef(addAxesBoundsUpdateHandler)
-    const removeAxesBoundsUpdateHandlerRef = useRef(removeAxesBoundsUpdateHandler)
+    const addAxesBoundsUpdateHandlerRef = useRef(addAxesRangesUpdateHandler)
+    const removeAxesBoundsUpdateHandlerRef = useRef(removeAxesRangesUpdateHandler)
     useEffect(
         () => {
             addAxesBoundsUpdateHandlerRef.current(`handler-${chartId}`, updatedBoundsHandler)
@@ -312,10 +312,10 @@ export function PoincarePlot(props: Props): null {
         ) => panHandler2D(
             xAxesForSeries, yAxesForSeries,
             margin,
-            setAxisBoundsFor,
+            setAxisIntervalFor,
             xAxesState, yAxesState
         )(x, y, plotDimensions, series, xRanges, yRanges),
-        [xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState]
+        [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState]
     )
 
     /**
@@ -338,9 +338,9 @@ export function PoincarePlot(props: Props): null {
             xRanges: Map<string, ContinuousAxisRange>,
             yRanges: Map<string, ContinuousAxisRange>
         ) => axesZoomHandler(
-            xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState, [zoomMinScaleFactor, zoomMaxScaleFactor]
+            xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, [zoomMinScaleFactor, zoomMaxScaleFactor]
         )(transform, [x, y], plotDimensions, xRanges, yRanges),
-        [xAxesForSeries, yAxesForSeries, margin, setAxisBoundsFor, xAxesState, yAxesState, zoomMinScaleFactor, zoomMaxScaleFactor]
+        [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, zoomMinScaleFactor, zoomMaxScaleFactor]
     )
 
     const updatePlot = useCallback(
@@ -451,8 +451,8 @@ export function PoincarePlot(props: Props): null {
                     .y(d => yAxis.scale(d[1] || 0))
                 // ---
 
-                const [xStart, xEnd] = xAxisRangesRef.current.get(xAxesState.axisDefaultId())?.original || [0, 0]
-                const [yStart, yEnd] = yAxisRangesRef.current.get(yAxesState.axisDefaultId())?.original || [0, 0]
+                const [xStart, xEnd] = xAxisRangesRef.current.get(xAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
+                const [yStart, yEnd] = yAxisRangesRef.current.get(yAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
 
                 mainGElem
                     .selectAll(`#fn-equals-fn1-${chartId}-poincare`)
@@ -478,7 +478,10 @@ export function PoincarePlot(props: Props): null {
                 boundedSeries.forEach((data, name) => {
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
-                    const [xAxisLinear, yAxisLinear] = axesFor(xAxesState.axisFor, yAxesState.axisFor)
+                    const [xAxisLinear, yAxisLinear] = axesFor(
+                        axisId => xAxesState.axisFor(axisId),
+                        axisId => yAxesState.axisFor(axisId)
+                    )
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 
                     // grab the style for the series
@@ -656,12 +659,12 @@ export function PoincarePlot(props: Props): null {
         },
         [updatePlot]
     )
-    const onUpdateAxesBoundsRef = useRef(updateAxesBounds)
+    const onUpdateAxesBoundsRef = useRef(updateAxisRanges)
     useEffect(
         () => {
-            onUpdateAxesBoundsRef.current = updateAxesBounds
+            onUpdateAxesBoundsRef.current = updateAxisRanges
         },
-        [updateAxesBounds]
+        [updateAxisRanges]
     )
 
     // memoized function for subscribing to the chart-data observable
@@ -699,7 +702,7 @@ export function PoincarePlot(props: Props): null {
                 updatePlot(mainG)
             }
         },
-        [axisBoundsFor, container, mainG, updatePlot]
+        [axisRangeFor, container, mainG, updatePlot]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`

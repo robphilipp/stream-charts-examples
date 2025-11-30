@@ -4,11 +4,11 @@ import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
-import {CategoryAxis, SeriesLineStyle} from "../axes/axes";
+import {OrdinalStringAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
 import {TooltipData} from "../hooks/useTooltip";
-import {ContinuousAxisRange} from "../axes/continuousAxisRangeFor";
+import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 /**
  # Want to write your own tooltip-content component?
@@ -117,7 +117,7 @@ export function RasterPlotTooltipContent(props: Props): null {
         container,
         tooltip,
         axes
-    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange>()
+    } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, OrdinalStringAxis>()
 
     const {registerTooltipContentProvider} = tooltip
 
@@ -168,7 +168,7 @@ export function RasterPlotTooltipContent(props: Props): null {
                      * @return The tooltip contents
                      */
                     (seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => {
-                        const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as CategoryAxis
+                        const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as OrdinalStringAxis
                         return addTooltipContent(
                             seriesName, time, tooltipData.series[0], mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
@@ -216,7 +216,7 @@ function addTooltipContent(
     margin: Margin,
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
-    axis: CategoryAxis,
+    axis: OrdinalStringAxis,
     options: TooltipOptions
 ): TooltipDimensions {
     const {formatters} = options
@@ -244,7 +244,6 @@ function addTooltipContent(
         .attr('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
         .text(() => `${formatters.x(spikeTime)}, ${formatters.y(value)}`)
-        // .text(() => `${d3.format(",.0f")(spikeTime)} ms, ${d3.format(",.2f")(value)} mV`)
 
     // calculate the max width and height of the text
     const tooltipWidth = Math.max(header.node()?.getBBox()?.width || 0, text.node()?.getBBox()?.width || 0);
@@ -255,7 +254,7 @@ function addTooltipContent(
     // set the header text location
     // const spikeHeight = plotDimensions.height / liveDataRef.current.size
     const xCoord = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin)
-    const yCoord = categoryTooltipY(seriesName, textHeight, axis, tooltipStyle, margin, axis.categorySize, plotDimensions)
+    const yCoord = categoryTooltipY(seriesName, textHeight, axis, tooltipStyle, margin, axis.scale.bandwidth(), plotDimensions)
     const xTooltip = xCoord + tooltipStyle.paddingLeft
     const yTooltip = yCoord + tooltipStyle.paddingTop
     header

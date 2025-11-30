@@ -34,6 +34,7 @@ import {RasterPlot} from "../charts/plots/RasterPlot";
 import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {assignAxes} from "../charts/plots/plot";
+import {AxisInterval} from "../charts/axes/AxisInterval";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -140,8 +141,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
      * Updates the time from the chart (the max value of the axes ranges)
      * @param times A map associating the axis with its time range
      */
-    function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
-        chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
+    function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
+        chartTimeRef.current = Math.max(...Array.from(times.values()).map(range => range.end))
     }
 
     const inputStyle = {

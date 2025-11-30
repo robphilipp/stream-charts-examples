@@ -27,6 +27,7 @@ export function createPlotContainer(
 }
 
 /**
+ * @deprecated
  * Adds a clip area for the chart to the specified SVG element. The clip-area is given
  * an `id` of `clip-series-<chart_id>`, which because the chart ID should be unique, makes
  * this unique as well
@@ -40,14 +41,45 @@ export function setClipPath(chartId: number, svg: SvgSelection, plotDimensions: 
     const clipPathId = `chart-clip-path-${chartId}`
 
     // remove the old clipping region and add a new one with the updated plot dimensions
-    svg.select('defs').remove();
+    svg.select(`#${clipPathId}-defs`).remove();
     svg
         .append('defs')
+        .attr('id', `${clipPathId}-defs`)
         .append("clipPath")
         .attr("id", clipPathId)
         .append("rect")
         .attr("width", Math.max(0, plotDimensions.width))
         .attr("height", Math.max(margin.bottom, plotDimensions.height - margin.bottom))
+
+    return clipPathId
+}
+
+/**
+ * Adds a clip area for the chart to the specified SVG element. The clip-area is given
+ * an `id` of `clip-series-<chart_id>`, which because the chart ID should be unique, makes
+ * this unique as well
+ * @param chartId The ID of the chart to which the clip area is to be added
+ * @param plotGroup The SVG group element to which the clip area is to be added
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins around the plot
+ * @return The ID of the clip-path
+ */
+export function setClipPathG(chartId: number, plotGroup: GSelection, plotDimensions: Dimensions, margin: Margin): string {
+    const clipPathId = `chart-clip-path-${chartId}`
+
+    // remove the old clipping region and add a new one with the updated plot dimensions
+    plotGroup.select(`#${clipPathId}-defs`).remove();
+    plotGroup
+        .append('defs')
+            .attr('id', `${clipPathId}-defs`)
+        .append("clipPath")
+            .attr("id", clipPathId)
+        .append("rect")
+            .attr("x", 0)
+            .attr("y", 0)
+            .attr("width", Math.max(0, plotDimensions.width))
+            .attr("height", Math.max(0, plotDimensions.height))
+            // .attr("height", Math.max(margin.bottom, plotDimensions.height - margin.bottom))
 
     return clipPathId
 }

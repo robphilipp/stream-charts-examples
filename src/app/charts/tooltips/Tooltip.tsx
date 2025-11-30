@@ -3,7 +3,7 @@ import {defaultTooltipStyle, removeTooltip, TooltipStyle} from "./tooltipUtils";
 import * as d3 from "d3";
 import {useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {SeriesStyle} from "../axes/axes";
+import {BaseAxis, SeriesStyle} from "../axes/axes";
 import {TooltipData} from "../hooks/useTooltip";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
 
@@ -47,13 +47,13 @@ export interface Props {
  * @return null
  * @constructor
  */
-export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange>(props: Props): JSX.Element {
+export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(props: Props): JSX.Element {
     const {
         chartId,
         container,
         tooltip,
         mouse
-    } = useChart<D, S, TM, AR>()
+    } = useChart<D, S, TM, AR, A>()
 
     const {
         tooltipContentProvider,
