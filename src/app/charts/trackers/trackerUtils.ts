@@ -35,7 +35,8 @@ export const defaultTrackerStyle: TrackerStyle = {
 };
 
 /**
- * Creates or returns the existing SVG elements for displaying a tracker line
+ * Creates or returns the existing SVG elements for displaying a tracker line that is either
+ * vertical (for x-axes) or horizontal (for y-axes).
  * @param chartId The ID of the chart
  * @param container The SVG container
  * @param svg The SVG selection
@@ -46,7 +47,8 @@ export const defaultTrackerStyle: TrackerStyle = {
  * @param label A function that returns the tracker label string for a given x-value
  * @param labelStyle The location style for the tracker (i.e. on the axes, next to the mouse, none shown)
  * @param onTrackerUpdate A callback function that accepts the current tracker's axis information
- * @param axisLocation The location of the axis for which the tracker is to be shown. Default is bottom.
+ * @param [axisLocation = AxisLocation.Bottom] The optional location of the axis for which the tracker is to
+ * be shown. Default is bottom.
  * @return The tracker selection
  */
 export function trackerControlInstance(
@@ -73,6 +75,20 @@ export function trackerControlInstance(
     }
 }
 
+/**
+ * Creates or returns the existing SVG elements for displaying a vertical tracker line
+ * @param chartId The ID of the chart
+ * @param container The SVG container
+ * @param svg The SVG selection
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins around the plot
+ * @param style The tracker style
+ * @param labelFont The font used for the axis labels
+ * @param label A function that returns the tracker label string for a given x-value
+ * @param labelStyle The location style for the tracker (i.e. on the axes, next to the mouse, none shown)
+ * @param onTrackerUpdate A callback function that accepts the current tracker's axis information
+ * @return The tracker selection
+ */
 function verticalTrackerControlInstance(
     chartId: number,
     container: SVGSVGElement,
@@ -96,7 +112,7 @@ function verticalTrackerControlInstance(
         .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
 
 
-    label.forEach((labelFn, axis) => {
+    label.forEach((_, axis) => {
         // create the text element holding the tracker time
         const label = axis.location === AxisLocation.Top ?
             Math.max(0, margin.top - 20) :
@@ -124,6 +140,20 @@ function verticalTrackerControlInstance(
     return trackerLine
 }
 
+/**
+ * Creates or returns the existing SVG elements for displaying a horizontal tracker line
+ * @param chartId The ID of the chart
+ * @param container The SVG container
+ * @param svg The SVG selection
+ * @param plotDimensions The dimensions of the plot
+ * @param margin The margins around the plot
+ * @param style The tracker style
+ * @param labelFont The font used for the axis labels
+ * @param label A function that returns the tracker label string for a given x-value
+ * @param labelStyle The location style for the tracker (i.e. on the axes, next to the mouse, none shown)
+ * @param onTrackerUpdate A callback function that accepts the current tracker's axis information
+ * @return The tracker selection
+ */
 function horizontalTrackerControlInstance(
     chartId: number,
     container: SVGSVGElement,
@@ -147,7 +177,7 @@ function horizontalTrackerControlInstance(
         .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
 
 
-    label.forEach((labelFn, axis) => {
+    label.forEach((_, axis) => {
         // create the text element holding the tracker time
         const label = axis.location === AxisLocation.Left ?
             Math.max(0, margin.left - 20) :
@@ -184,17 +214,17 @@ export function removeTrackerControl(svg: SvgSelection) {
 }
 
 /**
- * Callback when the mouse tracker is to be shown
+ * Callback when the vertical mouse tracker is to be shown
  * @param chartId The ID number of the chart
  * @param container The svg container
  * @param event The mouse-over series event
  * @param margin The plot margins
- * @param dimensions The container dimensions (i.e. the plot dimensions plus its margins)
+ * @param dimensions The container dimensions (i.e., the plot dimensions plus its margins)
  * @param trackerStyle The style settings for the tracker line
  * @param labelFont The style settings for the tracker font
  * @param label A function that returns the tracker label string
- * @param labelStyle Where to display the tracker labels (i.e. with-mouse, with-axes, no-where)
- * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
+ * @param labelStyle Where to display the tracker labels (i.e., with-mouse, with-axes, no-where)
+ * @param onTrackerUpdate A callback function that accepts the current tracker's axis information
  */
 function handleShowVerticalTracker(
     chartId: number,
@@ -246,7 +276,7 @@ function handleShowVerticalTracker(
             }
 
             // adjust the label position when the tracker is at the right-most edges of the plot so that
-            // the label remains visible (i.e. doesn't get clipped)
+            // the label remains visible (i.e., doesn't get clipped)
             const xOffset = TrackerLabelLocation.WithMouse ? 10 : 0
             const labelWidth = textWidthOf(label)
             label.attr('x', Math.min(dimensions.width - margin.right - labelWidth, x + xOffset))
@@ -264,7 +294,7 @@ function handleShowVerticalTracker(
 }
 
 /**
- * Callback when the mouse tracker is to be shown
+ * Callback when the horizontal mouse tracker is to be shown
  * @param chartId The ID number of the chart
  * @param container The svg container
  * @param event The mouse-over series event
@@ -273,8 +303,8 @@ function handleShowVerticalTracker(
  * @param trackerStyle The style settings for the tracker line
  * @param labelFont The style settings for the tracker font
  * @param label A function that returns the tracker label string
- * @param labelStyle Where to display the tracker labels (i.e. with-mouse, with-axes, no-where)
- * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
+ * @param labelStyle Where to display the tracker labels (i.e., with-mouse, with-axes, no-where)
+ * @param onTrackerUpdate A callback function that accepts the current tracker's axis information
  */
 function handleShowHorizontalTracker(
     chartId: number,

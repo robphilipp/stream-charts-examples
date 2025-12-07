@@ -791,7 +791,7 @@ function continuousLabelXTranslation(location: AxisLocation.Left | AxisLocation.
  */
 
 /**
- * Calculates the number pixels by which to translate the x-axis.
+ * Calculates the number of pixels by which to translate the x-axis.
  * @param location The axis location (i.e. top, bottom, left, right)
  * @param plotDimensions The dimensions of the plot
  * @param margin The margins for the plot
