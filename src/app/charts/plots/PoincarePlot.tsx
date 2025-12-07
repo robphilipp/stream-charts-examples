@@ -277,7 +277,7 @@ export function PoincarePlot(props: Props): null {
     // changes, and not when the addAxesBoundsUpdateHandler or removeAxesBoundsUpdateHandler
     // which they do, and that breaks the updates...someone, please teach me react
     //
-    // the update handler is needed so that when the axes bounds are changed (say to accommodate a
+    // the update handler is needed so that when the axis bounds are changed (say to accommodate a
     // different iterate function's domain/range), then the handler needs to update the x and y
     // axes range refs
     const addAxesBoundsUpdateHandlerRef = useRef(addAxesRangesUpdateHandler)
@@ -493,62 +493,6 @@ export function PoincarePlot(props: Props): null {
                     // only show the data for which the filter matches
                     const plotData = (name.match(seriesFilter)) ? data : []
 
-                    // // when specified, show a circle for the actual data point
-                    // if (showPoints) {
-                    //     mainGElem
-                    //         .selectAll(`.${name}-${chartId}-poincare-points`)
-                    //         .data(plotData, () => `${name}`)
-                    //         .join(
-                    //             enter => enter
-                    //                 .append("circle")
-                    //                 .attr("class", `${name}-${chartId}-poincare-points`)
-                    //                 .attr("id", (_, index) => `${name}-${chartId}-poincare-point-${index}`)
-                    //                 .attr("fill", seriesLineStyle.color)
-                    //                 .attr("stroke", "none")
-                    //                 .attr("cx", (d: IteratePoint) => xAxisLinear.scale(d.n) || 0)
-                    //                 .attr("cy", (d: IteratePoint) => yAxisLinear.scale(d.n_1) || 0)
-                    //                 .attr("r", 2)
-                    //                 .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                    //                 .attr("clip-path", `url(#${clipPathId})`)
-                    //             ,
-                    //             update => update
-                    //                 .attr("cx", (d: IteratePoint) => xAxisLinear.scale(d.n) || 0)
-                    //                 .attr("cy", (d: IteratePoint) => yAxisLinear.scale(d.n_1) || 0)
-                    //             ,
-                    //             exit => exit.remove()
-                    //         )
-                    //         .on("mouseenter",
-                    //             (event: React.MouseEvent<SVGCircleElement>, datum: IteratePoint) => {
-                    //                 if (allowTooltip.current && tooltipVisible) {
-                    //                     return handleMouseEnterPoint(
-                    //                         chartId,
-                    //                         name,
-                    //                         container,
-                    //                         event,
-                    //                         datum,
-                    //                         plotData,
-                    //                         xAxisLinear,
-                    //                         yAxisLinear,
-                    //                         margin,
-                    //                         seriesLineStyle,
-                    //                         backgroundColor,
-                    //                         allowTooltip.current,
-                    //                         mouseOverHandlerFor(`tooltip-${chartId}`)
-                    //                     )
-                    //                 }
-                    //                 return <></>
-                    //             }
-                    //         )
-                    //         .on("mouseleave", () => {
-                    //             handleMouseLeavePoint(
-                    //                 chartId,
-                    //                 name,
-                    //                 seriesLineStyle.color,
-                    //                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                    //             )
-                    //         })
-                    // }
-                    //
                     const pathGenerator = d3.line<IteratePoint>()
                         .x(d => xAxis.scale(d.n || 0))
                         .y(d => yAxis.scale(d.n_1 || 0))

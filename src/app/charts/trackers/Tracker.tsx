@@ -39,7 +39,7 @@ interface Props {
 }
 
 /**
- * A tracker line that displays or reports the time at the mouse location. The tracker
+ * A tracker line that displays or reports the x or y coordinates at the mouse location. The tracker
  * handles single axes and dual axes.
  * @param props The tracker control properties
  * @return null component
@@ -114,7 +114,7 @@ export function Tracker(props: Props): null {
                         trackerAxis
                     )
                 }
-                // if the tracker was defined, and is now no longer defined (i.e. props changed, then remove the tracker)
+                // if the tracker was defined and is now no longer defined (i.e., props changed, then remove the tracker)
                 else if (!visible && trackerRef.current !== undefined) {
                     removeTrackerControl(svg)
                     trackerRef.current = undefined
