@@ -18,11 +18,8 @@ export const noop = () => {
  * @return `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
  */
 export const mouseInPlotAreaFor =
-    (x: number, y: number, margin: Margin, dimensions: Dimensions): boolean => {
-        console.log(y, margin.top, dimensions.height - margin.top)
-        return x > margin.left && x < dimensions.width - margin.right && y > margin.top && y < dimensions.height - margin.bottom
-    }
-        // x > margin.left && x < dimensions.width - margin.right && y > margin.top && y < dimensions.height - margin.bottom
+    (x: number, y: number, margin: Margin, dimensions: Dimensions): boolean =>
+        x > margin.left && x < dimensions.width - margin.right && y > margin.top && y < dimensions.height - margin.bottom
 
 /**
  * Calculates the width of an SVG text element, based on its bounding box
