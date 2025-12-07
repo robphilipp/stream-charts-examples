@@ -33,16 +33,20 @@ export const textWidthOf =
     (elem: Selection<SVGTextElement, any, any, any>): number =>
         elem.node()?.getBBox()?.width || 0
 
+export type BoundingBox = {x: number, y: number, width: number, height: number}
+
 /**
  * Calculates the width and height of the text element
  * @param elem The SVG text element
  * @return The width and height of the bounding box
  */
-export function textDimensions(elem: Selection<SVGTextElement, any, any, any>): ({width: number, height: number}) {
+export function textDimensions(elem: Selection<SVGTextElement, any, any, any>): BoundingBox {
     const boundingBox = elem.node()?.getBBox()
     return {
         width: boundingBox?.width || 0,
-        height: boundingBox?.height || 0
+        height: boundingBox?.height || 0,
+        x: boundingBox?.x || 0,
+        y: boundingBox?.y || 0
     }
 }
 

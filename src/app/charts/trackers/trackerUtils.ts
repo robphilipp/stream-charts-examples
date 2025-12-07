@@ -3,7 +3,7 @@ import * as d3 from "d3";
 import {Selection} from "d3";
 import {Datum} from "../series/timeSeries";
 import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "../styling/margins";
-import {mouseInPlotAreaFor, textDimensions, textWidthOf} from "../utils";
+import {BoundingBox, mouseInPlotAreaFor, textDimensions, textWidthOf} from "../utils";
 import {AxisLocation, ContinuousNumericAxis} from "../axes/axes";
 import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelLocation} from "./Tracker";
 import React from "react";
@@ -292,7 +292,19 @@ function handleShowHorizontalTracker(
     const [x, y] = d3.pointer(event, container)
     const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
 
-    const updateInfo: Array<[string, TrackerAxisInfo]> = Array.from(label.entries())
+    type AxisAndLabelInfo = {
+        axis: ContinuousNumericAxis
+        labelSelection:  d3.Selection<SVGTextElement, any, HTMLElement, any>
+        labelBoundingBox: BoundingBox
+    }
+    //
+    // need to calculate each axis-label position separately, because at the plot edges, the axis-label
+    // positions depend on each other. For example, at the left edge, the left-axis label needs to move
+    // to the right of the mouse to remain in the plot area. Therefore, the right-axis label needs
+    // to move as well but needs to know the width of the left-axis label to do so.
+    //
+    // add the labels and calculate the bounding boxes
+    const boundingBoxes: Map<AxisLocation, AxisAndLabelInfo> = new Map(Array.from(label.entries())
         .map(([axis, trackerLabel]) => {
             // when the mouse is in the plot area, then set the opacity of the tracker line and label to 1,
             // which means it is fully visible. when the mouse is not in the plot area, set the opacity to 0,
@@ -312,26 +324,40 @@ function handleShowHorizontalTracker(
                 .attr('opacity', () => inPlot ? 1 : 0)
                 .text(() => trackerLabel(axis.scale.invert(y - margin.top)))
 
-            const {width: labelWidth, height: labelHeight} = textDimensions(label)
+            return [axis.location, {axis, labelSelection: label, labelBoundingBox: textDimensions(label)}]
+        }))
 
-            // when the label-style is to be with the mouse
+    // place the labels so that they remain in the plot area
+    const space = 10
+    const leftLabelWidth = (boundingBoxes.get(AxisLocation.Left)?.labelBoundingBox.width || -space) + space
+    const rightLabelWidth = (boundingBoxes.get(AxisLocation.Right)?.labelBoundingBox.width || -space) + space
+
+    const updateInfo: Array<[string, TrackerAxisInfo]> = Array.from(boundingBoxes.entries())
+        .map(([location, {axis, labelSelection, labelBoundingBox}]) => {
             if (labelStyle === TrackerLabelLocation.WithMouse) {
-                const leftOffset: number = 20
-                const spacing = 30
-                const offset = axis.location === AxisLocation.Left ? leftOffset : labelWidth + leftOffset + spacing
                 const {width} = plotDimensionsFrom(dimensions.width, dimensions.height, margin)
-                const labelX = Math.min(x + offset, width - offset + (axis.location === AxisLocation.Left ? 0 : labelWidth + spacing))
-                // const labelX = Math.min(
-                //     Math.max(x + offset, leftOffset - offset),
-                //     margin.left + width - margin.right - offset
-                // )
-                label.attr('x', labelX)
+                // base offset
+                const offset = axis.location === AxisLocation.Left ?
+                    -leftLabelWidth :
+                    space
+
+                // smallest x-value
+                const minX = location === AxisLocation.Left ?
+                    leftLabelWidth + space :
+                    leftLabelWidth + rightLabelWidth + space
+
+                // place the label
+                const labelX = Math.min(
+                    Math.max(minX + space, x + offset),
+                    width - rightLabelWidth - space + offset + margin.left
+                )
+                labelSelection.attr('x', labelX)
             }
 
             // adjust the label position when the tracker is at the right-most edges of the plot so that
             // the label remains visible (i.e., doesn't get clipped)
-            const yOffset: number = TrackerLabelLocation.WithMouse ? 10 : 0
-            label.attr('y', Math.max(y - yOffset, margin.top + yOffset + labelHeight))
+            const yOffset: number = TrackerLabelLocation.WithMouse ? space : 0
+            labelSelection.attr('y', Math.max(y - yOffset, margin.top + yOffset + labelBoundingBox.height))
 
             const trackerInfo: TrackerAxisInfo = {
                 x: axis.scale.invert(y - margin.top + margin.bottom),
