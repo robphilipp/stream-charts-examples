@@ -134,7 +134,6 @@ export function OrdinalAxis(props: Props): null {
                             // add the x-axis to the chart context
                             const [start, end] = AxisInterval.as(xAxis.scale.range()).asTuple()
                             addXAxis(xAxis, axisId, OrdinalAxisRange.from(start, end))
-                            // addXAxis(xAxis, axisId, AxisInterval.as(xAxis.scale.range()))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`

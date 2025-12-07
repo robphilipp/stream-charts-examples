@@ -35,6 +35,7 @@ import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {assignAxes} from "../charts/plots/plot";
 import {AxisInterval} from "../charts/axes/AxisInterval";
+import * as d3 from "d3";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -335,6 +336,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <Tracker
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}
+                        labelFormatter={x => `${d3.format(",.0f")(x)} ms`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}
                         // onTrackerUpdate={update => console.dir(update)}

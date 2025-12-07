@@ -30,7 +30,9 @@ export enum TrackerLabelLocation {
 
 interface Props {
     visible: boolean
+    trackerAxis?: AxisLocation
     labelLocation?: TrackerLabelLocation
+    labelFormatter?: (value: number) => string
     style?: Partial<TrackerStyle>,
     font?: Partial<TrackerLabelFont>,
     onTrackerUpdate?: (update: TrackerAxisUpdate) => void
@@ -46,7 +48,9 @@ interface Props {
 export function Tracker(props: Props): null {
     const {
         visible,
+        trackerAxis = AxisLocation.Bottom,
         labelLocation = TrackerLabelLocation.WithMouse,
+        labelFormatter,
         style,
         font,
         onTrackerUpdate = noop
@@ -57,7 +61,10 @@ export function Tracker(props: Props): null {
         axes
     } = useChart()
 
-    const {xAxesState} = axes
+    const {xAxesState, yAxesState} = axes
+    const axisState = (trackerAxis === AxisLocation.Bottom || trackerAxis === AxisLocation.Top) ?
+        xAxesState :
+        yAxesState
 
     const {plotDimensions, margin} = usePlotDimensions()
 
@@ -65,14 +72,14 @@ export function Tracker(props: Props): null {
     const trackerFont = useMemo(() => ({...defaultTrackerLabelFont, ...font}), [font])
     const trackerRef = useRef<TrackerSelection>(undefined)
 
-    const xAxisRef = useRef<Map<string, ContinuousNumericAxis>>(new Map())
+    const axisRef = useRef<Map<string, ContinuousNumericAxis>>(new Map())
     useEffect(
         () => {
             const axes = new Map<string, ContinuousNumericAxis>()
-            xAxesState.axes.forEach((axis: BaseAxis, id: string) => axes.set(id, axis as ContinuousNumericAxis))
-            xAxisRef.current = axes
+            axisState.axes.forEach((axis: BaseAxis, id: string) => axes.set(id, axis as ContinuousNumericAxis))
+            axisRef.current = axes
         },
-        [xAxesState]
+        [axisState]
     )
 
     // when the container, tracker-control function, or visibility change, then we need to update the
@@ -83,12 +90,14 @@ export function Tracker(props: Props): null {
                 const svg = d3.select<SVGSVGElement, any>(container)
                 if (visible && container) {
                     const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
-                        Array.from(xAxisRef.current.values()).map(axis => [
-                            axis,
-                            x => labelLocation === TrackerLabelLocation.Nowhere ?
-                                '' :
-                                `${d3.format(",.0f")(axis.scale.invert(x - margin.left))} ms`
-                        ])
+                        Array.from(axisRef.current.values()).map(axis => {
+                            const formatter = labelFormatter ??
+                                ((value: number) => labelLocation === TrackerLabelLocation.Nowhere ?
+                                    "" :
+                                    `${d3.format(",.0f")(value)}`
+                                )
+                            return [axis, formatter]
+                        })
                     )
 
                     trackerRef.current = trackerControlInstance(
@@ -102,6 +111,7 @@ export function Tracker(props: Props): null {
                         trackerLabels,
                         labelLocation,
                         onTrackerUpdate,
+                        trackerAxis
                     )
                 }
                 // if the tracker was defined, and is now no longer defined (i.e. props changed, then remove the tracker)
@@ -111,7 +121,7 @@ export function Tracker(props: Props): null {
                 }
             }
         },
-        [chartId, container, labelLocation, margin, onTrackerUpdate, plotDimensions, trackerFont, trackerStyle, visible]
+        [chartId, container, labelFormatter, labelLocation, margin, onTrackerUpdate, plotDimensions, trackerAxis, trackerFont, trackerStyle, visible]
     )
 
     return null

@@ -18,8 +18,11 @@ export const noop = () => {
  * @return `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
  */
 export const mouseInPlotAreaFor =
-    (x: number, y: number, margin: Margin, dimensions: Dimensions): boolean =>
-        x > margin.left && x < dimensions.width - margin.right && y > margin.top && y < dimensions.height - margin.bottom
+    (x: number, y: number, margin: Margin, dimensions: Dimensions): boolean => {
+        console.log(y, margin.top, dimensions.height - margin.top)
+        return x > margin.left && x < dimensions.width - margin.right && y > margin.top && y < dimensions.height - margin.bottom
+    }
+        // x > margin.left && x < dimensions.width - margin.right && y > margin.top && y < dimensions.height - margin.bottom
 
 /**
  * Calculates the width of an SVG text element, based on its bounding box
@@ -29,18 +32,6 @@ export const mouseInPlotAreaFor =
 export const textWidthOf =
     (elem: Selection<SVGTextElement, any, any, any>): number =>
         elem.node()?.getBBox()?.width || 0
-
-// export function textWidthFor(textElem: SVGTextElement): number {
-//     return textElem.getBBox().width || 0
-// }
-// /**
-//  * Calculates the height of an SVG text element, based on its bounding box
-//  * @param elem The SVG text element
-//  * @return The height in pixels, or 0 if SVG text element has not children
-//  */
-// export const textHeightOf =
-//     (elem: Selection<SVGTextElement, any, any, any>): number =>
-//         elem.node()?.getBBox()?.height || 0
 
 /**
  * Calculates the width and height of the text element
@@ -54,39 +45,6 @@ export function textDimensions(elem: Selection<SVGTextElement, any, any, any>): 
         height: boundingBox?.height || 0
     }
 }
-
-// /**
-//  * The object returned by the zoom
-//  */
-// export interface Zoom {
-//     zoomFactor: number,
-//     timeRange: ContinuousAxisRange,
-// }
-//
-// /**
-//  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-//  * at the location of the mouse when the scroll wheel or gesture was applied.
-//  * @param transform The d3 zoom transformation information
-//  * @param x The x-position of the mouse when the scroll wheel or gesture is used
-//  * @param containerWidth The container width
-//  * @param margin The plot margins
-//  * @param xAxis The linear x-axis
-//  * @param timeRange The time-range of the current x-axis
-//  * @return The zoom factor and updated time-range
-//  */
-// export function handleZoom(
-//     transform: ZoomTransform,
-//     x: number,
-//     containerWidth: number,
-//     margin: Margin,
-//     xAxis: ContinuousNumericAxis,
-//     timeRange: ContinuousAxisRange,
-// ): Zoom | undefined {
-//     if (x > 0 && x < containerWidth - margin.right) {
-//         const {range, zoomFactor} = calculateZoomFor(transform, x, xAxis, timeRange)
-//         return {zoomFactor, timeRange: range}
-//     }
-// }
 
 export function formatNumber(value: number, format: string): string {
     return isNaN(value) ? '---' : d3.format(format)(value)
@@ -134,12 +92,3 @@ export const minMaxOf = <T>(accessor: (v: T) => number) =>
         Math.min(d3.min(data, series => d3.min(series, datum => accessor(datum))) || 0, currentMinMax[0]),
         Math.max(d3.max(data, series => d3.max(series, datum => accessor(datum))) || 1, currentMinMax[1])
     ]
-
-// /**
-//  * Sets up the min-max function to extract the y-value of the time-series.
-//  *
-//  * Defines a function that accepts an array of time-series (matrixish) and returns the min and max
-//  * y-value for all the values in all the series.
-//  * @see minMaxOf
-//  */
-// export const minMaxYFor = minMaxOf((datum: [number, number]): number => datum[1])

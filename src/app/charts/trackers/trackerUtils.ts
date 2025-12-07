@@ -3,7 +3,7 @@ import * as d3 from "d3";
 import {Selection} from "d3";
 import {Datum} from "../series/timeSeries";
 import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "../styling/margins";
-import {mouseInPlotAreaFor, textWidthOf} from "../utils";
+import {mouseInPlotAreaFor, textDimensions, textWidthOf} from "../utils";
 import {AxisLocation, ContinuousNumericAxis} from "../axes/axes";
 import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelLocation} from "./Tracker";
 import React from "react";
@@ -45,10 +45,35 @@ export const defaultTrackerStyle: TrackerStyle = {
  * @param labelFont The font used for the axis labels
  * @param label A function that returns the tracker label string for a given x-value
  * @param labelStyle The location style for the tracker (i.e. on the axes, next to the mouse, none shown)
- * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
+ * @param onTrackerUpdate A callback function that accepts the current tracker's axis information
+ * @param axisLocation The location of the axis for which the tracker is to be shown. Default is bottom.
  * @return The tracker selection
  */
 export function trackerControlInstance(
+    chartId: number,
+    container: SVGSVGElement,
+    svg: SvgSelection,
+    plotDimensions: Dimensions,
+    margin: Margin,
+    style: TrackerStyle,
+    labelFont: TrackerLabelFont,
+    label: Map<ContinuousNumericAxis, (x: number) => string>,
+    labelStyle: TrackerLabelLocation,
+    onTrackerUpdate: (update: TrackerAxisUpdate) => void,
+    axisLocation: AxisLocation = AxisLocation.Bottom,
+): TrackerSelection {
+    switch (axisLocation) {
+        case AxisLocation.Bottom:
+        case AxisLocation.Top:
+            return verticalTrackerControlInstance(chartId, container, svg, plotDimensions, margin, style, labelFont, label, labelStyle, onTrackerUpdate)
+        case AxisLocation.Left:
+        case AxisLocation.Right:
+        default:
+            return horizontalTrackerControlInstance(chartId, container, svg, plotDimensions, margin, style, labelFont, label, labelStyle, onTrackerUpdate)
+    }
+}
+
+function verticalTrackerControlInstance(
     chartId: number,
     container: SVGSVGElement,
     svg: SvgSelection,
@@ -91,7 +116,58 @@ export function trackerControlInstance(
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
         'mousemove',
-        event => handleShowTracker(
+        event => handleShowVerticalTracker(
+            chartId, container, event, margin, containerDimensions, style, labelFont, label, labelStyle, onTrackerUpdate
+        )
+    )
+
+    return trackerLine
+}
+
+function horizontalTrackerControlInstance(
+    chartId: number,
+    container: SVGSVGElement,
+    svg: SvgSelection,
+    plotDimensions: Dimensions,
+    margin: Margin,
+    style: TrackerStyle,
+    labelFont: TrackerLabelFont,
+    label: Map<ContinuousNumericAxis, (x: number) => string>,
+    labelStyle: TrackerLabelLocation,
+    onTrackerUpdate: (update: TrackerAxisUpdate) => void
+): TrackerSelection {
+    const trackerLine = svg
+        .append<SVGLineElement>('line')
+        .attr('id', `stream-chart-tracker-line-${chartId}`)
+        .attr('class', 'tracker')
+        .attr('x1', margin.left)
+        .attr('x2', plotDimensions.width + margin.left)
+        .attr('stroke', style.color)
+        .attr('stroke-width', style.lineWidth)
+        .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
+
+
+    label.forEach((labelFn, axis) => {
+        // create the text element holding the tracker time
+        const label = axis.location === AxisLocation.Left ?
+            Math.max(0, margin.left - 20) :
+            Math.max(0, plotDimensions.width + margin.left - 3)
+        svg
+            .append<SVGTextElement>('text')
+            .attr('id', `stream-chart-tracker-label-${chartId}-${axis.location}`)
+            .attr('y', label)
+            .attr('fill', labelFont.color)
+            .attr('font-family', labelFont.family)
+            .attr('font-size', labelFont.size)
+            .attr('font-weight', labelFont.weight)
+            .attr('opacity', 0)
+            .text(() => '')
+    })
+
+    const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
+    svg.on(
+        'mousemove',
+        event => handleShowHorizontalTracker(
             chartId, container, event, margin, containerDimensions, style, labelFont, label, labelStyle, onTrackerUpdate
         )
     )
@@ -120,10 +196,9 @@ export function removeTrackerControl(svg: SvgSelection) {
  * @param labelStyle Where to display the tracker labels (i.e. with-mouse, with-axes, no-where)
  * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
  */
-function handleShowTracker(
+function handleShowVerticalTracker(
     chartId: number,
     container: SVGSVGElement,
-    // event: MouseEvent,
     event: React.MouseEvent<SVGSVGElement>,
     margin: Margin,
     dimensions: Dimensions,
@@ -155,12 +230,12 @@ function handleShowTracker(
                 .attr('font-size', labelFont.size)
                 .attr('font-weight', labelFont.weight)
                 .attr('opacity', () => inPlot ? 1 : 0)
-                .text(() => trackerLabel(x))
+                .text(() => trackerLabel(axis.scale.invert(x - margin.left)))
 
             // when the label-style is to be with the mouse
             if (labelStyle === TrackerLabelLocation.WithMouse) {
                 // todo the offsets should be based on the font size of the tracker label
-                const topOffset = 30
+                const topOffset: number = 30
                 const offset = axis.location === AxisLocation.Top ? topOffset : 10
                 const {height} = plotDimensionsFrom(dimensions.width, dimensions.height, margin)
                 const labelY = Math.min(
@@ -178,6 +253,88 @@ function handleShowTracker(
 
             const trackerInfo: TrackerAxisInfo = {
                 x: axis.scale.invert(x - margin.left),
+                axisLocation: axis.location
+            }
+            return [axis.axisId, trackerInfo]
+        })
+
+    if (inPlot) {
+        onTrackerUpdate(new Map(updateInfo))
+    }
+}
+
+/**
+ * Callback when the mouse tracker is to be shown
+ * @param chartId The ID number of the chart
+ * @param container The svg container
+ * @param event The mouse-over series event
+ * @param margin The plot margins
+ * @param dimensions The container dimensions (i.e., the plot dimensions plus its margins)
+ * @param trackerStyle The style settings for the tracker line
+ * @param labelFont The style settings for the tracker font
+ * @param label A function that returns the tracker label string
+ * @param labelStyle Where to display the tracker labels (i.e. with-mouse, with-axes, no-where)
+ * @param onTrackerUpdate A callback function the accepts the current tracker's axis information
+ */
+function handleShowHorizontalTracker(
+    chartId: number,
+    container: SVGSVGElement,
+    event: React.MouseEvent<SVGSVGElement>,
+    margin: Margin,
+    dimensions: Dimensions,
+    trackerStyle: TrackerStyle,
+    labelFont: TrackerLabelFont,
+    label: Map<ContinuousNumericAxis, (x: number) => string>,
+    labelStyle: TrackerLabelLocation,
+    onTrackerUpdate: (update: TrackerAxisUpdate) => void
+): void {
+    // determine whether the mouse is in the plot area
+    const [x, y] = d3.pointer(event, container)
+    const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
+
+    const updateInfo: Array<[string, TrackerAxisInfo]> = Array.from(label.entries())
+        .map(([axis, trackerLabel]) => {
+            // when the mouse is in the plot area, then set the opacity of the tracker line and label to 1,
+            // which means it is fully visible. when the mouse is not in the plot area, set the opacity to 0,
+            // which means the tracker line and label are invisible.
+            d3.select<SVGLineElement, Datum>(`#stream-chart-tracker-line-${chartId}`)
+                .attr('y1', y)
+                .attr('y2', y)
+                .attr('stroke', trackerStyle.color)
+                .attr('stroke-width', trackerStyle.lineWidth)
+                .attr('opacity', () => inPlot ? 1 : 0)
+
+            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-${chartId}-${axis.location}`)
+                .attr('fill', labelFont.color)
+                .attr('font-family', labelFont.family)
+                .attr('font-size', labelFont.size)
+                .attr('font-weight', labelFont.weight)
+                .attr('opacity', () => inPlot ? 1 : 0)
+                .text(() => trackerLabel(axis.scale.invert(y - margin.top)))
+
+            const {width: labelWidth, height: labelHeight} = textDimensions(label)
+
+            // when the label-style is to be with the mouse
+            if (labelStyle === TrackerLabelLocation.WithMouse) {
+                const leftOffset: number = 20
+                const spacing = 30
+                const offset = axis.location === AxisLocation.Left ? leftOffset : labelWidth + leftOffset + spacing
+                const {width} = plotDimensionsFrom(dimensions.width, dimensions.height, margin)
+                const labelX = Math.min(x + offset, width - offset + (axis.location === AxisLocation.Left ? 0 : labelWidth + spacing))
+                // const labelX = Math.min(
+                //     Math.max(x + offset, leftOffset - offset),
+                //     margin.left + width - margin.right - offset
+                // )
+                label.attr('x', labelX)
+            }
+
+            // adjust the label position when the tracker is at the right-most edges of the plot so that
+            // the label remains visible (i.e., doesn't get clipped)
+            const yOffset: number = TrackerLabelLocation.WithMouse ? 10 : 0
+            label.attr('y', Math.max(y - yOffset, margin.top + yOffset + labelHeight))
+
+            const trackerInfo: TrackerAxisInfo = {
+                x: axis.scale.invert(y - margin.top + margin.bottom),
                 axisLocation: axis.location
             }
             return [axis.axisId, trackerInfo]

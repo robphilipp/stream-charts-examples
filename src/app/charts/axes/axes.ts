@@ -118,8 +118,8 @@ export function setClipPath(
         location === AxisLocation.Right ? margin.left :
             plotDimensions.width
 
-    const height = location === AxisLocation.Top ? margin.bottom :
-        location === AxisLocation.Bottom ? margin.top :
+    const height = location === AxisLocation.Top ? margin.bottom + 1 :
+        location === AxisLocation.Bottom ? margin.top:
             plotDimensions.height
 
     // remove the old clipping region and add a new one with the updated plot dimensions
@@ -131,7 +131,7 @@ export function setClipPath(
             .attr("id", clipPathId)
         .append("rect")
             .attr("x", 0)
-            .attr("y", location === AxisLocation.Bottom ? 0 : -margin.bottom)
+            .attr("y", location === AxisLocation.Bottom ? -1 : -margin.bottom)
             .attr("width", width)
             .attr("height", height)
 

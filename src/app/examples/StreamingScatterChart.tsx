@@ -27,6 +27,11 @@ import {ScatterPlotTooltipContent} from "../charts/tooltips/ScatterPlotTooltipCo
 import {formatNumber, formatTime} from '../charts/utils';
 import {ScatterPlot} from "../charts/plots/ScatterPlot";
 import {assignAxes} from "../charts/plots/plot";
+import * as d3 from "d3";
+import {lightTheme, Theme} from "../ui/Themes";
+import {seriesFrom} from "../charts/series/baseSeries";
+import {Button} from "../ui/Button";
+import {AxisInterval} from "../charts/axes/AxisInterval";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -45,11 +50,6 @@ import {assignAxes} from "../charts/plots/plot";
 //     Tracker,
 //     TrackerLabelLocation
 // } from "stream-charts";
-import * as d3 from "d3";
-import {lightTheme, Theme} from "../ui/Themes";
-import {seriesFrom} from "../charts/series/baseSeries";
-import {Button} from "../ui/Button";
-import {AxisInterval} from "../charts/axes/AxisInterval";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -341,6 +341,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <Tracker
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}
+                        labelFormatter={x => `${d3.format(",.0f")(x)} ms`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}
                         // onTrackerUpdate={update => console.dir(update)}

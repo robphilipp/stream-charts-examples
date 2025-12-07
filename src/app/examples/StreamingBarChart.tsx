@@ -1,4 +1,5 @@
 import React, {JSX, useRef, useState} from 'react';
+import * as d3 from "d3";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {barDanceDataObservable} from "./randomOrdinalData";
@@ -391,7 +392,9 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     <Tracker
                         // todo add horizontal/vertical for track, or both, maybe a mode
                         visible={visibility.tracker}
+                        trackerAxis={AxisLocation.Left}
                         labelLocation={TrackerLabelLocation.WithMouse}
+                        labelFormatter={x => `${d3.format(".2f")(x)} mV`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}
                         // onTrackerUpdate={update => console.dir(update)}
