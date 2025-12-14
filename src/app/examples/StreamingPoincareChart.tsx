@@ -311,7 +311,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                 .addTrack(withFraction(1))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
-                .addTrack(withPixels(35))
+                .addTrack(withPixels(50))
                 .addTrack(withFraction(1))
                 .addTrack(withPixels(10))
                 .build()}

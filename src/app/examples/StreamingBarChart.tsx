@@ -179,7 +179,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                 .addTrack(withFraction(1))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
-                .addTrack(withPixels(30))
+                .addTrack(withPixels(50))
                 .addTrack(withFraction(1))
                 .build()}
             gridTemplateAreas={gridTemplateAreasBuilder()
