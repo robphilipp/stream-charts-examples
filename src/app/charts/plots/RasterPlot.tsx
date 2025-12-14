@@ -8,7 +8,7 @@ import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
 import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
-    axisZoomHandler,
+    continuousAxisZoomHandler,
     BaseAxis,
     continuousAxisIntervals,
     continuousAxisRanges,
@@ -291,7 +291,7 @@ export function RasterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 

@@ -280,7 +280,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 60, bottom: 30, right: 60}}
+                    margin={{...defaultMargin, top: 40, bottom: 40, right: 60}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}

@@ -106,7 +106,7 @@ function verticalTrackerControlInstance(
         .attr('id', `stream-chart-tracker-line-${chartId}`)
         .attr('class', 'tracker')
         .attr('y1', margin.top)
-        .attr('y2', plotDimensions.height + margin.top - margin.bottom)
+        .attr('y2', plotDimensions.height + margin.top)
         .attr('stroke', style.color)
         .attr('stroke-width', style.lineWidth)
         .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
@@ -270,7 +270,7 @@ function handleShowVerticalTracker(
                 const {height} = plotDimensionsFrom(dimensions.width, dimensions.height, margin)
                 const labelY = Math.min(
                     Math.max(margin.top + 15 + topOffset - offset, y - offset),
-                    margin.top + height - margin.bottom - offset
+                    margin.top + height - offset
                 )
                 label.attr('y', labelY)
             }

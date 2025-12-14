@@ -131,7 +131,7 @@ export function setClipPath(
             .attr("id", clipPathId)
         .append("rect")
             .attr("x", 0)
-            .attr("y", location === AxisLocation.Bottom ? -1 : -margin.bottom)
+            .attr("y", location === AxisLocation.Bottom ? -1 : -margin.top)
             .attr("width", width)
             .attr("height", height)
 
@@ -247,10 +247,10 @@ function addOrdinalStringXAxis(
     const clipPathId = setClipPath(chartId, axisId, svg, location, plotDimensions, margin)
     const selection = svg
         .append<SVGGElement>('g')
-        .attr('id', `x-axis-selection-${chartId}-${axisId}`)
-        .attr("clip-path", `url(#${clipPathId})`)
+            .attr('id', `x-axis-selection-${chartId}-${axisId}`)
+            .attr("clip-path", `url(#${clipPathId})`)
         .classed('x-axis', true)
-        .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
+            .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
         .call(generator)
 
     // rotate the tick-labels by the specified amount (in degrees)
@@ -277,12 +277,14 @@ function addOrdinalStringXAxis(
 
     svg
         .append<SVGTextElement>('text')
-        .attr('id', labelIdFor(chartId, location))
-        .attr('text-anchor', 'middle')
-        .attr('font-size', font.size)
-        .attr('fill', font.color)
-        .attr('font-family', font.family)
-        .attr('font-weight', font.weight)
+            .attr('id', labelIdFor(chartId, location))
+            .style('text-anchor', 'middle')
+            // when the axis is at the top, want the label to hang from the top (y=0) of the plot
+            .attr('dominant-baseline', location === AxisLocation.Top ? "hanging" : "baseline")
+            .attr('font-size', font.size)
+            .attr('fill', font.color)
+            .attr('font-family', font.family)
+            .attr('font-weight', font.weight)
         .text(axisLabel)
 
     const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
@@ -290,7 +292,7 @@ function addOrdinalStringXAxis(
     return {
         ...axis,
         update: (range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => {
-            const categorySize = updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, axesLabelFont, plotDimensions, margin, maxTickLabelHeight)
+            const categorySize = updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, axesLabelFont, plotDimensions, margin)
             setAxisRangeFor(axisId, range)
             setOriginalAxisRangeFor(axisId, originalRange)
             return categorySize
@@ -330,8 +332,7 @@ function addOrdinalStringYAxis(
 ): OrdinalStringAxis {
     const scale = d3.scaleBand()
         .domain(categories)
-        .range([0, plotDimensions.height - margin.bottom])
-        // .range([0, plotDimensions.width])
+        .range([0, plotDimensions.height])
     const categorySize = scale.bandwidth()
 
     // create and add the axes
@@ -339,9 +340,9 @@ function addOrdinalStringYAxis(
 
     const selection = svg
         .append<SVGGElement>('g')
-        .attr('id', `y-axis-selection-${chartId}`)
-        .attr('class', 'y-axis')
-        .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
+            .attr('id', `y-axis-selection-${chartId}`)
+            .attr('class', 'y-axis')
+            .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
         .call(generator);
 
     // rotate the tick-labels by the specified amount (in degrees)
@@ -362,13 +363,13 @@ function addOrdinalStringYAxis(
 
     svg
         .append<SVGTextElement>('text')
-        .attr('id', labelIdFor(chartId, location))
-        .attr('text-anchor', 'middle')
-        .attr('font-size', font.size)
-        .attr('fill', font.color)
-        .attr('font-family', font.family)
-        .attr('font-weight', font.weight)
-        .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
+            .attr('id', labelIdFor(chartId, location))
+            .attr('text-anchor', 'middle')
+            .attr('font-size', font.size)
+            .attr('fill', font.color)
+            .attr('font-family', font.family)
+            .attr('font-weight', font.weight)
+            .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
         .text(axisLabel)
 
     const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
@@ -376,7 +377,7 @@ function addOrdinalStringYAxis(
     return {
         ...axis,
         update: (range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => {
-            const categorySize = updateOrdinalStringYAxis(chartId, axis, svg, location, categories, range, categories.length, axesLabelFont, plotDimensions, margin)
+            const categorySize = updateOrdinalStringYAxis(chartId, axis, svg, location, categories, range, axesLabelFont, plotDimensions, margin)
             setAxisRangeFor(axisId, range)
             setOriginalAxisRangeFor(axisId, originalRange)
             return categorySize
@@ -399,7 +400,6 @@ function addOrdinalStringYAxis(
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
- * @param tickHeight The maximum height of the tick labels (which can be rotated) used to
  * adjust the axis label location when needed
  * @return The number of pixels for each category
  */
@@ -412,17 +412,12 @@ function updateOrdinalStringXAxis(
     range: AxisInterval, // range
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
-    margin: Margin,
-    tickHeight: number
+    margin: Margin
 ): number {
     const updatedRange = AxisInterval.from(
         Math.min(range.start, 0),
         Math.max(range.end, plotDimensions.width)
     )
-    // const updatedRange = axisRangeTupleFrom(
-    //     Math.min(axisRangeStart(range), 0),
-    //     Math.max(axisRangeEnd(range), plotDimensions.width)
-    // )
 
     axis.scale = axis.scale
         .domain(names)
@@ -437,22 +432,13 @@ function updateOrdinalStringXAxis(
         .call(axis.generator)
 
     const xLabelTranslation = ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)
-    const yLabelTranslation = ordinalLabelYTranslation(location, plotDimensions, margin, tickHeight, axesLabelFont.size)
+    const yLabelTranslation = ordinalLabelYTranslation(location, plotDimensions, margin)
     svg
         .select(`#${labelIdFor(chartId, location)}`)
         .attr('transform', `translate(${xLabelTranslation}, ${yLabelTranslation})`)
 
     return axis.categorySize
 }
-
-// /**
-//  * Calculates the measure of the axis range
-//  * @param rangeTuple The tuple representing the ordinal-axis range (e.g. start and end)
-//  * @return The measure of the axis range
-//  */
-// function measure(rangeTuple: AxisRangeTuple): number {
-//     return Math.abs(axisRangeEnd(rangeTuple) - axisRangeStart(rangeTuple))
-// }
 
 /**
  * Updates the category axis representing the y-axis, calculates and returns the
@@ -466,7 +452,6 @@ function updateOrdinalStringXAxis(
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
- * @param unfilteredSize The number of categories before any filtering has been applied
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
@@ -477,16 +462,15 @@ function updateOrdinalStringYAxis(
     axis: OrdinalStringAxis,
     svg: SvgSelection,
     location: AxisLocation.Left | AxisLocation.Right,
-    names: Array<string>,       // domain
-    range: AxisInterval, // range
-    unfilteredSize: number,
+    names: Array<string>, // domain
+    range: AxisInterval,  // range
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
     margin: Margin,
 ): number {
     const updatedRange = AxisInterval.from(
         Math.min(range.start, 0),
-        Math.max(range.end, plotDimensions.height - margin.bottom)
+        Math.max(range.end, plotDimensions.height)
     )
 
     axis.scale = axis.scale
@@ -539,25 +523,21 @@ function ordinalLabelXTranslation(
  * @param location The axis location (i.e. top, bottom, left, right)
  * @param plotDimensions The dimensions of the plot
  * @param margin The margins for the plot
- * @param [tickLabelHeight=0] The height of the tick labels (which takes rotation into account)
- * @param [axisLabelHeight=0] The axis label height for adjusting the location of the label
  * @return The number of pixels to translate the label for the y-direction
  */
 function ordinalLabelYTranslation(
     location: AxisLocation,
     plotDimensions: Dimensions,
-    margin: Margin,
-    tickLabelHeight: number = 0,
-    axisLabelHeight: number = 0
+    margin: Margin
 ): number {
     switch (location) {
         case AxisLocation.Left:
         case AxisLocation.Right:
             return (margin.top + margin.bottom + plotDimensions.height) / 2
         case AxisLocation.Top:
-            return tickLabelHeight === 0 ? margin.top / 2 : Math.max(margin.top - tickLabelHeight - axisLabelHeight - 5, axisLabelHeight)
+            return 0
         case AxisLocation.Bottom:
-            return margin.top + plotDimensions.height + (tickLabelHeight === 0 ? margin.bottom / 2 : tickLabelHeight - axisLabelHeight)
+            return margin.top + margin.bottom + plotDimensions.height
     }
 }
 
@@ -602,13 +582,15 @@ export function addContinuousNumericXAxis(
 
     svg
         .append<SVGTextElement>('text')
-        .attr('id', labelIdFor(chartId, location))
-        .attr('text-anchor', 'middle')
-        .attr('font-size', axesLabelFont.size)
-        .attr('fill', axesLabelFont.color)
-        .attr('font-family', axesLabelFont.family)
-        .attr('font-weight', axesLabelFont.weight)
-        .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${continuousLabelYTranslation(location, plotDimensions, margin)})`)
+            .attr('id', labelIdFor(chartId, location))
+            .style('text-anchor', 'middle')
+            // when the axis is at the top, want the label to hang from the top (y=0) of the plot
+            .style('dominant-baseline', location === AxisLocation.Top ? "hanging" : "baseline")
+            .style('font-size', axesLabelFont.size)
+            .style('fill', axesLabelFont.color)
+            .style('font-family', axesLabelFont.family)
+            .style('font-weight', axesLabelFont.weight)
+            .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${continuousLabelYTranslation(location, plotDimensions, margin)})`)
         .text(axisLabel)
 
     const axis: ContinuousNumericAxis = {
@@ -668,9 +650,7 @@ function updateLinearXAxis(
  * @return The number of pixels to translate the x-axis label to the right
  */
 function continuousLabelYTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
-    return location === AxisLocation.Bottom ?
-        plotDimensions.height + margin.top + margin.bottom / 3 :
-        margin.top / 3
+    return location === AxisLocation.Bottom ? plotDimensions.height + margin.top + margin.bottom : 0
 }
 
 /**
@@ -703,7 +683,7 @@ export function addContinuousNumericYAxis(
 ): ContinuousNumericAxis {
     const scale = scaleGenerator
         .domain(domain)
-        .range([Math.max(margin.bottom, plotDimensions.height - margin.bottom), 0])
+        .range([Math.max(margin.bottom, plotDimensions.height), 0])
 
     const selection = svg
         .append<SVGGElement>('g')
@@ -712,13 +692,13 @@ export function addContinuousNumericYAxis(
 
     svg
         .append<SVGTextElement>('text')
-        .attr('id', labelIdFor(chartId, location))
-        .attr('text-anchor', 'start')
-        .attr('font-size', axesLabelFont.size)
-        .attr('fill', axesLabelFont.color)
-        .attr('font-family', axesLabelFont.family)
-        .attr('font-weight', axesLabelFont.weight)
-        .attr('transform', `translate(${continuousLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
+            .attr('id', labelIdFor(chartId, location))
+            .attr('text-anchor', 'start')
+            .attr('font-size', axesLabelFont.size)
+            .attr('fill', axesLabelFont.color)
+            .attr('font-family', axesLabelFont.family)
+            .attr('font-weight', axesLabelFont.weight)
+            .attr('transform', `translate(${continuousLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
         .text(axisLabel)
 
     const axis: ContinuousNumericAxis = {
@@ -761,7 +741,7 @@ function updateLinearYAxis(
     axesLabelFont: AxesFont,
     location: AxisLocation.Left | AxisLocation.Right,
 ): void {
-    axis.scale.domain(domain.asTuple()).range([Math.max(margin.bottom, plotDimensions.height - margin.bottom), 0])
+    axis.scale.domain(domain.asTuple()).range([Math.max(margin.bottom, plotDimensions.height), 0])
     axis.selection
         .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
         .call(axis.generator)
@@ -810,7 +790,7 @@ function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDime
  */
 function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ?
-        Math.max(margin.bottom + margin.top, plotDimensions.height + margin.top - margin.bottom) :
+        plotDimensions.height + margin.top :
         margin.top
 }
 
@@ -894,11 +874,17 @@ export function calculateConstrainedZoomFor(
     } as ZoomResult<ContinuousAxisRange>
 }
 
-// todo this is not correct
+/**
+ * Calculates the zoom for an ordinal axis.
+ * @param transform The d3 zoom transformation information
+ * @param x The x-position of the mouse when the scroll wheel or gesture is used
+ * @param range The current range for the axis being zoomed
+ * @param constraint The minimum and maximum value the scaled range can have
+ * @return A ZoomResult holding the updated range and the new zoom factor
+ */
 export function calculateOrdinalConstrainedZoomFor(
     transform: ZoomTransform,
     x: number,
-    axis: OrdinalStringAxis,
     range: OrdinalAxisRange,
     constraint: [min: number, max: number],
 ): ZoomResult<OrdinalAxisRange> {
@@ -948,7 +934,6 @@ export function calculateOrdinalPanFor(
     plotDimensions: Dimensions,
     constrainToOriginalRange: boolean = false
 ): OrdinalAxisRange {
-    // console.log('calculateOrdinalPanFor', delta, range, plotDimensions)
     const constraint: [start: number, end: number] = constrainToOriginalRange ?
         range.original.asTuple() :
         [-Infinity, Infinity]
@@ -993,7 +978,7 @@ export function axesForSeriesGen<D, A extends BaseAxis>(
 }
 
 /**
- *
+ * Pans the axis range by the specified amount.
  * @param delta The pan amount in the axis specified for the series
  * @param axesForSeries The names of the axes of a dimension (x or y)
  * @param axesState The state for the axes of a dimension
@@ -1033,6 +1018,18 @@ function panAxes(
         })
 }
 
+/**
+ * Pans the axis range by the specified amount.
+ * @param delta The pan amount in the axis specified for the series
+ * @param axesForSeries The names of the axes of a dimension (x or y)
+ * @param axesState The state for the axes of a dimension
+ * @param ranges The current ranges for the axes of a dimension
+ * @param setAxisRange Function for setting the new time-range for a specific axis
+ * @param plotDimensions The current plot dimensions (width, height)
+ * @param margin The plot margin
+ * @param [constrainToOriginalRange=false] Optional argument, that when set to `true`, constrains the
+ * axis range to remain in the origin axis range; when `false` the axis range is unconstrained
+ */
 function ordinalPanAxes(
     delta: number,
     axesForSeries: Array<string>,
@@ -1076,7 +1073,8 @@ function ordinalPanAxes(
  * @param setAxisRangeFor Function for setting the new axis-range for a specific axis
  * @param axesState The current state of the x-axes or y-axes
  * @param [constrainToOriginalRange=false] Optional argument, that when set to `true`, constrains the
- * axis range to remain in the origin axis range; when `false` the axis range is unconstrained * @return A handler function for pan events
+ * axis range to remain in the origin axis range; when `false` the axis range is unconstrained
+ * @return A handler function for pan events
  */
 export function panHandler(
     axesForSeries: Array<string>,
@@ -1104,6 +1102,23 @@ export function panHandler(
     }
 }
 
+/**
+ * Higher-order function that generates a handler for pan events, given the distinct series IDs that cover all
+ * the axes in the chart, the margin, axis-range update function, and the current state of the x-axes. This
+ * function returns a handler function. And this handler function adjusts the time-range when the plot is dragged
+ * to the left or right. After calling the handler function, the plot needs to be updated as well, and this is
+ * left for the caller.
+ *
+ * Please note that the function generated by this function has side effects -- it updates the axes ranges.
+ *
+ * @param axesForSeries The distinct axes that cover all the series
+ * @param margin The plot margin
+ * @param setAxisRangeFor Function for setting the new axis-range for a specific axis
+ * @param axesState The current state of the x-axes or y-axes
+ * @param [constrainToOriginalRange=false] Optional argument, that when set to `true`, constrains the
+ * axis range to remain in the origin axis range; when `false` the axis range is unconstrained
+ * @return A handler function for pan events
+ */
 export function ordinalPanHandler(
     axesForSeries: Array<string>,
     margin: Margin,
@@ -1249,7 +1264,7 @@ function calcOrdinalZoomAndUpdate(
             [range.original.start * zoomMax, range.original.end * zoomMax] :
             [range.original.start, range.original.end]
 
-        const zoom = calculateOrdinalConstrainedZoomFor(transform, value, axis, range, constraint)
+        const zoom = calculateOrdinalConstrainedZoomFor(transform, value, range, constraint)
 
         // update the axis range
         ranges.set(axisId, zoom.range)
@@ -1278,7 +1293,7 @@ function calcOrdinalZoomAndUpdate(
  * @param scaleExtent The minimum and maximum allowed scale factors
  * @return A handler function for pan events
  */
-export function axisZoomHandler(
+export function continuousAxisZoomHandler(
     axesForSeries: Array<string>,
     margin: Margin,
     setRangeFor: (axisId: string, range: AxisInterval) => void,
@@ -1308,6 +1323,22 @@ export function axisZoomHandler(
     }
 }
 
+/**
+ * Higher-order function that generates a handler for zoom events, given the distinct series IDs that cover all
+ * the axes in the chart, the margin, range update function, and the current state of the x- or y-axes. This
+ * function returns a handler function. And this handler function adjusts the range when the plot is zoomed.
+ * After calling the handler function, the plot needs to be updated as well, and this is left for the caller.
+ *
+ * Please note that the function generated by this function has side effects -- it updates the axes ranges.
+ *
+ * @param axesForSeries The distinct axes that cover all the series
+ * @param margin The plot margin
+ * @param setRangeFor Function for setting the new time-range for a specific axis
+ * @param setOriginalRangeFor Function for setting the new original range for a specific axis
+ * @param axesState The current state of the x- or y-axes
+ * @param scaleExtent The minimum and maximum allowed scale factors
+ * @return A handler function for pan events
+ */
 export function ordinalAxisZoomHandler(
     axesForSeries: Array<string>,
     margin: Margin,
@@ -1402,6 +1433,12 @@ export function continuousAxisRanges(axes: Map<string, ContinuousNumericAxis>): 
     return continuousRange(axes)
 }
 
+/**
+ * Calculates the axis-ranges for each of the ordinal axes in the map
+ * @param axes The map containing the axes and their associated IDs
+ * @param originalRange The original range of the axis
+ * @return a map associating the axis IDs to their ordinal axis-range
+ */
 export function ordinalAxisRanges(axes: Map<string, OrdinalStringAxis>, originalRange: AxisInterval): Map<string, OrdinalAxisRange> {
     return ordinalRange(axes, originalRange)
 }
@@ -1416,10 +1453,14 @@ export function continuousAxisIntervals(axes: Map<string, ContinuousNumericAxis>
         .map(([id, axis]) => {
             const [start, end] = axis.scale.domain()
             return [id, AxisInterval.from(start, end)] as [string, AxisInterval]
-            // [id, axis.scale.domain()] as [string, [number, number]]
         }))
 }
 
+/**
+ * Calculates the axis interval (start, end) for each of the axis
+ * @param axes The axes representing the time
+ * @return A map associating each axis with a (start, end) interval
+ */
 export function ordinalAxisIntervals(axes: Map<string, OrdinalStringAxis>): Map<string, {interval: AxisInterval, categories: Array<string>}> {
     return new Map(Array.from(axes.entries())
         .map(([id, axis]) => {
@@ -1441,6 +1482,12 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
         }))
 }
 
+/**
+ * Returns the bounds on the specified continuous numeric axes
+ * @param axes A map associating an axis ID with a {@link OrdinalStringAxis}
+ * @param originalRange The original range of the axis
+ * @return A map associating each specified axis ID with the interval covered (bounds) by the axis
+ */
 export function ordinalRange(axes: Map<string, OrdinalStringAxis>, originalRange: AxisInterval): Map<string, OrdinalAxisRange> {
     return new Map(Array.from(axes.entries())
         .map(([id, axis]) =>

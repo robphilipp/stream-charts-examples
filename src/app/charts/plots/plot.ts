@@ -44,12 +44,12 @@ export function setClipPath(chartId: number, svg: SvgSelection, plotDimensions: 
     svg.select(`#${clipPathId}-defs`).remove();
     svg
         .append('defs')
-        .attr('id', `${clipPathId}-defs`)
+            .attr('id', `${clipPathId}-defs`)
         .append("clipPath")
-        .attr("id", clipPathId)
+            .attr("id", clipPathId)
         .append("rect")
-        .attr("width", Math.max(0, plotDimensions.width))
-        .attr("height", Math.max(margin.bottom, plotDimensions.height - margin.bottom))
+            .attr("width", Math.max(0, plotDimensions.width))
+            .attr("height", Math.max(0, plotDimensions.height))
 
     return clipPathId
 }
@@ -79,7 +79,6 @@ export function setClipPathG(chartId: number, plotGroup: GSelection, plotDimensi
             .attr("y", 0)
             .attr("width", Math.max(0, plotDimensions.width))
             .attr("height", Math.max(0, plotDimensions.height))
-            // .attr("height", Math.max(margin.bottom, plotDimensions.height - margin.bottom))
 
     return clipPathId
 }

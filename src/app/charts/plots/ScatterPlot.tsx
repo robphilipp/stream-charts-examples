@@ -13,7 +13,7 @@ import {
     SeriesLineStyle,
     continuousAxisIntervals,
     continuousAxisRanges,
-    axisZoomHandler
+    continuousAxisZoomHandler
 } from "../axes/axes";
 import {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
@@ -280,7 +280,7 @@ export function ScatterPlot(props: Props): null {
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => axisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 

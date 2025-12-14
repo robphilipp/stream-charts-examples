@@ -324,7 +324,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 60, bottom: 60, right: 75, left: 70}}
+                    margin={{...defaultMargin, top: 60, bottom: 80, right: 75, left: 70}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
