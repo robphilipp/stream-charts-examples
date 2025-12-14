@@ -118,8 +118,8 @@ export function setClipPath(
         location === AxisLocation.Right ? margin.left :
             plotDimensions.width
 
-    const height = location === AxisLocation.Top ? margin.bottom + 1 :
-        location === AxisLocation.Bottom ? margin.top:
+    const height = location === AxisLocation.Top ? margin.top + 1 :
+        location === AxisLocation.Bottom ? margin.bottom - 1:
             plotDimensions.height
 
     // remove the old clipping region and add a new one with the updated plot dimensions
@@ -806,7 +806,7 @@ function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDime
  * @param location The location of the x-axis
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margins for the border of main SVG group
- * @return The number of pixels to translate the x-axis to the right
+ * @return The number of pixels to translate the y-axis to the down
  */
 function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ?

@@ -1,4 +1,4 @@
-import {Dimensions, Margin, plotDimensionsFrom} from "./styling/margins"
+import {Dimensions, Margin} from "./styling/margins"
 import * as d3 from "d3";
 import {Selection} from "d3";
 
@@ -17,22 +17,29 @@ export const noop = () => {
  * @param dimensions The the overall dimensions (plot dimensions plus margin)
  * @return `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
  */
-export const mouseInPlotAreaFor =
-    (x: number, y: number, margin: Margin, dimensions: Dimensions): boolean =>
-        x > margin.left &&
+export function mouseInPlotAreaFor(x: number, y: number, margin: Margin, dimensions: Dimensions): boolean {
+    console.log("mouseInPlotAreaFor", margin.top, y, dimensions.height - margin.bottom, dimensions, margin)
+    return x > margin.left &&
         x < dimensions.width - margin.right &&
         y > margin.top &&
-        y < dimensions.height - margin.top
+        // y < dimensions.height - margin.top
+        // y < dimensions.height - margin.top - margin.bottom
+        y < dimensions.height - margin.bottom
+}
 
 /**
  * Calculates the width of an SVG text element, based on its bounding box
  * @param elem The SVG text element
  * @return The width in pixels, or 0 if SVG text element has not children
  */
-export const textWidthOf =
-    (elem: Selection<SVGTextElement, any, any, any>): number =>
-        elem.node()?.getBBox()?.width || 0
+export function textWidthOf(elem: Selection<SVGTextElement, any, any, any>): number {
+    return elem.node()?.getBBox()?.width || 0
+}
 
+/**
+ * Type for representing the dimensions and location of the bounding box for an
+ * SVG text element.
+ */
 export type BoundingBox = { x: number, y: number, width: number, height: number }
 
 /**

@@ -321,6 +321,7 @@ function handleShowHorizontalTracker(
     // determine whether the mouse is in the plot area
     const [x, y] = d3.pointer(event, container)
     const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
+    // const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
 
     type AxisAndLabelInfo = {
         axis: ContinuousNumericAxis
