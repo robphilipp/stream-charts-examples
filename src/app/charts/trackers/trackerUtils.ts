@@ -3,7 +3,7 @@ import * as d3 from "d3";
 import {Selection} from "d3";
 import {Datum} from "../series/timeSeries";
 import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "../styling/margins";
-import {BoundingBox, mouseInPlotAreaFor, textDimensions, textWidthOf} from "../utils";
+import {BoundingBox, mouseInPlotAreaFor, textDimensions} from "../utils";
 import {AxisLocation, ContinuousNumericAxis} from "../axes/axes";
 import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelLocation} from "./Tracker";
 import React from "react";
@@ -156,30 +156,32 @@ function verticalTrackerControlInstance(
         .attr('stroke-width', style.lineWidth)
         .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
 
-    label.forEach((_, axis) => {
-        // create the text element holding the tracker time
-        const labelY = axis.location === AxisLocation.Top ?
-            Math.max(0, margin.top - 20) :
-            Math.max(0, plotDimensions.height + margin.top - 3)
+    if (labelStyle === TrackerLabelLocation.ByAxis) {
+        label.forEach((_, axis) => {
+            // create the text element holding the tracker time
+            const labelY = axis.location === AxisLocation.Top ?
+                Math.max(0, margin.top - 20) :
+                Math.max(0, plotDimensions.height + margin.top - 3)
 
-        svg
-            .append<SVGRectElement>('rect')
-            .attr('id', `${trackerLabelId(chartId, axis.location)}-background`)
-            .attr('y', labelY)
-            .attr('fill', backgroundColor)
-            .attr('opacity', 0)
+            svg
+                .append<SVGRectElement>('rect')
+                .attr('id', `${trackerLabelId(chartId, axis.location)}-background`)
+                .attr('y', labelY)
+                .attr('fill', backgroundColor)
+                .attr('opacity', 0)
 
-        svg
-            .append<SVGTextElement>('text')
-            .attr('id', trackerLabelId(chartId, axis.location))
-            .attr('y', labelY)
-            .attr('fill', labelFont.color)
-            .attr('font-family', labelFont.family)
-            .attr('font-size', labelFont.size)
-            .attr('font-weight', labelFont.weight)
-            .attr('opacity', 0)
-            .text(() => '')
-    })
+            svg
+                .append<SVGTextElement>('text')
+                .attr('id', trackerLabelId(chartId, axis.location))
+                .attr('y', labelY)
+                .attr('fill', labelFont.color)
+                .attr('font-family', labelFont.family)
+                .attr('font-size', labelFont.size)
+                .attr('font-weight', labelFont.weight)
+                .attr('opacity', 0)
+                .text(() => '')
+        })
+    }
 
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
@@ -327,22 +329,22 @@ function handleShowVerticalTracker(
                 .attr('stroke-width', trackerStyle.lineWidth)
                 .attr('opacity', () => inPlot ? 1 : 0)
 
-            const label = d3.select<SVGTextElement, any>(`#${trackerLabelId(chartId, axis.location)}`)
-                .attr('fill', labelFont.color)
-                .attr('font-family', labelFont.family)
-                .attr('font-size', labelFont.size)
-                .attr('font-weight', labelFont.weight)
-                .attr('opacity', () => inPlot ? 1 : 0)
-                .text(() => trackerLabel(axis.scale.invert(x - margin.left)))
-
-
-            const labelBackground = d3.select<SVGRectElement, any>(`#${trackerLabelId(chartId, axis.location)}-background`)
-                .attr('fill', backgroundColor)
-                .attr('opacity', () => inPlot ? 0.8 : 0)
-                .attr('rx', '5px')
-
             // when the label-style is to be with the mouse
             if (labelStyle === TrackerLabelLocation.ByAxis) {
+                const label = d3.select<SVGTextElement, any>(`#${trackerLabelId(chartId, axis.location)}`)
+                    .attr('fill', labelFont.color)
+                    .attr('font-family', labelFont.family)
+                    .attr('font-size', labelFont.size)
+                    .attr('font-weight', labelFont.weight)
+                    .attr('opacity', () => inPlot ? 1 : 0)
+                    .text(() => trackerLabel(axis.scale.invert(x - margin.left)))
+
+
+                const labelBackground = d3.select<SVGRectElement, any>(`#${trackerLabelId(chartId, axis.location)}-background`)
+                    .attr('fill', backgroundColor)
+                    .attr('opacity', () => inPlot ? 0.8 : 0)
+                    .attr('rx', '5px')
+
                 const space = 10
                 const {height} = plotDimensionsFrom(dimensions.width, dimensions.height, margin)
                 const labelY = axis.location === AxisLocation.Top ?
@@ -350,20 +352,20 @@ function handleShowVerticalTracker(
                     margin.top + height - space
                 label.attr('y', labelY)
 
-            // adjust the label position when the tracker is at the right-most edges of the plot so that
-            // the label remains visible (i.e., doesn't get clipped)
-            const xOffset = TrackerLabelLocation.ByAxis ? 10 : 0
-            const {width: labelWidth, height: labelHeight} = textDimensions(label)
-            const labelX = Math.min(dimensions.width - margin.right - labelWidth, x + xOffset)
-            label.attr('x', labelX)
+                // adjust the label position when the tracker is at the right-most edges of the plot so that
+                // the label remains visible (i.e., doesn't get clipped)
+                const xOffset = TrackerLabelLocation.ByAxis ? 10 : 0
+                const {width: labelWidth, height: labelHeight} = textDimensions(label)
+                const labelX = Math.min(dimensions.width - margin.right - labelWidth, x + xOffset)
+                label.attr('x', labelX)
 
-            // set the background location and width
-            const padding: number = 3
-            labelBackground
-                .attr('x', labelX - padding)
-                .attr('y', labelY - labelHeight - padding)
-                .attr('width', labelWidth + 2 * padding)
-                .attr('height', labelHeight + 2 * padding)
+                // set the background location and width
+                const padding: number = 3
+                labelBackground
+                    .attr('x', labelX - padding)
+                    .attr('y', labelY - labelHeight - padding)
+                    .attr('width', labelWidth + 2 * padding)
+                    .attr('height', labelHeight + 2 * padding)
             }
 
             const trackerInfo: TrackerAxisInfo = {
@@ -374,7 +376,7 @@ function handleShowVerticalTracker(
         })
 
     if (inPlot) {
-        onTrackerUpdate(new Map(updateInfo))
+        onTrackerUpdate(new Map<string, TrackerAxisInfo>(updateInfo))
     }
 }
 
@@ -444,7 +446,7 @@ function handleShowHorizontalTracker(
 
             const labelBackground = d3.select<SVGRectElement, any>(`#${trackerLabelId(chartId, axis.location)}-background`)
                 .attr('fill', backgroundColor)
-                .attr('opacity', () => inPlot ? 0.8 : 0)
+                .attr('opacity', () => inPlot && labelStyle !== TrackerLabelLocation.Nowhere ? 0.8 : 0)
                 .attr('rx', '5px')
 
             return [axis.location, {axis, labelSelection: label, labelBoundingBox: textDimensions(label), labelBackground}]
@@ -465,7 +467,7 @@ function handleShowHorizontalTracker(
 
                 // adjust the label position when the tracker is at the right-most edges of the plot so that
                 // the label remains visible (i.e., doesn't get clipped)
-                const yOffset: number = TrackerLabelLocation.ByAxis ? space : 0
+                const yOffset: number = labelStyle === TrackerLabelLocation.ByAxis ? space : 0
                 const labelY = Math.max(y - yOffset, margin.top + yOffset + labelBoundingBox.height)
                 labelSelection.attr('y', labelY)
 
@@ -486,7 +488,7 @@ function handleShowHorizontalTracker(
         })
 
     if (inPlot) {
-        onTrackerUpdate(new Map(updateInfo))
+        onTrackerUpdate(new Map<string, TrackerAxisInfo>(updateInfo))
     }
 }
 

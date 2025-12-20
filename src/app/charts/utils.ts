@@ -40,6 +40,13 @@ export function textWidthOf(elem: Selection<SVGTextElement, any, any, any>): num
 export type BoundingBox = { x: number, y: number, width: number, height: number }
 
 /**
+ * @return An empty bounding box with x, y, width, height set to 0.
+ */
+export function emptyBoundingBox(): BoundingBox {
+    return {x: 0, y: 0, width: 0, height: 0}
+}
+
+/**
  * Calculates the width and height of the text element
  * @param elem The SVG text element
  * @return The width and height of the bounding box
