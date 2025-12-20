@@ -116,7 +116,7 @@ export function Tracker(props: Props): null {
                 }
                 // if the tracker was defined and is now no longer defined (i.e., props changed, then remove the tracker)
                 else if (!visible && trackerRef.current !== undefined) {
-                    removeTrackerControl(svg)
+                    removeTrackerControl(svg, trackerAxis)
                     trackerRef.current = undefined
                 }
             }

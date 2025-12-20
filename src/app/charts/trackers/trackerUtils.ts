@@ -32,7 +32,10 @@ export const defaultTrackerStyle: TrackerStyle = {
     visible: false,
     color: '#d2933f',
     lineWidth: 1,
-};
+}
+
+const TRACKER_AXIS_VERTICAL_ID = "mousemove.vertical"
+const TRACKER_AXIS_HORIZONTAL_ID = "mousemove.horizontal"
 
 /**
  * Creates or returns the existing SVG elements for displaying a tracker line that is either
@@ -111,7 +114,6 @@ function verticalTrackerControlInstance(
         .attr('stroke-width', style.lineWidth)
         .attr('opacity', 0) as Selection<SVGLineElement, Datum, null, undefined>
 
-
     label.forEach((_, axis) => {
         // create the text element holding the tracker time
         const label = axis.location === AxisLocation.Top ?
@@ -131,7 +133,7 @@ function verticalTrackerControlInstance(
 
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
-        'mousemove.vertical',
+        TRACKER_AXIS_VERTICAL_ID,
         event => handleShowVerticalTracker(
             chartId, container, event, margin, containerDimensions, style, labelFont, label, labelStyle, onTrackerUpdate
         )
@@ -196,7 +198,7 @@ function horizontalTrackerControlInstance(
 
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
-        'mousemove.horizontal',
+        TRACKER_AXIS_HORIZONTAL_ID,
         event => handleShowHorizontalTracker(
             chartId, container, event, margin, containerDimensions, style, labelFont, label, labelStyle, onTrackerUpdate
         )
@@ -208,9 +210,19 @@ function horizontalTrackerControlInstance(
 /**
  * Removes the tracker control from the chart
  * @param svg The svg selection holding the tracker control
+ * @param axisLocation The location of the axis for which the tracker is to be removed.
  */
-export function removeTrackerControl(svg: SvgSelection) {
-    svg.on('mousemove', () => null)
+export function removeTrackerControl(svg: SvgSelection, axisLocation: AxisLocation) {
+    switch (axisLocation) {
+        case AxisLocation.Bottom:
+        case AxisLocation.Top:
+            svg.on(TRACKER_AXIS_VERTICAL_ID, () => null)
+            break
+        case AxisLocation.Left:
+        case AxisLocation.Right:
+        default:
+            svg.on(TRACKER_AXIS_HORIZONTAL_ID, () => null)
+    }
 }
 
 /**
