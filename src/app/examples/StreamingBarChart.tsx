@@ -393,7 +393,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         // todo add horizontal/vertical for track, or both, maybe a mode
                         visible={visibility.tracker}
                         trackerAxis={AxisLocation.Left}
-                        labelLocation={TrackerLabelLocation.WithMouse}
+                        labelLocation={TrackerLabelLocation.ByAxis}
                         labelFormatter={x => `${d3.format(".2f")(x)} mV`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}

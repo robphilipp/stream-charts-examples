@@ -340,7 +340,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     />
                     <Tracker
                         visible={visibility.tracker}
-                        labelLocation={TrackerLabelLocation.WithMouse}
+                        labelLocation={TrackerLabelLocation.ByAxis}
                         labelFormatter={x => `${d3.format(",.0f")(x)} ms`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}

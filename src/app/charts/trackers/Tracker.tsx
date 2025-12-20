@@ -24,8 +24,7 @@ export type TrackerAxisUpdate = Map<string, TrackerAxisInfo>
 
 export enum TrackerLabelLocation {
     Nowhere,
-    WithMouse,
-    ByAxes
+    ByAxis,
 }
 
 interface Props {
@@ -49,7 +48,7 @@ export function Tracker(props: Props): null {
     const {
         visible,
         trackerAxis = AxisLocation.Bottom,
-        labelLocation = TrackerLabelLocation.WithMouse,
+        labelLocation = TrackerLabelLocation.ByAxis,
         labelFormatter,
         style,
         font,
@@ -58,7 +57,8 @@ export function Tracker(props: Props): null {
     const {
         chartId,
         container,
-        axes
+        axes,
+        backgroundColor
     } = useChart()
 
     const {xAxesState, yAxesState} = axes
@@ -111,7 +111,8 @@ export function Tracker(props: Props): null {
                         trackerLabels,
                         labelLocation,
                         onTrackerUpdate,
-                        trackerAxis
+                        trackerAxis,
+                        backgroundColor
                     )
                 }
                 // if the tracker was defined and is now no longer defined (i.e., props changed, then remove the tracker)
@@ -121,7 +122,7 @@ export function Tracker(props: Props): null {
                 }
             }
         },
-        [chartId, container, labelFormatter, labelLocation, margin, onTrackerUpdate, plotDimensions, trackerAxis, trackerFont, trackerStyle, visible]
+        [backgroundColor, chartId, container, labelFormatter, labelLocation, margin, onTrackerUpdate, plotDimensions, trackerAxis, trackerFont, trackerStyle, visible]
     )
 
     return null
