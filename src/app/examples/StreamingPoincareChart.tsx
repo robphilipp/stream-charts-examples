@@ -527,6 +527,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         updateAxisBasedOnDomainValues={false}
                     />
                     <Tracker
+                        key="tracker-x-axis"
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}
                         trackerAxis={AxisLocation.Bottom}
@@ -535,15 +536,16 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         font={{color: theme.color}}
                         // onTrackerUpdate={update => console.dir("bottom", update)}
                     />
-                    {/*<Tracker*/}
-                    {/*    visible={visibility.tracker}*/}
-                    {/*    labelLocation={TrackerLabelLocation.WithMouse}*/}
-                    {/*    trackerAxis={AxisLocation.Left}*/}
-                    {/*    labelFormatter={x => `${d3.format(",.2f")(x)}`}*/}
-                    {/*    style={{color: theme.color}}*/}
-                    {/*    font={{color: theme.color}}*/}
-                    {/*    // onTrackerUpdate={update => console.dir("left", update)}*/}
-                    {/*/>*/}
+                    <Tracker
+                        key="tracker-y-axis"
+                        visible={visibility.tracker}
+                        labelLocation={TrackerLabelLocation.WithMouse}
+                        trackerAxis={AxisLocation.Left}
+                        labelFormatter={x => `${d3.format(",.2f")(x)}`}
+                        style={{color: theme.color}}
+                        font={{color: theme.color}}
+                        // onTrackerUpdate={update => console.dir("left", update)}
+                    />
                     <Tooltip
                         visible={visibility.tooltip}
                         style={{

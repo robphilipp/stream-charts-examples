@@ -103,7 +103,7 @@ function verticalTrackerControlInstance(
 ): TrackerSelection {
     const trackerLine = svg
         .append<SVGLineElement>('line')
-        .attr('id', `stream-chart-tracker-line-${chartId}`)
+        .attr('id', `stream-chart-tracker-line-vertical-${chartId}`)
         .attr('class', 'tracker')
         .attr('y1', margin.top)
         .attr('y2', plotDimensions.height + margin.top)
@@ -119,7 +119,7 @@ function verticalTrackerControlInstance(
             Math.max(0, plotDimensions.height + margin.top - 3)
         svg
             .append<SVGTextElement>('text')
-            .attr('id', `stream-chart-tracker-label-${chartId}-${axis.location}`)
+            .attr('id', `stream-chart-tracker-label-vertical-${chartId}-${axis.location}`)
             .attr('y', label)
             .attr('fill', labelFont.color)
             .attr('font-family', labelFont.family)
@@ -131,7 +131,7 @@ function verticalTrackerControlInstance(
 
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
-        'mousemove',
+        'mousemove.vertical',
         event => handleShowVerticalTracker(
             chartId, container, event, margin, containerDimensions, style, labelFont, label, labelStyle, onTrackerUpdate
         )
@@ -168,7 +168,7 @@ function horizontalTrackerControlInstance(
 ): TrackerSelection {
     const trackerLine = svg
         .append<SVGLineElement>('line')
-        .attr('id', `stream-chart-tracker-line-${chartId}`)
+        .attr('id', `stream-chart-tracker-line-horizontal-${chartId}`)
         .attr('class', 'tracker')
         .attr('x1', margin.left)
         .attr('x2', plotDimensions.width + margin.left)
@@ -184,7 +184,7 @@ function horizontalTrackerControlInstance(
             Math.max(0, plotDimensions.width + margin.left - 3)
         svg
             .append<SVGTextElement>('text')
-            .attr('id', `stream-chart-tracker-label-${chartId}-${axis.location}`)
+            .attr('id', `stream-chart-tracker-label-horizontal-${chartId}-${axis.location}`)
             .attr('y', label)
             .attr('fill', labelFont.color)
             .attr('font-family', labelFont.family)
@@ -196,7 +196,7 @@ function horizontalTrackerControlInstance(
 
     const containerDimensions = containerDimensionsFrom(plotDimensions, margin)
     svg.on(
-        'mousemove',
+        'mousemove.horizontal',
         event => handleShowHorizontalTracker(
             chartId, container, event, margin, containerDimensions, style, labelFont, label, labelStyle, onTrackerUpdate
         )
@@ -247,14 +247,14 @@ function handleShowVerticalTracker(
             // when the mouse is in the plot area, then set the opacity of the tracker line and label to 1,
             // which means it is fully visible. when the mouse is not in the plot area, set the opacity to 0,
             // which means the tracker line and label are invisible.
-            d3.select<SVGLineElement, Datum>(`#stream-chart-tracker-line-${chartId}`)
+            d3.select<SVGLineElement, Datum>(`#stream-chart-tracker-line-vertical-${chartId}`)
                 .attr('x1', x)
                 .attr('x2', x)
                 .attr('stroke', trackerStyle.color)
                 .attr('stroke-width', trackerStyle.lineWidth)
                 .attr('opacity', () => inPlot ? 1 : 0)
 
-            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-${chartId}-${axis.location}`)
+            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-vertical-${chartId}-${axis.location}`)
                 .attr('fill', labelFont.color)
                 .attr('font-family', labelFont.family)
                 .attr('font-size', labelFont.size)
@@ -321,7 +321,6 @@ function handleShowHorizontalTracker(
     // determine whether the mouse is in the plot area
     const [x, y] = d3.pointer(event, container)
     const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
-    // const inPlot = mouseInPlotAreaFor(x, y, margin, dimensions)
 
     type AxisAndLabelInfo = {
         axis: ContinuousNumericAxis
@@ -340,14 +339,14 @@ function handleShowHorizontalTracker(
             // when the mouse is in the plot area, then set the opacity of the tracker line and label to 1,
             // which means it is fully visible. when the mouse is not in the plot area, set the opacity to 0,
             // which means the tracker line and label are invisible.
-            d3.select<SVGLineElement, Datum>(`#stream-chart-tracker-line-${chartId}`)
+            d3.select<SVGLineElement, Datum>(`#stream-chart-tracker-line-horizontal-${chartId}`)
                 .attr('y1', y)
                 .attr('y2', y)
                 .attr('stroke', trackerStyle.color)
                 .attr('stroke-width', trackerStyle.lineWidth)
                 .attr('opacity', () => inPlot ? 1 : 0)
 
-            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-${chartId}-${axis.location}`)
+            const label = d3.select<SVGTextElement, any>(`#stream-chart-tracker-label-horizontal-${chartId}-${axis.location}`)
                 .attr('fill', labelFont.color)
                 .attr('font-family', labelFont.family)
                 .attr('font-size', labelFont.size)

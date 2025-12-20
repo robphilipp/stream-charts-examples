@@ -18,12 +18,9 @@ export const noop = () => {
  * @return `true` if the mouse is in the plot area; `false` if the mouse is not in the plot area
  */
 export function mouseInPlotAreaFor(x: number, y: number, margin: Margin, dimensions: Dimensions): boolean {
-    console.log("mouseInPlotAreaFor", margin.top, y, dimensions.height - margin.bottom, dimensions, margin)
     return x > margin.left &&
         x < dimensions.width - margin.right &&
         y > margin.top &&
-        // y < dimensions.height - margin.top
-        // y < dimensions.height - margin.top - margin.bottom
         y < dimensions.height - margin.bottom
 }
 
