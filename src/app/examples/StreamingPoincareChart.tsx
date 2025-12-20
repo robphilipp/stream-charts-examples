@@ -531,7 +531,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}
                         trackerAxis={AxisLocation.Bottom}
-                        labelFormatter={x => `${d3.format(",.2f")(x)}`}
+                        labelFormatter={x => `${d3.format(",.3f")(x)}`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}
                         // onTrackerUpdate={update => console.dir("bottom", update)}
@@ -541,7 +541,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         visible={visibility.tracker}
                         labelLocation={TrackerLabelLocation.WithMouse}
                         trackerAxis={AxisLocation.Left}
-                        labelFormatter={x => `${d3.format(",.2f")(x)}`}
+                        labelFormatter={x => `${d3.format(",.3f")(x)}`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}
                         // onTrackerUpdate={update => console.dir("left", update)}
