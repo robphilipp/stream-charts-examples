@@ -264,14 +264,11 @@ function handleShowVerticalTracker(
 
             // when the label-style is to be with the mouse
             if (labelStyle === TrackerLabelLocation.WithMouse) {
-                // todo the offsets should be based on the font size of the tracker label
-                const topOffset: number = 30
-                const offset = axis.location === AxisLocation.Top ? topOffset : 10
+                const space = 10
                 const {height} = plotDimensionsFrom(dimensions.width, dimensions.height, margin)
-                const labelY = Math.min(
-                    Math.max(margin.top + 15 + topOffset - offset, y - offset),
-                    margin.top + height - offset
-                )
+                const labelY = axis.location === AxisLocation.Top ?
+                    margin.top + labelFont.size + space :
+                    margin.top + height - space
                 label.attr('y', labelY)
             }
 
@@ -359,28 +356,15 @@ function handleShowHorizontalTracker(
 
     // place the labels so that they remain in the plot area
     const space = 10
-    const leftLabelWidth = (boundingBoxes.get(AxisLocation.Left)?.labelBoundingBox.width || -space) + space
     const rightLabelWidth = (boundingBoxes.get(AxisLocation.Right)?.labelBoundingBox.width || -space) + space
 
     const updateInfo: Array<[string, TrackerAxisInfo]> = Array.from(boundingBoxes.entries())
         .map(([location, {axis, labelSelection, labelBoundingBox}]) => {
             if (labelStyle === TrackerLabelLocation.WithMouse) {
                 const {width} = plotDimensionsFrom(dimensions.width, dimensions.height, margin)
-                // base offset
-                const offset = axis.location === AxisLocation.Left ?
-                    -leftLabelWidth :
-                    space
-
-                // smallest x-value
-                const minX = location === AxisLocation.Left ?
-                    leftLabelWidth + space :
-                    leftLabelWidth + rightLabelWidth + space
-
-                // place the label
-                const labelX = Math.min(
-                    Math.max(minX + space, x + offset),
-                    width - rightLabelWidth - space + offset + margin.left
-                )
+                const labelX = location === AxisLocation.Left ?
+                    margin.left + space :
+                    margin.left + width - rightLabelWidth - space
                 labelSelection.attr('x', labelX)
             }
 
