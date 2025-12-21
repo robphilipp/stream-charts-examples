@@ -430,14 +430,12 @@ export function subscriptionOrdinalXFor(
      * function updates the windowed stats by for the dropped data
      * @param droppedData An array of datum that was dropped from the time window
      * @param windowedStats The current windowed ordinal value stats
-     * @param lifetimeStats The lifetime ordinal value stats
      * @param series An array of series holding all the current data in the time-window
      * @return The windowed ordinal value stats updated for the dropped data
      */
     function updateWindowedValueStatsForDroppedData(
         droppedData: Array<OrdinalDatum>,
         windowedStats: OrdinalValueStats,
-        lifetimeStats: OrdinalValueStats,
         series: BaseSeries<OrdinalDatum>
     ): OrdinalValueStats {
         const updatedStats = copyOrdinalValueStats(windowedStats)
@@ -524,10 +522,10 @@ export function subscriptionOrdinalXFor(
                         }
 
                         // calculate the windowed stats based on the dropped data
-                        if (droppedData.length > 0 && lifetimeValueStats !== undefined) {
+                        if (droppedData.length > 0) {
                             ordinalStatsRef.current.windowedValueStatsForSeries.set(
                                 name,
-                                updateWindowedValueStatsForDroppedData(droppedData, windowedValueStats, lifetimeValueStats, series)
+                                updateWindowedValueStatsForDroppedData(droppedData, windowedValueStats, series)
                             )
                         }
 
