@@ -2,18 +2,18 @@ import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {AxesAssignment, setClipPath, Series} from "./plot";
+import {AxesAssignment, Series, setClipPathG} from "./plot";
 import {Datum, TimeSeries} from "../series/timeSeries";
 import {
     axesForSeriesGen,
     BaseAxis,
+    continuousAxisIntervals,
+    continuousAxisRanges,
+    continuousAxisZoomHandler,
     ContinuousNumericAxis,
     defaultLineStyle,
     panHandler,
-    SeriesLineStyle,
-    continuousAxisIntervals,
-    continuousAxisRanges,
-    continuousAxisZoomHandler
+    SeriesLineStyle
 } from "../axes/axes";
 import {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
@@ -253,15 +253,13 @@ export function ScatterPlot(props: Props): null {
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
      * @param deltaX The amount that the plot is dragged
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
      */
     const onPan = useCallback(
         (x: number,
          plotDimensions: Dimensions,
-         series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>,
-        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, series, ranges),
+        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
@@ -321,7 +319,7 @@ export function ScatterPlot(props: Props): null {
                             onPan(
                                 event.dx,
                                 plotDimensions,
-                                Array.from(boundedSeries.keys()),
+                                // Array.from(boundedSeries.keys()),
                                 timeRanges,
                             )
                             updatePlotRef.current(timeRanges, mainGElem)
@@ -358,7 +356,7 @@ export function ScatterPlot(props: Props): null {
                 }
 
                 // define the clip-path so that the series lines don't go beyond the plot area
-                const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
+                const clipPathId = setClipPathG(chartId, mainGElem, plotDimensions)
 
                 boundedSeries.forEach((data, name) => {
                     // grab the x and y axes assigned to the series, and if either or both
@@ -435,7 +433,6 @@ export function ScatterPlot(props: Props): null {
         [
             container, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
             zoomKeyModifiersRequired, onZoom, axisAssignments,
-            // xAxesState.axisFor, yAxesState.axisFor,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
             mouseOverHandlerFor, mouseLeaveHandlerFor

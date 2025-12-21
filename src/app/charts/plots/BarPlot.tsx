@@ -698,7 +698,7 @@ export function BarPlot(props: Props): null {
         () => {
             if (mainG != null && container != null) {
                 // when the update plot function doesn't yet exist, then create the container holding the plot
-                const clipPathId = setClipPathG(chartId, mainG, plotDimensions, margin)
+                const clipPathId = setClipPathG(chartId, mainG, plotDimensions)
                 if (updatePlotRef.current === noop) {
                     mainG
                         .selectAll<SVGGElement, BaseSeries<OrdinalDatum>>('g')

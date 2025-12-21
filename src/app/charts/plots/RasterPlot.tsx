@@ -1,4 +1,4 @@
-import {AxesAssignment, setClipPath} from "./plot";
+import {AxesAssignment, setClipPathG} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {noop} from "../utils";
@@ -8,10 +8,10 @@ import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
 import {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
-    continuousAxisZoomHandler,
     BaseAxis,
     continuousAxisIntervals,
     continuousAxisRanges,
+    continuousAxisZoomHandler,
     ContinuousNumericAxis,
     defaultLineStyle,
     OrdinalStringAxis,
@@ -270,9 +270,8 @@ export function RasterPlot(props: Props): null {
     const onPan = useCallback(
         (x: number,
          plotDimensions: Dimensions,
-         series: Array<string>,
          ranges: Map<string, ContinuousAxisRange>
-        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, series, ranges),
+        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
@@ -313,8 +312,7 @@ export function RasterPlot(props: Props): null {
                             allowTooltipRef.current = false
                         })
                         .on("drag", (event: any) => {
-                            const names = dataRef.current.map(series => series.name)
-                            onPan(event.dx, plotDimensions, names, timeRanges)
+                            onPan(event.dx, plotDimensions, timeRanges)
                             // need to update the plot with the new time-ranges
                             updatePlotRef.current(timeRanges, mainGElem)
                         })
@@ -432,7 +430,6 @@ export function RasterPlot(props: Props): null {
             panEnabled,
             plotDimensions,
             seriesFilter, seriesStyles,
-            // xAxesState.axisFor, yAxesState.axisFor,
             xAxesState, yAxesState,
             zoomEnabled, zoomKeyModifiersRequired,
             spikeMargin
@@ -447,8 +444,7 @@ export function RasterPlot(props: Props): null {
         () => {
             if (mainG !== null && container !== null) {
                 // when the update plot function doesn't yet exist, then create the container holding the plot
-                const svg = d3.select<SVGSVGElement, any>(container)
-                const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
+                const clipPathId = setClipPathG(chartId, mainG, plotDimensions)
                 if (updatePlotRef.current === noop) {
                     mainG
                         .selectAll<SVGGElement, TimeSeries>('g')

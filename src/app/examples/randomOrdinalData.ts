@@ -53,13 +53,13 @@ export function initialSineFnData(
  */
 export function initialOrdinalChartData(seriesList: Array<BaseSeries<OrdinalDatum>>, currentTime: number = 0): TimeSeriesChartData {
     const maxTime = seriesList.reduce(
-        (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrDefault(-Infinity)),
+        (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(-Infinity)),
         -Infinity
     )
     return {
         seriesNames: new Set(seriesList.map(series => series.name)),
         maxTime,
-        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrDefault(0)])),
+        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [
             series.name,
             series.data.map(datum => ({time: datum.time, value: datum.value})),

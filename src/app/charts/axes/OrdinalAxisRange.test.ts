@@ -27,7 +27,7 @@ describe('scaleOrdinalBounds', () => {
     it('should scale bounds and original bounds the same when they are both the same', () => {
         const expectedRange = OrdinalAxisRange.from(0, 200, 0, 200)
         const range = OrdinalAxisRange.from(0, 100, 0, 100)
-        const zoomedRange = range.zoom(100, 200, range)
+        const zoomedRange = range.zoom(100, 200)
         validateRanges(zoomedRange, expectedRange)
         validateScale(range, zoomedRange)
     })
@@ -35,21 +35,21 @@ describe('scaleOrdinalBounds', () => {
     it('should scale bounds and original bounds when ordinal axis is zoomed by 10 percent', () => {
         const expectedRange = OrdinalAxisRange.from(-55, 220, 0, 110)
         const range = OrdinalAxisRange.from(-50, 200, 0, 100)
-        const zoomedRange = range.zoom(100, 110, range)
+        const zoomedRange = range.zoom(100, 110)
         validateRanges(zoomedRange, expectedRange)
     })
 
     it('should scale bounds and original bounds when ordinal axis is zoomed by 500 percent', () => {
         const expectedRange = OrdinalAxisRange.from(-250, 1000, 0, 500)
         const range = OrdinalAxisRange.from(-50, 200, 0, 100)
-        const zoomedRange = range.zoom(100, 500, range)
+        const zoomedRange = range.zoom(100, 500)
         validateRanges(zoomedRange, expectedRange)
     })
 
     it('should scale bounds and original bounds when ordinal axis is zoomed by 10 percent and ends are same', () => {
         const expectedRange = OrdinalAxisRange.from(-750, 500, 0, 500)
         const range = OrdinalAxisRange.from(-150, 100, 0, 100)
-        const zoomedRange = range.zoom(100, 500, range)
+        const zoomedRange = range.zoom(100, 500)
         validateRanges(zoomedRange, expectedRange)
     })
 });

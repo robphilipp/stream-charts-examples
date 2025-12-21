@@ -130,7 +130,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
-    // const chartTimeRef = useRef<number>(0)
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))

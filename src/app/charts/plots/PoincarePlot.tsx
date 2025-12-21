@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef} from 'react'
 import {NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
 import {CurveFactory, ZoomTransform} from "d3";
-import {setClipPath} from "./plot";
+import {setClipPathG} from "./plot";
 import {Datum} from "../series/timeSeries";
 import {
     axesZoomHandler,
@@ -437,7 +437,7 @@ export function PoincarePlot(props: Props): null {
                 }
 
                 // define the clip-path so that the series lines don't go beyond the plot area
-                const clipPathId = setClipPath(chartId, svg, plotDimensions, margin)
+                const clipPathId = setClipPathG(chartId, mainGElem, plotDimensions)
 
                 // ---
                 // todo only want to do this once, on the first plot, and then leave it,

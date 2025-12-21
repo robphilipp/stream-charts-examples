@@ -11,12 +11,21 @@ import {OrdinalAxisRange} from "./OrdinalAxisRange";
 import {BaseAxisRange} from "./BaseAxisRange";
 import {AxisInterval} from "./AxisInterval";
 
+/**
+ * Holds the style for the axis tick labels
+ */
 export type AxisTickStyle = {
     font: AxesFont
+    // the rotation of the tick labels in degrees
     rotation: number
+    // whether to automatically rotate tick labels to fit within the axis space
     useAutoRotation: boolean
 }
 
+/**
+ * Factory function to create a default AxisTickStyle with the default font,
+ * no rotation, and no auto-rotation.
+ */
 export function defaultAxisTickStyle(): AxisTickStyle {
     return {
         font: defaultAxesFont(),
@@ -25,6 +34,9 @@ export function defaultAxisTickStyle(): AxisTickStyle {
     }
 }
 
+/**
+ * Holds the font information for the axis labels
+ */
 export interface AxesFont {
     size: number
     color: string
@@ -32,6 +44,10 @@ export interface AxesFont {
     weight: number
 }
 
+/**
+ * Factory function to create a default AxesFont with the default font size, color,
+ * family, and weight.
+ */
 export function defaultAxesFont(): AxesFont {
     return {
         size: 12,
@@ -41,17 +57,27 @@ export function defaultAxesFont(): AxesFont {
     }
 }
 
+/**
+ * Holds the style information for a series in a chart
+ */
 export interface SeriesStyle {
     color: string
     highlightColor: string
     margin?: number
 }
 
+/**
+ * Holds the style information for a series line-style in a chart.
+ */
 export interface SeriesLineStyle extends SeriesStyle {
     lineWidth: number
     highlightWidth: number
 }
 
+/**
+ * Factory function to create a default SeriesLineStyle with the default color, line width,
+ * highlight color, and highlight width.
+ */
 export function defaultLineStyle(): SeriesLineStyle {
     return {
         color: '#008aad',
@@ -61,28 +87,72 @@ export function defaultLineStyle(): SeriesLineStyle {
     }
 }
 
+/**
+ * The base interface that all Axes must implement. Each axis must have a unique ID,
+ * a location (top, bottom, left, right), and d3 SVG selection for the axis.
+ */
 export interface BaseAxis {
     axisId: string
     location: AxisLocation
     selection: AxisElementSelection
 }
 
+/**
+ * Represents a continuous numeric axis.
+ */
 export interface ContinuousNumericAxis extends BaseAxis {
+    /**
+     * A d3 scale for a continuous numeric axis.
+     */
     scale: ScaleContinuousNumeric<number, number>
+    /**
+     * A d3 axis generator for a continuous numeric axis.
+     */
     generator: Axis<number | { valueOf(): number }>
+    /**
+     * Updates the axis based on the specified domain and plot dimensions.
+     * @param domain The interval representing the domain of the axis.
+     * @param plotDimensions The dimensions of the plot (without the margins).
+     * @param margin The margins for the plot
+     */
     update: (domain: AxisInterval, plotDimensions: Dimensions, margin: Margin) => void
 }
 
+/**
+ * Represents an ordinal string axis.
+ */
 export interface OrdinalStringAxis extends BaseAxis {
+    /**
+     * A d3 scale for an ordinal string axis.
+     */
     scale: ScaleBand<string>
+    /**
+     * A d3 axis generator for an ordinal string axis.
+     */
     generator: Axis<string>
+    /**
+     * The size of each category on the axis.
+     */
     categorySize: number
+    /**
+     * Updates the axis based on the specified domain and plot dimensions.
+     * @param range An interval representing the range of the axis.
+     * @param originalRange An interval representing the original range of the axis (before zooming or panning).
+     * @param plotDimensions The dimensions of the plot (without the margins).
+     * @param margin The margins for the plot
+     * @return The number of pixels for each category on the axis.
+     */
     update: (range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => number
 }
 
+/**
+ * Enumerates the possible locations of an axis.
+ */
 export enum AxisLocation {
+    // y-axes
     Left,
     Right,
+    // x-axes
     Bottom,
     Top
 }
@@ -1085,7 +1155,7 @@ export function panHandler(
 ): (
     x: number,
     plotDimensions: Dimensions,
-    series: Array<string>,
+    // series: Array<string>,
     ranges: Map<string, ContinuousAxisRange>,
 ) => void {
     /**
@@ -1095,7 +1165,8 @@ export function panHandler(
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
      */
-    return (delta: number, plotDimensions: Dimensions, series: Array<string>, ranges: Map<string, ContinuousAxisRange>) => {
+    return (delta: number, plotDimensions: Dimensions, ranges: Map<string, ContinuousAxisRange>) => {
+    // return (delta: number, plotDimensions: Dimensions, series: Array<string>, ranges: Map<string, ContinuousAxisRange>) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         panAxes(delta, axesForSeries, axesState, ranges, setAxisRangeFor, plotDimensions, margin, constrainToOriginalRange)
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
@@ -1490,7 +1561,7 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
  */
 export function ordinalRange(axes: Map<string, OrdinalStringAxis>, originalRange: AxisInterval): Map<string, OrdinalAxisRange> {
     return new Map(Array.from(axes.entries())
-        .map(([id, axis]) =>
+        .map(([id, _]) =>
             [id, OrdinalAxisRange.from(originalRange.start, originalRange.end)]
         )
     )
