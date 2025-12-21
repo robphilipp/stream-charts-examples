@@ -4,7 +4,7 @@ import {Datum, TimeSeries} from "../series/timeSeries";
 import {interval, Observable, Subscription} from "rxjs";
 import {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {AxesAssignment} from "../plots/plot";
-import {AxesState} from "../hooks/AxesState";
+import {AxesState} from "../axes/AxesState";
 import {BaseSeries, emptySeries} from "../series/baseSeries";
 import {IterateChartData} from "../observables/iterates";
 import {IterateDatum, IterateSeries} from "../series/iterateSeries";

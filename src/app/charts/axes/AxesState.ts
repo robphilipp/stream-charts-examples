@@ -1,9 +1,11 @@
-import {BaseAxis} from "../axes/axes";
+import {BaseAxis} from "./axes";
 
 /**
  * Holds the information to allow mapping axes names to the underlying axes objects.
  * These objects hold the axis ID, its location on the chart (i.e. left, right, bottom, upper)
- * and the underlying D3 selection objects for managing the axes.
+ * and the underlying d3 selection objects for managing the axes. Axis objects that extend
+ * the `BaseAxis` class may have additional properties.
+ * @typeParam A The type of the axes (must extend `BaseAxis`)
  */
 export class AxesState<A extends BaseAxis> {
     readonly axes: Map<string, A>

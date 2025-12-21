@@ -3,7 +3,7 @@ import {ContinuousAxisRange} from "./ContinuousAxisRange";
 import * as d3 from "d3";
 import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
 import {AxisElementSelection, SvgSelection} from "../d3types";
-import {AxesState} from "../hooks/AxesState";
+import {AxesState} from "./AxesState";
 import {AxesAssignment} from "../plots/plot";
 import {BaseSeries} from "../series/baseSeries";
 import {noop} from "../utils";

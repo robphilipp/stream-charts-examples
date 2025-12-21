@@ -8,6 +8,13 @@ export abstract class BaseAxisRange {
     // the range when there is no zoom, which is the interval (0, width | height)
     readonly original: AxisInterval
 
+    /**
+     * @param start The axis-range start value.
+     * @param end The axis-range end value.
+     * @param [originalStart = start] The optional original axis-range start value. Defaults to the start value if not specified.
+     * @param [originalEnd = end] The optional original axis-range end value. Defaults to the end value if not specified.
+     * @protected
+     */
     protected constructor(start: number, end: number, originalStart: number = start, originalEnd: number = end) {
         this.current = AxisInterval.from(start, end)
         this.original = AxisInterval.from(originalStart, originalEnd)
