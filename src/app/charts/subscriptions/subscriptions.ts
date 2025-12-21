@@ -30,7 +30,7 @@ import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 export enum TimeWindowBehavior { SCROLL, SQUEEZE }
 
 /**
- * Creates a subscription to the series observable with the data stream. The common code is
+ * Creates a subscription to the series observable with the data stream. This is common code
  * shared by the plots.
  * @param seriesObservable The series observable holding the stream of chart data
  * @param onSubscribe Callback for when the observable is subscribed to

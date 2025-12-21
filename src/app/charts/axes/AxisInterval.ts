@@ -51,11 +51,16 @@ export class AxisInterval {
      * @return `true` if the specified axis interval is equal to this one, `false` otherwise
      */
     equalsInterval(start: number, end: number): boolean {
-        return this.start === start && this.end === end
+        return (this.start === start && this.end === end) || (this.isEmpty() && isNaN(start) && isNaN(end))
     }
 
+    /**
+     * Determines whether the specified axis interval is equal to this one.
+     * @param other The other axis interval to compare to
+     * @return `true` if the specified axis interval is equal to this one, `false` otherwise.
+     */
     equals(other: AxisInterval): boolean {
-        return this.start === other.start && this.end === other.end
+        return this.equalsInterval(other.start, other.end)
     }
 
     /**
@@ -85,31 +90,39 @@ export class AxisInterval {
     }
 
     /**
-     * Calculates the measure (end - start) of the specified axis interval
+     * Calculates the measure (end - start) of the specified axis interval.
+     * The measure of an empty axis interval is 0.
      * @return The measure (end - start) of the specified axis interval
      */
     measure(): number {
-        return this.end - this.start
+        return this.isNotEmpty() ? this.end - this.start : 0
     }
 
     /**
      * Updates the start value of the specified axis interval
-     * @param rangeTuple The tuple representing the ordinal-axis range (e.g. start and end)
      * @param delta The amount by which to update the start value
      * @return A new axis interval
      */
-    translateStart(rangeTuple: AxisInterval, delta: number) {
-        return AxisInterval.from(rangeTuple.start + delta, rangeTuple.end)
+    translateStart(delta: number): AxisInterval {
+        return this.isNotEmpty() ? AxisInterval.from(this.start + delta, this.end) : AxisInterval.empty()
     }
 
     /**
      * Updates the end value of the specified axis interval
-     * @param rangeTuple The tuple representing the ordinal-axis range (e.g. start and end)
      * @param delta The amount by which to update the end value
      * @return The new axis interval
      */
-    translateEnd(rangeTuple: AxisInterval, delta: number) {
-        return AxisInterval.from(rangeTuple.start, rangeTuple.end + delta)
+    translateEnd(delta: number): AxisInterval {
+        return this.isNotEmpty() ? AxisInterval.from(this.start, this.end + delta) : AxisInterval.empty()
+    }
+
+    /**
+     * Translates the specified axis interval by the specified delta.
+     * @param delta The amount by which to translate the axis interval
+     * @return The new axis interval
+     */
+    translate(delta: number): AxisInterval {
+        return this.isNotEmpty() ? AxisInterval.from(this.start + delta, this.end + delta) : AxisInterval.empty()
     }
 }
 
