@@ -90,7 +90,7 @@ export function subscriptionTimeSeriesFor(
                     // calculate the current time for the series' assigned x-axis (which may end up
                     // just being the default) based on the max time for the series, and the overall
                     // max time
-                    const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId();
+                    const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId().getOrElse("");
                     const currentAxisTime = axesSeries.get(axisId)
                         ?.reduce(
                             (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
@@ -233,7 +233,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
                 series.data.push(...newData);
 
                 // drop data when specified
-                const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId()
+                const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId().getOrElse("")
                 const currentAxisTime = axesSeries.get(axisId)
                     ?.reduce(
                         (tMax, seriesName) => Math.max(data.maxTimes.get(seriesName) || data.maxTime, tMax),
@@ -352,8 +352,8 @@ export function subscriptionIteratesFor(
                 })
 
                 // update the data
-                const xRange = xAxesRanges.get(xAxesState.axisDefaultId())
-                const yRange = yAxesRanges.get(yAxesState.axisDefaultId())
+                const xRange = xAxesRanges.get(xAxesState.axisDefaultId().getOrElse(""))
+                const yRange = yAxesRanges.get(yAxesState.axisDefaultId().getOrElse(""))
                 if (xRange !== undefined && yRange !== undefined) {
                     updateRangesAndPlot()
                 }
@@ -503,7 +503,7 @@ export function subscriptionOrdinalXFor(
                     // calculate the current value for the series' assigned y-axis (which may end up
                     // just being the default) based on the max time for the series, and the overall
                     // max time
-                    const axisId = axisAssignments.get(name)?.yAxis || yAxesState.axisDefaultId();
+                    const axisId = axisAssignments.get(name)?.yAxis || yAxesState.axisDefaultId().getOrElse("");
                     const currentTime = axesSeries.get(axisId)
                         ?.reduce(
                             (tMax, _) => Math.max(data.stats.maxDatum.time.time, tMax),
@@ -579,7 +579,7 @@ function associatedSeriesForXAxes(
     xAxesState: AxesState<ContinuousNumericAxis>
 ): Map<string, Array<string>> {
     return associatedSeriesFor(
-        assignment => assignment?.xAxis || xAxesState.axisDefaultId(),
+        assignment => assignment?.xAxis || xAxesState.axisDefaultId().getOrElse(""),
         data,
         axisAssignments
     )
@@ -599,7 +599,7 @@ function associatedSeriesForYAxes(
     yAxesState: AxesState<OrdinalStringAxis>
 ): Map<string, Array<string>> {
     return associatedSeriesFor(
-        assignment => assignment?.yAxis || yAxesState.axisDefaultId(),
+        assignment => assignment?.yAxis || yAxesState.axisDefaultId().getOrElse(""),
         data,
         axisAssignments
     )

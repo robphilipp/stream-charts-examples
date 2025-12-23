@@ -364,8 +364,8 @@ export function ScatterPlot(props: Props): null {
                     const [xAxisLinear, yAxisLinear] = axesFor(
                         name,
                         axisAssignments,
-                        axisId => xAxesState.axisFor(axisId),
-                        axisId => yAxesState.axisFor(axisId)
+                        axisId => xAxesState.axisFor(axisId).getOrUndefined(),
+                        axisId => yAxesState.axisFor(axisId).getOrUndefined()
                     )
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 

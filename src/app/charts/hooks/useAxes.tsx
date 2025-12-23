@@ -188,8 +188,8 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
      */
     function axisAssignmentsFor(seriesName: string): AxesAssignment {
         return axisAssignmentsRef.current.get(seriesName) || {
-            xAxis: xAxesStateRef.current.axisDefaultId(),
-            yAxis: yAxesStateRef.current.axisDefaultId()
+            xAxis: xAxesStateRef.current.axisDefaultId().getOrElse(""),
+            yAxis: yAxesStateRef.current.axisDefaultId().getOrElse("")
         }
     }
 

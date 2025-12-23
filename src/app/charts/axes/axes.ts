@@ -1036,7 +1036,7 @@ export function axesForSeriesGen<D, A extends BaseAxis>(
     return series.map(srs => srs.name)
         // grab the x-axis assigned to the series, or use the default x-axis if not
         // assignment has been made
-        .map(name => axisAssignments.get(name)?.xAxis || axesState.axisDefaultId())
+        .map(name => axisAssignments.get(name)?.xAxis || axesState.axisDefaultId().getOrElse(""))
         // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
         // transformation more than once
         .reduce((accum: Array<string>, axisId: string) => {
@@ -1069,11 +1069,10 @@ function panAxes(
     margin: Margin,
     constrainToOriginalRange: boolean = true
 ): void {
-    axesForSeries
-        .forEach(axisId => {
-            const axis = axesState.axisFor(axisId)
+    axesForSeries.forEach(axisId => {
+        axesState.axisFor(axisId).ifPresent(axis => {
             const currentRange = ranges.get(axisId)
-            if (currentRange && axis) {
+            if (currentRange) {
                 // calculate the change in the axis-range based on the pixel change from the drag event
                 const range = calculatePanFor(delta, axis, currentRange, constrainToOriginalRange)
 
@@ -1086,6 +1085,7 @@ function panAxes(
                 axis.update(range.current.copy(), plotDimensions, margin)
             }
         })
+    })
 }
 
 /**
@@ -1110,9 +1110,8 @@ function ordinalPanAxes(
     margin: Margin,
     constrainToOriginalRange: boolean = false
 ): void {
-    axesForSeries
-        .forEach(axisId => {
-            const axis = axesState.axisFor(axisId)
+    axesForSeries.forEach(axisId => {
+        axesState.axisFor(axisId).ifPresent(axis => {
             const currentRange = ranges.get(axisId)
             if (currentRange && axis) {
                 // calculate the change in the axis-range based on the pixel change from the drag event
@@ -1127,6 +1126,7 @@ function ordinalPanAxes(
                 axis.update(range.current, range.original, plotDimensions, margin)
             }
         })
+    })
 }
 
 /**
@@ -1291,25 +1291,26 @@ function calcZoomAndUpdate(
 ): void {
     const [, zoomMax] = scaleExtent
 
-    const range = ranges.get(axisId)
-    const axis = axesState.axisFor(axisId)
-    if (range && axis) {
+    axesState.axisFor(axisId).ifPresent(axis => {
+        const range = ranges.get(axisId)
+        if (range && axis) {
 
-        // calculate the constraint for the zoom
-        const constraint: [number, number] = isFinite(zoomMax) ?
-            [range.original.start * zoomMax, range.original.end * zoomMax] :
-            [0, Infinity]
+            // calculate the constraint for the zoom
+            const constraint: [number, number] = isFinite(zoomMax) ?
+                [range.original.start * zoomMax, range.original.end * zoomMax] :
+                [0, Infinity]
 
-        const zoom = calculateConstrainedZoomFor(transform, value, axis, range, constraint)
+            const zoom = calculateConstrainedZoomFor(transform, value, axis, range, constraint)
 
-        // update the axis range
-        ranges.set(axisId, zoom.range)
+            // update the axis range
+            ranges.set(axisId, zoom.range)
 
-        setRangeFor(axisId, zoom.range.current)
+            setRangeFor(axisId, zoom.range.current)
 
-        // update the axis' range
-        axis.update(zoom.range.current, plotDimensions, margin)
-    }
+            // update the axis' range
+            axis.update(zoom.range.current, plotDimensions, margin)
+        }
+    })
 }
 
 function calcOrdinalZoomAndUpdate(
@@ -1326,27 +1327,28 @@ function calcOrdinalZoomAndUpdate(
 ): void {
     const [, zoomMax] = scaleExtent
 
-    const range = ranges.get(axisId)
-    const axis = axesState.axisFor(axisId)
-    if (range && axis) {
-        // calculate the constraint for the zoom
-        // const [originalStart, originalEnd] = range.original
-        const constraint: [number, number] = isFinite(zoomMax) ?
-            [range.original.start * zoomMax, range.original.end * zoomMax] :
-            [range.original.start, range.original.end]
+    axesState.axisFor(axisId).ifPresent(axis => {
+        const range = ranges.get(axisId)
+        if (range && axis) {
+            // calculate the constraint for the zoom
+            // const [originalStart, originalEnd] = range.original
+            const constraint: [number, number] = isFinite(zoomMax) ?
+                [range.original.start * zoomMax, range.original.end * zoomMax] :
+                [range.original.start, range.original.end]
 
-        const zoom = calculateOrdinalConstrainedZoomFor(transform, value, range, constraint)
+            const zoom = calculateOrdinalConstrainedZoomFor(transform, value, range, constraint)
 
-        // update the axis range
-        ranges.set(axisId, zoom.range)
+            // update the axis range
+            ranges.set(axisId, zoom.range)
 
-        setRangeFor(axisId, zoom.range.current)
-        const origRange = AxisInterval.from(0, plotDimensions.width)
-        setOriginalRangeFor(axisId, origRange)
+            setRangeFor(axisId, zoom.range.current)
+            const origRange = AxisInterval.from(0, plotDimensions.width)
+            setOriginalRangeFor(axisId, origRange)
 
-        // update the axis' range
-        axis.update(zoom.range.current, origRange, plotDimensions, margin)
-    }
+            // update the axis' range
+            axis.update(zoom.range.current, origRange, plotDimensions, margin)
+        }
+    })
 }
 
 /**

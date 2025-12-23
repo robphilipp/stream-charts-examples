@@ -2,7 +2,7 @@ import {
     addOrdinalStringAxis,
     AxesFont,
     AxisLocation,
-    AxisTickStyle,
+    AxisTickStyle, ContinuousNumericAxis,
     defaultAxesFont,
     defaultAxisTickStyle,
     labelIdFor,
@@ -97,8 +97,8 @@ export function OrdinalAxis(props: Props): null {
 
     const rangeUpdateHandlerIdRef = useRef<string>(undefined)
     const axis = location === AxisLocation.Top || location === AxisLocation.Bottom ?
-        xAxesState.axisFor(axisId) :
-        yAxesState.axisFor(axisId)
+        xAxesState.axisFor(axisId).getOrUndefined() :
+        yAxesState.axisFor(axisId).getOrUndefined()
 
     // handles plot size changes by updating the range of the axis and the original range of the axis
     useEffect(

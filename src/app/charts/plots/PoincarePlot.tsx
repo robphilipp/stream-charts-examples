@@ -443,16 +443,22 @@ export function PoincarePlot(props: Props): null {
                 // todo only want to do this once, on the first plot, and then leave it,
                 //     unless the axes are updated, also needs to be removed/added when the
                 //     plot size changes
-                const xAxis = xAxesState.defaultAxis() as ContinuousNumericAxis
-                const yAxis = yAxesState.defaultAxis() as ContinuousNumericAxis
+                const xAxis = xAxesState.defaultAxis().getOrThrow(() => new Error('No default axis found')) as ContinuousNumericAxis
+                const yAxis = yAxesState.defaultAxis().getOrThrow(() => new Error('No default axis found')) as ContinuousNumericAxis
 
                 const lineGenerator = d3.line<[x: number, y: number]>()
                     .x(d => xAxis.scale(d[0] || 0))
                     .y(d => yAxis.scale(d[1] || 0))
                 // ---
 
-                const [xStart, xEnd] = xAxisRangesRef.current.get(xAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
-                const [yStart, yEnd] = yAxisRangesRef.current.get(yAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
+                const [xStart, xEnd] = xAxesState.axisDefaultId()
+                    .map(id => xAxisRangesRef.current.get(id)?.original.asTuple() || [0, 0])
+                    .getOrElse([0, 0])
+                const [yStart, yEnd] = yAxesState.axisDefaultId()
+                    .map(id => yAxisRangesRef.current.get(id)?.original.asTuple() || [0, 0])
+                    .getOrElse([0, 0])
+                // const [xStart, xEnd] = xAxisRangesRef.current.get(xAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
+                // const [yStart, yEnd] = yAxisRangesRef.current.get(yAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
 
                 mainGElem
                     .selectAll(`#fn-equals-fn1-${chartId}-poincare`)
@@ -479,8 +485,8 @@ export function PoincarePlot(props: Props): null {
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
                     const [xAxisLinear, yAxisLinear] = axesFor(
-                        axisId => xAxesState.axisFor(axisId),
-                        axisId => yAxesState.axisFor(axisId)
+                        axisId => xAxesState.axisFor(axisId).getOrUndefined(),
+                        axisId => yAxesState.axisFor(axisId).getOrUndefined(),
                     )
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 

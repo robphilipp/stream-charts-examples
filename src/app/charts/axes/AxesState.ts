@@ -1,4 +1,5 @@
 import {BaseAxis} from "./axes";
+import {Optional} from "result-fn";
 
 /**
  * Holds the information to allow mapping axes names to the underlying axes objects.
@@ -32,6 +33,13 @@ export class AxesState<A extends BaseAxis> {
     }
 
     /**
+     * @return `true` if the axes state is empty, `false` otherwise.
+     */
+    isEmpty(): boolean {
+        return this.axes.size === 0
+    }
+
+    /**
      * Creates a deep copy of the current axes state.
      * @return A deep copy of the current axes state.
      */
@@ -45,7 +53,7 @@ export class AxesState<A extends BaseAxis> {
 
     /**
      * Adds an axis to the current axis state and returns a new axis state. This is an internal state
-     * management function. This should generally not be used. Instead use the {@link UseChartValues.addXAxis}
+     * management function. This should generally not be used. Instead, use the {@link UseChartValues.addXAxis}
      * and {@link UseChartValues.addYAxis} functions to add axes.
      * @param axis The axis to add
      * @param id The ID of the axis to add
@@ -63,14 +71,14 @@ export class AxesState<A extends BaseAxis> {
      * @param axisId The unique ID of the axis
      * @return The axis, or undefined if no axis with the specified ID is found
      */
-    axisFor(axisId: string): A | undefined {
+    axisFor(axisId: string): Optional<A> {
         const axis = this.axes.get(axisId)
         // when there is no axis for the specified ID and there is at least
         // one axis, then just use that...it is the default axis
         if (axis === undefined && this.axes.size >= 1) {
-            return Array.from(this.axes.values())[0]
+            return Optional.of(Array.from(this.axes.values())[0])
         }
-        return axis
+        return Optional.ofNullable(axis)
     }
 
     /**
@@ -78,8 +86,11 @@ export class AxesState<A extends BaseAxis> {
      * @return The default axis
      * @see axisDefaultId
      */
-    defaultAxis(): A {
-        return Array.from(this.axes.values())[0]
+    defaultAxis(): Optional<A> {
+        const axes = Array.from(this.axes.values())
+        return axes.length > 0 ?
+            Optional.of(axes[0]) :
+            Optional.empty()
     }
 
     /**
@@ -92,7 +103,10 @@ export class AxesState<A extends BaseAxis> {
     /**
      * @return The default name of the x-axis (in case only on default axis was added)
      */
-    axisDefaultId(): string {
-        return Array.from(this.axes.keys())[0]
+    axisDefaultId(): Optional<string> {
+        const ids = Array.from(this.axes.keys())
+        return ids.length > 0 ?
+            Optional.of(ids[0]) :
+            Optional.empty()
     }
 }

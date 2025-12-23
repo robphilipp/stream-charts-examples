@@ -366,8 +366,8 @@ export function BarPlot(props: Props): null {
                     const [xAxis, yAxis] = axesFor(
                         series.name,
                         axisAssignments,
-                        axisId => xAxesState.axisFor(axisId),
-                        axisId => yAxesState.axisFor(axisId)
+                        axisId => xAxesState.axisFor(axisId).getOrUndefined(),
+                        axisId => yAxesState.axisFor(axisId).getOrUndefined()
                     )
 
                     // grab the series styles, or the defaults if none exist

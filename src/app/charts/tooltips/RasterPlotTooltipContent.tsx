@@ -168,7 +168,11 @@ export function RasterPlotTooltipContent(props: Props): null {
                      * @return The tooltip contents
                      */
                     (seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => {
-                        const assignedAxis = yAxesState.axisFor(axisAssignmentsFor(seriesName).yAxis) as OrdinalStringAxis
+                        const yAxisId = axisAssignmentsFor(seriesName).yAxis
+                        const assignedAxis = yAxesState
+                            .axisFor(yAxisId)
+                            // .getOrElse(undefined as unknown as OrdinalStringAxis)
+                            .getOrThrow(() => new Error(`No assigned y-axis exists; axis_id: ${yAxisId}`))
                         return addTooltipContent(
                             seriesName, time, tooltipData.series[0], mouseCoords,
                             chartId, container, margin, plotDimensions, tooltipStyle,
