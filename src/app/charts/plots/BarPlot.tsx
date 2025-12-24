@@ -771,14 +771,14 @@ export function BarPlot(props: Props): null {
                     // todo instead of updating the underlying map, this should use setter methods to make the updates
                     ordinalAxesRanges
                         .forEach((range: OrdinalAxisRange, id: string, rangesMap: Map<string, OrdinalAxisRange>) => {
-                            const [start, end] = Optional.ofNullable(intervals.get(id))
+                            Optional
+                                .ofNullable(intervals.get(id))
                                 .map(intervalInfo => intervalInfo.interval.asTuple())
-                                .getOrElse([NaN, NaN])
-                            if (!isNaN(start) && !isNaN(end)) {
-                                // update the reference map with the new (start, end) portion of the range,
-                                // while keeping the original scale intact
-                                rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
-                            }
+                                .ifPresent(([start, end]) => {
+                                    // update the reference map with the new (start, end) portion of the range,
+                                    // while keeping the original scale intact
+                                    rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
+                                })
                         })
                     updatePlot(ordinalAxesRanges, mainG)
                 }
