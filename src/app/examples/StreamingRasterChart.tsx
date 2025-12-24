@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {CSSProperties} from 'react';
 import {JSX} from "react";
 import {useRef, useState} from 'react';
 import {Observable} from "rxjs";
@@ -146,7 +146,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         chartTimeRef.current = Math.max(...Array.from(times.values()).map(range => range.end))
     }
 
-    const inputStyle = {
+    const inputStyle: CSSProperties = {
         backgroundColor: theme.backgroundColor,
         outlineStyle: 'none',
         borderColor: theme.color,

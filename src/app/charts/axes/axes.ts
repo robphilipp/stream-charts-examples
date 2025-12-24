@@ -959,8 +959,7 @@ export function calculateOrdinalConstrainedZoomFor(
     constraint: [min: number, max: number],
 ): ZoomResult<OrdinalAxisRange> {
     const updatedRange = range.constrainedScale(transform.k, x, constraint) as OrdinalAxisRange
-    const [os, oe] = range.original.asTuple()
-    const k = updatedRange.matchesOriginal(os, oe) ? 1 : transform.k
+    const k = range.original.equals(updatedRange.original)  ? 1 : transform.k
     return {
         range: updatedRange,
         zoomFactor: k

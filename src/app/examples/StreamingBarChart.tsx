@@ -1,4 +1,4 @@
-import React, {JSX, useRef, useState} from 'react';
+import React, {CSSProperties, JSX, useRef, useState} from 'react';
 import * as d3 from "d3";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -158,7 +158,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
-    const inputStyle = {
+    const inputStyle: CSSProperties = {
         backgroundColor: theme.backgroundColor,
         outlineStyle: 'none',
         borderColor: theme.color,

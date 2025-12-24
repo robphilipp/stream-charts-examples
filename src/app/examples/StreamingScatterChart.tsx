@@ -1,4 +1,4 @@
-import {default as React, JSX, useRef, useState} from "react";
+import {CSSProperties, default as React, JSX, useRef, useState} from "react";
 import {randomWeightDataObservable} from "./randomWeightData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -95,7 +95,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     } = props
 
 
-    const inputStyle = {
+    const inputStyle: CSSProperties = {
         backgroundColor: theme.backgroundColor,
         outlineStyle: 'none',
         borderColor: theme.color,
@@ -162,9 +162,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
-    // function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
-    //     chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
-    // }
 
     return (
         <Grid

@@ -1,4 +1,4 @@
-import {default as React, JSX, useEffect, useRef, useState} from "react";
+import {CSSProperties, default as React, JSX, useEffect, useRef, useState} from "react";
 import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomIterateData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -100,7 +100,7 @@ type IterateFunction = (time: number, xn: number) => Datum
 type IterateFunctionCallback = (fn: IterateFunction) => void
 type IterateFunctionInfo = {inputFn: (callback: IterateFunctionCallback, theme: Theme) => JSX.Element, range: [start: number, end: number]}
 
-const inputStyleFor = (theme: Theme) => ({
+const inputStyleFor = (theme: Theme): CSSProperties => ({
     backgroundColor: theme.backgroundColor,
     outlineStyle: 'none',
     borderColor: theme.color,
