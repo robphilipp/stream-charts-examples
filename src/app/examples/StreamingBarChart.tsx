@@ -17,46 +17,33 @@ import {
 } from 'react-resizable-grid-layout';
 import {lightTheme, Theme} from "../ui/Themes";
 
-import {Datum, TimeSeries} from "../charts/series/timeSeries";
-import {regexFilter} from "../charts/filters/regexFilter";
-import {Chart} from "../charts/Chart";
-import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation} from '../charts/axes/axes';
-import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
-import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
-import {Tooltip} from "../charts/tooltips/Tooltip";
-import {formatTime} from '../charts/utils';
+import {
+    assignAxes,
+    AxisInterval,
+    AxisLocation,
+    BarPlot,
+    BarPlotTooltipContent,
+    BarSeriesStyle,
+    BaseSeries,
+    Chart,
+    ContinuousAxis,
+    Datum,
+    defaultBarSeriesStyle,
+    defaultMargin,
+    formatTime,
+    OrdinalAxis,
+    OrdinalChartData,
+    OrdinalDatum,
+    ordinalsObservable,
+    regexFilter,
+    seriesFrom,
+    TimeSeries,
+    Tooltip,
+    Tracker,
+    TrackerLabelLocation,
+    WindowedOrdinalStats
+} from "stream-charts";
 import {Button} from "../ui/Button";
-import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
-import {BarPlot} from "../charts/plots/BarPlot";
-import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
-import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
-import {OrdinalDatum} from "../charts/series/ordinalSeries";
-import {BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
-import {WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
-import {AxisInterval} from "../charts/axes/AxisInterval";
-import {assignAxes} from "../charts/plots/plot";
-// import {
-//     AxisLocation,
-//     CategoryAxis,
-//     Chart,
-//     ChartData,
-//     ContinuousAxis,
-//     Datum,
-//     defaultLineStyle,
-//     defaultMargin,
-//     formatNumber,
-//     formatTime,
-//     RasterPlot,
-//     RasterPlotTooltipContent,
-//     regexFilter,
-//     Series,
-//     seriesFrom,
-//     Tooltip,
-//     Tracker,
-//     TrackerLabelLocation
-// } from "stream-charts"
 
 interface Visibility {
     tooltip: boolean

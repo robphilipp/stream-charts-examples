@@ -2,16 +2,9 @@
  * for the StreamingBarChart
  */
 
-import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
-import {Datum, datumOf} from "../charts/series/timeSeries";
-import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {BaseSeries, Datum, datumOf, OrdinalDatum, seriesFrom, TimeSeriesChartData} from "stream-charts";
 import {concat, from, interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-import {OrdinalDatum} from "../charts/series/ordinalSeries";
-
-export function sinFn(x: number, period: number): number {
-    return Math.sin(2 * Math.PI * x / period)
-}
 
 /**
  * Creates the initial data for the sine function

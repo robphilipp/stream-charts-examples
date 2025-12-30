@@ -1,6 +1,6 @@
-import React, {Activity, cloneElement, JSX, useState} from "react"
+import React, {cloneElement, JSX, useState} from "react"
 import {Button} from "./Button";
-import {noop} from "../charts/utils";
+import {noop} from "stream-charts";
 import {
     Grid,
     gridArea,

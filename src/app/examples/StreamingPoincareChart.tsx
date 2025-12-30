@@ -14,40 +14,31 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {Datum, TimeSeries} from "../charts/series/timeSeries";
-import {Chart} from "../charts/Chart";
-import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
-import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
-import {Tooltip} from "../charts/tooltips/Tooltip";
-import {PoincarePlotTooltipContent} from "../charts/tooltips/PoincarePlotTooltipContent";
-import {formatNumber, formatTime} from '../charts/utils';
-import {NoCurveFactory, PoincarePlot} from "../charts/plots/PoincarePlot";
-// import {
-//     assignAxes,
-//     AxisLocation,
-//     Chart,
-//     ChartData,
-//     ContinuousAxis,
-//     defaultLineStyle,
-//     defaultMargin,
-//     formatNumber, formatTime,
-//     regexFilter,
-//     PoincarePlot,
-//     PoincarePlotTooltipContent,
-//     Series,
-//     seriesFrom,
-//     Tooltip,
-//     Tracker,
-//     TrackerLabelLocation
-// } from "stream-charts";
+import {
+    AxisLocation,
+    BaseSeries,
+    Chart,
+    ContinuousAxis,
+    Datum,
+    defaultLineStyle,
+    defaultMargin,
+    defaultTooltipStyle,
+    formatNumber,
+    formatTime,
+    IterateChartData,
+    iteratesObservable,
+    NoCurveFactory,
+    PoincarePlot,
+    PoincarePlotTooltipContent,
+    seriesFrom,
+    TimeSeries,
+    Tooltip,
+    Tracker,
+    TrackerLabelLocation
+} from "stream-charts";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
-import {IterateChartData, iteratesObservable} from "../charts/observables/iterates";
-import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
-import {defaultTooltipStyle} from "../charts/tooltips/tooltipUtils";
 
 //
 // the interpolations for the lines drawn between each iterate point.

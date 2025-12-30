@@ -1,9 +1,13 @@
 import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
-import {Datum, TimeSeries} from "../charts/series/timeSeries";
-import {initialTimeSeriesChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
-import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
-// import {ChartData, Datum, initialChartData, Series, seriesFrom} from "stream-charts";
+import {
+    BaseSeries,
+    Datum,
+    initialTimeSeriesChartData,
+    seriesFrom,
+    TimeSeries,
+    TimeSeriesChartData
+} from "stream-charts";
 
 /**
  * Creates random weight data

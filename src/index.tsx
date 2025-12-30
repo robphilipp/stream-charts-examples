@@ -1,4 +1,4 @@
-import React, {StrictMode} from 'react';
+import React from 'react';
 import './styles/index.css';
 import App from './app/App';
 import {WindowDimensionsProvider} from "react-resizable-grid-layout"

@@ -1,5 +1,4 @@
-import {initialTimeSeriesChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
-import {TimeSeries} from "../charts/series/timeSeries";
+import {initialTimeSeriesChartData, TimeSeriesChartData, TimeSeries} from "stream-charts";
 import {interval, Observable} from "rxjs";
 import {map} from "rxjs/operators";
 
