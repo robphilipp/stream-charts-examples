@@ -754,12 +754,10 @@ export function BarPlot(props: Props): null {
         () => {
             if (container && mainG) {
                 const ordinalAxesRanges = axesRanges()
-                // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
-                // change. for example, as data is streamed in, the times change, and then we need to update the
-                // time-range. however, we want to keep the time-ranges to reflect their original scale so that
-                // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
-                // interpolation changes, then the update plot changes, and the time-ranges must maintain their
-                // original scale as well.
+                // so this gets a bit complicated. the ordinal-ranges need to be updated whenever the ordinal-ranges
+                // change. for example, when the window is resized, and then we need to update the
+                // ordinal-range. however, we want to keep the ordinal-ranges to reflect their original scale so that
+                // we can zoom properly (so the updates can't fuck with the scale).
                 if (ordinalAxesRanges.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
@@ -782,7 +780,6 @@ export function BarPlot(props: Props): null {
                         })
                     updatePlot(ordinalAxesRanges, mainG)
                 }
-
             }
         },
         [axesRanges, container, mainG, plotDimensions.width, updatePlot, xAxesState.axes]

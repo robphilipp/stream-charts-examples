@@ -466,7 +466,7 @@ function addOrdinalStringYAxis(
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
- * @param range The range of the axis (e.g. start and end)
+ * @param range The range of the axis (e.g., start and end) in pixels
  * @param axesLabelFont The font for the axis label
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
@@ -478,8 +478,8 @@ function updateOrdinalStringXAxis(
     axis: OrdinalStringAxis,
     svg: SvgSelection,
     location: AxisLocation.Bottom | AxisLocation.Top,
-    names: Array<string>,   // domain
-    range: AxisInterval, // range
+    names: Array<string>,   // domain (categories)
+    range: AxisInterval,    // range (pixels)
     axesLabelFont: AxesFont,
     plotDimensions: Dimensions,
     margin: Margin
