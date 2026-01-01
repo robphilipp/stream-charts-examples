@@ -93,9 +93,11 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialDataRef.current, UPDATE_PERIOD)));
     const [running, setRunning] = useState<boolean>(false)
 
+    // holds the state of the series filter input field
     const [filterValue, setFilterValue] = useState<string>('');
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
+    // holds the state of the time-series statistics show in the plot
     const [showMinMax, setShowMinMax] = useState<boolean>(true);
     const [showValue, setShowValue] = useState<boolean>(true);
     const [showMean, setShowMean] = useState<boolean>(true);
@@ -112,6 +114,14 @@ export function StreamingBarChart(props: Props): JSX.Element {
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
 
+    /**
+     * Converts each of the specified time-series to a base-series of ordinal data. Recall that a
+     * `TimeSeries` is a `BaseSeries` of `Datum` which are (time, value)-pairs. The bar chart shows
+     * the current (time, value) for each series (as well as stats). `OrdinalDatum` is a
+     * (name, time, value)-tuple which we need for an ordinal chart. Hence the conversion.
+     * @param data An array of time-series to plot
+     * @return An array of base-series of ordinal data
+     */
     function initialDataFrom(data: Array<TimeSeries>): Array<BaseSeries<OrdinalDatum>> {
         return data.map(series => seriesFrom<OrdinalDatum>(series.name, series.data.map(datum => ({
             time: datum.time,
@@ -121,7 +131,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
     }
 
     /**
-     * Called when the user changes the regular expression filter
+     * Called when the user changes the regular expression filter to filter the time-series
      * @param updatedFilter The updated the filter
      */
     function handleUpdateRegex(updatedFilter: string): void {

@@ -1,4 +1,4 @@
-import React, {CSSProperties, JSX, useRef, useState} from 'react';
+import React, {CSSProperties, JSX, useMemo, useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {randomSpikeDataObservable} from "./randomSpikeData";
@@ -30,7 +30,7 @@ import {
     RasterPlot,
     RasterPlotTooltipContent,
     regexFilter,
-    seriesFrom,
+    seriesFrom, SeriesStyle,
     TimeSeries,
     TimeSeriesChartData,
     Tooltip,
@@ -99,9 +99,58 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     // chart time
     const chartTimeRef = useRef<number>(0)
 
+    // custom series styles for some of the neurons
+    const customSeriesStyles = useMemo<Map<string, SeriesStyle>>(
+        () => new Map([
+            ['neuron1', {
+                ...defaultLineStyle(),
+                color: 'orange',
+                lineWidth: 2,
+                highlightColor: 'orange'
+            }],
+            ['neuron2', {
+                ...defaultLineStyle(),
+                color: 'orange',
+                lineWidth: 2,
+                highlightColor: 'orange'
+            }],
+            ['neuron3', {
+                ...defaultLineStyle(),
+                color: 'orange',
+                lineWidth: 2,
+                highlightColor: 'orange'
+            }],
+            ['neuron4', {
+                ...defaultLineStyle(),
+                color: 'orange',
+                lineWidth: 2,
+                highlightColor: 'orange'
+            }],
+            ['neuron5', {
+                ...defaultLineStyle(),
+                color: 'orange',
+                lineWidth: 2,
+                highlightColor: 'orange'
+            }],
+            ['neuron6', {
+                ...defaultLineStyle(),
+                color: theme.name === 'light' ? 'blue' : 'gray',
+                lineWidth: 3,
+                highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                highlightWidth: 5
+            }],
+            // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
+        ]),
+        [theme.name]
+    )
+
+    /**
+     * Makes a copy of the initial data.
+     * @param data The initial data to copy
+     * @return A copy of the initial data
+     */
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
-        // return data.map(series => seriesFrom(series.name))
     }
 
     /**
@@ -121,6 +170,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         chartTimeRef.current = Math.max(...Array.from(times.values()).map(range => range.end))
     }
 
+    // the input style for the regex filter to select which series to display
     const inputStyle: CSSProperties = {
         backgroundColor: theme.backgroundColor,
         outlineStyle: 'none',
@@ -233,46 +283,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={new Map([
-                        ['neuron1', {
-                            ...defaultLineStyle(),
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron2', {
-                            ...defaultLineStyle(),
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron3', {
-                            ...defaultLineStyle(),
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron4', {
-                            ...defaultLineStyle(),
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron5', {
-                            ...defaultLineStyle(),
-                            color: 'orange',
-                            lineWidth: 2,
-                            highlightColor: 'orange'
-                        }],
-                        ['neuron6', {
-                            ...defaultLineStyle(),
-                            color: theme.name === 'light' ? 'blue' : 'gray',
-                            lineWidth: 3,
-                            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                            highlightWidth: 5
-                        }],
-                        // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
-                    ])}
+                    seriesStyles={customSeriesStyles}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
