@@ -1,12 +1,14 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
 import './styles/index.css';
 import App from './app/App';
 import {WindowDimensionsProvider} from "react-resizable-grid-layout"
+import {createRoot} from "react-dom/client";
 
-ReactDOM.render(
+const domNode = document.getElementById('root');
+const root = createRoot(domNode!);
+
+root.render(
     <WindowDimensionsProvider>
-        <App />
-    </WindowDimensionsProvider>,
-    document.getElementById('root')
-);
+        <App/>
+    </WindowDimensionsProvider>
+)

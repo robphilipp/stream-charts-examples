@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2015",
     "lib": [
       "dom",
       "dom.iterable",
@@ -19,11 +19,5 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "noFallthroughCasesInSwitch": true
-  },
-  "include": [
-    "src/index.tsx"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  }
 }

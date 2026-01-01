@@ -1,7 +1,7 @@
-import {default as React, useRef, useState} from "react";
-import {randomWeightDataObservable} from "./randomData";
+import {CSSProperties, default as React, JSX, useMemo, useRef, useState} from "react";
+import {randomWeightDataObservable} from "./randomWeightData";
 import {Observable} from "rxjs";
-import Checkbox from "./Checkbox";
+import Checkbox from "../ui/Checkbox";
 import {
     Grid,
     gridArea,
@@ -14,39 +14,30 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-// import {Series, seriesFrom} from "../charts/datumSeries";
-// import {ChartData} from "../charts/chartData";
-// import {regexFilter} from "../charts/regexFilter";
-// import {Chart} from "../charts/Chart";
-// import { defaultMargin } from '../charts/hooks/useChart';
-// import {AxisLocation, defaultLineStyle } from '../charts/axes';
-// import {ContinuousAxis} from "../charts/ContinuousAxis";
-// import {Tracker, TrackerLabelLocation} from "../charts/Tracker";
-// import {Tooltip} from "../charts/Tooltip";
-// import {ScatterPlotTooltipContent} from "../charts/ScatterPlotTooltipContent";
-// import {formatNumber, formatTime} from '../charts/utils';
-// import {ScatterPlot} from "../charts/ScatterPlot";
-// import {assignAxes} from "../charts/plot";
 import {
     assignAxes,
+    AxisInterval,
     AxisLocation,
     Chart,
-    ChartData,
     ContinuousAxis,
     defaultLineStyle,
     defaultMargin,
-    formatNumber, formatTime,
+    formatNumber,
+    formatTime,
     regexFilter,
     ScatterPlot,
     ScatterPlotTooltipContent,
-    Series,
     seriesFrom,
+    SeriesStyle,
+    TimeSeries,
+    TimeSeriesChartData,
     Tooltip,
     Tracker,
     TrackerLabelLocation
 } from "stream-charts";
 import * as d3 from "d3";
-import {lightTheme, Theme} from "./Themes";
+import {lightTheme, Theme} from "../ui/Themes";
+import {Button} from "../ui/Button";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -70,7 +61,7 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
-const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<Series>) => Observable<ChartData> => {
+const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
     return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
 }
 
@@ -80,7 +71,7 @@ const randomData = (delta: number, updatePeriod: number, min: number, max: numbe
 interface Props {
     theme?: Theme
     timeWindow?: number
-    initialData: Array<Series>
+    initialData?: Array<TimeSeries>
     plotHeight?: number
     plotWidth?: number
 }
@@ -88,11 +79,11 @@ interface Props {
 export function StreamingScatterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        initialData,
+        initialData = [],
     } = props
 
 
-    const inputStyle = {
+    const inputStyle: CSSProperties = {
         backgroundColor: theme.backgroundColor,
         outlineStyle: 'none',
         borderColor: theme.color,
@@ -106,25 +97,11 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         marginRight: 20
     }
 
-    const buttonStyle = {
-        backgroundColor: theme.backgroundColor,
-        outlineStyle: 'none',
-        borderColor: theme.color,
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: theme.color,
-        fontSize: 12,
-        width: 50,
-        padding: 4,
-        margin: 6,
-        marginRight: 20,
-        cursor: 'pointer',
-    }
+    const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     const randomDataObservable = randomData(25, 50, 10, 1000)
-    const initialDataRef = useRef<Array<Series>>(props.initialData.map(series => seriesFrom(series.name, series.data.slice())))
-    const observableRef = useRef<Observable<ChartData>>(randomDataObservable(initialDataRef.current))
+    const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
+    const observableRef = useRef<Observable<TimeSeriesChartData>>(randomDataObservable(initialDataRef.current))
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -136,13 +113,39 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timer>()
+    const intervalRef = useRef<NodeJS.Timeout>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
-    const chartTimeRef = useRef<number>(0)
+    const [chartTime, setChartTime] = useState<number>(0)
 
-    function initialDataFrom(data: Array<Series>): Array<Series> {
+    const customSeriesStyles = useMemo<Map<string, SeriesStyle>>(
+        () => new Map([
+            ['test1', {
+                ...defaultLineStyle(),
+                color: 'orange',
+                lineWidth: 1,
+                highlightColor: 'orange'
+            }],
+            ['test2', {
+                ...defaultLineStyle(),
+                color: theme.name === 'light' ? 'blue' : 'gray',
+                lineWidth: 3,
+                highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                highlightWidth: 5
+            }],
+            ['test3', {
+                ...defaultLineStyle(),
+                color: theme.name === 'light' ? 'dodgerblue' : 'gray',
+                lineWidth: 3,
+                highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
+                highlightWidth: 5
+            }],
+        ]),
+        [theme]
+    )
+
+    function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
     }
 
@@ -152,7 +155,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      */
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).ifSome((regex: RegExp) => setFilter(regex));
+        regexFilter(updatedFilter).onSuccess((regex: RegExp) => setFilter(regex));
     }
 
     /**
@@ -170,8 +173,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      * Updates the time from the chart (the max value of the axes ranges)
      * @param times A map associating the axis with its time range
      */
-    function handleChartTimeUpdate(times: Map<string, [start: number, end: number]>): void {
-        chartTimeRef.current = Math.max(...Array.from(times.values()).map(([, end]) => end))
+    function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
+        setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
     return (
@@ -181,7 +184,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 .addTrack(withFraction(1))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
-                .addTrack(withPixels(35))
+                .addTrack(withPixels(50))
                 .addTrack(withFraction(1))
                 .addTrack(withPixels(10))
                 .build()}
@@ -200,10 +203,14 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         onChange={event => handleUpdateRegex(event.currentTarget.value)}
                         style={inputStyle}
                     /></label>
-                    <button
+                    <Button
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            color: theme.color
+                        }}
                         onClick={() => {
                             if (!running) {
-                                initialDataRef.current = initialDataFrom(initialData)
                                 observableRef.current = randomDataObservable(initialDataRef.current)
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
@@ -214,10 +221,27 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             }
                             setRunning(!running)
                         }}
-                        style={buttonStyle}
                     >
                         {running ? "Stop" : "Run"}
-                    </button>
+                    </Button>
+                    <Button
+                        style={{
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            color: theme.color
+                        }}
+                        disabledStyle={{
+                            backgroundColor: theme.disabledBackgroundColor,
+                            color: theme.disabledColor
+                        }}
+                        onClick={() => {
+                            initialDataRef.current = initialDataFrom(initialData)
+                            setElapsed(0)
+                        }}
+                        disabled={running}
+                    >
+                        Clear
+                    </Button>
                     <Checkbox
                         key={1}
                         checked={visibility.tooltip}
@@ -255,61 +279,34 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             <option key={value} value={value}>{name}</option>
                         ))}
                     </select>
-                    <span style={{color: theme.color, marginLeft: 25}}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>
-                    {/*<Checkbox*/}
-                    {/*    key={3}*/}
-                    {/*    checked={visibility.magnifier}*/}
-                    {/*    label="magnifier"*/}
-                    {/*    backgroundColor={theme.backgroundColor}*/}
-                    {/*    borderColor={theme.color}*/}
-                    {/*    backgroundColorChecked={theme.backgroundColor}*/}
-                    {/*    labelColor={theme.color}*/}
-                    {/*    onChange={() => setVisibility({*/}
-                    {/*        tooltip: false,*/}
-                    {/*        tracker: false,*/}
-                    {/*        magnifier: !visibility.magnifier*/}
-                    {/*    })}*/}
-                    {/*/>*/}
-                    {/*{visibility.magnifier ?*/}
-                    {/*    (<label style={{color: theme.color}}><input*/}
-                    {/*        type="range"*/}
-                    {/*        value={magnification}*/}
-                    {/*        min={1}*/}
-                    {/*        max={10}*/}
-                    {/*        step={1}*/}
-                    {/*        onChange={event => setMagnification(parseInt(event.target.value))}*/}
-                    {/*    /> ({magnification})</label>) :*/}
-                    {/*    (<span/>)*/}
-                    {/*}*/}
+                    <span style={{
+                        color: theme.color,
+                        marginLeft: 25
+                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
                 <Chart
+                    chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 60, bottom: 30, right: 60}}
+                    margin={{...defaultMargin, top: 40, bottom: 40, right: 60}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={new Map([
-                        ['test1', {...defaultLineStyle, color: 'orange', lineWidth: 1, highlightColor: 'orange'}],
-                        ['test2', {...defaultLineStyle, color: theme.name === 'light' ? 'blue' : 'gray', lineWidth: 3, highlightColor: theme.name === 'light' ? 'blue' : 'gray', highlightWidth: 5}],
-                        // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
-                    ])}
+                    seriesStyles={customSeriesStyles}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
-                    onUpdateTime={handleChartTimeUpdate}
-                    windowingTime={75}
-                    // windowingTime={25}
+                    onUpdateAxesBounds={handleChartTimeUpdate}
+                    windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
                         domain={[10, 10000]}
                         label="x-axis"
-                        // font={{color: theme.color}}
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"
@@ -320,7 +317,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[100, 2500]}
+                        domain={[100, 5000]}
                         label="x-axis (2)"
                     />
                     <ContinuousAxis
@@ -332,7 +329,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     />
                     <Tracker
                         visible={visibility.tracker}
-                        labelLocation={TrackerLabelLocation.WithMouse}
+                        labelLocation={TrackerLabelLocation.ByAxis}
+                        labelFormatter={x => `${d3.format(",.0f")(x)} ms`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}
                         // onTrackerUpdate={update => console.dir(update)}
@@ -350,21 +348,22 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             xLabel="t (ms)"
                             yLabel="count"
                             yValueFormatter={value => formatNumber(value, " ,.0f")}
-                            yChangeFormatter={value => formatNumber(value, " ,.0f")}
+                            yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
                         />
                     </Tooltip>
                     <ScatterPlot
                         interpolation={interpolation}
                         axisAssignments={new Map([
-                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                            // ['test1', assignAxes("x-axis-1", "y-axis-1")],
                             ['test2', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                            ['test3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
-                        dropDataAfter={10000}
+                        dropDataAfter={20000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
                         // withCadenceOf={30}
+                        // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
                     />
                 </Chart>
             </GridItem>

@@ -1,10 +1,9 @@
-import React from 'react';
+import {JSX} from 'react';
 
 interface Props {
     label: string
     labelColor?: string
     checked?: boolean;
-    onChange: (checked: boolean) => void;
     width?: number;
     height?: number;
     borderRadius?: number;
@@ -13,13 +12,14 @@ interface Props {
     borderColor?: string;
     textSpacing?: number;
     marginTop?: number;
+    onChange: (checked: boolean) => void;
     marginBottom?: number;
     marginLeft?: number;
     marginRight?: number;
 }
 
 /**
- * Simple checkbox because native html checkbox doesn't allow any style changes
+ * Simple checkbox because native HTML checkbox doesn't allow any style changes
  * @param {Props} props The properties from the parent
  * @return {JSX.Element} The checkbox component
  * @constructor
