@@ -1,15 +1,14 @@
-import * as React from "react";
-import {JSX} from "react";
+import {CSSProperties, JSX, MouseEvent} from "react";
 
 interface Props {
-    style?: React.CSSProperties
-    disabledStyle?: React.CSSProperties
-    onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
+    style?: CSSProperties
+    disabledStyle?: CSSProperties
+    onClick: (event: MouseEvent<HTMLButtonElement>) => void
     disabled?: boolean
     children: JSX.Element | string
 }
 
-const defaultButtonStyle: React.CSSProperties = {
+const defaultButtonStyle: CSSProperties = {
     backgroundColor: '#eee',
     outlineStyle: 'none',
     borderColor: '#202020',

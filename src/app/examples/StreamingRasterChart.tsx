@@ -22,7 +22,6 @@ import {
     AxisLocation,
     Chart,
     ContinuousAxis,
-    Datum,
     defaultLineStyle,
     defaultMargin,
     formatNumber,
@@ -65,15 +64,7 @@ interface Props {
 }
 
 /**
- * The spike-chart data produced by the rxjs observable that is pushed to the `RasterChart`
- */
-export interface SpikesChartData {
-    maxTime: number;
-    spikes: Array<{ index: number; spike: Datum }>
-}
-
-/**
- * An example wrapper to a raster chart, that accepts an rxjs observable. The {@link Chart} manages
+ * An example wrapper to a raster chart that accepts a rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
  * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
  * {@link Chart} updates itself with the new data without causing React to re-render the component. In this
@@ -102,7 +93,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timeout>(undefined)
+    const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time

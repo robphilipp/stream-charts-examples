@@ -1,4 +1,4 @@
-import React, {JSX} from 'react';
+import {JSX} from 'react';
 
 interface Props {
     label: string
@@ -19,7 +19,7 @@ interface Props {
 }
 
 /**
- * Simple checkbox because native html checkbox doesn't allow any style changes
+ * Simple checkbox because native HTML checkbox doesn't allow any style changes
  * @param {Props} props The properties from the parent
  * @return {JSX.Element} The checkbox component
  * @constructor

@@ -1,4 +1,4 @@
-import {CSSProperties, default as React, JSX, useRef, useState} from "react";
+import {CSSProperties, default as React, JSX, useMemo, useRef, useState} from "react";
 import {randomWeightDataObservable} from "./randomWeightData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -28,6 +28,7 @@ import {
     ScatterPlot,
     ScatterPlotTooltipContent,
     seriesFrom,
+    SeriesStyle,
     TimeSeries,
     TimeSeriesChartData,
     Tooltip,
@@ -117,6 +118,32 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
+
+    const customSeriesStyles = useMemo<Map<string, SeriesStyle>>(
+        () => new Map([
+            ['test1', {
+                ...defaultLineStyle(),
+                color: 'orange',
+                lineWidth: 1,
+                highlightColor: 'orange'
+            }],
+            ['test2', {
+                ...defaultLineStyle(),
+                color: theme.name === 'light' ? 'blue' : 'gray',
+                lineWidth: 3,
+                highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                highlightWidth: 5
+            }],
+            ['test3', {
+                ...defaultLineStyle(),
+                color: theme.name === 'light' ? 'dodgerblue' : 'gray',
+                lineWidth: 3,
+                highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
+                highlightWidth: 5
+            }],
+        ]),
+        [theme]
+    )
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
@@ -267,28 +294,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={new Map([
-                        ['test1', {
-                            ...defaultLineStyle(),
-                            color: 'orange',
-                            lineWidth: 1,
-                            highlightColor: 'orange'
-                        }],
-                        ['test2', {
-                            ...defaultLineStyle(),
-                            color: theme.name === 'light' ? 'blue' : 'gray',
-                            lineWidth: 3,
-                            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                            highlightWidth: 5
-                        }],
-                        ['test3', {
-                            ...defaultLineStyle(),
-                            color: theme.name === 'light' ? 'dodgerblue' : 'gray',
-                            lineWidth: 3,
-                            highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
-                            highlightWidth: 5
-                        }],
-                    ])}
+                    seriesStyles={customSeriesStyles}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}

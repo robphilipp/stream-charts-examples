@@ -48,21 +48,6 @@ export function Tabs(props: Props): JSX.Element {
         activeStyle={props.activeStyle}
     />
     const tabContents = <span>
-        {/*{children*/}
-        {/*    // .filter((_, index) => index === activeTab)*/}
-        {/*    .map((child, index) => (*/}
-        {/*        <Activity*/}
-        {/*            key={`activity-tab-${tabNames[activeTab]}-${index}`}*/}
-        {/*            mode={index === activeTab ? 'visible' : 'hidden'}*/}
-        {/*        >*/}
-        {/*            {child}*/}
-        {/*            /!*{cloneElement(child, {*!/*/}
-        {/*            /!*    key: `child-tab-${tabNames[activeTab]}-${index}`,*!/*/}
-        {/*            /!*    name: tabNames[index]*!/*/}
-        {/*            /!*})}*!/*/}
-        {/*        </Activity>*/}
-        {/*    ))*/}
-        {/*}*/}
         {children
             .filter((_, index) => index === activeTab)
             .map((child, _) => cloneElement(child, {

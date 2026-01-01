@@ -71,7 +71,7 @@ interface Props {
 const UPDATE_PERIOD = 75
 
 /**
- * An example wrapper to a bar chart, that accepts an rxjs observable. The {@link Chart} manages
+ * An example wrapper to a bar chart that accepts a rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
  * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
  * {@link Chart} updates itself with the new data without causing React to re-render the component. In this
