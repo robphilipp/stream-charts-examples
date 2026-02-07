@@ -358,6 +358,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             backgroundColor: theme.backgroundColor,
                             borderColor: theme.color,
                             backgroundOpacity: 0.9,
+                            borderOpacity: 0.5
                         }}
                     >
                         <ScatterPlotTooltipContent
