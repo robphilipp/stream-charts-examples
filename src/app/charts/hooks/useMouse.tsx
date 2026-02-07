@@ -8,6 +8,11 @@ const noop = () => {
     /* empty on purpose */
 }
 
+/**
+ * Type representing the values exposed through the {@link useMouse} react hook.
+ * @template D The type of the data object for the series
+ * @template TM The type of the metadata object for the series
+ */
 export type UseMouseValues<D, TM> = {
     /**
      * Adds a mouse-over-series handler with the specified ID and handler function

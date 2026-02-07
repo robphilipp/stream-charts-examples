@@ -280,28 +280,37 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={new Map([
-                        ['test1', {
+                    seriesStyles={new Map(initialData.map(
+                        (data, index) => [data.name, {
                             ...defaultLineStyle(),
-                            color: 'orange',
-                            lineWidth: 1,
-                            highlightColor: 'orange'
-                        }],
-                        ['test2', {
-                            ...defaultLineStyle(),
-                            color: theme.name === 'light' ? 'blue' : 'gray',
-                            lineWidth: 3,
-                            highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                            highlightWidth: 5
-                        }],
-                        ['test3', {
-                            ...defaultLineStyle(),
-                            color: theme.name === 'light' ? 'dodgerblue' : 'gray',
-                            lineWidth: 3,
-                            highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
-                            highlightWidth: 5
-                        }],
-                    ])}
+                            lineWidth: linewidthFor(data.name),
+                            color: colorFor(data.name, index, initialData.length, theme.name),
+                            highlightWidth: hightlightLinewidthFor(data.name),
+                            highlightColor: colorFor(data.name, index, initialData.length, theme.name)
+                        }])
+                    )}
+                    // seriesStyles={new Map([
+                    //     ['test1', {
+                    //         ...defaultLineStyle(),
+                    //         color: 'orange',
+                    //         lineWidth: 1,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['test2', {
+                    //         ...defaultLineStyle(),
+                    //         color: theme.name === 'light' ? 'blue' : 'gray',
+                    //         lineWidth: 3,
+                    //         highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                    //         highlightWidth: 5
+                    //     }],
+                    //     ['test3', {
+                    //         ...defaultLineStyle(),
+                    //         color: theme.name === 'light' ? 'dodgerblue' : 'gray',
+                    //         lineWidth: 3,
+                    //         highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
+                    //         highlightWidth: 5
+                    //     }],
+                    // ])}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
@@ -361,7 +370,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ScatterPlot
                         interpolation={interpolation}
                         axisAssignments={new Map([
-                            // ['test1', assignAxes("x-axis-1", "y-axis-1")],
                             ['test2', assignAxes("x-axis-2", "y-axis-2")],
                             ['test3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
@@ -376,4 +384,29 @@ export function StreamingScatterChart(props: Props): JSX.Element {
             </GridItem>
         </Grid>
     );
+}
+
+function colorFor(name: string, index: number, numSeries: number, themeName: string): string {
+    if (name === 'test1') return 'orange'
+    if (name === 'test2') return themeName === 'light' ? 'blue' : 'gray'
+    if (name === 'test3') return themeName === 'light' ? 'dodgerblue' : 'gray'
+
+    const ratio = index / numSeries / 2
+    return themeName === 'light' ?
+        d3.interpolateRdBu(ratio > 0.25 ? ratio + 0.5 : ratio) :
+        d3.interpolateRdBu(ratio + 0.25)
+}
+
+function linewidthFor(name: string): number {
+    if (name === 'test1') return 1
+    if (name === 'test2' || name === 'test3') return 3
+
+    return 1
+}
+
+function hightlightLinewidthFor(name: string): number {
+    if (name === 'test1') return 3
+    if (name === 'test2' || name === 'test3') return 5
+
+    return 3
 }
