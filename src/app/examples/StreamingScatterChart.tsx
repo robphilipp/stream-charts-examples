@@ -353,8 +353,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
 function colorFor(name: string, index: number, numSeries: number, themeName: string): string {
     if (name === 'test1') return 'orange'
-    if (name === 'test2') return themeName === 'light' ? 'blue' : 'gray'
-    if (name === 'test3') return themeName === 'light' ? 'dodgerblue' : 'gray'
+    if (name === 'test2') return themeName === 'light' ? 'blue' : d3.interpolateRgb('blue', 'lightblue')(0.5)
+    if (name === 'test3') return themeName === 'light' ? 'dodgerblue' : 'dodgerblue'
 
     const ratio = index / numSeries / 2
     return themeName === 'light' ?
