@@ -26,6 +26,7 @@ import {Tooltip} from "../charts/tooltips/Tooltip";
 import {ScatterPlotTooltipContent} from "../charts/tooltips/ScatterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
 import {ScatterPlot} from "../charts/plots/ScatterPlot";
+import {Legend} from "../charts/legends/Legend";
 import {assignAxes} from "../charts/plots/plot";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
@@ -368,6 +369,15 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
                         />
                     </Tooltip>
+                    <Legend
+                        visible={true}
+                        location="top-right"
+                        style={{
+                            fontColor: theme.color,
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                        }}
+                    />
                     <ScatterPlot
                         interpolation={interpolation}
                         axisAssignments={new Map([
