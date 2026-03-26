@@ -3,7 +3,7 @@ import {BaseAxisRange} from "../axes/BaseAxisRange";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useChart} from "../hooks/useChart";
 import {useInitialData} from "../hooks/useInitialData";
-import React, {useEffect, useMemo, useRef, useState} from "react";
+import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import * as d3 from "d3";
 
@@ -135,23 +135,23 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     const seriesStylesRef = useRef(seriesStyles)
     seriesStylesRef.current = seriesStyles
 
-    const highlightSeriesInPlot = (name: string) => {
+    const highlightSeriesInPlot = useCallback((name: string) => {
         hoveredSeriesRef.current = name
         if (!container) return
         const { highlightColor, highlightWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
         d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"]`)
             .attr('stroke', highlightColor)
             .attr('stroke-width', highlightWidth)
-    }
+    }, [container, hoveredSeriesRef])
 
-    const restoreSeriesInPlot = (name: string) => {
+    const restoreSeriesInPlot = useCallback((name: string) => {
         hoveredSeriesRef.current = null
         if (!container) return
         const { color, lineWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
         d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"]`)
             .attr('stroke', color)
             .attr('stroke-width', lineWidth)
-    }
+    }, [container, hoveredSeriesRef])
 
     // Derive the filtered list of series names
     const visibleSeriesNames = useMemo(
