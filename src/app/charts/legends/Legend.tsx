@@ -3,7 +3,8 @@ import {BaseAxisRange} from "../axes/BaseAxisRange";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useChart} from "../hooks/useChart";
 import {useInitialData} from "../hooks/useInitialData";
-import {useEffect, useMemo } from "react";
+import React, {useEffect, useMemo, useState} from "react";
+import {createPortal} from "react-dom";
 import * as d3 from "d3";
 
 export type LegendLocation = "top-left" | "top-right" | "bottom-left" | "bottom-right"
@@ -61,6 +62,7 @@ interface Props {
     visible: boolean
     /**
      * Where to anchor the legend within the plot area.
+     * Ignored when `container` is provided.
      * @default "top-right"
      */
     location?: LegendLocation
@@ -68,9 +70,16 @@ interface Props {
     style?: Partial<LegendStyle>
     /**
      * Optional offset in pixels from the chosen corner, applied after the margin.
+     * Ignored when `container` is provided.
      * @default { x: 10, y: 10 }
      */
     offset?: { x: number; y: number }
+    /**
+     * When provided, the legend renders as an HTML element portalled into this
+     * external container instead of inside the chart SVG. Position the container
+     * however you like — the legend fills it.
+     */
+    container?: React.RefObject<HTMLElement | null>
 }
 
 const LEGEND_CONTAINER_ID_PREFIX = "stream-charts-legend"
@@ -92,8 +101,8 @@ const LEGEND_CONTAINER_ID_PREFIX = "stream-charts-legend"
  */
 export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(
     props: Props
-): null {
-    const { visible, location = "top-right", offset = { x: 10, y: 10 }, style } = props
+): React.ReactElement | null {
+    const { visible, location = "top-right", offset = { x: 10, y: 10 }, style, container: externalContainer } = props
 
     const { chartId, container, color, seriesStyles, seriesFilter } = useChart<D, S, TM, AR, A>()
     const { margin, plotDimensions } = usePlotDimensions()
@@ -104,6 +113,12 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         [style]
     )
 
+    // Refs don't trigger re-renders when populated, so track readiness in state
+    const [externalContainerReady, setExternalContainerReady] = useState(false)
+    useEffect(() => {
+        setExternalContainerReady(!!externalContainer?.current)
+    }, [externalContainer])
+
     // Derive the filtered list of series names
     const visibleSeriesNames = useMemo(
         () => initialData.map(s => s.name).filter(name => seriesFilter.test(name)),
@@ -113,6 +128,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     useEffect(
         () => {
             if (!container) return
+            if (externalContainer) return // SVG legend not used when rendering outside
 
             const legendId = `${LEGEND_CONTAINER_ID_PREFIX}-${chartId}`
             const svg = d3.select<SVGSVGElement, unknown>(container)
@@ -242,6 +258,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         [
             visible,
             container,
+            externalContainer,
             chartId,
             visibleSeriesNames,
             legendStyle,
@@ -253,6 +270,71 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             seriesStyles,
         ]
     )
+
+    // HTML portal legend — rendered outside the SVG into an external container
+    if (externalContainerReady && externalContainer?.current && visible && visibleSeriesNames.length > 0) {
+        const {
+            fontSize,
+            fontFamily,
+            fontColor,
+            backgroundColor,
+            backgroundOpacity,
+            borderColor,
+            borderWidth,
+            borderOpacity,
+            borderRadius,
+            padding,
+            rowGap,
+            swatchWidth,
+            swatchHeight,
+            swatchLabelGap,
+        } = legendStyle
+
+        const bg = d3.color(backgroundColor)
+        const bgWithOpacity = bg
+            ? `rgba(${(bg as d3.RGBColor).r},${(bg as d3.RGBColor).g},${(bg as d3.RGBColor).b},${backgroundOpacity})`
+            : backgroundColor
+        const bd = d3.color(borderColor)
+        const bdWithOpacity = bd
+            ? `rgba(${(bd as d3.RGBColor).r},${(bd as d3.RGBColor).g},${(bd as d3.RGBColor).b},${borderOpacity})`
+            : borderColor
+
+        const boxStyle: React.CSSProperties = {
+            display: "inline-flex",
+            flexDirection: "column",
+            gap: rowGap,
+            backgroundColor: bgWithOpacity,
+            border: `${borderWidth}px solid ${bdWithOpacity}`,
+            borderRadius,
+            padding,
+            fontFamily,
+            fontSize,
+            color: fontColor,
+            boxSizing: "border-box",
+        }
+
+        return createPortal(
+            <div style={boxStyle}>
+                {visibleSeriesNames.map(name => {
+                    const seriesColor = seriesStyles.get(name)?.color ?? color
+                    return (
+                        <div key={name} style={{ display: "flex", alignItems: "center", gap: swatchLabelGap }}>
+                            <span style={{
+                                display: "inline-block",
+                                width: swatchWidth,
+                                height: swatchHeight,
+                                backgroundColor: seriesColor,
+                                borderRadius: swatchHeight / 2,
+                                flexShrink: 0,
+                            }} />
+                            <span>{name}</span>
+                        </div>
+                    )
+                })}
+            </div>,
+            externalContainer.current
+        )
+    }
 
     return null
 }

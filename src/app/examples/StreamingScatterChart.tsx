@@ -132,6 +132,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
 
+    // legend
+    const legendContainerRef = useRef<HTMLDivElement>(null)
+
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
     }
@@ -169,16 +172,18 @@ export function StreamingScatterChart(props: Props): JSX.Element {
             dimensionsSupplier={useGridCell}
             gridTemplateColumns={gridTrackTemplateBuilder()
                 .addTrack(withFraction(1))
+                .addTrack(withPixels(50))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
                 .addTrack(withPixels(50))
                 .addTrack(withFraction(1))
-                .addTrack(withPixels(10))
+                .addTrack(withPixels(50))
                 .build()}
             gridTemplateAreas={gridTemplateAreasBuilder()
                 .addArea("chart-controls", gridArea(1, 1))
                 .addArea("chart", gridArea(2, 1))
-                .addArea("chart-bottom", gridArea(3, 1))
+                .addArea("chart-bottom", gridArea(2, 2))
+                // .addArea("chart-bottom", gridArea(3, 1))
                 .build()}
             styles={{color: '#d2933f'}}
         >
@@ -371,7 +376,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     </Tooltip>
                     <Legend
                         visible={true}
-                        location="top-right"
+                        container={legendContainerRef}
+                        // location="top-right"
                         style={{
                             fontColor: theme.color,
                             backgroundColor: theme.backgroundColor,
@@ -392,6 +398,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
                     />
                 </Chart>
+            </GridItem>
+            <GridItem gridAreaName="chart-bottom">
+                <div ref={legendContainerRef} style={{marginTop: 30, padding: 8 }} />
             </GridItem>
         </Grid>
     );
