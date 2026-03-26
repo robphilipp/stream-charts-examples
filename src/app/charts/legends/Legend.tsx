@@ -1,9 +1,9 @@
-import {BaseAxis, SeriesStyle} from "../axes/axes";
+import {BaseAxis, defaultLineStyle, SeriesLineStyle, SeriesStyle} from "../axes/axes";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useChart} from "../hooks/useChart";
 import {useInitialData} from "../hooks/useInitialData";
-import React, {useEffect, useMemo, useState} from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import * as d3 from "d3";
 
@@ -131,6 +131,26 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         }
     }, [chartId, mouse])
 
+    // Keep a ref so D3 closures in the SVG legend always read current styles
+    const seriesStylesRef = useRef(seriesStyles)
+    seriesStylesRef.current = seriesStyles
+
+    const highlightSeriesInPlot = (name: string) => {
+        if (!container) return
+        const { highlightColor, highlightWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
+        d3.select(container).selectAll<SVGPathElement, unknown>(`[data-series-name="${name}"]`)
+            .attr('stroke', highlightColor)
+            .attr('stroke-width', highlightWidth)
+    }
+
+    const restoreSeriesInPlot = (name: string) => {
+        if (!container) return
+        const { color, lineWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
+        d3.select(container).selectAll<SVGPathElement, unknown>(`[data-series-name="${name}"]`)
+            .attr('stroke', color)
+            .attr('stroke-width', lineWidth)
+    }
+
     // Derive the filtered list of series names
     const visibleSeriesNames = useMemo(
         () => initialData.map(s => s.name).filter(name => seriesFilter.test(name)),
@@ -248,6 +268,15 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .append("g")
                     .attr("class", "legend-row")
                     .attr("data-series-name", name)
+                    .style("cursor", "default")
+                    .on("mouseover", () => {
+                        setHoveredSeriesName(name)
+                        highlightSeriesInPlot(name)
+                    })
+                    .on("mouseleave", () => {
+                        setHoveredSeriesName(null)
+                        restoreSeriesInPlot(name)
+                    })
 
                 // Color swatch — a short horizontal line to mimic series appearance
                 rowG
@@ -301,7 +330,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             })
         legendG.selectAll<SVGTextElement, unknown>("text[data-series-name]")
             .style("font-weight", function() {
-                const name = d3.select(this).attr("data-series-name")
+                const name: string = d3.select(this).attr("data-series-name")
                 return hoveredSeriesName !== null && name === hoveredSeriesName ? "bold" : "normal"
             })
     }, [hoveredSeriesName, container, externalContainer, chartId])
@@ -363,7 +392,18 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                         transition: "opacity 0.15s, font-weight 0s",
                     }
                     return (
-                        <div key={name} style={rowStyle}>
+                        <div
+                            key={name}
+                            style={{...rowStyle, cursor: "default"}}
+                            onMouseEnter={() => {
+                                setHoveredSeriesName(name)
+                                highlightSeriesInPlot(name)
+                            }}
+                            onMouseLeave={() => {
+                                setHoveredSeriesName(null)
+                                restoreSeriesInPlot(name)
+                            }}
+                        >
                             <span style={{
                                 display: "inline-block",
                                 width: swatchWidth,

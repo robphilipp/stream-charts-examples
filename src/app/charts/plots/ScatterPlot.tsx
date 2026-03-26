@@ -387,6 +387,7 @@ export function ScatterPlot(props: Props): null {
                                 .append("path")
                                 .attr("class", 'time-series-lines')
                                 .attr("id", `${name}-${chartId}-scatter`)
+                                .attr("data-series-name", name)
                                 .attr(
                                     "d",
                                     d3.line<Datum>()

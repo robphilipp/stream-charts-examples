@@ -381,7 +381,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         style={{
                             fontColor: theme.color,
                             backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
+                            borderColor: theme.backgroundColor,
                         }}
                     />
                     <ScatterPlot
