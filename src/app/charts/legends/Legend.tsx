@@ -104,7 +104,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
 ): React.ReactElement | null {
     const { visible, location = "top-right", offset = { x: 10, y: 10 }, style, container: externalContainer } = props
 
-    const { chartId, container, color, seriesStyles, seriesFilter } = useChart<D, S, TM, AR, A>()
+    const { chartId, container, color, seriesStyles, seriesFilter, mouse } = useChart<D, S, TM, AR, A>()
     const { margin, plotDimensions } = usePlotDimensions()
     const { initialData } = useInitialData<any, D>()
 
@@ -118,6 +118,18 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     useEffect(() => {
         setExternalContainerReady(!!externalContainer?.current)
     }, [externalContainer])
+
+    // Track the currently-hovered series name so legend entries can be highlighted
+    const [hoveredSeriesName, setHoveredSeriesName] = useState<string | null>(null)
+    useEffect(() => {
+        const handlerId = `legend-${chartId}`
+        mouse.registerMouseOverHandler(handlerId, seriesName => setHoveredSeriesName(seriesName))
+        mouse.registerMouseLeaveHandler(handlerId, () => setHoveredSeriesName(null))
+        return () => {
+            mouse.unregisterMouseOverHandler(handlerId)
+            mouse.unregisterMouseLeaveHandler(handlerId)
+        }
+    }, [chartId, mouse])
 
     // Derive the filtered list of series names
     const visibleSeriesNames = useMemo(
@@ -232,8 +244,13 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 const rowY = padding + i * (rowHeight + rowGap)
                 const swatchMidY = rowY + rowHeight / 2
 
+                const rowG = legendG
+                    .append("g")
+                    .attr("class", "legend-row")
+                    .attr("data-series-name", name)
+
                 // Color swatch — a short horizontal line to mimic series appearance
-                legendG
+                rowG
                     .append("line")
                     .attr("x1", padding)
                     .attr("y1", swatchMidY)
@@ -244,11 +261,12 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .attr("stroke-linecap", "round")
 
                 // Series name label
-                legendG
+                rowG
                     .append("text")
                     .attr("x", padding + swatchWidth + swatchLabelGap)
                     .attr("y", swatchMidY)
                     .attr("dominant-baseline", "middle")
+                    .attr("data-series-name", name)
                     .style("font-size", `${fontSize}px`)
                     .style("font-family", fontFamily)
                     .style("fill", fontColor)
@@ -270,6 +288,23 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             seriesStyles,
         ]
     )
+
+    // Update SVG row opacity when the hovered series changes
+    useEffect(() => {
+        if (!container || externalContainer) return
+        const legendG = d3.select(container).select(`#${LEGEND_CONTAINER_ID_PREFIX}-${chartId}`)
+        if (legendG.empty()) return
+        legendG.selectAll<SVGGElement, unknown>("g.legend-row")
+            .style("opacity", function() {
+                if (hoveredSeriesName === null) return 1
+                return d3.select(this).attr("data-series-name") === hoveredSeriesName ? 1 : 0.35
+            })
+        legendG.selectAll<SVGTextElement, unknown>("text[data-series-name]")
+            .style("font-weight", function() {
+                const name = d3.select(this).attr("data-series-name")
+                return hoveredSeriesName !== null && name === hoveredSeriesName ? "bold" : "normal"
+            })
+    }, [hoveredSeriesName, container, externalContainer, chartId])
 
     // HTML portal legend — rendered outside the SVG into an external container
     if (externalContainerReady && externalContainer?.current && visible && visibleSeriesNames.length > 0) {
@@ -313,12 +348,22 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             boxSizing: "border-box",
         }
 
+        const anyHovered = hoveredSeriesName !== null
         return createPortal(
             <div style={boxStyle}>
                 {visibleSeriesNames.map(name => {
                     const seriesColor = seriesStyles.get(name)?.color ?? color
+                    const isHovered = name === hoveredSeriesName
+                    const rowStyle: React.CSSProperties = {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: swatchLabelGap,
+                        opacity: anyHovered && !isHovered ? 0.35 : 1,
+                        fontWeight: isHovered ? "bold" : "normal",
+                        transition: "opacity 0.15s, font-weight 0s",
+                    }
                     return (
-                        <div key={name} style={{ display: "flex", alignItems: "center", gap: swatchLabelGap }}>
+                        <div key={name} style={rowStyle}>
                             <span style={{
                                 display: "inline-block",
                                 width: swatchWidth,

@@ -87,13 +87,12 @@ export default function MouseProvider<D, TM>(props: Props): JSX.Element {
             },
             unregisterMouseOverHandler: handlerId => mouseOverHandlersRef.current.delete(handlerId),
             mouseOverHandlerFor: (handlerId, providerId) => {
-                const handlerHoc = mouseOverHandlersRef.current.get(handlerId)
-                if (handlerHoc !== undefined) {
-                    return (seriesName: string, time: number, tooltipData: TooltipData<D, TM>, mouseCoords: [x: number, y: number])=> {
-                        handlerHoc(seriesName, time, tooltipData, mouseCoords, providerId)
-                    }
+                if (mouseOverHandlersRef.current.size === 0) return undefined
+                return (seriesName: string, time: number, tooltipData: TooltipData<D, TM>, mouseCoords: [x: number, y: number]) => {
+                    mouseOverHandlersRef.current.forEach(handler => {
+                        handler(seriesName, time, tooltipData, mouseCoords, providerId)
+                    })
                 }
-                return undefined
             },
 
             registerMouseLeaveHandler: (handlerId, handler) => {
@@ -102,13 +101,12 @@ export default function MouseProvider<D, TM>(props: Props): JSX.Element {
             },
             unregisterMouseLeaveHandler: handlerId => mouseLeaveHandlersRef.current.delete(handlerId),
             mouseLeaveHandlerFor: (handlerId, providerId) => {
-                const handlerHoc = mouseLeaveHandlersRef.current.get(handlerId)
-                if (handlerHoc !== undefined) {
-                    return (seriesName: string)=> {
-                        handlerHoc(seriesName, providerId)
-                    }
+                if (mouseLeaveHandlersRef.current.size === 0) return undefined
+                return (seriesName: string) => {
+                    mouseLeaveHandlersRef.current.forEach(handler => {
+                        handler(seriesName, providerId)
+                    })
                 }
-                return undefined
             },
         }}
     >
