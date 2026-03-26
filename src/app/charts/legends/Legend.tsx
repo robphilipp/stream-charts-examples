@@ -104,7 +104,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
 ): React.ReactElement | null {
     const { visible, location = "top-right", offset = { x: 10, y: 10 }, style, container: externalContainer } = props
 
-    const { chartId, container, color, seriesStyles, seriesFilter, mouse } = useChart<D, S, TM, AR, A>()
+    const { chartId, container, color, seriesStyles, seriesFilter, mouse, hoveredSeriesRef } = useChart<D, S, TM, AR, A>()
     const { margin, plotDimensions } = usePlotDimensions()
     const { initialData } = useInitialData<any, D>()
 
@@ -136,6 +136,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     seriesStylesRef.current = seriesStyles
 
     const highlightSeriesInPlot = (name: string) => {
+        hoveredSeriesRef.current = name
         if (!container) return
         const { highlightColor, highlightWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
         d3.select(container).selectAll<SVGPathElement, unknown>(`[data-series-name="${name}"]`)
@@ -144,6 +145,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     }
 
     const restoreSeriesInPlot = (name: string) => {
+        hoveredSeriesRef.current = null
         if (!container) return
         const { color, lineWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
         d3.select(container).selectAll<SVGPathElement, unknown>(`[data-series-name="${name}"]`)
