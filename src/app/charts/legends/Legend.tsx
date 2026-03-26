@@ -139,7 +139,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         hoveredSeriesRef.current = name
         if (!container) return
         const { highlightColor, highlightWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        d3.select(container).selectAll<SVGPathElement, unknown>(`[data-series-name="${name}"]`)
+        d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"]`)
             .attr('stroke', highlightColor)
             .attr('stroke-width', highlightWidth)
     }
@@ -148,7 +148,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         hoveredSeriesRef.current = null
         if (!container) return
         const { color, lineWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        d3.select(container).selectAll<SVGPathElement, unknown>(`[data-series-name="${name}"]`)
+        d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"]`)
             .attr('stroke', color)
             .attr('stroke-width', lineWidth)
     }
@@ -304,20 +304,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .text(name)
             })
         },
-        [
-            visible,
-            container,
-            externalContainer,
-            chartId,
-            visibleSeriesNames,
-            legendStyle,
-            location,
-            offset,
-            margin,
-            plotDimensions,
-            color,
-            seriesStyles,
-        ]
+        [visible, container, externalContainer, chartId, visibleSeriesNames, legendStyle, location, offset, margin, plotDimensions, color, seriesStyles, highlightSeriesInPlot, restoreSeriesInPlot]
     )
 
     // Update SVG row opacity when the hovered series changes
