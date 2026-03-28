@@ -102,14 +102,14 @@ const LEGEND_CONTAINER_ID_PREFIX = "stream-charts-legend"
 export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(
     props: Props
 ): React.ReactElement | null {
-    const { visible, location = "top-right", offset = { x: 10, y: 10 }, style, container: externalContainer } = props
+    const {visible, location = "top-right", offset = {x: 10, y: 10}, style, container: externalContainer} = props
 
-    const { chartId, container, color, seriesStyles, seriesFilter, mouse, hoveredSeriesRef } = useChart<D, S, TM, AR, A>()
-    const { margin, plotDimensions } = usePlotDimensions()
-    const { initialData } = useInitialData<any, D>()
+    const {chartId, container, color, seriesStyles, seriesFilter, mouse, hoveredSeriesRef} = useChart<D, S, TM, AR, A>()
+    const {margin, plotDimensions} = usePlotDimensions()
+    const {initialData} = useInitialData<any, D>()
 
     const legendStyle = useMemo<LegendStyle>(
-        () => ({ ...defaultLegendStyle, ...style }),
+        () => ({...defaultLegendStyle, ...style}),
         [style]
     )
 
@@ -138,7 +138,10 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     const highlightSeriesInPlot = useCallback((name: string) => {
         hoveredSeriesRef.current = name
         if (!container) return
-        const { highlightColor, highlightWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
+        const {
+            highlightColor,
+            highlightWidth
+        } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
         d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"]`)
             .attr('stroke', highlightColor)
             .attr('stroke-width', highlightWidth)
@@ -147,7 +150,10 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     const restoreSeriesInPlot = useCallback((name: string) => {
         hoveredSeriesRef.current = null
         if (!container) return
-        const { color, lineWidth } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
+        const {
+            color,
+            lineWidth
+        } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
         d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"]`)
             .attr('stroke', color)
             .attr('stroke-width', lineWidth)
@@ -308,21 +314,25 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     )
 
     // Update SVG row opacity when the hovered series changes
-    useEffect(() => {
-        if (!container || externalContainer) return
-        const legendG = d3.select(container).select(`#${LEGEND_CONTAINER_ID_PREFIX}-${chartId}`)
-        if (legendG.empty()) return
-        legendG.selectAll<SVGGElement, unknown>("g.legend-row")
-            .style("opacity", function() {
-                if (hoveredSeriesName === null) return 1
-                return d3.select(this).attr("data-series-name") === hoveredSeriesName ? 1 : 0.35
-            })
-        legendG.selectAll<SVGTextElement, unknown>("text[data-series-name]")
-            .style("font-weight", function() {
-                const name: string = d3.select(this).attr("data-series-name")
-                return hoveredSeriesName !== null && name === hoveredSeriesName ? "bold" : "normal"
-            })
-    }, [hoveredSeriesName, container, externalContainer, chartId])
+    useEffect(
+        () => {
+            if (!container || externalContainer) return
+            const legendG = d3.select(container).select(`#${LEGEND_CONTAINER_ID_PREFIX}-${chartId}`)
+            if (!legendG.empty()) {
+                legendG.selectAll<SVGGElement, unknown>("g.legend-row")
+                    .style("opacity", function (): number {
+                        const seriesName = d3.select(this).attr("data-series-name")
+                        return hoveredSeriesName !== null && seriesName === hoveredSeriesName ? 1 : 0.35
+                    })
+                legendG.selectAll<SVGTextElement, unknown>("text[data-series-name]")
+                    .style("font-weight", function (): string {
+                        const name: string = d3.select(this).attr("data-series-name")
+                        return hoveredSeriesName !== null && name === hoveredSeriesName ? "bold" : "normal"
+                    })
+            }
+        },
+        [hoveredSeriesName, container, externalContainer, chartId]
+    )
 
     // HTML portal legend — rendered outside the SVG into an external container
     if (externalContainerReady && externalContainer?.current && visible && visibleSeriesNames.length > 0) {
@@ -355,7 +365,6 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         const boxStyle: React.CSSProperties = {
             display: "inline-flex",
             flexDirection: "column",
-            gap: rowGap,
             backgroundColor: bgWithOpacity,
             border: `${borderWidth}px solid ${bdWithOpacity}`,
             borderRadius,
@@ -379,6 +388,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                         opacity: anyHovered && !isHovered ? 0.35 : 1,
                         fontWeight: isHovered ? "bold" : "normal",
                         transition: "opacity 0.15s, font-weight 0s",
+                        height: rowGap + fontSize,
                     }
                     return (
                         <div
@@ -400,7 +410,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                                 backgroundColor: seriesColor,
                                 borderRadius: swatchHeight / 2,
                                 flexShrink: 0,
-                            }} />
+                            }}/>
                             <span>{name}</span>
                         </div>
                     )
