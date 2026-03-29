@@ -7,7 +7,13 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import * as d3 from "d3";
 
-export type LegendLocation = "top-left" | "top-right" | "bottom-left" | "bottom-right"
+export enum LegendLocation {
+    TOP_LEFT = "top-left",
+    TOP_RIGHT = "top-right",
+    BOTTOM_LEFT = "bottom-left",
+    BOTTOM_RIGHT = "bottom-right",
+    EXTERNAL_CONTAINER = "external-container"
+}
 
 export interface LegendStyle {
     /** Font size for the legend labels */
@@ -63,7 +69,7 @@ interface Props {
     /**
      * Where to anchor the legend within the plot area.
      * Ignored when `container` is provided.
-     * @default "top-right"
+     * @default LegendLocation.TOP_RIGHT
      */
     location?: LegendLocation
     /** Style overrides for the legend */
@@ -95,14 +101,20 @@ const LEGEND_CONTAINER_ID_PREFIX = "stream-charts-legend"
  * <Chart ...>
  *   <ContinuousAxis ... />
  *   <ScatterPlot ... />
- *   <Legend visible={true} location="top-right" />
+ *   <Legend visible={true} location={LegendLocation.TOP_RIGHT} />
  * </Chart>
  * ```
  */
 export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(
     props: Props
 ): React.ReactElement | null {
-    const {visible, location = "top-right", offset = {x: 10, y: 10}, style, container: externalContainer} = props
+    const {
+        visible,
+        location = LegendLocation.TOP_RIGHT,
+        offset = {x: 10, y: 10},
+        style,
+        container: externalContainer
+    } = props
 
     const {chartId, container, color, seriesStyles, seriesFilter, mouse, hoveredSeriesRef} = useChart<D, S, TM, AR, A>()
     const {margin, plotDimensions} = usePlotDimensions()
@@ -168,13 +180,14 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     useEffect(
         () => {
             if (!container) return
-            if (externalContainer) return // SVG legend not used when rendering outside
 
             const legendId = `${LEGEND_CONTAINER_ID_PREFIX}-${chartId}`
             const svg = d3.select<SVGSVGElement, unknown>(container)
 
             // Remove any existing legend before redrawing
             svg.select(`#${legendId}`).remove()
+
+            if (externalContainer) return // SVG legend not used when rendering outside
 
             if (!visible || visibleSeriesNames.length === 0) return
 
@@ -227,19 +240,19 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             let boxY: number
 
             switch (location) {
-                case "top-left":
+                case LegendLocation.TOP_LEFT:
                     boxX = plotLeft + offset.x
                     boxY = plotTop + offset.y
                     break
-                case "top-right":
+                case LegendLocation.TOP_RIGHT:
                     boxX = plotRight - boxWidth - offset.x
                     boxY = plotTop + offset.y
                     break
-                case "bottom-left":
+                case LegendLocation.BOTTOM_LEFT:
                     boxX = plotLeft + offset.x
                     boxY = plotBottom - boxHeight - offset.y
                     break
-                case "bottom-right":
+                case LegendLocation.BOTTOM_RIGHT:
                 default:
                     boxX = plotRight - boxWidth - offset.x
                     boxY = plotBottom - boxHeight - offset.y
