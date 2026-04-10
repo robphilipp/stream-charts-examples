@@ -157,7 +157,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             highlightColor,
             highlightWidth
         } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"]`)
+        d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
             .attr('stroke', highlightColor)
             .attr('stroke-width', highlightWidth)
     }, [container, hoveredSeriesRef])
@@ -169,7 +169,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             color,
             lineWidth
         } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"]`)
+        d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
             .attr('stroke', color)
             .attr('stroke-width', lineWidth)
     }, [container, hoveredSeriesRef])
