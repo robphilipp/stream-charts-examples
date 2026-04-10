@@ -389,6 +389,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <OrdinalAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
+                        // categories={[]}
+                        // label=""
                         categories={initialDataRef.current.map(series => series.name)}
                         label="neuron"
                     />
@@ -429,12 +431,12 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <RasterPlot
                         axisAssignments={new Map([
                             // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
+                            // ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
                             // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         ])}
                         spikeMargin={1}
