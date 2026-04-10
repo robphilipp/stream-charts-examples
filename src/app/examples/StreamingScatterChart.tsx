@@ -184,7 +184,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
             dimensionsSupplier={useGridCell}
             gridTemplateColumns={gridTrackTemplateBuilder()
                 .addTrack(withFraction(1))
-                .addTrack(withPixels(visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 60 : 0))
+                .addTrack(withPixels(visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 100 : 0))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
                 .addTrack(withPixels(50))

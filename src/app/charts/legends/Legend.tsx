@@ -44,6 +44,8 @@ export interface LegendStyle {
     swatchHeight: number
     /** Gap between the swatch and the label text */
     swatchLabelGap: number
+    /** Duration of the visibility transition in milliseconds */
+    transitionDuration: number
 }
 
 export const defaultLegendStyle: LegendStyle = {
@@ -61,6 +63,7 @@ export const defaultLegendStyle: LegendStyle = {
     swatchWidth: 16,
     swatchHeight: 3,
     swatchLabelGap: 6,
+    transitionDuration: 350,
 }
 
 interface Props {
@@ -81,7 +84,7 @@ interface Props {
      */
     offset?: { x: number; y: number }
     /**
-     * When provided, the legend renders as an HTML element portalled into this
+     * When provided, the legend renders as an HTML element portal into this
      * external container instead of inside the chart SVG. Position the container
      * however you like — the legend fills it.
      */
@@ -131,7 +134,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         setExternalContainerReady(!!externalContainer?.current)
     }, [externalContainer])
 
-    // Track the currently-hovered series name so legend entries can be highlighted
+    // Track the currently hovered series name so legend entries can be highlighted
     const [hoveredSeriesName, setHoveredSeriesName] = useState<string | null>(null)
     useEffect(() => {
         const handlerId = `legend-${chartId}`
@@ -183,13 +186,24 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
 
             const legendId = `${LEGEND_CONTAINER_ID_PREFIX}-${chartId}`
             const svg = d3.select<SVGSVGElement, unknown>(container)
+            const {transitionDuration} = legendStyle
 
-            // Remove any existing legend before redrawing
+            if (externalContainer) {
+                svg.select(`#${legendId}`).remove()
+                return
+            }
+
+            if (!visible || visibleSeriesNames.length === 0) {
+                svg.select(`#${legendId}`)
+                    .remove()
+                return
+            }
+
+            // Remove any existing legend (before we potentially redraw) or just reuse?
+            // Usually, redrawing is safer if we want to ensure everything is in the right place.
+            // But if we're transitioning from visible: false to true, the old one might be gone.
+            // Let's just remove without transition for redrawing, except when explicitly making it invisible.
             svg.select(`#${legendId}`).remove()
-
-            if (externalContainer) return // SVG legend not used when rendering outside
-
-            if (!visible || visibleSeriesNames.length === 0) return
 
             const {
                 fontSize,
@@ -264,6 +278,12 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 .append<SVGGElement>("g")
                 .attr("id", legendId)
                 .attr("transform", `translate(${boxX}, ${boxY})`)
+                .style("opacity", 0)
+
+            // Apply transition for shimmering effect
+            legendG
+                .style("transition", `opacity ${transitionDuration}ms ease-in-out`)
+                .style("opacity", 1)
 
             // Background box
             legendG
@@ -348,7 +368,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     )
 
     // HTML portal legend — rendered outside the SVG into an external container
-    if (externalContainerReady && externalContainer?.current && visible && visibleSeriesNames.length > 0) {
+    if (externalContainerReady && externalContainer?.current && visibleSeriesNames.length > 0) {
         const {
             fontSize,
             fontFamily,
@@ -364,6 +384,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             swatchWidth,
             swatchHeight,
             swatchLabelGap,
+            transitionDuration,
         } = legendStyle
 
         const bg = d3.color(backgroundColor)
@@ -386,6 +407,9 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             fontSize,
             color: fontColor,
             boxSizing: "border-box",
+            opacity: visible ? 1 : 0,
+            transition: visible ? `opacity ${transitionDuration}ms ease-in-out` : "none",
+            pointerEvents: visible ? "auto" : "none",
         }
 
         const anyHovered = hoveredSeriesName !== null
