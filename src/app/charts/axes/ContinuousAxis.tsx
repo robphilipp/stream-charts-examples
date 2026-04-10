@@ -134,7 +134,7 @@ export function ContinuousAxis(props: Props): null {
                             // addXAxis(axisRef.current, axisId, AxisInterval.as(domain))
 
                             // add an update handler
-                            rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${location.valueOf()}`
+                            rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${axisId}-${location.valueOf()}`
                             addAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
 
                             break
@@ -152,7 +152,7 @@ export function ContinuousAxis(props: Props): null {
                             // addYAxis(axisRef.current, axisId, AxisInterval.as(domain))
 
                             // add an update handler
-                            rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${location.valueOf()}`
+                            rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${axisId}-${location.valueOf()}`
                             addAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                         }
                     }

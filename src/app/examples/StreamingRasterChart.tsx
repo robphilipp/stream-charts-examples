@@ -26,6 +26,7 @@ import {defaultMargin} from '../charts/hooks/usePlotDimensions';
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
+import {EmptyAxis} from "../charts/axes/EmptyAxis";
 import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {RasterPlotTooltipContent} from "../charts/tooltips/RasterPlotTooltipContent";
@@ -34,7 +35,6 @@ import {RasterPlot} from "../charts/plots/RasterPlot";
 import {Legend, LegendLocation} from "../charts/legends/Legend";
 import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/series/baseSeries";
-import {assignAxes} from "../charts/plots/plot";
 import {AxisInterval} from "../charts/axes/AxisInterval";
 import * as d3 from "d3";
 // import {
@@ -386,13 +386,9 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         label="neuron"
                         axisTickStyle={{rotation: 25}}
                     />
-                    <OrdinalAxis
-                        axisId="y-axis-2"
+                   <EmptyAxis
+                        axisId="y-axis-3"
                         location={AxisLocation.Right}
-                        // categories={[]}
-                        // label=""
-                        categories={initialDataRef.current.map(series => series.name)}
-                        label="neuron"
                     />
                     <Tracker
                         visible={visibility.tracker}
