@@ -22,7 +22,7 @@ import {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
-import {defaultMargin} from '../charts/hooks/usePlotDimensions';
+import {defaultMargin, usePlotDimensions} from '../charts/hooks/usePlotDimensions';
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";

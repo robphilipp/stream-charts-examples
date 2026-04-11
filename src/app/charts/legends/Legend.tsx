@@ -44,6 +44,8 @@ export interface LegendStyle {
     swatchHeight: number
     /** Gap between the swatch and the label text */
     swatchLabelGap: number
+    /** Maximum height of the legend before it starts scrolling (in pixels). If not provided, defaults to the plot height. */
+    maxHeight?: number
     /** Duration of the visibility transition in milliseconds */
     transitionDuration: number
 }
@@ -124,8 +126,12 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     const {initialData} = useInitialData<any, D>()
 
     const legendStyle = useMemo<LegendStyle>(
-        () => ({...defaultLegendStyle, ...style}),
-        [style]
+        () => ({
+            ...defaultLegendStyle,
+            maxHeight: style?.maxHeight ?? plotDimensions.height,
+            ...style
+        }),
+        [style, plotDimensions.height]
     )
 
     // Refs don't trigger re-renders when populated, so track readiness in state
@@ -220,12 +226,14 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 swatchWidth,
                 swatchHeight,
                 swatchLabelGap,
+                maxHeight,
             } = legendStyle
 
             const rowHeight = Math.max(swatchHeight, fontSize)
             const totalRows = visibleSeriesNames.length
             const contentHeight = totalRows * rowHeight + (totalRows - 1) * rowGap
-            const boxHeight = contentHeight + 2 * padding
+            const totalContentHeight = contentHeight + 2 * padding
+            const boxHeight = maxHeight !== undefined ? Math.min(totalContentHeight, maxHeight) : totalContentHeight
 
             // Use a temporary hidden SVG text element to measure max label width
             const tempText = svg
@@ -299,13 +307,69 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 .attr("stroke-width", borderWidth)
                 .attr("stroke-opacity", borderOpacity)
 
+            const innerG = legendG
+                .append("g")
+                .attr("class", "legend-content")
+
+            // If we have a max height and the content is taller, we'd need a scrollbar.
+            // In SVG, we can use a clipPath and handle scroll events manually, or use foreignObject.
+            // foreignObject is generally better for this if we want real scrollbars.
+            const isScrolling = maxHeight !== undefined && totalContentHeight > maxHeight
+
+            if (isScrolling) {
+                const clipId = `legend-clip-${chartId}`
+                // Remove existing clipPath for this legend to avoid duplicates
+                svg.select(`#${clipId}`).remove()
+
+                svg.append("defs")
+                    .append("clipPath")
+                    .attr("id", clipId)
+                    .attr("clipPathUnits", "userSpaceOnUse")
+                    .append("rect")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr("width", boxWidth)
+                    .attr("height", boxHeight)
+
+                innerG.attr("clip-path", `url(#${clipId})`)
+
+                // Simple scroll handling via mouse wheel
+                let scrollY = 0
+                legendG.on("wheel", (event: WheelEvent) => {
+                    event.preventDefault()
+                    const maxScroll = totalContentHeight - boxHeight
+                    scrollY = Math.max(0, Math.min(maxScroll, scrollY + event.deltaY))
+                    innerG.attr("transform", `translate(0, ${-scrollY})`)
+                }, {passive: false})
+
+                // Visual scrollbar (optional but good for visibility)
+                const scrollbarWidth = 4
+                const scrollbarHeight = (boxHeight / totalContentHeight) * boxHeight
+                const scrollbar = legendG.append("rect")
+                    .attr("class", "legend-scrollbar")
+                    .attr("x", boxWidth - scrollbarWidth - 2)
+                    .attr("y", 2)
+                    .attr("width", scrollbarWidth)
+                    .attr("height", scrollbarHeight)
+                    .attr("rx", scrollbarWidth / 2)
+                    .attr("fill", borderColor)
+                    .attr("fill-opacity", 0.5)
+
+                legendG.on("wheel.scrollbar", (event: WheelEvent) => {
+                    const maxScroll = totalContentHeight - boxHeight
+                    const scrollPercent = scrollY / maxScroll
+                    const scrollbarMaxY = boxHeight - scrollbarHeight - 4
+                    scrollbar.attr("y", 2 + scrollPercent * scrollbarMaxY)
+                })
+            }
+
             // Legend rows
             visibleSeriesNames.forEach((name, i) => {
                 const seriesColor = seriesStyles.get(name)?.color ?? color
                 const rowY = padding + i * (rowHeight + rowGap)
                 const swatchMidY = rowY + rowHeight / 2
 
-                const rowG = legendG
+                const rowG = innerG
                     .append("g")
                     .attr("class", "legend-row")
                     .attr("data-series-name", name)
@@ -384,6 +448,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             swatchWidth,
             swatchHeight,
             swatchLabelGap,
+            maxHeight,
             transitionDuration,
         } = legendStyle
 
@@ -403,6 +468,8 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             border: `${borderWidth}px solid ${bdWithOpacity}`,
             borderRadius,
             padding,
+            maxHeight,
+            overflowY: "auto",
             fontFamily,
             fontSize,
             color: fontColor,
