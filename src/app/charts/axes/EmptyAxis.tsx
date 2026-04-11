@@ -1,13 +1,7 @@
-import {
-    addEmptyXAxis,
-    addEmptyYAxis,
-    AxisLocation,
-    ContinuousNumericAxis,
-} from "./axes";
+import {addEmptyXAxis, addEmptyYAxis, AxisLocation, ContinuousNumericAxis,} from "./axes";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
-import {ScaleContinuousNumeric} from "d3";
 import {Dimensions, Margin} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
@@ -20,27 +14,13 @@ interface Props {
     // the location of the axis. for x-axes, this must be either top or bottom. for
     // y-axes, this mut be either left or right
     location: AxisLocation
-    // linear, log, or power scale that defaults to linear scale when not specified
-    scale?: ScaleContinuousNumeric<number, number>
-    // the min and max values for the axis
-    domain?: [min: number, max: number]
-    // The domain prop holds the axis bounds as a (min, max) tuple. The default
-    // behavior is to update the axis bounds when the **values** of the domain
-    // prop change, rather than when the object reference changes. This allows
-    // a user of the chart to specify a tuple-literal as the ranges, rather than
-    // forcing the user of the chart to create a ref and use that ref.
-    //
-    // This behavior is important when allowing the axes to scroll in time, as
-    // is done in the scatter plot or the raster plot. In this case, if the user
-    // of the raster chart specifies the axis domain as a tuple-literal, then
-    // the bounds will get reset to their original value with each render.
-    //
-    // However, for charts that don't scroll, such as the iterates chart, but where
-    // the user would like to change axis-bounds, say for a different iterates
-    // function, we would like the axis bounds to be reset based on a change to
-    // the object ref instead. In this case, we can set this property to false.
-    updateAxisBasedOnDomainValues?: boolean
 }
+
+// linear scale
+const EMPTY_AXIS_SCALE = d3.scaleLinear()
+
+// the min and max values for the axis
+const EMPTY_AXIS_DOMAIN: [min: number, max: number] = [0, 1]
 
 /**
  * Represents an empty axis (x or y) that can be place on the top, bottom,
@@ -62,8 +42,6 @@ export function EmptyAxis(props: Props): null {
         axisRangeFor,
         setAxisRangeFor,
         setAxisIntervalFor,
-        addAxesRangesUpdateHandler,
-        removeAxesRangesUpdateHandler,
     } = axes
 
     const {
@@ -74,17 +52,11 @@ export function EmptyAxis(props: Props): null {
     const {
         axisId,
         location,
-        scale = d3.scaleLinear(),
-        domain = [0, 1],
-        updateAxisBasedOnDomainValues = true,
     } = props
 
     const axisRef = useRef<ContinuousNumericAxis>(undefined)
-    const rangeUpdateHandlerIdRef = useRef<string>(undefined)
-
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
-    const domainRef = useRef<AxisInterval>(AxisInterval.as(domain))
 
     useEffect(
         () => {
@@ -99,30 +71,17 @@ export function EmptyAxis(props: Props): null {
             if (container) {
                 const svg = d3.select<SVGSVGElement, any>(container)
 
-                const handleRangeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
-                    if (rangeUpdateHandlerIdRef.current && axisRef.current) {
-                        const range = updates.get(axisId)
-                        if (range) {
-                            axisRef.current.update(range.current, plotDim, marginRef.current)
-                        }
-                    }
-                }
-
                 if (axisRef.current === undefined) {
                     switch (location) {
                         case AxisLocation.Bottom:
                         case AxisLocation.Top: {
                             axisRef.current = addEmptyXAxis(
-                                axisId, svg, plotDimensions, location, scale,
-                                margin, setAxisIntervalFor, domain
+                                axisId, svg, plotDimensions, location, EMPTY_AXIS_SCALE,
+                                margin, setAxisIntervalFor, EMPTY_AXIS_DOMAIN
                             )
                             // add the x-axis to the chart context
-                            const [start, end] = AxisInterval.as(domain).asTuple()
+                            const [start, end] = AxisInterval.as(EMPTY_AXIS_DOMAIN).asTuple()
                             addXAxis(axisRef.current, axisId, ContinuousAxisRange.from(start, end))
-
-                            // add an update handler
-                            rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${axisId}-${location.valueOf()}`
-                            addAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
 
                             break
                         }
@@ -130,16 +89,12 @@ export function EmptyAxis(props: Props): null {
                         case AxisLocation.Left:
                         case AxisLocation.Right: {
                             axisRef.current = addEmptyYAxis(
-                                axisId, svg, plotDimensions, location, scale,
-                                margin, setAxisIntervalFor, domain
+                                axisId, svg, plotDimensions, location, EMPTY_AXIS_SCALE,
+                                margin, setAxisIntervalFor, EMPTY_AXIS_DOMAIN
                             )
                             // add the y-axis to the chart context
-                            const [start, end] = AxisInterval.as(domain).asTuple()
+                            const [start, end] = AxisInterval.as(EMPTY_AXIS_DOMAIN).asTuple()
                             addYAxis(axisRef.current, axisId, ContinuousAxisRange.from(start, end))
-
-                            // add an update handler
-                            rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${axisId}-${location.valueOf()}`
-                            addAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current, handleRangeUpdates)
                         }
                     }
                 } else {
@@ -150,36 +105,15 @@ export function EmptyAxis(props: Props): null {
                     if (domain.isNotEmpty()) {
                         axisRef.current.update(domain, plotDimensions, margin)
                     }
-
-                    if (
-                        (updateAxisBasedOnDomainValues && (domainRef.current.start !== domain.start || domainRef.current.end !== domain.end)) ||
-                        (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
-                    ) {
-                        domainRef.current = domain
-                        axisRange.ifPresent(range => setAxisRangeFor(axisId, range.updateOriginal(domain.start, domain.end)))
-                    }
                 }
             }
         },
         [
-            chartId, axisId, location, addXAxis, addYAxis, domain,
-            scale, container, margin, plotDimensions, setAxisIntervalFor,
+            chartId, axisId, location, addXAxis, addYAxis,
+            container, margin, plotDimensions, setAxisIntervalFor,
             axisRangeFor,
-            addAxesRangesUpdateHandler,
             setAxisRangeFor,
-            updateAxisBasedOnDomainValues
         ]
-    )
-
-    useEffect(
-        () => {
-            return () => {
-                if (rangeUpdateHandlerIdRef.current) {
-                    removeAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current)
-                }
-            }
-        },
-        [removeAxesRangesUpdateHandler]
     )
 
     return null
