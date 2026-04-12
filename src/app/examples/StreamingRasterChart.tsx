@@ -276,23 +276,25 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
                     />
-                    <select
-                        name="legendLocations"
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            color: theme.color,
-                            borderColor: theme.color,
-                            padding: 5,
-                            borderRadius: 3,
-                            outlineStyle: 'none'
-                        }}
-                        onChange={event => handleInterpolationChange(event.currentTarget.value)}
-                        value={Array.from(LEGEND_LOCATIONS.entries()).find(([, v]) => v === legendLocation)?.[0]}
-                    >
-                        {Array.from(LEGEND_LOCATIONS.entries()).map(([name,]) => (
-                            <option key={name} value={name}>{name}</option>
-                        ))}
-                    </select>
+                    {visibility.legend &&
+                        <select
+                            name="legendLocations"
+                            style={{
+                                backgroundColor: theme.backgroundColor,
+                                color: theme.color,
+                                borderColor: theme.color,
+                                padding: 5,
+                                borderRadius: 3,
+                                outlineStyle: 'none'
+                            }}
+                            onChange={event => handleInterpolationChange(event.currentTarget.value)}
+                            value={Array.from(LEGEND_LOCATIONS.entries()).find(([, v]) => v === legendLocation)?.[0]}
+                        >
+                            {Array.from(LEGEND_LOCATIONS.entries()).map(([name,]) => (
+                                <option key={name} value={name}>{name}</option>
+                            ))}
+                        </select>
+                    }
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
@@ -425,7 +427,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             fontColor: theme.color,
                             backgroundColor: theme.backgroundColor,
                             borderColor: theme.backgroundColor,
-                            padding: 0,
+                            padding: 15,
                         }}
                     />
                     <RasterPlot
