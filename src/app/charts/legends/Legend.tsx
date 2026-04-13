@@ -131,6 +131,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     const isWheelingRef = useRef(false)
 
     const scrollYRef = useRef<number>(0)
+    // const scrollBarVisibleRef = useRef<boolean>(false)
 
     const legendStyle = useMemo<LegendStyle>(
         () => ({
@@ -160,35 +161,37 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     }, [chartId, mouse])
 
     // Keep a ref so D3 closures in the SVG legend always read current styles
-    const seriesStylesRef = useRef(seriesStyles)
+    const seriesStylesRef = useRef<Map<string, S>>(seriesStyles)
     seriesStylesRef.current = seriesStyles
 
-    const highlightSeriesInPlot = useCallback((name: string) => {
+    const highlightSeriesInPlot = useCallback<(name: string) => void>(name => {
         hoveredSeriesRef.current = name
         if (!container) return
         const {
             highlightColor,
             highlightWidth
         } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
+        d3.select(container)
+            .selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
             .attr('stroke', highlightColor)
             .attr('stroke-width', highlightWidth)
     }, [container, hoveredSeriesRef])
 
-    const restoreSeriesInPlot = useCallback((name: string) => {
+    const restoreSeriesInPlot = useCallback<(name: string) => void>(name => {
         hoveredSeriesRef.current = null
         if (!container) return
         const {
             color,
             lineWidth
         } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        d3.select(container).selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
+        d3.select(container)
+            .selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
             .attr('stroke', color)
             .attr('stroke-width', lineWidth)
     }, [container, hoveredSeriesRef])
 
     // Derive the filtered list of series names
-    const visibleSeriesNames = useMemo(
+    const visibleSeriesNames = useMemo<Array<string>>(
         () => initialData.map(s => s.name).filter(name => seriesFilter.test(name)),
         [initialData, seriesFilter]
     )
@@ -312,6 +315,12 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 .attr("stroke", borderColor)
                 .attr("stroke-width", borderWidth)
                 .attr("stroke-opacity", borderOpacity)
+                // .on("mouseover", () => {
+                //     scrollBarVisibleRef.current = true
+                // })
+                // .on("mouseleave", () => {
+                //     scrollBarVisibleRef.current = false
+                // })
 
             const innerG = legendG
                 .append("g")
@@ -344,12 +353,11 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 // let scrollY = 0
                 legendG.on("wheel", (event: WheelEvent) => {
                     event.preventDefault()
+                    // scrollBarVisibleRef.current = true
                     isWheelingRef.current = true
                     const maxScroll = totalContentHeight - boxHeight
                     scrollYRef.current = Math.max(0, Math.min(maxScroll, scrollYRef.current + event.deltaY))
-                    // scrollY = Math.max(0, Math.min(maxScroll, scrollY + event.deltaY))
                     innerG.attr("transform", `translate(0, ${-scrollYRef.current})`)
-                    // innerG.attr("transform", `translate(0, ${-scrollY})`)
 
                     // Clear the existing timer if the user is still wheeling
                     clearTimeout(wheelTimeoutRef.current);
@@ -357,6 +365,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     // Set a new timer to fire after 100-200ms of inactivity
                     wheelTimeoutRef.current = setTimeout(() => {
                         isWheelingRef.current = false
+                        // scrollBarVisibleRef.current = false
                         console.log(`Wheel movement has ended. ${isWheelingRef.current ? "Still wheeling." : "No longer wheeling."}`);
                     }, 150);
                 }, {passive: false})
@@ -373,6 +382,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .attr("rx", scrollbarWidth / 2)
                     .attr("fill", fontColor)
                     .attr("fill-opacity", 0.25)
+                    // .attr("fill-opacity", scrollBarVisibleRef.current ? 0.25 : 0)
 
                 legendG.on("wheel.scrollbar", (event: WheelEvent) => {
                     scrollbar.attr("y", calculateScrollbarY(totalContentHeight, boxHeight, scrollYRef.current, scrollbarHeight, padding))
@@ -383,7 +393,6 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             visibleSeriesNames.forEach((name, i) => {
                 const seriesColor = seriesStyles.get(name)?.color ?? color
                 const rowY = padding + i * (rowHeight + rowGap)
-                // const rowY = padding + i * (rowHeight + rowGap)
                 const swatchMidY = rowY + rowHeight / 2
 
                 const rowG = innerG
@@ -393,7 +402,10 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .style("cursor", "default")
                     .on("mouseover", () => {
                         if (isWheelingRef.current) return
-                        setHoveredSeriesName(name)
+                        setHoveredSeriesName(prevName => {
+                            if (prevName) restoreSeriesInPlot(prevName)
+                            return name
+                        })
                         highlightSeriesInPlot(name)
                     })
                     .on("mouseleave", () => {
