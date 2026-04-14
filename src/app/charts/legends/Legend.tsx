@@ -346,11 +346,10 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .attr("y", 0)
                     .attr("width", boxWidth)
                     .attr("height", boxHeight)
-                //
+
                 legendG.attr("clip-path", `url(#${clipId})`)
 
                 // Simple scroll handling via mouse wheel
-                // let scrollY = 0
                 legendG.on("wheel", (event: WheelEvent) => {
                     event.preventDefault()
                     // scrollBarVisibleRef.current = true
@@ -400,27 +399,6 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .attr("class", "legend-row")
                     .attr("data-series-name", name)
                     .style("cursor", "default")
-                    .on("mouseover", () => {
-                        if (isWheelingRef.current) return
-                        setHoveredSeriesName(prevName => {
-                            if (prevName) restoreSeriesInPlot(prevName)
-                            return name
-                        })
-                        highlightSeriesInPlot(name)
-                    })
-                    .on("mouseleave", () => {
-                        setHoveredSeriesName(null)
-                        restoreSeriesInPlot(name)
-                    })
-
-                rowG
-                    .append("rect")
-                    .attr("x", 0)
-                    .attr("width", boxWidth)
-                    .attr("y", padding + i * (rowHeight + rowGap) - rowGap)
-                    .attr("height", rowHeight + rowGap)
-                    .style("fill", backgroundColor)
-                    .style("fill-opacity", 0)
 
                 // Color swatch — a short horizontal line to mimic series appearance
                 rowG
@@ -444,6 +422,34 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .style("font-family", fontFamily)
                     .style("fill", fontColor)
                     .text(name)
+
+                // keep this at the end
+                rowG
+                    .append("rect")
+                    .attr("x", 0)
+                    .attr("width", boxWidth)
+                    .attr("y", padding + i * (rowHeight + rowGap) - rowGap)
+                    .attr("height", rowHeight + rowGap)
+                    .style("fill", backgroundColor)
+                    .style("fill-opacity", 0)
+                .on("mouseover", () => {
+                    if (isWheelingRef.current) return
+                    setHoveredSeriesName(prevName => {
+                        // restore any previous names in case the events
+                        // get out of order, this prevents multiple series
+                        // being highlighted when the mouse moves quickly
+                        if (prevName && prevName !== name) {
+                            restoreSeriesInPlot(prevName)
+                        }
+                        return name
+                    })
+                    highlightSeriesInPlot(name)
+                })
+                .on("mouseleave", () => {
+                    setHoveredSeriesName(null)
+                    restoreSeriesInPlot(name)
+                })
+
             })
         },
         [visible, container, externalContainer, chartId, visibleSeriesNames, legendStyle, location, offset, margin, plotDimensions, color, seriesStyles, highlightSeriesInPlot, restoreSeriesInPlot]
