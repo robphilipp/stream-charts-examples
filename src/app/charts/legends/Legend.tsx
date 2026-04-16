@@ -126,12 +126,15 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     const {initialData} = useInitialData<any, D>()
 
     // the mouse over series name interferes with scrolling, so we keep track of the
-    // scrolling state so the the series-name mouse-over can be disabled during scrolling
+    // scrolling state so the series-name mouse-over can be disabled during scrolling
     const wheelTimeoutRef = useRef<NodeJS.Timeout>(undefined)
     const isWheelingRef = useRef(false)
 
     const scrollYRef = useRef<number>(0)
-    // const scrollBarVisibleRef = useRef<boolean>(false)
+
+    // keep track of whether the mouse is in the legend so that we can restore the legend
+    // opacity when the mouse leaves and is not hovering over a series
+    const [mouseInLegend, setMouseInLegend] = useState<boolean>(false)
 
     const legendStyle = useMemo<LegendStyle>(
         () => ({
@@ -296,6 +299,12 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 .attr("id", legendId)
                 .attr("transform", `translate(${boxX}, ${boxY})`)
                 .style("opacity", 0)
+                .on("mouseover", () => {
+                    setMouseInLegend(true)
+                })
+                .on("mouseleave", () => {
+                    setMouseInLegend(false)
+                })
 
             // Apply transition for shimmering effect
             legendG
@@ -315,12 +324,6 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 .attr("stroke", borderColor)
                 .attr("stroke-width", borderWidth)
                 .attr("stroke-opacity", borderOpacity)
-                // .on("mouseover", () => {
-                //     scrollBarVisibleRef.current = true
-                // })
-                // .on("mouseleave", () => {
-                //     scrollBarVisibleRef.current = false
-                // })
 
             const innerG = legendG
                 .append("g")
@@ -380,10 +383,9 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .attr("height", scrollbarHeight)
                     .attr("rx", scrollbarWidth / 2)
                     .attr("fill", fontColor)
-                    .attr("fill-opacity", 0.25)
-                    // .attr("fill-opacity", scrollBarVisibleRef.current ? 0.25 : 0)
+                    .attr("fill-opacity", mouseInLegend ? 0.25 : 0)
 
-                legendG.on("wheel.scrollbar", (event: WheelEvent) => {
+                legendG.on("wheel.scrollbar", (_: WheelEvent) => {
                     scrollbar.attr("y", calculateScrollbarY(totalContentHeight, boxHeight, scrollYRef.current, scrollbarHeight, padding))
                 })
             }
@@ -452,7 +454,11 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
 
             })
         },
-        [visible, container, externalContainer, chartId, visibleSeriesNames, legendStyle, location, offset, margin, plotDimensions, color, seriesStyles, highlightSeriesInPlot, restoreSeriesInPlot]
+        [
+            visible, container, externalContainer, chartId, visibleSeriesNames,
+            legendStyle, location, offset, margin, plotDimensions, color,
+            seriesStyles, highlightSeriesInPlot, restoreSeriesInPlot, mouseInLegend
+        ]
     )
 
     // Update SVG row opacity when the hovered series changes
@@ -461,10 +467,17 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             if (!container || externalContainer) return
             const legendG = d3.select(container).select(`#${LEGEND_CONTAINER_ID_PREFIX}-${chartId}`)
             if (!legendG.empty()) {
+                const FADE_BACK_OPACITY = 0.35
                 legendG.selectAll<SVGGElement, unknown>("g.legend-row")
                     .style("opacity", function (): number {
                         const seriesName = d3.select(this).attr("data-series-name")
-                        return hoveredSeriesName !== null && seriesName === hoveredSeriesName ? 1 : 0.35
+                        if (mouseInLegend) {
+                            return hoveredSeriesName !== null && seriesName === hoveredSeriesName ? 1 : FADE_BACK_OPACITY
+                        } else if (hoveredSeriesName !== null && seriesName !== hoveredSeriesName) {
+                            return FADE_BACK_OPACITY
+                        } else {
+                            return 1
+                        }
                     })
                 legendG.selectAll<SVGTextElement, unknown>("text[data-series-name]")
                     .style("font-weight", function (): string {
@@ -473,7 +486,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     })
             }
         },
-        [hoveredSeriesName, container, externalContainer, chartId]
+        [hoveredSeriesName, container, externalContainer, chartId, mouseInLegend]
     )
 
     // HTML portal legend — rendered outside the SVG into an external container
