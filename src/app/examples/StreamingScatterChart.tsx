@@ -32,7 +32,8 @@ import {
     TimeSeriesChartData,
     Tooltip,
     Tracker,
-    TrackerLabelLocation
+    TrackerLabelLocation,
+    Legend, LegendLocation,
 } from "stream-charts";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
@@ -52,13 +53,23 @@ interface Visibility {
     tooltip: boolean;
     tracker: boolean;
     magnifier: boolean;
+    legend: boolean;
 }
 
 const initialVisibility: Visibility = {
     tooltip: false,
     tracker: false,
-    magnifier: false
+    magnifier: false,
+    legend: false,
 }
+
+const LEGEND_LOCATIONS = new Map<string, LegendLocation>([
+    ['Top-Left', LegendLocation.TOP_LEFT],
+    ['Top-Right', LegendLocation.TOP_RIGHT],
+    ['Bottom-Left', LegendLocation.BOTTOM_LEFT],
+    ['Bottom-Right', LegendLocation.BOTTOM_RIGHT],
+    ['External', LegendLocation.EXTERNAL_CONTAINER]
+])
 
 const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
     return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
@@ -110,6 +121,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
 
+    const [legendLocation, setLegendLocation] = useState<LegendLocation>(LegendLocation.EXTERNAL_CONTAINER)
+
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
     const intervalRef = useRef<NodeJS.Timeout>(undefined)
@@ -117,6 +130,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
+
+    // legend
+    const legendContainerRef = useRef<HTMLDivElement>(null)
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
@@ -155,16 +171,17 @@ export function StreamingScatterChart(props: Props): JSX.Element {
             dimensionsSupplier={useGridCell}
             gridTemplateColumns={gridTrackTemplateBuilder()
                 .addTrack(withFraction(1))
+                .addTrack(withPixels(visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 100 : 0))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
                 .addTrack(withPixels(50))
                 .addTrack(withFraction(1))
-                .addTrack(withPixels(10))
+                .addTrack(withPixels(50))
                 .build()}
             gridTemplateAreas={gridTemplateAreasBuilder()
                 .addArea("chart-controls", gridArea(1, 1))
                 .addArea("chart", gridArea(2, 1))
-                .addArea("chart-bottom", gridArea(3, 1))
+                .addArea("chart-legend", gridArea(2, 2))
                 .build()}
             styles={{color: '#d2933f'}}
         >
@@ -252,6 +269,35 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             <option key={value} value={value}>{name}</option>
                         ))}
                     </select>
+                    <Checkbox
+                        key={3}
+                        checked={visibility.legend}
+                        label="legend"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        backgroundColorChecked={theme.backgroundColor}
+                        labelColor={theme.color}
+                        onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
+                    />
+                    {visibility.legend &&
+                        <select
+                            name="legend-location"
+                            style={{
+                                backgroundColor: theme.backgroundColor,
+                                color: theme.color,
+                                borderColor: theme.color,
+                                padding: 5,
+                                borderRadius: 3,
+                                outlineStyle: 'none'
+                            }}
+                            onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
+                            value={legendLocation}
+                        >
+                            {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
+                                <option key={name} value={value}>{name}</option>
+                            ))}
+                        </select>
+                    }
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
@@ -272,7 +318,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             ...defaultLineStyle(),
                             lineWidth: linewidthFor(data.name),
                             color: colorFor(data.name, index, initialData.length, theme.name),
-                            highlightWidth: hightlightLinewidthFor(data.name),
+                            highlightWidth: highlightLinewidthFor(data.name),
                             highlightColor: colorFor(data.name, index, initialData.length, theme.name)
                         }])
                     )}
@@ -323,6 +369,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             backgroundColor: theme.backgroundColor,
                             borderColor: theme.color,
                             backgroundOpacity: 0.9,
+                            borderOpacity: 0.5
                         }}
                     >
                         <ScatterPlotTooltipContent
@@ -332,13 +379,25 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             yChangeFormatter={(y1, y2) => formatNumber(y2 - y1, " ,.0f")}
                         />
                     </Tooltip>
+                    <Legend
+                        visible={visibility.legend}
+                        // choose either the external legend (using react createPortal) or the internal legend
+                        container={legendLocation === LegendLocation.EXTERNAL_CONTAINER ? legendContainerRef : undefined}
+                        location={legendLocation !== LegendLocation.EXTERNAL_CONTAINER ? legendLocation : undefined}
+                        style={{
+                            fontColor: theme.color,
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.backgroundColor,
+                            padding: 0,
+                        }}
+                    />
                     <ScatterPlot
                         interpolation={interpolation}
                         axisAssignments={new Map([
                             ['test2', assignAxes("x-axis-2", "y-axis-2")],
                             ['test3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
-                        dropDataAfter={20000}
+                        dropDataAfter={40000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
@@ -347,14 +406,17 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     />
                 </Chart>
             </GridItem>
+            <GridItem gridAreaName="chart-legend">
+                <div ref={legendContainerRef} style={{marginTop: 30, padding: 8 }} />
+            </GridItem>
         </Grid>
     );
 }
 
 function colorFor(name: string, index: number, numSeries: number, themeName: string): string {
     if (name === 'test1') return 'orange'
-    if (name === 'test2') return themeName === 'light' ? 'blue' : d3.interpolateRgb('blue', 'lightblue')(0.5)
-    if (name === 'test3') return themeName === 'light' ? 'dodgerblue' : 'dodgerblue'
+    if (name === 'test2') return themeName === 'light' ? 'blue' : 'gray'
+    if (name === 'test3') return themeName === 'light' ? 'dodgerblue' : 'gray'
 
     const ratio = index / numSeries / 2
     return themeName === 'light' ?
@@ -369,7 +431,7 @@ function linewidthFor(name: string): number {
     return 1
 }
 
-function hightlightLinewidthFor(name: string): number {
+function highlightLinewidthFor(name: string): number {
     if (name === 'test1') return 3
     if (name === 'test2' || name === 'test3') return 5
 
