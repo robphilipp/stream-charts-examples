@@ -132,7 +132,6 @@ export function initialRandomWeightData(
             const time = initialTime + i * updatePeriod + Math.ceil(Math.random() * updatePeriod)
             const value = prevValue + (Math.random() - 0.5) * 2 * delta
             data.push({time: time, value})
-            // prevTime = time
             prevValue = value
         }
         return seriesFrom<Datum>(name, data)

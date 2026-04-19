@@ -433,7 +433,8 @@ export function ScatterPlot(props: Props): null {
             zoomKeyModifiersRequired, onZoom, axisAssignments,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
-            mouseOverHandlerFor, mouseLeaveHandlerFor
+            mouseOverHandlerFor, mouseLeaveHandlerFor,
+            hoveredSeriesRef
         ]
     )
 

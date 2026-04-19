@@ -382,8 +382,8 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .attr("width", scrollbarWidth)
                     .attr("height", scrollbarHeight)
                     .attr("rx", scrollbarWidth / 2)
+                    .style("fill-opacity", mouseInLegend ? 0.25 : 0)
                     .attr("fill", fontColor)
-                    .attr("fill-opacity", mouseInLegend ? 0.25 : 0)
 
                 legendG.on("wheel.scrollbar", (_: WheelEvent) => {
                     scrollbar.attr("y", calculateScrollbarY(totalContentHeight, boxHeight, scrollYRef.current, scrollbarHeight, padding))
@@ -469,6 +469,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             if (!legendG.empty()) {
                 const FADE_BACK_OPACITY = 0.35
                 legendG.selectAll<SVGGElement, unknown>("g.legend-row")
+                    .attr("transition", `opacity ${350}ms ease-in-out`)
                     .style("opacity", function (): number {
                         const seriesName = d3.select(this).attr("data-series-name")
                         if (mouseInLegend) {

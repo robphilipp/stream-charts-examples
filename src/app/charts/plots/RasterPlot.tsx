@@ -445,7 +445,8 @@ export function RasterPlot(props: Props): null {
             seriesFilter, seriesStyles,
             xAxesState, yAxesState,
             zoomEnabled, zoomKeyModifiersRequired,
-            spikeMargin
+            spikeMargin,
+            hoveredSeriesRef
         ]
     )
 
