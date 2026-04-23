@@ -1,4 +1,5 @@
-import {CSSProperties, JSX, MouseEvent} from "react";
+import {CSSProperties, JSX, MouseEvent, useState} from "react";
+import {interpolateColor} from "./utils";
 
 interface Props {
     style?: CSSProperties
@@ -19,8 +20,6 @@ const defaultButtonStyle: CSSProperties = {
     fontSize: 12,
     width: 50,
     padding: 4,
-    margin: 6,
-    marginRight: 20,
     cursor: 'pointer',
 }
 
@@ -31,23 +30,39 @@ const defaultDisabledButtonStyle = {
 export function Button(props: Props): JSX.Element {
     const {
         style = defaultButtonStyle,
-        disabledStyle = defaultDisabledButtonStyle,
+        disabledStyle = {
+            ...defaultDisabledButtonStyle,
+            backgroundColor: interpolateColor(style.backgroundColor as string, style.color as string, 5),
+            color: interpolateColor(style.color as string, style.backgroundColor as string, 50)
+        },
         onClick,
         disabled = false,
         children
     } = props
 
+    const [hovered, setHovered] = useState<boolean>(false)
+
     const buttonStyle = disabled ? {
         ...defaultButtonStyle,
         ...style,
         ...disabledStyle,
-        borderColor: disabledStyle.backgroundColor
+        borderColor: disabledStyle.backgroundColor,
+        cursor: hovered ? 'not-allowed' : 'pointer',
+
     } : {
         ...defaultButtonStyle,
-        ...style
+        ...style,
+        backgroundColor: hovered && style ?
+            interpolateColor(style.backgroundColor as string, style.color as string, 15) :
+            style.backgroundColor,
     }
 
-    return <button onClick={onClick} disabled={disabled} style={buttonStyle}>
+    return <button
+        onClick={onClick}
+        onMouseOver={() => setHovered(true)}
+        onMouseOut={() => setHovered(false)}
+        disabled={disabled}
+        style={buttonStyle}>
         {children}
     </button>
 

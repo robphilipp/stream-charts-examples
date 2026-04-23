@@ -42,6 +42,7 @@ import {
 } from "stream-charts";
 import {Button} from "../ui/Button";
 import * as d3 from "d3";
+import {buttonStyle, interpolateColor} from "../ui/utils";
 
 interface Visibility {
     tooltip: boolean;
@@ -193,11 +194,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         style={inputStyle}
                     /></label>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             if (!running) {
                                 observableRef.current = randomSpikeDataObservable(initialDataRef.current, 50, 0.1)
@@ -214,15 +211,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)
@@ -291,7 +280,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 40, right: visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 20 : 35, left: 70, bottom: 40}}
+                    margin={{...defaultMargin, top: 40, right: visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 20 : 35, left: 90, bottom: 50}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
@@ -301,7 +290,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             lineWidth: linewidthFor(data.name),
                             color: colorFor(data.name, index, initialData.length, theme.name),
                             highlightWidth: highlightLinewidthFor(data.name),
-                            highlightColor: colorFor(data.name, index, initialData.length, theme.name)
+                            highlightColor: colorFor(data.name, index, initialData.length, theme.name),
                         }])
                     )}
                     // seriesStyles={new Map([
@@ -374,8 +363,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         categories={initialDataRef.current.map(series => series.name)}
-                        label="neuron"
-                        axisTickStyle={{rotation: 25}}
+                        label="Neuron ID"
+                        // axisTickStyle={{rotation: 25}}
                     />
                    <EmptyAxis
                         axisId="y-axis-2"
@@ -416,16 +405,16 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         }}
                     />
                     <RasterPlot
-                        axisAssignments={new Map([
-                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            // ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
-                        ])}
+                        // axisAssignments={new Map([
+                        //     // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                        //     // ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                        // ])}
                         spikeMargin={1}
                         dropDataAfter={5000}
                         panEnabled={true}

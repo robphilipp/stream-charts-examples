@@ -44,6 +44,7 @@ import {
     WindowedOrdinalStats
 } from "stream-charts";
 import {Button} from "../ui/Button";
+import {buttonStyle} from "../ui/utils";
 
 interface Visibility {
     tooltip: boolean
@@ -195,9 +196,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     /></label>
                     <Button
                         style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color,
+                            ...buttonStyle(theme),
                             marginRight: 0,
                         }}
                         onClick={() => {
@@ -216,15 +215,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)

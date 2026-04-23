@@ -38,6 +38,7 @@ import {
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {Button} from "../ui/Button";
+import {buttonStyle} from "../ui/utils";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -194,11 +195,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         style={inputStyle}
                     /></label>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             if (!running) {
                                 observableRef.current = randomDataObservable(initialDataRef.current)
@@ -215,15 +212,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)
@@ -333,26 +322,26 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
                         domain={[10, 10000]}
-                        label="x-axis"
+                        label="Time (ms)"
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         domain={[0, 1000]}
-                        label="y-axis"
+                        label="Distance (µm)"
                     />
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
                         domain={[100, 5000]}
-                        label="x-axis (2)"
+                        label="Expanded Time (ms)"
                     />
                     <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
                         scale={d3.scaleLog()}
                         domain={[100, 1200]}
-                        label="y-axis (2)"
+                        label="Distance (µm)"
                     />
                     <Tracker
                         visible={visibility.tracker}
