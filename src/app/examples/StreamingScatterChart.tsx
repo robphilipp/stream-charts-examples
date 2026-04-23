@@ -24,6 +24,8 @@ import {
     defaultMargin,
     formatNumber,
     formatTime,
+    Legend,
+    LegendLocation,
     regexFilter,
     ScatterPlot,
     ScatterPlotTooltipContent,
@@ -33,12 +35,11 @@ import {
     Tooltip,
     Tracker,
     TrackerLabelLocation,
-    Legend, LegendLocation,
 } from "stream-charts";
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {Button} from "../ui/Button";
-import {buttonStyle, interpolateColor} from "../ui/utils";
+import {buttonStyle} from "../ui/utils";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],

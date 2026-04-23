@@ -17,7 +17,6 @@ const defaultButtonStyle: CSSProperties = {
     borderWidth: 1,
     borderRadius: 3,
     color: '#202020',
-    fontSize: 12,
     width: 50,
     padding: 4,
     cursor: 'pointer',
