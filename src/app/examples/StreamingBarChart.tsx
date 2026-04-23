@@ -230,7 +230,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="value"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowValue(!showValue)}
                         marginLeft={0}
@@ -241,7 +240,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="min/max"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowMinMax(!showMinMax)}
                         marginLeft={0}
@@ -252,7 +250,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="mean"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowMean(!showMean)}
                         marginLeft={0}
@@ -263,7 +260,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="win min/max"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowWinMinMax(!showWinMinMax)}
                         marginLeft={0}
@@ -274,7 +270,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="win mean"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowWinMean(!showWinMean)}
                         marginLeft={0}
@@ -285,7 +280,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                         marginLeft={0}
@@ -296,7 +290,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                         marginLeft={0}

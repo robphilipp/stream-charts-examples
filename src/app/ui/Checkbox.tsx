@@ -1,4 +1,5 @@
-import {JSX} from 'react';
+import {JSX, useState} from 'react';
+import {interpolateColor} from "./utils";
 
 interface Props {
     label: string
@@ -36,14 +37,15 @@ export default function Checkbox(props: Props): JSX.Element {
         borderRadius = 3,
         borderColor = '#d2933f',
         backgroundColor = '#202020',
-        backgroundColorChecked = '#202020',
+        backgroundColorChecked = interpolateColor(backgroundColor, borderColor, 15),
         textSpacing = 6,
         marginTop = 0,
         marginBottom = 0,
         marginLeft = 10,
         marginRight = 10
+    } = props;
 
-} = props;
+    const [hovered, setHovered] = useState<boolean>(false)
 
     return (
         <span
@@ -55,6 +57,8 @@ export default function Checkbox(props: Props): JSX.Element {
                 cursor: 'pointer'
             }}
             onClick={() => onChange(!checked)}
+            onMouseOver={() => setHovered(true)}
+            onMouseOut={() => setHovered(false)}
         >
             <span
                 style={{
@@ -65,21 +69,24 @@ export default function Checkbox(props: Props): JSX.Element {
                     height: height,
                     borderRadius: borderRadius,
                     marginTop: -1,
-                    verticalAlign:' middle',
-                    background: checked ? backgroundColorChecked : backgroundColor,
+                    verticalAlign: ' middle',
+                    background: checked || hovered ? backgroundColorChecked : backgroundColor,
                     border: '1px solid #ccc',
                     borderColor: borderColor,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
                 }}
-            >{checked ? <span style={{
-                display: 'inline-block',
-                position: 'relative',
-                top: -5,
-                left: 1,
-                fontSize: width,
-                fontWeight: 800,
-                color: borderColor,
-            }}>&#10003;</span> : <span/>}</span>
+            >{checked ?
+                <span style={{
+                    display: 'inline-block',
+                    position: 'relative',
+                    top: -5,
+                    left: 1,
+                    fontSize: width,
+                    fontWeight: 800,
+                    color: borderColor,
+                }}>&#10003;</span> :
+                <span/>
+            }</span>
             <span style={{marginLeft: textSpacing, color: labelColor}}>{label}</span>
         </span>
     );

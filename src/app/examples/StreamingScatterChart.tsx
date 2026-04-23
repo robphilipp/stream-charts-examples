@@ -38,7 +38,7 @@ import {
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {Button} from "../ui/Button";
-import {buttonStyle} from "../ui/utils";
+import {buttonStyle, interpolateColor} from "../ui/utils";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -227,7 +227,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                     />
@@ -237,7 +236,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
@@ -264,7 +262,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         label="legend"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
                     />

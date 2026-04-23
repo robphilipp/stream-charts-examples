@@ -111,7 +111,6 @@ const App: React.FC = () => {
                     }}
                     activeStyle={{
                         backgroundColor: theme.backgroundColor,
-                        // borderBottom: `1px solid ${theme.color}`,
                         color: theme.color,
                         width: 'auto',
                     }}
