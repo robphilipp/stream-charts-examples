@@ -1,4 +1,5 @@
-import {JSX} from 'react';
+import {JSX, useState} from 'react';
+import {interpolateColor} from "./utils";
 
 interface Props {
     label: string
@@ -16,6 +17,7 @@ interface Props {
     marginBottom?: number;
     marginLeft?: number;
     marginRight?: number;
+    disabled?: boolean;
 }
 
 /**
@@ -36,14 +38,16 @@ export default function Checkbox(props: Props): JSX.Element {
         borderRadius = 3,
         borderColor = '#d2933f',
         backgroundColor = '#202020',
-        backgroundColorChecked = '#202020',
+        backgroundColorChecked = interpolateColor(backgroundColor, borderColor, 15),
         textSpacing = 6,
         marginTop = 0,
         marginBottom = 0,
         marginLeft = 10,
-        marginRight = 10
+        marginRight = 10,
+        disabled = false,
+    } = props;
 
-} = props;
+    const [hovered, setHovered] = useState<boolean>(false)
 
     return (
         <span
@@ -52,9 +56,11 @@ export default function Checkbox(props: Props): JSX.Element {
                 marginBottom: marginBottom,
                 marginLeft: marginLeft,
                 marginRight: marginRight,
-                cursor: 'pointer'
+                cursor: disabled ? 'not-allowed' : 'pointer'
             }}
-            onClick={() => onChange(!checked)}
+            onClick={() => disabled ? undefined : onChange(!checked)}
+            onMouseOver={() => setHovered(true)}
+            onMouseOut={() => setHovered(false)}
         >
             <span
                 style={{
@@ -65,22 +71,30 @@ export default function Checkbox(props: Props): JSX.Element {
                     height: height,
                     borderRadius: borderRadius,
                     marginTop: -1,
-                    verticalAlign:' middle',
-                    background: checked ? backgroundColorChecked : backgroundColor,
+                    verticalAlign: ' middle',
+                    background: checked || (hovered && !disabled) ? backgroundColorChecked : backgroundColor,
                     border: '1px solid #ccc',
-                    borderColor: borderColor,
-                    cursor: 'pointer'
+                    borderColor: disabled ? interpolateColor(borderColor, backgroundColor, 60): borderColor,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
                 }}
-            >{checked ? <span style={{
-                display: 'inline-block',
-                position: 'relative',
-                top: -5,
-                left: 1,
-                fontSize: width,
-                fontWeight: 800,
-                color: borderColor,
-            }}>&#10003;</span> : <span/>}</span>
-            <span style={{marginLeft: textSpacing, color: labelColor}}>{label}</span>
+            >{checked ?
+                <span style={{
+                    display: 'inline-block',
+                    position: 'relative',
+                    top: -5,
+                    left: 1,
+                    fontSize: width,
+                    fontWeight: 800,
+                    color: disabled ? interpolateColor(borderColor, backgroundColor, 30): borderColor,
+                }}>&#10003;</span> :
+                <span/>
+            }</span>
+            <span style={{
+                marginLeft: textSpacing,
+                color: disabled ? interpolateColor(labelColor, backgroundColor, 50): labelColor
+            }}>
+                {label}
+            </span>
         </span>
     );
 }

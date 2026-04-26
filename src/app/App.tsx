@@ -25,7 +25,7 @@ const seriesNames: Array<string> = []
 for (let i = 0; i < 30; ++i) {
     seriesNames.push(`test${i}`)
 }
-const initialScatterData = initialRandomWeightData(seriesNames, 10, 500, 50, 20, 10)
+const initialScatterData = initialRandomWeightData(seriesNames, 10, 500, 50, 20, 100)
 const iterateSeriesNames = seriesNames.slice(1, 2)
 const initialIterateData = initialTentMapData(25, new Map<string, number>(iterateSeriesNames.map(name => [name, Math.random() * 2])))
 
@@ -33,7 +33,7 @@ const spikeSeriesNames: Array<string> = []
 for (let i = 0; i < 50; ++i) {
     spikeSeriesNames.push(`neuron${i + 1}`)
 }
-const initialSpikeData = initialRandomWeightData(spikeSeriesNames, 10, 500, 50, 20, 10)
+const initialSpikeData = initialRandomWeightData(spikeSeriesNames, 10, 500, 200, 20, 10)
 const initialBarData = initialSineFnData(spikeSeriesNames.slice(0, 50), 1000, 4)
 
 const App: React.FC = () => {
@@ -105,13 +105,14 @@ const App: React.FC = () => {
                     style={{
                         backgroundColor: theme.backgroundColor,
                         color: theme.color,
-                        width: 'auto'
+                        width: 'auto',
+                        paddingRight: 20,
+                        paddingLeft: 20
                     }}
                     activeStyle={{
                         backgroundColor: theme.backgroundColor,
-                        borderBottom: `3px dotted ${theme.color}`,
                         color: theme.color,
-                        width: 'auto'
+                        width: 'auto',
                     }}
                 >
                     {/* tab 1: Scatter */}

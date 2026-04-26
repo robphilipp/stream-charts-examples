@@ -1,6 +1,6 @@
 {
   "name": "stream-charts-examples",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "types": "./src/app/index.d.ts",
   "license": "MIT",
   "repository": "github:robphilipp/stream-charts-examples",
@@ -36,11 +36,11 @@
     "data-frame-ts": "^1.0.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-resizable-grid-layout": "^0.3.0",
+    "react-resizable-grid-layout": "^0.3.1",
     "react-scripts": "^5.0.1",
-    "result-fn": "^0.5.0",
+    "result-fn": "^0.5.2",
     "rxjs": "^7.8.2",
-    "stream-charts": "^1.1.0",
+    "stream-charts": "^1.2.1",
     "svg-table": "^0.1.2"
   },
   "devDependencies": {

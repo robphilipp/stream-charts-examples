@@ -1,4 +1,4 @@
-import React, {CSSProperties, JSX, useMemo, useRef, useState} from 'react';
+import React, {CSSProperties, JSX, useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {randomSpikeDataObservable} from "./randomSpikeData";
@@ -17,40 +17,54 @@ import {
 import {lightTheme, Theme} from "../ui/Themes";
 
 import {
-    assignAxes,
     AxisInterval,
     AxisLocation,
     Chart,
     ContinuousAxis,
+    Datum,
     defaultLineStyle,
     defaultMargin,
     formatNumber,
     formatTime,
+    Legend,
+    LegendLocation,
     OrdinalAxis,
     RasterPlot,
     RasterPlotTooltipContent,
     regexFilter,
-    seriesFrom, SeriesStyle,
+    seriesFrom,
     TimeSeries,
     TimeSeriesChartData,
     Tooltip,
     Tracker,
-    TrackerLabelLocation
+    TrackerLabelLocation,
+    EmptyAxis
 } from "stream-charts";
 import {Button} from "../ui/Button";
 import * as d3 from "d3";
+import {buttonStyle, interpolateColor} from "../ui/utils";
 
 interface Visibility {
     tooltip: boolean;
     tracker: boolean;
     magnifier: boolean;
+    legend: boolean;
 }
 
 const initialVisibility: Visibility = {
     tooltip: false,
     tracker: false,
-    magnifier: false
+    magnifier: false,
+    legend: false,
 }
+
+const LEGEND_LOCATIONS = new Map<string, LegendLocation>([
+    ['Top-Left', LegendLocation.TOP_LEFT],
+    ['Top-Right', LegendLocation.TOP_RIGHT],
+    ['Bottom-Left', LegendLocation.BOTTOM_LEFT],
+    ['Bottom-Right', LegendLocation.BOTTOM_RIGHT],
+    ['External', LegendLocation.EXTERNAL_CONTAINER]
+])
 
 /**
  * The properties
@@ -64,7 +78,15 @@ interface Props {
 }
 
 /**
- * An example wrapper to a raster chart that accepts a rxjs observable. The {@link Chart} manages
+ * The spike-chart data produced by the rxjs observable that is pushed to the `RasterChart`
+ */
+export interface SpikesChartData {
+    maxTime: number;
+    spikes: Array<{ index: number; spike: Datum }>
+}
+
+/**
+ * An example wrapper to a raster chart, that accepts an rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
  * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
  * {@link Chart} updates itself with the new data without causing React to re-render the component. In this
@@ -91,64 +113,17 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
 
+    const [legendLocation, setLegendLocation] = useState<LegendLocation>(LegendLocation.EXTERNAL_CONTAINER)
+    const legendContainerRef = useRef<HTMLDivElement>(null)
+
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined)
+    const intervalRef = useRef<NodeJS.Timeout>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
     const chartTimeRef = useRef<number>(0)
 
-    // custom series styles for some of the neurons
-    const customSeriesStyles = useMemo<Map<string, SeriesStyle>>(
-        () => new Map([
-            ['neuron1', {
-                ...defaultLineStyle(),
-                color: 'orange',
-                lineWidth: 2,
-                highlightColor: 'orange'
-            }],
-            ['neuron2', {
-                ...defaultLineStyle(),
-                color: 'orange',
-                lineWidth: 2,
-                highlightColor: 'orange'
-            }],
-            ['neuron3', {
-                ...defaultLineStyle(),
-                color: 'orange',
-                lineWidth: 2,
-                highlightColor: 'orange'
-            }],
-            ['neuron4', {
-                ...defaultLineStyle(),
-                color: 'orange',
-                lineWidth: 2,
-                highlightColor: 'orange'
-            }],
-            ['neuron5', {
-                ...defaultLineStyle(),
-                color: 'orange',
-                lineWidth: 2,
-                highlightColor: 'orange'
-            }],
-            ['neuron6', {
-                ...defaultLineStyle(),
-                color: theme.name === 'light' ? 'blue' : 'gray',
-                lineWidth: 3,
-                highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                highlightWidth: 5
-            }],
-            // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
-        ]),
-        [theme.name]
-    )
-
-    /**
-     * Makes a copy of the initial data.
-     * @param data The initial data to copy
-     * @return A copy of the initial data
-     */
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
     }
@@ -185,11 +160,19 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         marginRight: 20
     }
 
+    function handleInterpolationChange(selectedLegendLocation: string): void {
+        const location = LEGEND_LOCATIONS.get(selectedLegendLocation)
+        if (location) {
+            setLegendLocation(location)
+        }
+    }
+
     return (
         <Grid
             dimensionsSupplier={useGridCell}
             gridTemplateColumns={gridTrackTemplateBuilder()
                 .addTrack(withFraction(1))
+                .addTrack(withPixels(visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 100 : 0))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
                 .addTrack(withPixels(50))
@@ -198,6 +181,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
             gridTemplateAreas={gridTemplateAreasBuilder()
                 .addArea("chart-controls", gridArea(1, 1))
                 .addArea("chart", gridArea(2, 1))
+                .addArea("chart-legend", gridArea(2, 2))
                 .build()}
             styles={{color: '#d2933f'}}
         >
@@ -210,11 +194,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         style={inputStyle}
                     /></label>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             if (!running) {
                                 observableRef.current = randomSpikeDataObservable(initialDataRef.current, 50, 0.1)
@@ -231,15 +211,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)
@@ -250,24 +222,52 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     </Button>
                     <Checkbox
                         key={1}
-                        checked={visibility.tooltip}
+                        checked={visibility.tooltip && !running}
+                        disabled={running}
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                     />
                     <Checkbox
                         key={2}
-                        checked={visibility.tracker}
+                        checked={visibility.tracker && !running}
+                        disabled={running}
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
+                    <Checkbox
+                        key={3}
+                        checked={visibility.legend}
+                        label="legend"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        labelColor={theme.color}
+                        onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
+                    />
+                    {visibility.legend &&
+                        <select
+                            name="legendLocations"
+                            style={{
+                                backgroundColor: theme.backgroundColor,
+                                color: theme.color,
+                                borderColor: theme.color,
+                                padding: 5,
+                                borderRadius: 3,
+                                outlineStyle: 'none'
+                            }}
+                            onChange={event => handleInterpolationChange(event.currentTarget.value)}
+                            value={Array.from(LEGEND_LOCATIONS.entries()).find(([, v]) => v === legendLocation)?.[0]}
+                        >
+                            {Array.from(LEGEND_LOCATIONS.entries()).map(([name,]) => (
+                                <option key={name} value={name}>{name}</option>
+                            ))}
+                        </select>
+                    }
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
@@ -279,11 +279,59 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 40, right: 75, left: 70, bottom: 40}}
+                    margin={{...defaultMargin, top: 40, right: visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 20 : 35, left: 90, bottom: 50}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={customSeriesStyles}
+                    seriesStyles={new Map(initialData.map(
+                        (data, index) => [data.name, {
+                            ...defaultLineStyle(),
+                            lineWidth: linewidthFor(data.name),
+                            color: colorFor(data.name, index, initialData.length, theme.name),
+                            highlightWidth: highlightLinewidthFor(data.name),
+                            highlightColor: colorFor(data.name, index, initialData.length, theme.name),
+                        }])
+                    )}
+                    // seriesStyles={new Map([
+                    //     ['neuron1', {
+                    //         ...defaultLineStyle(),
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron2', {
+                    //         ...defaultLineStyle(),
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron3', {
+                    //         ...defaultLineStyle(),
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron4', {
+                    //         ...defaultLineStyle(),
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron5', {
+                    //         ...defaultLineStyle(),
+                    //         color: 'orange',
+                    //         lineWidth: 2,
+                    //         highlightColor: 'orange'
+                    //     }],
+                    //     ['neuron6', {
+                    //         ...defaultLineStyle(),
+                    //         color: theme.name === 'light' ? 'blue' : 'gray',
+                    //         lineWidth: 3,
+                    //         highlightColor: theme.name === 'light' ? 'blue' : 'gray',
+                    //         highlightWidth: 5
+                    //     }],
+                    //     // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
+                    // ])}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
@@ -306,18 +354,20 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         label="t (ms)"
                         // font={{color: theme.color}}
                     />
+                    {/*<EmptyAxis*/}
+                    {/*    axisId="x-axis-2"*/}
+                    {/*    location={AxisLocation.Top}*/}
+                    {/*/>*/}
                     <OrdinalAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         categories={initialDataRef.current.map(series => series.name)}
-                        label="neuron"
-                        axisTickStyle={{rotation: 25}}
+                        label="Neuron ID"
+                        // axisTickStyle={{rotation: 25}}
                     />
-                    <OrdinalAxis
+                   <EmptyAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
-                        categories={initialDataRef.current.map(series => series.name)}
-                        label="neuron"
                     />
                     <Tracker
                         visible={visibility.tracker}
@@ -341,17 +391,29 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             yFormatter={value => formatNumber(value, " ,.1f") + ' mV'}
                         />
                     </Tooltip>
+                    <Legend
+                        visible={visibility.legend}
+                        // choose either the external legend (using react createPortal) or the internal legend
+                        container={legendLocation === LegendLocation.EXTERNAL_CONTAINER ? legendContainerRef : undefined}
+                        location={legendLocation !== LegendLocation.EXTERNAL_CONTAINER ? legendLocation : undefined}
+                        style={{
+                            fontColor: theme.color,
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.backgroundColor,
+                            padding: 15,
+                        }}
+                    />
                     <RasterPlot
-                        axisAssignments={new Map([
-                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
-                            ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
-                        ])}
+                        // axisAssignments={new Map([
+                        //     // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                        //     // ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                        // ])}
                         spikeMargin={1}
                         dropDataAfter={5000}
                         panEnabled={true}
@@ -361,6 +423,34 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     />
                 </Chart>
             </GridItem>
+            <GridItem gridAreaName="chart-legend">
+                <div ref={legendContainerRef} style={{marginTop: 30, padding: 8 }} />
+            </GridItem>
         </Grid>
     );
+}
+
+function colorFor(name: string, index: number, numSeries: number, themeName: string): string {
+    if (name === 'test1') return 'orange'
+    if (name === 'test2') return themeName === 'light' ? 'blue' : 'gray'
+    if (name === 'test3') return themeName === 'light' ? 'dodgerblue' : 'gray'
+
+    const ratio = index / numSeries / 2
+    return themeName === 'light' ?
+        d3.interpolateRdBu(ratio > 0.25 ? ratio + 0.5 : ratio) :
+        d3.interpolateRdBu(ratio + 0.25)
+}
+
+function linewidthFor(name: string): number {
+    if (name === 'test1') return 1
+    if (name === 'test2' || name === 'test3') return 3
+
+    return 1
+}
+
+function highlightLinewidthFor(name: string): number {
+    if (name === 'test1') return 3
+    if (name === 'test2' || name === 'test3') return 5
+
+    return 3
 }

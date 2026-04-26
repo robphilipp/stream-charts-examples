@@ -39,6 +39,7 @@ import {
 import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {Button} from "../ui/Button";
+import {buttonStyle} from "../ui/utils";
 
 //
 // the interpolations for the lines drawn between each iterate point.
@@ -316,11 +317,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
             <GridItem gridAreaName="chart-controls">
                 <div>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             if (!running) {
                                 observableRef.current = randomDataObservable(initialData)
@@ -337,15 +334,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={handleClearChart}
                         disabled={running}
                     >
@@ -353,21 +342,21 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     </Button>
                     <Checkbox
                         key={1}
-                        checked={visibility.tooltip}
+                        checked={visibility.tooltip && !running}
+                        disabled={running}
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                     />
                     <Checkbox
                         key={2}
-                        checked={visibility.tracker}
+                        checked={visibility.tracker && !running}
+                        disabled={running}
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
@@ -554,8 +543,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             yValueFormatter={value => formatNumber(value, " ,.4f")}
                             style={{
                                 ...defaultTooltipStyle,
-                                fontColor: 'black',
-                                // fontColor: theme.color,
+                                fontColor: theme.color,
                                 fontWeight: 650
                             }}
                         />

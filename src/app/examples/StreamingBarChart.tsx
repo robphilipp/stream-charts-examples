@@ -44,6 +44,7 @@ import {
     WindowedOrdinalStats
 } from "stream-charts";
 import {Button} from "../ui/Button";
+import {buttonStyle} from "../ui/utils";
 
 interface Visibility {
     tooltip: boolean
@@ -195,9 +196,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     /></label>
                     <Button
                         style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color,
+                            ...buttonStyle(theme),
                             marginRight: 0,
                         }}
                         onClick={() => {
@@ -216,15 +215,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)
@@ -239,7 +230,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="value"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowValue(!showValue)}
                         marginLeft={0}
@@ -250,7 +240,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="min/max"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowMinMax(!showMinMax)}
                         marginLeft={0}
@@ -261,7 +250,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="mean"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowMean(!showMean)}
                         marginLeft={0}
@@ -272,7 +260,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="win min/max"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowWinMinMax(!showWinMinMax)}
                         marginLeft={0}
@@ -283,29 +270,28 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="win mean"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowWinMean(!showWinMean)}
                         marginLeft={0}
                     />
                     <Checkbox
                         key={1}
-                        checked={visibility.tooltip}
+                        checked={visibility.tooltip && !running}
+                        disabled={running}
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                         marginLeft={0}
                     />
                     <Checkbox
                         key={2}
-                        checked={visibility.tracker}
+                        checked={visibility.tracker && !running}
+                        disabled={running}
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                         marginLeft={0}

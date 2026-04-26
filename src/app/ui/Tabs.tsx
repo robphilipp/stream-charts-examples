@@ -1,4 +1,4 @@
-import React, {cloneElement, JSX, useState} from "react"
+import React, {cloneElement, CSSProperties, JSX, useState} from "react"
 import {Button} from "./Button";
 import {noop} from "stream-charts";
 import {
@@ -105,34 +105,48 @@ type HeaderProps = {
     setActiveTab: (index: number) => void
 }
 
-const defaultTabStyle = {
+const defaultTabStyle: CSSProperties = {
     backgroundColor: '#fff',
     borderLeft: 'unset',
     borderRight: 'unset',
     borderTop: 'unset',
     borderBottom: 'unset',
-    borderRadius: 0,
-    fontColor: '#202020',
+    borderRadius: 7,
     fontSize: 'inherit',
     fontFamily: 'inherit',
     width: 50,
     padding: 4,
-    margin: 6,
-    marginRight: 20,
     cursor: 'pointer',
 }
 
 const defaultActiveTabStyle = {
-    borderBottom: '3px solid #202020',
     fontWeight: 700,
 }
 
 function TabHeader(props: HeaderProps): JSX.Element {
-    const {style = defaultTabStyle, activeStyle = defaultActiveTabStyle} = props
-    const activeTabStyle = {...defaultTabStyle, ...style, ...defaultActiveTabStyle, ...activeStyle}
-    const inactiveTabStyle = {...defaultTabStyle, ...style}
-    return <div>
+    const {
+        style = defaultTabStyle,
+        activeStyle = defaultActiveTabStyle
+    } = props
+    const activeTabStyle = {
+        ...defaultTabStyle,
+        ...style,
+        ...defaultActiveTabStyle,
+        ...activeStyle
+    } as CSSProperties
+    const inactiveTabStyle = {
+        ...defaultTabStyle,
+        ...style
+    } as CSSProperties
+
+    return <div style={{
+        display: 'flex'
+    }}>
         {props.names.map((name, index) => (
+            <div style={{
+                borderBottomStyle: index === props.activeTab ? "solid" : "none",
+                borderBottom: activeTabStyle.color,
+            }}>
             <Button
                 key={`tab-button-booboo-${name}-${index}`}
                 style={index === props.activeTab ? {...activeTabStyle} : {...inactiveTabStyle}}
@@ -140,6 +154,7 @@ function TabHeader(props: HeaderProps): JSX.Element {
             >
                 {name}
             </Button>
+            </div>
         ))}
     </div>
 }
