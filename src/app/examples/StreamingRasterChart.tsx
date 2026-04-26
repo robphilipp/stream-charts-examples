@@ -222,7 +222,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     </Button>
                     <Checkbox
                         key={1}
-                        checked={visibility.tooltip}
+                        checked={visibility.tooltip && !running}
+                        disabled={running}
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
@@ -231,7 +232,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     />
                     <Checkbox
                         key={2}
-                        checked={visibility.tracker}
+                        checked={visibility.tracker && !running}
+                        disabled={running}
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
