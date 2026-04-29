@@ -2,13 +2,13 @@ import {addEmptyXAxis, addEmptyYAxis, AxisLocation, ContinuousNumericAxis,} from
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
-import {Dimensions, Margin} from "../styling/margins";
+import {Margin} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {Datum} from "../series/timeSeries";
 import {AxisInterval} from "./AxisInterval";
 import {ContinuousAxisRange} from "./ContinuousAxisRange";
 
-interface Props {
+export interface Props {
     // the unique ID of the axis
     axisId: string
     // the location of the axis. for x-axes, this must be either top or bottom. for
@@ -27,7 +27,6 @@ const EMPTY_AXIS_DOMAIN: [min: number, max: number] = [0, 1]
  * left, or right of the chart. An empty axis is just a line where the axis
  * would be, without any ticks or labels.
  * @param props The properties for the axis
- * @constructor
  */
 export function EmptyAxis(props: Props): null {
     const {

@@ -8,6 +8,7 @@ import {createPortal} from "react-dom";
 import * as d3 from "d3";
 
 export enum LegendLocation {
+    // noinspection JSUnusedGlobalSymbols
     TOP_LEFT = "top-left",
     TOP_RIGHT = "top-right",
     BOTTOM_LEFT = "bottom-left",
@@ -68,7 +69,7 @@ export const defaultLegendStyle: LegendStyle = {
     transitionDuration: 350,
 }
 
-interface Props {
+export interface Props {
     /** Whether the legend is visible */
     visible: boolean
     /**
@@ -110,6 +111,7 @@ const LEGEND_CONTAINER_ID_PREFIX = "stream-charts-legend"
  * </Chart>
  * ```
  */
+// noinspection JSUnusedGlobalSymbols
 export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(
     props: Props
 ): React.ReactElement | null {

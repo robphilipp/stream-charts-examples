@@ -105,13 +105,14 @@ const App: React.FC = () => {
                     style={{
                         backgroundColor: theme.backgroundColor,
                         color: theme.color,
-                        width: 'auto'
+                        width: 'auto',
+                        paddingRight: 20,
+                        paddingLeft: 20
                     }}
                     activeStyle={{
                         backgroundColor: theme.backgroundColor,
-                        borderBottom: `3px dotted ${theme.color}`,
                         color: theme.color,
-                        width: 'auto'
+                        width: 'auto',
                     }}
                 >
                     {/* tab 1: Scatter */}

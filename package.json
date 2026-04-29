@@ -1,6 +1,6 @@
 {
   "name": "stream-charts-examples",
-  "version": "1.0.2-SNAPSHOT",
+  "version": "1.2.2-snapshot",
   "types": "./src/app/index.d.ts",
   "license": "MIT",
   "repository": "github:robphilipp/stream-charts-examples",
@@ -33,20 +33,20 @@
   },
   "dependencies": {
     "d3": "^7.9.0",
+    "data-frame-ts": "^1.0.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-resizable-grid-layout": "^0.3.1",
     "react-scripts": "^5.0.1",
     "result-fn": "^0.5.2",
-    "data-frame-ts": "^1.0.3",
-    "svg-table": "^0.1.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "stream-charts": "^1.2.1",
+    "svg-table": "^0.1.2"
   },
   "devDependencies": {
     "@babel/core": "^7.26.9",
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-typescript": "^7.27.1",
-    "jest": "^30.0.5",
     "@jest/globals": "^30.0.5",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.4",
@@ -57,6 +57,7 @@
     "@types/node": "^24.2.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "jest": "^30.0.5",
     "typescript": "^4.9.5"
   },
   "files": [

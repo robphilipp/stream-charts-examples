@@ -32,25 +32,8 @@ import * as d3 from "d3";
 import {lightTheme, Theme} from "../ui/Themes";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
-import {AxisInterval} from "../charts/axes/AxisInterval";
-// import {
-//     assignAxes,
-//     AxisLocation,
-//     Chart,
-//     ChartData,
-//     ContinuousAxis,
-//     defaultLineStyle,
-//     defaultMargin,
-//     formatNumber, formatTime,
-//     regexFilter,
-//     ScatterPlot,
-//     ScatterPlotTooltipContent,
-//     Series,
-//     seriesFrom,
-//     Tooltip,
-//     Tracker,
-//     TrackerLabelLocation
-// } from "stream-charts";
+import {buttonStyle} from "../ui/utils";
+import {AxisInterval} from "stream-charts";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -207,11 +190,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         style={inputStyle}
                     /></label>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             if (!running) {
                                 observableRef.current = randomDataObservable(initialDataRef.current)
@@ -228,15 +207,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)
@@ -247,21 +218,21 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     </Button>
                     <Checkbox
                         key={1}
-                        checked={visibility.tooltip}
+                        checked={visibility.tooltip && !running}
+                        disabled={running}
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                     />
                     <Checkbox
                         key={2}
-                        checked={visibility.tracker}
+                        checked={visibility.tracker && !running}
+                        disabled={running}
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
@@ -288,7 +259,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         label="legend"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
                     />
@@ -335,28 +305,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             highlightColor: colorFor(data.name, index, initialData.length, theme.name)
                         }])
                     )}
-                    // seriesStyles={new Map([
-                    //     ['test1', {
-                    //         ...defaultLineStyle(),
-                    //         color: 'orange',
-                    //         lineWidth: 1,
-                    //         highlightColor: 'orange'
-                    //     }],
-                    //     ['test2', {
-                    //         ...defaultLineStyle(),
-                    //         color: theme.name === 'light' ? 'blue' : 'gray',
-                    //         lineWidth: 3,
-                    //         highlightColor: theme.name === 'light' ? 'blue' : 'gray',
-                    //         highlightWidth: 5
-                    //     }],
-                    //     ['test3', {
-                    //         ...defaultLineStyle(),
-                    //         color: theme.name === 'light' ? 'dodgerblue' : 'gray',
-                    //         lineWidth: 3,
-                    //         highlightColor: theme.name === 'light' ? 'dodgerblue' : 'gray',
-                    //         highlightWidth: 5
-                    //     }],
-                    // ])}
                     initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observableRef.current}
@@ -368,26 +316,26 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
                         domain={[10, 10000]}
-                        label="x-axis"
+                        label="Time (ms)"
                     />
                     <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         domain={[0, 1000]}
-                        label="y-axis"
+                        label="Distance (µm)"
                     />
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
                         domain={[100, 5000]}
-                        label="x-axis (2)"
+                        label="Expanded Time (ms)"
                     />
                     <ContinuousAxis
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
                         scale={d3.scaleLog()}
                         domain={[100, 1200]}
-                        label="y-axis (2)"
+                        label="Distance (µm)"
                     />
                     <Tracker
                         visible={visibility.tracker}

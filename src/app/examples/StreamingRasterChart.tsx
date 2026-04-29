@@ -22,7 +22,7 @@ import {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
-import {defaultMargin, usePlotDimensions} from '../charts/hooks/usePlotDimensions';
+import {defaultMargin} from '../charts/hooks/usePlotDimensions';
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
@@ -37,6 +37,7 @@ import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {AxisInterval} from "../charts/axes/AxisInterval";
 import * as d3 from "d3";
+import {buttonStyle} from "../ui/utils";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -140,7 +141,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
-        // return data.map(series => seriesFrom(series.name))
     }
 
     /**
@@ -160,6 +160,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         chartTimeRef.current = Math.max(...Array.from(times.values()).map(range => range.end))
     }
 
+    // the input style for the regex filter to select which series to display
     const inputStyle: CSSProperties = {
         backgroundColor: theme.backgroundColor,
         outlineStyle: 'none',
@@ -208,11 +209,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         style={inputStyle}
                     /></label>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             if (!running) {
                                 observableRef.current = randomSpikeDataObservable(initialDataRef.current, 50, 0.1)
@@ -229,15 +226,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)
@@ -248,21 +237,21 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     </Button>
                     <Checkbox
                         key={1}
-                        checked={visibility.tooltip}
+                        checked={visibility.tooltip && !running}
+                        disabled={running}
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                     />
                     <Checkbox
                         key={2}
-                        checked={visibility.tracker}
+                        checked={visibility.tracker && !running}
+                        disabled={running}
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
@@ -272,7 +261,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         label="legend"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
                     />
@@ -306,7 +294,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 40, right: visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 20 : 35, left: 70, bottom: 40}}
+                    margin={{...defaultMargin, top: 40, right: visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 20 : 35, left: 90, bottom: 50}}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
@@ -316,7 +304,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             lineWidth: linewidthFor(data.name),
                             color: colorFor(data.name, index, initialData.length, theme.name),
                             highlightWidth: highlightLinewidthFor(data.name),
-                            highlightColor: colorFor(data.name, index, initialData.length, theme.name)
+                            highlightColor: colorFor(data.name, index, initialData.length, theme.name),
                         }])
                     )}
                     // seriesStyles={new Map([
@@ -389,8 +377,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         categories={initialDataRef.current.map(series => series.name)}
-                        label="neuron"
-                        axisTickStyle={{rotation: 25}}
+                        label="Neuron ID"
+                        // axisTickStyle={{rotation: 25}}
                     />
                    <EmptyAxis
                         axisId="y-axis-2"
@@ -431,16 +419,16 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         }}
                     />
                     <RasterPlot
-                        axisAssignments={new Map([
-                            // ['test', assignAxes("x-axis-1", "y-axis-1")],
-                            // ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
-                            // ['test3', assignAxes("x-axis-1", "y-axis-1")],
-                        ])}
+                        // axisAssignments={new Map([
+                        //     // ['test', assignAxes("x-axis-1", "y-axis-1")],
+                        //     // ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron2', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron3', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron4', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron5', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['neuron6', assignAxes("x-axis-2", "y-axis-2")],
+                        //     // ['test3', assignAxes("x-axis-1", "y-axis-1")],
+                        // ])}
                         spikeMargin={1}
                         dropDataAfter={5000}
                         panEnabled={true}

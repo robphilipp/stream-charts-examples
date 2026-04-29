@@ -37,6 +37,7 @@ import {BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotSt
 import {WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
 import {AxisInterval} from "../charts/axes/AxisInterval";
 import {assignAxes} from "../charts/plots/plot";
+import {buttonStyle} from "../ui/utils";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -84,7 +85,7 @@ interface Props {
 const UPDATE_PERIOD = 75
 
 /**
- * An example wrapper to a bar chart, that accepts an rxjs observable. The {@link Chart} manages
+ * An example wrapper to a bar chart that accepts a rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
  * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
  * {@link Chart} updates itself with the new data without causing React to re-render the component. In this
@@ -106,9 +107,11 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialDataRef.current, UPDATE_PERIOD)));
     const [running, setRunning] = useState<boolean>(false)
 
+    // holds the state of the series filter input field
     const [filterValue, setFilterValue] = useState<string>('');
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
 
+    // holds the state of the time-series statistics show in the plot
     const [showMinMax, setShowMinMax] = useState<boolean>(true);
     const [showValue, setShowValue] = useState<boolean>(true);
     const [showMean, setShowMean] = useState<boolean>(true);
@@ -125,6 +128,14 @@ export function StreamingBarChart(props: Props): JSX.Element {
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
 
+    /**
+     * Converts each of the specified time-series to a base-series of ordinal data. Recall that a
+     * `TimeSeries` is a `BaseSeries` of `Datum` which are (time, value)-pairs. The bar chart shows
+     * the current (time, value) for each series (as well as stats). `OrdinalDatum` is a
+     * (name, time, value)-tuple which we need for an ordinal chart. Hence the conversion.
+     * @param data An array of time-series to plot
+     * @return An array of base-series of ordinal data
+     */
     function initialDataFrom(data: Array<TimeSeries>): Array<BaseSeries<OrdinalDatum>> {
         return data.map(series => seriesFrom<OrdinalDatum>(series.name, series.data.map(datum => ({
             time: datum.time,
@@ -134,7 +145,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
     }
 
     /**
-     * Called when the user changes the regular expression filter
+     * Called when the user changes the regular expression filter to filter the time-series
      * @param updatedFilter The updated the filter
      */
     function handleUpdateRegex(updatedFilter: string): void {
@@ -198,9 +209,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     /></label>
                     <Button
                         style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color,
+                            ...buttonStyle(theme),
                             marginRight: 0,
                         }}
                         onClick={() => {
@@ -219,15 +228,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         {running ? "Stop" : "Run"}
                     </Button>
                     <Button
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            borderColor: theme.color,
-                            color: theme.color
-                        }}
-                        disabledStyle={{
-                            backgroundColor: theme.disabledBackgroundColor,
-                            color: theme.disabledColor
-                        }}
+                        style={buttonStyle(theme)}
                         onClick={() => {
                             initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)
@@ -242,7 +243,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="value"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowValue(!showValue)}
                         marginLeft={0}
@@ -253,7 +253,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="min/max"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowMinMax(!showMinMax)}
                         marginLeft={0}
@@ -264,7 +263,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="mean"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowMean(!showMean)}
                         marginLeft={0}
@@ -275,7 +273,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="win min/max"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowWinMinMax(!showWinMinMax)}
                         marginLeft={0}
@@ -286,29 +283,28 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         label="win mean"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setShowWinMean(!showWinMean)}
                         marginLeft={0}
                     />
                     <Checkbox
                         key={1}
-                        checked={visibility.tooltip}
+                        checked={visibility.tooltip && !running}
+                        disabled={running}
                         label="tooltip"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                         marginLeft={0}
                     />
                     <Checkbox
                         key={2}
-                        checked={visibility.tracker}
+                        checked={visibility.tracker && !running}
+                        disabled={running}
                         label="tracker"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
-                        backgroundColorChecked={theme.backgroundColor}
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                         marginLeft={0}
