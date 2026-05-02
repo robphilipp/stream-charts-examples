@@ -222,7 +222,8 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
             // Remove any existing legend (before we potentially redraw) or just reuse?
             // Usually, redrawing is safer if we want to ensure everything is in the right place.
             // But if we're transitioning from visible: false to true, the old one might be gone.
-            // Let's just remove without transition for redrawing, except when explicitly making it invisible.
+            // Let's just remove the legend without transition for redrawing, except when explicitly
+            // making it invisible.
             svg.select(`#${legendId}`).remove()
 
             const {
@@ -341,7 +342,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 const clipId = `legend-clip-${chartId}`
                 // Remove existing clipPath for this legend to avoid duplicates
                 svg.select(`#${clipId}`).remove()
-                //
+
                 svg.append("defs")
                     .append("clipPath")
                     .attr("id", clipId)
@@ -357,21 +358,16 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                 // Simple scroll handling via mouse wheel
                 legendG.on("wheel", (event: WheelEvent) => {
                     event.preventDefault()
-                    // scrollBarVisibleRef.current = true
                     isWheelingRef.current = true
                     const maxScroll = totalContentHeight - boxHeight
                     scrollYRef.current = Math.max(0, Math.min(maxScroll, scrollYRef.current + event.deltaY))
                     innerG.attr("transform", `translate(0, ${-scrollYRef.current})`)
 
                     // Clear the existing timer if the user is still wheeling
-                    clearTimeout(wheelTimeoutRef.current);
+                    clearTimeout(wheelTimeoutRef.current)
 
                     // Set a new timer to fire after 100-200ms of inactivity
-                    wheelTimeoutRef.current = setTimeout(() => {
-                        isWheelingRef.current = false
-                        // scrollBarVisibleRef.current = false
-                        console.log(`Wheel movement has ended. ${isWheelingRef.current ? "Still wheeling." : "No longer wheeling."}`);
-                    }, 150);
+                    wheelTimeoutRef.current = setTimeout(() => isWheelingRef.current = false, 150)
                 }, {passive: false})
 
                 // Visual scrollbar (optional but good for visibility)
@@ -440,7 +436,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     if (isWheelingRef.current) return
                     setHoveredSeriesName(prevName => {
                         // restore any previous names in case the events
-                        // get out of order, this prevents multiple series
+                        // get out of order this prevents multiple series
                         // being highlighted when the mouse moves quickly
                         if (prevName && prevName !== name) {
                             restoreSeriesInPlot(prevName)
@@ -592,7 +588,22 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     return null
 }
 
-function calculateScrollbarY(totalContentHeight: number, boxHeight: number, scrollY: number, scrollbarHeight: number, padding: number): number {
+/**
+ * Calculates the y-coordinate for the scrollbar based on scroll position
+ * @param totalContentHeight The total height of the content that can be scrolled (in pixels)
+ * @param boxHeight The height of the scrollable box (in pixels)
+ * @param scrollY The current scroll position (in pixels)
+ * @param scrollbarHeight The height of the scrollbar (in pixels)
+ * @param padding The padding around the scrollbar (in pixels)
+ * @return The y-coordinate for the scrollbar (in pixels)
+ */
+function calculateScrollbarY(
+    totalContentHeight: number,
+    boxHeight: number,
+    scrollY: number,
+    scrollbarHeight: number,
+    padding: number
+): number {
     const maxScroll = totalContentHeight - boxHeight
     const scrollPercent = scrollY / maxScroll
     const scrollbarMaxY = boxHeight - scrollbarHeight - 4 - padding
