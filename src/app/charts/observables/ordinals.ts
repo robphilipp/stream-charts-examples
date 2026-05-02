@@ -183,37 +183,37 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
 
                         // calculate the max-time, min-time, max-value, and min-value for
                         // all the data series
-                        series.forEach(({time, value}: Datum, ) => {
+                        series.forEach(({x, y}: Datum, ) => {
                             // calculate the min and max times over all series
-                            if (time < accum.stats.minDatum.time.time) {
-                                accum.stats.minDatum.time = ordinalDatumOf(time, name, value)
-                            } else if (time > accum.stats.maxDatum.time.time) {
-                                accum.stats.maxDatum.time = ordinalDatumOf(time, name, value)
+                            if (x < accum.stats.minDatum.time.time) {
+                                accum.stats.minDatum.time = ordinalDatumOf(x, name, y)
+                            } else if (x > accum.stats.maxDatum.time.time) {
+                                accum.stats.maxDatum.time = ordinalDatumOf(x, name, y)
                             }
                             // calculate the min and max values over all series
-                            if (value < accum.stats.minDatum.value.value) {
-                                accum.stats.minDatum.value = ordinalDatumOf(time, name, value)
-                            } else if (value > accum.stats.maxDatum.value.value) {
-                                accum.stats.maxDatum.value = ordinalDatumOf(time, name, value)
+                            if (y < accum.stats.minDatum.value.value) {
+                                accum.stats.minDatum.value = ordinalDatumOf(x, name, y)
+                            } else if (y > accum.stats.maxDatum.value.value) {
+                                accum.stats.maxDatum.value = ordinalDatumOf(x, name, y)
                             }
 
                             // calculate the min, max of the time and value for each series
                             let valueStats: OrdinalValueStats = accum.stats.valueStatsForSeries.get(name) || defaultOrdinalValueStats()
 
-                            const minValue = (value < valueStats.min.value) ?
-                                ordinalDatumOf(time, name, value) :
+                            const minValue = (y < valueStats.min.value) ?
+                                ordinalDatumOf(x, name, y) :
                                 copyOrdinalDatum(valueStats.min)
-                            const maxValue = (value > valueStats.max.value) ?
-                                ordinalDatumOf(time, name, value) :
+                            const maxValue = (y > valueStats.max.value) ?
+                                ordinalDatumOf(x, name, y) :
                                 copyOrdinalDatum(valueStats.max)
                             const count = valueStats.count + 1
-                            const sum = valueStats.sum + value
+                            const sum = valueStats.sum + y
                             valueStats = {
                                 min: minValue,
                                 max: maxValue,
                                 count,
                                 sum,
-                                sumSquared: isNaN(valueStats.sumSquared) ? value * value : valueStats.sumSquared + value * value,
+                                sumSquared: isNaN(valueStats.sumSquared) ? y * y : valueStats.sumSquared + y * y,
                                 mean: sum / count
                             }
 
@@ -221,7 +221,7 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                         })
 
                         // convert the new points to ordinal datum
-                        accum.newPoints.set(name, series.map(({time, value}: Datum) => ordinalDatumOf(time, name, value)))
+                        accum.newPoints.set(name, series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y)))
                     })
                 return {previous, accumulated: accum}
             }, initialAccumulate()),

@@ -37,7 +37,7 @@ export function emptyTimeSeriesChartData(series: Array<string>): TimeSeriesChart
         ...defaultChartData(),
         maxTime: 0,
         maxTimes: new Map(series.map(name => [name, 0])),
-        newPoints: new Map<string, Array<Datum>>(series.map(name => [name, [{time: 0, value: 0}]]))
+        newPoints: new Map<string, Array<Datum>>(series.map(name => [name, [{x: 0, y: 0}]]))
     }
 }
 
@@ -49,18 +49,18 @@ export function emptyTimeSeriesChartData(series: Array<string>): TimeSeriesChart
  */
 export function initialTimeSeriesChartData(seriesList: Array<TimeSeries>, currentTime: number = 0): TimeSeriesChartData {
     const maxTime = seriesList.reduce(
-        (tMax, series) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(-Infinity)),
+        (tMax, series) => Math.max(tMax, series.last().map(datum => datum.x).getOrElse(-Infinity)),
         -Infinity
     )
     return {
         seriesNames: new Set(seriesList.map(series => series.name)),
         maxTime,
-        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
+        maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.x).getOrElse(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [
             series.name,
             [{
-                time: series.last().map(datum => datum.time).getOrElse(0),
-                value: series.last().map(datum => datum.value).getOrElse(0)
+                x: series.last().map(datum => datum.x).getOrElse(0),
+                y: series.last().map(datum => datum.y).getOrElse(0)
             }]
         ])),
         currentTime: currentTime

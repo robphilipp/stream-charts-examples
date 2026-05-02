@@ -4,7 +4,7 @@ import {Datum} from "./timeSeries";
 describe('when creating outlier datum', () => {
     it('should be able to create an outlier datum with bounds and measures as long as there is a measure for each bound', () => {
         const Measures = [50, 92] as const
-        const value: Datum = {time: 1, value: 10}
+        const value: Datum = {x: 1, y: 10}
         const bounds = [
             outlierBoundsFor(21, 121),
             outlierBoundsFor(2, 52)
@@ -18,7 +18,7 @@ describe('when creating outlier datum', () => {
 
     it('should not be able to create an outlier datum when the number of measures does not equal the number of bounds', () => {
         const Measures = [50, 92] as const
-        const value: Datum = {time: 1, value: 10}
+        const value: Datum = {x: 1, y: 10}
         // @ts-expect-error - bounds length must equal measures length
         outlierDatumFor<typeof Measures>(value, Measures, [
             {lower: 0, upper: 121},

@@ -4,8 +4,8 @@ import {BaseSeries, seriesFrom} from "./baseSeries";
  * An immutable datum object that holds the spike (time, value) representing a neuron spike
  */
 export interface Datum {
-    readonly time: number;
-    readonly value: number;
+    readonly x: number;
+    readonly y: number;
 }
 
 /**
@@ -14,9 +14,9 @@ export interface Datum {
  * @param value The value
  * @return A {@link Datum} instance with the specified (time, value)
  */
-export const datumOf = (time: number, value: number): Datum => ({time, value})
+export const datumOf = (time: number, value: number): Datum => ({x: time, y: value})
 
-export const emptyDatum = (): Datum => ({time: NaN, value: NaN})
+export const emptyDatum = (): Datum => ({x: NaN, y: NaN})
 
 export type TimeSeries = BaseSeries<Datum>
 

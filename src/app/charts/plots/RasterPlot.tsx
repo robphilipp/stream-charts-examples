@@ -223,7 +223,7 @@ export function RasterPlot(props: Props): null {
                             .reduce(
                                 (tMin: number, series: TimeSeries) => Math.min(
                                     tMin,
-                                    !series.isEmpty() ? series.data[0].time : tMin
+                                    !series.isEmpty() ? series.data[0].x : tMin
                                 ),
                                 Infinity
                             )
@@ -419,11 +419,11 @@ export function RasterPlot(props: Props): null {
                                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
                             )
                         )
-                        .each(datum => datum.x = xAxis.scale(datum.time))
+                        .each(datum => datum.x = xAxis.scale(datum.x))
 
                     // update
                     seriesContainer
-                        .each(datum => datum.x = xAxis.scale(datum.time))
+                        .each(datum => datum.x = xAxis.scale(datum.x))
                         .attr('x1', datum => datum.x)
                         .attr('x2', datum => datum.x)
                         .attr('y1', _ => yUpper(y))

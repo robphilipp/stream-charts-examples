@@ -117,7 +117,7 @@ export function iteratesObservable(dataObservable: Observable<TimeSeriesChartDat
                             previous.set(name, updated)
 
                             // create the new iterate
-                            const iterate: IterateDatum = iterateDatumOf(first.time, first.value, last.value);
+                            const iterate: IterateDatum = iterateDatumOf(first.x, first.y, last.y);
 
                             // update the min, max values for all the series
                             accum.minIterate = minIterateFor(iterate, accum.minIterate)

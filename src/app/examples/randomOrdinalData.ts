@@ -58,7 +58,7 @@ export function initialOrdinalChartData(seriesList: Array<BaseSeries<OrdinalDatu
         maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [
             series.name,
-            series.data.map(datum => ({time: datum.time, value: datum.value})),
+            series.data.map(datum => ({x: datum.time, y: datum.value})),
         ])),
         currentTime: currentTime
     }
@@ -121,8 +121,8 @@ function mergeOrdinalSeries(
 ): Map<string, Array<Datum>> {
     incoming.forEach((data, name) => {
         const newData = data.map((datum, index) => ({
-            time: datum.time,
-            value: index === 0 ? Math.max(min, Math.min(max, datum.value)) : data[index - 1].value + datum.value
+            x: datum.x,
+            y: index === 0 ? Math.max(min, Math.min(max, datum.y)) : data[index - 1].y + datum.y
         }))
         accum.set(name, newData);
     })
@@ -154,8 +154,8 @@ function barDanceData(
             return [
                 name,
                 [{
-                    time: sequenceTime,
-                    value: Math.cos((6 * index) * Math.PI / seriesNames.length) * // envelope for index
+                    x: sequenceTime,
+                    y: Math.cos((6 * index) * Math.PI / seriesNames.length) * // envelope for index
                         Math.min(1, (1.2 + Math.sin(sequenceTime * Math.PI / 1513)) / 2) * // time-evolving envelope
                         Math.sin((sequenceTime / 27 + index) * Math.PI / seriesNames.length / 2) + // series values
                         slope * index - intercept,

@@ -32,7 +32,7 @@ export function outlierSeriesFor<M extends readonly number[]>(
     measures: readonly [...M],
     datum: Array<[time: number, value: number, bounds: { readonly [K in keyof M]: OutlierBounds}]>
 ): OutlierSeries<M> {
-    return seriesFrom(name, datum.map(([time, value, bounds]) => outlierDatumFor({time, value}, measures, bounds)))
+    return seriesFrom(name, datum.map(([time, value, bounds]) => outlierDatumFor({x: time, y: value}, measures, bounds)))
 }
 
 export function outlierDatumFor<M extends readonly number[]>(

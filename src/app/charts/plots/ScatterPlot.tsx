@@ -231,7 +231,7 @@ export function ScatterPlot(props: Props): null {
                             .reduce(
                                 (tMin, series) => Math.min(
                                     tMin,
-                                    !series.isEmpty() ? series.data[0].time : tMin
+                                    !series.isEmpty() ? series.data[0].x : tMin
                                 ),
                                 Infinity
                             )
@@ -387,8 +387,8 @@ export function ScatterPlot(props: Props): null {
                                 .attr(
                                     "d",
                                     d3.line<Datum>()
-                                        .x((d: Datum) => xAxisLinear.scale(d.time) || 0)
-                                        .y((d: Datum) => yAxisLinear.scale(d.value) || 0)
+                                        .x((d: Datum) => xAxisLinear.scale(d.x) || 0)
+                                        .y((d: Datum) => yAxisLinear.scale(d.y) || 0)
                                         .curve(interpolation)
                                 )
                                 .attr("fill", "none")

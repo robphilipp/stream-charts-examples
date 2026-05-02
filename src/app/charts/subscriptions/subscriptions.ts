@@ -99,7 +99,7 @@ export function subscriptionTimeSeriesFor(
 
                     if (currentAxisTime !== undefined) {
                         // drop data that is older than the max time-window
-                        while (currentAxisTime - series.data[0].time > dropDataAfter) {
+                        while (currentAxisTime - series.data[0].x > dropDataAfter) {
                             series.data.shift()
                         }
 
@@ -171,7 +171,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
 ): Subscription {
     const maxTime = Array.from(seriesMap.entries())
         .reduce(
-            (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.time).getOrElse(tMax)),
+            (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.x).getOrElse(tMax)),
             -Infinity
         )
     const cadence = interval(cadencePeriod)
@@ -241,7 +241,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
                     ) || data.maxTime
                 if (currentAxisTime !== undefined) {
                     // drop data that is older than the max time-window
-                    while (currentAxisTime - series.data[0].time > dropDataAfter) {
+                    while (currentAxisTime - series.data[0].x > dropDataAfter) {
                         series.data.shift()
                     }
                 }

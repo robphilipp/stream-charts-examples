@@ -138,9 +138,9 @@ export function StreamingBarChart(props: Props): JSX.Element {
      */
     function initialDataFrom(data: Array<TimeSeries>): Array<BaseSeries<OrdinalDatum>> {
         return data.map(series => seriesFrom<OrdinalDatum>(series.name, series.data.map(datum => ({
-            time: datum.time,
+            time: datum.x,
             ordinal: series.name,
-            value: datum.value,
+            value: datum.y,
         }))))
     }
 

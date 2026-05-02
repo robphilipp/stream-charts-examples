@@ -33,8 +33,8 @@ function randomSpikeData(
                 return [
                     name,
                     [{
-                        time: sequenceTime + maxTime,
-                        value: Math.random()
+                        x: sequenceTime + maxTime,
+                        y: Math.random()
                     }]
                 ]
             }))

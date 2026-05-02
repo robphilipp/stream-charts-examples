@@ -70,13 +70,13 @@ function accumulateIterateData(
     // make a copy of the current max times, which we'll update with new points
     const maxTimes = new Map(previous.maxTimes.entries())
     previous.newPoints.forEach((datum, name) => {
-        maxTimes.set(name, (datum[datum.length - 1].time + updatePeriod))
+        maxTimes.set(name, (datum[datum.length - 1].x + updatePeriod))
     })
     // deep copy of the previous data points, and calculate the next point
     const newPoints = new Map(Array.from(previous.newPoints.entries()).map(([name, data]) => [name, data.slice()]))
     newPoints.forEach((data, _) => {
         const lastDatum = data[data.length - 1]
-        const newDatum = iterateFunction(lastDatum.time + updatePeriod, lastDatum.value)
+        const newDatum = iterateFunction(lastDatum.x + updatePeriod, lastDatum.y)
         data.shift()
         data.push(newDatum)
     })

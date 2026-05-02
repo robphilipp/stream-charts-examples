@@ -224,7 +224,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {formatters} = options
     const [x, ] = mouseCoords
-    const {time: spikeTime, value} = selected
+    const {x: spikeTime, y} = selected
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
@@ -246,7 +246,7 @@ function addTooltipContent(
         .attr('font-family', 'sans-serif')
         .attr('font-size', tooltipStyle.fontSize + 2)
         .attr('font-weight', tooltipStyle.fontWeight + 150)
-        .text(() => `${formatters.x(spikeTime)}, ${formatters.y(value)}`)
+        .text(() => `${formatters.x(spikeTime)}, ${formatters.y(y)}`)
 
     // calculate the max width and height of the text
     const tooltipWidth = Math.max(header.node()?.getBBox()?.width || 0, text.node()?.getBBox()?.width || 0);

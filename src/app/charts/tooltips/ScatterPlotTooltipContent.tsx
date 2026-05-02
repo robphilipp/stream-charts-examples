@@ -231,7 +231,7 @@ function addTooltipContent(
 ): TooltipDimensions {
     const {labels, formatters} = options
     const [x, y] = mouseCoords
-    const [lower, upper] = boundingPoints(series, time, value => value.time, () => emptyDatum())
+    const [lower, upper] = boundingPoints(series, time, value => value.x, () => emptyDatum())
 
     // display the neuron ID in the tooltip
     const header = d3.select<SVGSVGElement | null, any>(container)
@@ -265,14 +265,14 @@ function addTooltipContent(
     const hrDelta = headerRow.append<SVGTextElement>("text").text(() => options.headers.delta)
 
     const trHeader = table.append<SVGTextElement>("text").text(() => labels.x)
-    const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower.time))
-    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper.time))
-    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.change(lower.time, upper.time))
+    const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower.x))
+    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper.x))
+    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.change(lower.x, upper.x))
 
     const vrHeader = table.append<SVGTextElement>("text").text(() => labels.y)
-    const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower.value))
-    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper.value))
-    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.change(lower.value, upper.value))
+    const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower.y))
+    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper.y))
+    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.change(lower.y, upper.y))
 
     const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
     const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0

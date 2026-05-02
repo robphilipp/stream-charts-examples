@@ -33,8 +33,8 @@ function randomWeightData(
             return [
                 name,
                 [{
-                    time: sequenceTime + maxTime - Math.ceil(Math.random() * updatePeriod),
-                    value: (Math.random() - 0.5) * 2 * delta
+                    x: sequenceTime + maxTime - Math.ceil(Math.random() * updatePeriod),
+                    y: (Math.random() - 0.5) * 2 * delta
                 }]
             ]
         }))
@@ -76,10 +76,10 @@ function mergeSeries(
 ): Map<string, Array<Datum>> {
     incoming.forEach((data, name) => {
         const accData = accum.get(name) || [];
-        const lastAccum = accData.length > 0 ? accData[accData.length - 1].value : 0;
+        const lastAccum = accData.length > 0 ? accData[accData.length - 1].y : 0;
         const newData = data.map((datum, index) => ({
-            time: datum.time,
-            value: index === 0 ? Math.max(min, Math.min(max, lastAccum + datum.value)) : data[index - 1].value + datum.value
+            x: datum.x,
+            y: index === 0 ? Math.max(min, Math.min(max, lastAccum + datum.y)) : data[index - 1].y + datum.y
         }))
         accum.set(name, newData);
     })
@@ -131,7 +131,7 @@ export function initialRandomWeightData(
         for (let i = 0; i < numTimes; ++i) {
             const time = initialTime + i * updatePeriod + Math.ceil(Math.random() * updatePeriod)
             const value = prevValue + (Math.random() - 0.5) * 2 * delta
-            data.push({time: time, value})
+            data.push({x: time, y: value})
             prevValue = value
         }
         return seriesFrom<Datum>(name, data)
