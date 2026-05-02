@@ -35,11 +35,36 @@ describe('when creating an outlier series', () => {
             'series1',
             Measures,
             [
-                [1, 11, [outlierBoundsFor(21, 121), outlierBoundsFor(2, 52)]],
-                [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53)]]
+                [
+                    1, 11, // (x, y) -> (time, value)
+                    [
+                        outlierBoundsFor(21, 121),  // bounds for measure = 50
+                        outlierBoundsFor(2, 52)     // bounds for measure = 92
+                    ]
+                ],
+                [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53)]],
+                [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54)]]
             ]
         )
         expect(series).toBeDefined()
-        expect(series.data).toHaveLength(Measures.length)
+        expect(series.name).toBe('series1')
+        expect(series.data).toHaveLength(3)
+
+        // all the bounds should have the same length and values as the measures
+        series.data.forEach(datum => {
+            expect(datum.bounds).toHaveLength(Measures.length)
+            expect(datum.measures).toEqual([50, 92])
+        })
+
+        // each datum may have a different set of bounds, but they should be the
+        // same as the ones used to create the series
+        expect(series.data[0].bounds[0]).toEqual({lower: 21, upper: 121})
+        expect(series.data[0].bounds[1]).toEqual({lower: 2, upper: 52})
+
+        expect(series.data[1].bounds[0]).toEqual({lower: 22, upper: 122})
+        expect(series.data[1].bounds[1]).toEqual({lower: 3, upper: 53})
+
+        expect(series.data[2].bounds[0]).toEqual({lower: 23, upper: 123})
+        expect(series.data[2].bounds[1]).toEqual({lower: 4, upper: 54})
     })
 })
