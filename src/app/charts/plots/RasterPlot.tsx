@@ -387,8 +387,8 @@ export function RasterPlot(props: Props): null {
                     seriesContainer
                         .enter()
                         .append<SVGLineElement>('line')
-                        .attr('x1', datum => datum.x)
-                        .attr('x2', datum => datum.x)
+                        .attr('x1', datum => datum.xPixel)
+                        .attr('x2', datum => datum.xPixel)
                         .attr('y1', _ => yUpper(y))
                         .attr('y2', _ => yLower(y))
                         .attr('stroke', strokeColor)
@@ -419,13 +419,13 @@ export function RasterPlot(props: Props): null {
                                 mouseLeaveHandlerFor(`tooltip-${chartId}`)
                             )
                         )
-                        .each(datum => datum.x = xAxis.scale(datum.x))
+                        .each(datum => datum.xPixel = xAxis.scale(datum.x))
 
                     // update
                     seriesContainer
-                        .each(datum => datum.x = xAxis.scale(datum.x))
-                        .attr('x1', datum => datum.x)
-                        .attr('x2', datum => datum.x)
+                        .each(datum => datum.xPixel = xAxis.scale(datum.x))
+                        .attr('x1', datum => datum.xPixel)
+                        .attr('x2', datum => datum.xPixel)
                         .attr('y1', _ => yUpper(y))
                         .attr('y2', _ => yLower(y))
                         .attr('stroke', strokeColor)
