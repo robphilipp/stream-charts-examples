@@ -1,10 +1,10 @@
 import {outlierBoundsFor, outlierDatumFor, OutlierSeries, outlierSeriesFor} from "./outlierSeries";
-import {Datum} from "./timeSeries";
+import {datumOf} from "./timeSeries";
 
 describe('when creating outlier datum', () => {
     it('should be able to create an outlier datum with bounds and measures as long as there is a measure for each bound', () => {
         const Measures = [50, 92] as const
-        const value: Datum = {x: 1, y: 10}
+        const value = datumOf(1, 10)
         const bounds = [
             outlierBoundsFor(21, 121),
             outlierBoundsFor(2, 52)
@@ -18,7 +18,7 @@ describe('when creating outlier datum', () => {
 
     it('should not be able to create an outlier datum when the number of measures does not equal the number of bounds', () => {
         const Measures = [50, 92] as const
-        const value: Datum = {x: 1, y: 10}
+        const value = datumOf(1, 10)
         // @ts-expect-error - bounds length must equal measures length
         outlierDatumFor<typeof Measures>(value, Measures, [
             {lower: 0, upper: 121},
@@ -36,7 +36,7 @@ describe('when creating an outlier series', () => {
             Measures,
             [
                 [
-                    1, 11, // (x, y) -> (time, value)
+                    1, 11, // (x, y)
                     [
                         outlierBoundsFor(21, 121),  // bounds for measure = 50
                         outlierBoundsFor(2, 52)     // bounds for measure = 92
@@ -66,5 +66,26 @@ describe('when creating an outlier series', () => {
 
         expect(series.data[2].bounds[0]).toEqual({lower: 23, upper: 123})
         expect(series.data[2].bounds[1]).toEqual({lower: 4, upper: 54})
+    })
+
+    it('should not be able to create an outlier series when the bounds for a datum does not have the correct length', () => {
+        const Measures = [50, 92] as const
+        outlierSeriesFor<typeof Measures>(
+            'series1',
+            Measures,
+            [
+                [
+                    1, 11, // (x, y)
+                    // @ts-expect-error - bounds for datum should have the same length as measures
+                    [
+                        outlierBoundsFor(21, 121),  // bounds for measure = 50
+                        outlierBoundsFor(2, 52),    // bounds for measure = 92
+                        outlierBoundsFor(2, 52)     // oops, this is a compile-time error
+                    ]
+                ],
+                [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53)]],
+                [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54)]]
+            ]
+        )
     })
 })
