@@ -129,7 +129,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
 
     // the mouse over series name interferes with scrolling, so we keep track of the
     // scrolling state so the series-name mouse-over can be disabled during scrolling
-    const wheelTimeoutRef = useRef<NodeJS.Timeout>(undefined)
+    const wheelTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const isWheelingRef = useRef(false)
 
     const scrollYRef = useRef<number>(0)
