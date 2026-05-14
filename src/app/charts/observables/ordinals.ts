@@ -14,7 +14,7 @@ import {type ChartData, copyChartData, defaultChartData} from "./ChartData";
 export interface OrdinalChartData extends ChartData {
     /**
      * Statistics for the chart. Holds the overall minimum and maximum (across all
-     * the series), and statistics for each individual series.
+     * the series), and statistics for each series.
      */
     stats: OrdinalStats
 
