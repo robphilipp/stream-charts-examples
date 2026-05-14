@@ -1,13 +1,13 @@
-import {Dimensions, Margin} from "../styling/margins";
-import {categoryTooltipY, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX} from "./tooltipUtils";
+import type {Dimensions, Margin} from "../styling/margins";
+import {categoryTooltipY, defaultTooltipStyle, type TooltipDimensions, type TooltipStyle, tooltipX} from "./tooltipUtils";
 import * as d3 from "d3";
 import {formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
-import {NoTooltipMetadata, useChart} from "../hooks/useChart";
-import {OrdinalStringAxis, SeriesLineStyle} from "../axes/axes";
+import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
+import type {OrdinalStringAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {Datum} from "../series/timeSeries";
-import {TooltipData} from "../hooks/useTooltip";
+import type {Datum} from "../series/timeSeries";
+import type {TooltipData} from "../hooks/useTooltip";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 /**
@@ -197,7 +197,7 @@ export function RasterPlotTooltipContent(props: Props): null {
 /**
  * Callback function that adds tooltip content and returns the tooltip width and text height
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param time The time (x-coordinate value) corresponding to the mouse location
+ * @param _time The time (x-coordinate value) corresponding to the mouse location
  * @param selected The selected datum (time, value)
  * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
  * @param chartId The ID of this chart
@@ -211,7 +211,7 @@ export function RasterPlotTooltipContent(props: Props): null {
  */
 function addTooltipContent(
     seriesName: string,
-    time: number,
+    _time: number,
     selected: Datum,
     mouseCoords: [x: number, y: number],
     chartId: number,
@@ -227,6 +227,7 @@ function addTooltipContent(
     const {x: spikeTime, y} = selected
 
     // display the neuron ID in the tooltip
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const header = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
         .attr('id', `tn${spikeTime}-${seriesName}-${chartId}`)
@@ -238,6 +239,7 @@ function addTooltipContent(
         .text(() => seriesName)
 
     // display the time (ms) and spike strength (mV) in the tooltip
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const text = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
         .attr('id', `t${spikeTime}-${seriesName}-${chartId}`)

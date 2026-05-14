@@ -1,21 +1,20 @@
 import {
     addOrdinalStringAxis,
-    AxesFont,
+    type AxesFont,
     AxisLocation,
-    AxisTickStyle, ContinuousNumericAxis,
-    defaultAxesFont,
+    type AxisTickStyle, defaultAxesFont,
     defaultAxisTickStyle,
     labelIdFor,
-    OrdinalStringAxis
+    type OrdinalStringAxis
 } from "./axes"
 import * as d3 from "d3";
-import {ScaleBand} from "d3";
+import type {ScaleBand} from "d3";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
-import {Dimensions} from "../styling/margins";
+import type {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {OrdinalAxisRange} from "./OrdinalAxisRange";
-import {Datum} from "../series/timeSeries";
+import type {Datum} from "../series/timeSeries";
 import {AxisInterval} from "./AxisInterval";
 
 export interface Props {
@@ -66,6 +65,7 @@ export function OrdinalAxis(props: Props): null {
         container,
         axes,
         color,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = useChart<Datum, any, any, OrdinalAxisRange, OrdinalStringAxis>()
 
     const {
@@ -104,6 +104,7 @@ export function OrdinalAxis(props: Props): null {
     useEffect(
         () => {
             if (container) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const svg = d3.select<SVGSVGElement, any>(container)
                 const font: AxesFont = {...defaultAxesFont(), color, ...props.font}
                 const axisTickStyle = {...defaultAxisTickStyle(), ...props.axisTickStyle}

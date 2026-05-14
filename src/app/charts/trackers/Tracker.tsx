@@ -1,17 +1,18 @@
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
-import {TrackerSelection} from "../d3types";
+import type {SvgSelection, TrackerSelection} from "../d3types";
 import {
     defaultTrackerLabelFont,
     defaultTrackerStyle,
     removeTrackerControl,
     trackerControlInstance,
-    TrackerLabelFont,
-    TrackerStyle
+    type TrackerLabelFont,
+    TrackerLabelLocation,
+    type TrackerStyle
 } from "./trackerUtils";
 import * as d3 from "d3";
 import {useEffect, useMemo, useRef} from "react";
-import {AxisLocation, BaseAxis, ContinuousNumericAxis} from "../axes/axes";
+import {AxisLocation, type BaseAxis, type ContinuousNumericAxis} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 
 export interface TrackerAxisInfo {
@@ -21,11 +22,6 @@ export interface TrackerAxisInfo {
 
 // map(axis_id -> tracker_axis_info)
 export type TrackerAxisUpdate = Map<string, TrackerAxisInfo>
-
-export enum TrackerLabelLocation {
-    Nowhere,
-    ByAxis,
-}
 
 export interface Props {
     visible: boolean
@@ -86,7 +82,8 @@ export function Tracker(props: Props): null {
     useEffect(
         () => {
             if (container) {
-                const svg = d3.select<SVGSVGElement, any>(container)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const svg: SvgSelection = d3.select<SVGSVGElement, any>(container)
                 if (visible && container) {
                     const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
                         Array.from(axisRef.current.values()).map(axis => {

@@ -1,4 +1,4 @@
-import {plotDimensionsFrom, Margin, containerDimensionsFrom} from "./margins";
+import {plotDimensionsFrom, type Margin, containerDimensionsFrom} from "./margins";
 
 describe('adjusted dimension should correct for margins', () => {
     const margins: Margin = {top: 11, bottom: 12, left: 13, right: 14};

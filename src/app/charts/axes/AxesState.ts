@@ -1,4 +1,4 @@
-import {BaseAxis} from "./axes";
+import type {BaseAxis} from "./axes";
 import {Optional} from "result-fn";
 
 /**

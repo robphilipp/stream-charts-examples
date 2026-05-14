@@ -1,4 +1,4 @@
-import {CSSProperties, JSX, MouseEvent, useState} from "react";
+import {type CSSProperties, type JSX, type MouseEvent, useState} from "react";
 import {interpolateColor} from "./utils";
 
 interface Props {

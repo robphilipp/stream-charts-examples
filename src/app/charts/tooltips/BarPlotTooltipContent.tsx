@@ -1,20 +1,20 @@
-import {Dimensions, Margin} from "../styling/margins";
-import {defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
+import type {Dimensions, Margin} from "../styling/margins";
+import {defaultTooltipStyle, type TooltipDimensions, type TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import * as d3 from "d3";
 import {formatNumber, formatTime, formatValue} from "../utils";
 import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
-import {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
+import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {emptyOrdinalDatum, OrdinalDatum} from "../series/ordinalSeries";
-import {TooltipData} from "../hooks/useTooltip";
-import {WindowedOrdinalStats} from "../subscriptions/subscriptions";
+import {emptyOrdinalDatum, type OrdinalDatum} from "../series/ordinalSeries";
+import type {TooltipData} from "../hooks/useTooltip";
+import type {WindowedOrdinalStats} from "../subscriptions/subscriptions";
 import {DataFrame} from "data-frame-ts";
-import {createTable, Padding, TableData, TableFont, TableFormatter, TableStyler} from "svg-table";
+import {createTable, type Padding, TableData, type TableFont, TableFormatter, TableStyler} from "svg-table";
 import {defaultOrdinalValueStats} from "../observables/ordinals";
-import {Dimension} from "svg-table/stylings";
-import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/BarPlot";
+import type {Dimension} from "svg-table/stylings";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
+import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/constants.ts";
 
 /**
  # Want to write your own tooltip-content component?
@@ -136,14 +136,14 @@ export function BarPlotTooltipContent(props: Props): null {
                     /**
                      *
                      * @param seriesName The name of the series
-                     * @param time The mouse time
+                     * @param _time The mouse time
                      * @param tooltipData The series data and metadata
                      * @param mouseCoords The coordinates of the mouse
                      * @param providerId The ID of the tooltip content provider
                      * @return The tooltip contents
                      */
                     (seriesName: string,
-                     time: number,
+                     _time: number,
                      tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
                      mouseCoords: [x: number, y: number],
                      providerId?: string
@@ -277,6 +277,7 @@ function addTooltipContent(
     const displayOrdinalUnits = ordinalUnits.length > 0 ? ` ${ordinalUnits}` : ""
 
     // display the neuron ID in the tooltip
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const header = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
         .attr('id', `tn${currentDatum.time}-${seriesName}-${chartId}`)
@@ -289,6 +290,7 @@ function addTooltipContent(
 
 
     // display the series name and the current value
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const text = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
         .attr('id', `t${currentDatum.time}-${seriesName}-${chartId}`)

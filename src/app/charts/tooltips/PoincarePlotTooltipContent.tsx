@@ -1,30 +1,30 @@
 import {
-    CellStyle,
+    type CellStyle,
     createTable,
     type Margin,
-    TableFont,
+    type TableFont,
     TableData,
     TableFormatter,
-    TableStyler, Padding
+    TableStyler, type Padding
 } from "svg-table";
 import {
     defaultTooltipStyle,
     findPointAndNeighbors,
-    TooltipDimensions,
-    TooltipStyle,
+    type TooltipDimensions,
+    type TooltipStyle,
     tooltipX,
     tooltipY
 } from "./tooltipUtils";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "../utils";
 import {useEffect, useMemo} from "react";
-import {NoTooltipMetadata, useChart} from "../hooks/useChart";
+import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {emptyIterateDatum, IterateDatum} from "../series/iterateSeries";
-import {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
-import {TooltipData} from "../hooks/useTooltip";
+import {emptyIterateDatum, type IterateDatum} from "../series/iterateSeries";
+import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
+import type {TooltipData} from "../hooks/useTooltip";
 import {DataFrame} from "data-frame-ts";
-import {Dimensions} from "../styling/margins";
-import {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
+import type {Dimensions} from "../styling/margins";
+import type {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 /**

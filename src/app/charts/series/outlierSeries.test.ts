@@ -1,4 +1,4 @@
-import {outlierBoundsFor, outlierDatumFor, OutlierSeries, outlierSeriesFor} from "./outlierSeries";
+import {outlierBoundsFor, outlierDatumFor, type OutlierSeries, outlierSeriesFor} from "./outlierSeries";
 import {datumOf} from "./timeSeries";
 
 describe('when creating outlier datum', () => {

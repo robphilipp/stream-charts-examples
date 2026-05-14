@@ -1,4 +1,4 @@
-import React, {CSSProperties, JSX, useRef, useState} from 'react';
+import {type CSSProperties, type JSX, useRef, useState} from 'react';
 import * as d3 from "d3";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -15,29 +15,31 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, Theme} from "../ui/Themes";
+import {lightTheme, type Theme} from "../ui/Themes";
 
-import {Datum, TimeSeries} from "../charts/series/timeSeries";
+import type {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
-import {defaultMargin} from '../charts/hooks/usePlotDimensions';
-import {AxisLocation} from '../charts/axes/axes';
+import {AxisLocation, type OrdinalStringAxis} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
+import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {formatTime} from '../charts/utils';
 import {Button} from "../ui/Button";
-import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
+import {type BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {BarPlot} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
-import {OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
-import {OrdinalDatum} from "../charts/series/ordinalSeries";
-import {BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
-import {WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
+import {type OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
+import {type OrdinalDatum} from "../charts/series/ordinalSeries";
+import {type BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
+import {type WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
 import {AxisInterval} from "../charts/axes/AxisInterval";
 import {assignAxes} from "../charts/plots/plot";
 import {buttonStyle} from "../ui/utils";
+import type {OrdinalAxisRange} from "../charts/axes/OrdinalAxisRange.ts";
+import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
+import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -83,6 +85,8 @@ interface Props {
 }
 
 const UPDATE_PERIOD = 75
+// calculates a unique chart ID when the module is loaded
+const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 
 /**
  * An example wrapper to a bar chart that accepts a rxjs observable. The {@link Chart} manages
@@ -98,13 +102,13 @@ const UPDATE_PERIOD = 75
 export function StreamingBarChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        initialData,
+        initialData: originalInitialData = [],
     } = props
 
-    const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
+    // const chartId = useRef<number>(CHART_ID)
 
-    const initialDataRef = useRef<Array<BaseSeries<OrdinalDatum>>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const observableRef = useRef<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialDataRef.current, UPDATE_PERIOD)));
+    const [initialData, setInitialData] = useState<Array<BaseSeries<OrdinalDatum>>>(initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
+    const [observable, setObservable] = useState<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialData, UPDATE_PERIOD)));
     const [running, setRunning] = useState<boolean>(false)
 
     // holds the state of the series filter input field
@@ -122,7 +126,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timeout>(undefined)
+    const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
@@ -214,7 +218,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         }}
                         onClick={() => {
                             if (!running) {
-                                observableRef.current = ordinalsObservable(barDanceDataObservable(initialDataRef.current, UPDATE_PERIOD))
+                                setObservable(ordinalsObservable(barDanceDataObservable(initialData, UPDATE_PERIOD)))
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
                                 intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -230,7 +234,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     <Button
                         style={buttonStyle(theme)}
                         onClick={() => {
-                            initialDataRef.current = initialDataFrom(initialData)
+                            setInitialData(initialDataFrom(originalInitialData))
                             setElapsed(0)
                         }}
                         disabled={running}
@@ -316,8 +320,9 @@ export function StreamingBarChart(props: Props): JSX.Element {
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
-                <Chart<OrdinalChartData, OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats>
-                    chartId={chartId.current}
+                <Chart<OrdinalChartData, OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats, OrdinalAxisRange, OrdinalStringAxis>
+                    chartId={CHART_ID}
+                    // chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
                     margin={{...defaultMargin, top: 60, bottom: 80, right: 75, left: 70}}
@@ -351,8 +356,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             lineWidth: 2,
                         } as BarSeriesStyle],
                     ])}
-                    initialData={initialDataRef.current}
-                    seriesObservable={observableRef.current}
+                    initialData={initialData}
+                    seriesObservable={observable}
                     seriesFilter={filter}
                     shouldSubscribe={running}
                     onUpdateChartTime={handleChartTimeUpdate}
@@ -362,14 +367,14 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     <OrdinalAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        categories={initialDataRef.current.map(series => series.name)}
+                        categories={initialData.map(series => series.name)}
                         label="neuron"
                         axisTickStyle={{rotation: 90}}
                     />
                     <OrdinalAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        categories={initialDataRef.current.map(series => series.name)}
+                        categories={initialData.map(series => series.name)}
                         label="neuron"
                         axisTickStyle={{rotation: 40}}
                     />

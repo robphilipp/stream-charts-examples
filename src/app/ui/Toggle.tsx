@@ -1,9 +1,8 @@
-import {useState, JSX} from "react";
+import {useState, type JSX} from "react";
 import {noop} from "stream-charts";
+import {ToggleStatus} from "./toggle_utils";
 
-export enum ToggleStatus {
-    ON, OFF
-}
+export {ToggleStatus} from "./toggle_utils";
 
 interface Props {
     leftLabel?: string

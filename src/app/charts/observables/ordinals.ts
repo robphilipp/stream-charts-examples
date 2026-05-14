@@ -5,11 +5,11 @@
  * 2. Accepts that chart-data observable and converts that observable to an ordinal-chart-data observable
  */
 import {Observable} from "rxjs";
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {map, scan} from "rxjs/operators";
-import {Datum} from "../series/timeSeries";
-import {copyOrdinalDatum, nonEmptyOrdinalDatum, OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
-import {ChartData, copyChartData, defaultChartData} from "./ChartData";
+import type {Datum} from "../series/timeSeries";
+import {copyOrdinalDatum, nonEmptyOrdinalDatum, type OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
+import {type ChartData, copyChartData, defaultChartData} from "./ChartData";
 
 export interface OrdinalChartData extends ChartData {
     /**

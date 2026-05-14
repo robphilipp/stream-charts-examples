@@ -4,7 +4,13 @@
  * for example, the tick values).
  */
 export class AxisInterval {
-    private constructor(readonly start: number, readonly end: number) {}
+    readonly start: number
+    readonly end: number
+
+    private constructor(start: number, end: number) {
+        this.start = start
+        this.end = end
+    }
 
     /**
      * Creates an axis interval from the specified start and end values

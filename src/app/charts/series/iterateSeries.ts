@@ -1,4 +1,4 @@
-import {BaseSeries, seriesFrom} from "./baseSeries";
+import {type BaseSeries, seriesFrom} from "./baseSeries";
 
 /**
  * An immutable datum object that holds the iterate `(f[n](x), f[n+1](x))` with an

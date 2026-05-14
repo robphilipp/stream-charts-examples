@@ -1,29 +1,29 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
-import {NoTooltipMetadata, useChart} from "../hooks/useChart";
+import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
-import {CurveFactory, ZoomTransform} from "d3";
+import {ZoomTransform} from "d3";
 import {setClipPathG} from "./plot";
-import {Datum} from "../series/timeSeries";
+import {type Datum} from "../series/timeSeries";
 import {
     axesZoomHandler,
-    BaseAxis,
-    ContinuousNumericAxis,
+    type BaseAxis,
+    type ContinuousNumericAxis,
     defaultLineStyle,
     panHandler2D,
-    SeriesLineStyle
+    type SeriesLineStyle
 } from "../axes/axes";
-import {GSelection} from "../d3types";
+import {type GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
 import {formatTime, noop, textDimensions} from "../utils";
-import {Dimensions, Margin} from "../styling/margins";
+import type {Dimensions, Margin} from "../styling/margins";
 import {subscriptionIteratesFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
-import {IterateChartData} from "../observables/iterates";
-import {IterateDatum, IterateSeries} from "../series/iterateSeries";
+import type {IterateChartData} from "../observables/iterates";
+import type {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {TooltipData, useTooltip} from "../hooks/useTooltip";
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {type TooltipData, useTooltip} from "../hooks/useTooltip";
+import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
@@ -37,10 +37,6 @@ function generateAxisRangeMap(axes: Map<string, BaseAxis>): Map<string, Continuo
         })
     )
 }
-
-// A sentinel that represents that no curve factory is to be used, which means
-// that no line will be drawn between the iterates (kinda gross)
-export const NoCurveFactory: CurveFactory = undefined as unknown as CurveFactory;
 
 export interface Props {
     /**
@@ -199,12 +195,14 @@ export function PoincarePlot(props: Props): null {
     const subscriptionRef = useRef<Subscription>(undefined)
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
+
+    // eslint-disable-next-line react-hooks/refs
     const allowTooltip = useRef<boolean>(isSubscriptionClosed())
 
     // so that we can reset the zoom when the axes-bounds change, we hold on to the zoom-behaviour
     // and the zoom-selection so that we can reset the transform to the identity
     const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, Datum>>(undefined)
-    const zoomSelectionRef = useRef<d3.Selection<SVGSVGElement, any, null, undefined>>(undefined)
+    const zoomSelectionRef = useRef<d3.Selection<SVGSVGElement, Datum, null, undefined>>(undefined)
 
     // calculates the distinct axis IDs that cover all the series in the plot
     const xAxesForSeries = useMemo(
@@ -352,7 +350,7 @@ export function PoincarePlot(props: Props): null {
                 onUpdateChartTime(currentTimeRef.current)
 
                 // select the svg element bind the data to them
-                const svg = d3.select<SVGSVGElement, any>(container)
+                const svg = d3.select<SVGSVGElement, Datum>(container)
 
                 // create a map associating series-names to their time-series.
                 //
@@ -604,6 +602,7 @@ export function PoincarePlot(props: Props): null {
     const updatePlotRef = useRef(updatePlot)
     useEffect(
         () => {
+            // eslint-disable-next-line react-hooks/immutability
             updatePlotRef.current = updatePlot
         },
         [updatePlot]
@@ -758,7 +757,7 @@ function handleMouseEnterPoint(
         const iterateN = xAxisLinear.scale(plotData[index].n) + margin.left
         const iterateN_1 = yAxisLinear.scale(plotData[index].n_1) + margin.top
 
-        const svg = d3.select<SVGSVGElement, any>(container)
+        const svg = d3.select<SVGSVGElement, Datum>(container)
 
         // add a rectangle that serves as the background for the text (to make the
         // text readable when the chart is busy)

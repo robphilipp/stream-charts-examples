@@ -1,37 +1,37 @@
 import React, {useCallback, useEffect, useMemo, useRef} from 'react'
-import {NoTooltipMetadata, useChart} from "../hooks/useChart";
+import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
-import {ZoomTransform} from "d3";
-import {AxesAssignment, Series, setClipPathG} from "./plot";
-import {Datum, TimeSeries} from "../series/timeSeries";
+import {type D3ZoomEvent, ZoomTransform} from "d3";
+import {type AxesAssignment, type Series, setClipPathG} from "./plot";
+import type {Datum, TimeSeries} from "../series/timeSeries";
 import {
     axesForSeriesGen,
-    BaseAxis,
+    type BaseAxis,
     continuousAxisIntervals,
     continuousAxisRanges,
     continuousAxisZoomHandler,
-    ContinuousNumericAxis,
+    type ContinuousNumericAxis,
     defaultLineStyle,
     panHandler,
-    SeriesLineStyle
+    type SeriesLineStyle
 } from "../axes/axes";
-import {GSelection} from "../d3types";
+import type {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
 import {noop} from "../utils";
-import {Dimensions, Margin} from "../styling/margins";
+import type {Dimensions, Margin} from "../styling/margins";
 import {
     subscriptionTimeSeriesFor,
     subscriptionTimeSeriesWithCadenceFor,
     TimeWindowBehavior
 } from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
-import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {useInitialData} from "../hooks/useInitialData";
-import {TooltipData} from "../hooks/useTooltip";
+import type {TooltipData} from "../hooks/useTooltip";
 import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
+import {usePlotDimensions} from "../hooks/usePlotDimensions";
 
 export interface Props {
     /**
@@ -162,7 +162,7 @@ export function ScatterPlot(props: Props): null {
     // are the ones that are updated as new data is streamed in.
     //
     // the "dataRef" object holds on to a copy of the initial data (which is an array of
-    // time-series, e.i. an array of BaseSeries<OrdinalDatum> objects). The slice just creates a copy of
+    // time-series, e.i. an array of BaseSeries<Datum> objects). The slice just creates a copy of
     // the array, but the references to the BaseSeries objects are the same and still point to the same
     // data as the "initialData" array.
     //
@@ -179,6 +179,7 @@ export function ScatterPlot(props: Props): null {
     const subscriptionRef = useRef<Subscription>(undefined)
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
+    // eslint-disable-next-line react-hooks/refs
     const allowTooltip = useRef<boolean>(isSubscriptionClosed())
 
     useEffect(
@@ -290,17 +291,17 @@ export function ScatterPlot(props: Props): null {
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
-                const svg = d3.select<SVGSVGElement, any>(container)
+                const svg = d3.select<SVGSVGElement, Datum>(container)
 
-                // create a map associating series-names to their time-series.
+                // create a map associating series-names with their time-series.
                 //
-                // performance-related confusion: wondering where the dataRef is updated? well it isn't
-                // directly. The dataRef holds on to an array of references to the Series. And so does the
-                // seriesRef, though is uses a map(series_name -> series). The seriesRef is use to append
+                // performance-related confusion: wondering where the dataRef is updated? well, it isn't
+                // updated directly. The dataRef holds on to an array of references to the Series. And so does the
+                // seriesRef, though it uses a map(series_name -> series). The seriesRef is use to append
                 // data to the underlying Series, and the dataRef is used so that we can just use
                 // dataRef.current and don't have to do Array.from(seriesRef.current.values()) which
                 // creates a temporary array
-                const boundedSeries = new Map(dataRef.current.map(series => [
+                const boundedSeries = new Map<string, Array<Datum>>(dataRef.current.map(series => [
                     series.name,
                     series.data
                 ]))
@@ -340,7 +341,7 @@ export function ScatterPlot(props: Props): null {
                         .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
                         .scaleExtent([0, 10])
                         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", event => {
+                        .on("zoom", (event: D3ZoomEvent<SVGSVGElement, Datum>) => {
                                 onZoom(
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
@@ -443,6 +444,7 @@ export function ScatterPlot(props: Props): null {
     const updatePlotRef = useRef<(ordinalRange: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
     useEffect(
         () => {
+            // eslint-disable-next-line react-hooks/immutability
             updatePlotRef.current = updatePlot
         },
         [updatePlot]
@@ -450,6 +452,7 @@ export function ScatterPlot(props: Props): null {
     const onUpdateTimeRef = useRef(updateAxisRanges)
     useEffect(
         () => {
+            // eslint-disable-next-line react-hooks/immutability
             onUpdateTimeRef.current = updateAxisRanges
         },
         [updateAxisRanges]
@@ -523,7 +526,7 @@ export function ScatterPlot(props: Props): null {
                             const [start, end] = Optional.ofNullable(intervals.get(id))
                                 .map(interval => interval.asTuple())
                                 .getOrThrow(() => new Error(`Unable to retrieve interval for axis; axis_id: ${id}`))
-                                // .getOrElse([NaN, NaN])
+                            // .getOrElse([NaN, NaN])
                             if (!isNaN(start) && !isNaN(end)) {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact

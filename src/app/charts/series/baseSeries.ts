@@ -1,4 +1,4 @@
-import {failureResult, Result, successResult} from "result-fn";
+import {failureResult, type Result, successResult} from "result-fn";
 
 /**
  * A spike series holding an array of spike (time, value) datum, the name and supplemental information

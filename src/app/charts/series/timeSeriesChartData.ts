@@ -1,5 +1,5 @@
-import {Datum, TimeSeries} from "./timeSeries";
-import {ChartData, defaultChartData} from "../observables/ChartData";
+import type {Datum, TimeSeries} from "./timeSeries";
+import {type ChartData, defaultChartData} from "../observables/ChartData";
 
 /**
  * The spike-chart data produced by the rxjs observable that is pushed to a streaming chart

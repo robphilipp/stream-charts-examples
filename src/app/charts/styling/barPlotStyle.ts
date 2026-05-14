@@ -1,5 +1,5 @@
-import {SeriesStyle} from "../axes/axes";
-import {SvgFillStyle, SvgStrokeStyle} from "./svgStyle";
+import type {SeriesStyle} from "../axes/axes";
+import type {SvgFillStyle, SvgStrokeStyle} from "./svgStyle";
 import * as d3 from "d3";
 
 export interface BarSeriesStyle extends SeriesStyle {
@@ -98,15 +98,15 @@ export function defaultMeanValueLineStyle(color: string = "#008aad"): LineStyle 
     }
 }
 
-export function defaultWindowedMeanValueLineStyle(color: string = "#008aad"): LineStyle {
+export function defaultWindowedMeanValueLineStyle(color: string = "#ad0000"): LineStyle {
     return {
         regular: {
-            color: 'red',
+            color: color,
             opacity: 0.6,
             width: 1
         },
         highlight: {
-            color: 'red',
+            color: color,
             opacity: 1,
             width: 3
         }

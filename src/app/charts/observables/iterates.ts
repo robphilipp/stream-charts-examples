@@ -8,11 +8,11 @@
  * 2. Accepts that chart-data observable and converts that observable to an iterate-chart-data observable
  */
 import {Observable} from "rxjs";
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {filter, map, scan} from "rxjs/operators";
-import {Datum, emptyDatum} from "../series/timeSeries";
-import {emptyIterateDatum, IterateDatum, iterateDatumOf, nonEmptyIterateDatum} from "../series/iterateSeries";
-import {ChartData, copyChartData, defaultChartData} from "./ChartData";
+import {type Datum, emptyDatum} from "../series/timeSeries";
+import {emptyIterateDatum, type IterateDatum, iterateDatumOf, nonEmptyIterateDatum} from "../series/iterateSeries";
+import {type ChartData, copyChartData, defaultChartData} from "./ChartData";
 
 
 export interface IterateChartData extends ChartData {

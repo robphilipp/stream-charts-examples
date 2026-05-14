@@ -1,6 +1,6 @@
-import {Dimensions, Margin} from "./styling/margins"
+import type {Dimensions, Margin} from "./styling/margins"
 import * as d3 from "d3";
-import {Selection} from "d3";
+import type {Selection} from "d3";
 
 /**
  * No operation function for use when a default function is needed
@@ -29,6 +29,7 @@ export function mouseInPlotAreaFor(x: number, y: number, margin: Margin, dimensi
  * @param elem The SVG text element
  * @return The width in pixels, or 0 if SVG text element has not children
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function textWidthOf(elem: Selection<SVGTextElement, any, any, any>): number {
     return elem.node()?.getBBox()?.width || 0
 }
@@ -51,6 +52,7 @@ export function emptyBoundingBox(): BoundingBox {
  * @param elem The SVG text element
  * @return The width and height of the bounding box
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function textDimensions(elem: Selection<SVGTextElement, any, any, any>): BoundingBox {
     const boundingBox = elem.node()?.getBBox()
     return {

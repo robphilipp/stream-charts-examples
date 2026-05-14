@@ -1,5 +1,5 @@
-import {initialTimeSeriesChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
-import {TimeSeries} from "../charts/series/timeSeries";
+import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {type TimeSeries} from "../charts/series/timeSeries";
 import {interval, Observable} from "rxjs";
 import {map} from "rxjs/operators";
 
@@ -28,7 +28,7 @@ function randomSpikeData(
         maxTime: sequenceTime,
         maxTimes,
         newPoints: new Map(series
-            .filter(_ => Math.random() < spikeProbability)
+            .filter(() => Math.random() < spikeProbability)
             .map(name => {
                 return [
                     name,

@@ -1,11 +1,11 @@
-import {BaseSeries, seriesFrom} from "./baseSeries";
+import {type BaseSeries, seriesFrom} from "./baseSeries";
 import {
     initialMaxTimeDatum,
     initialMaxValueDatum, initialMinTimeDatum,
     initialMinValueDatum,
-    OrdinalChartData,
-    OrdinalStats,
-    OrdinalValueStats
+    type OrdinalChartData,
+    type OrdinalStats,
+    type OrdinalValueStats
 } from "../observables/ordinals";
 
 /**

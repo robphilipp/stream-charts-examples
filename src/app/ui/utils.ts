@@ -1,5 +1,5 @@
-import {Theme} from "./Themes";
-import {CSSProperties} from "react";
+import type {Theme} from "./Themes";
+import type {CSSProperties} from "react";
 
 export function interpolateColor(
     startColor: string,

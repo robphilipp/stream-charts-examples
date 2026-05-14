@@ -1,9 +1,9 @@
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
-import {Datum, datumOf, TimeSeries} from "../series/timeSeries";
+import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {type Datum, datumOf, type TimeSeries} from "../series/timeSeries";
 import {seriesFrom} from "../series/baseSeries";
 import {Observable, range} from "rxjs";
 import {map} from "rxjs/operators";
-import {OrdinalChartData, ordinalsObservable} from "./ordinals";
+import {type OrdinalChartData, ordinalsObservable} from "./ordinals";
 
 export function sinFn(x: number, period: number): number {
     return Math.sin(2 * Math.PI * x / period)
@@ -18,7 +18,7 @@ describe('when generating ordinal series', () => {
         .map(([name, value], index) => seriesFrom(name, [datumOf(index, value)]))
 
     test('should be able to generate ordinals', done => {
-        let results: Array<OrdinalChartData> = []
+        const results: Array<OrdinalChartData> = []
         ordinalsObservable(
             sineDataObservable(initialData, NUM_POINTS, UPDATE_PERIOD)
         ).subscribe(chartData => results.push(chartData))

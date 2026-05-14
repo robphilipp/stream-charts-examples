@@ -1,6 +1,6 @@
-import {Dimensions} from "../styling/margins";
+import type {Dimensions} from "../styling/margins";
 import * as d3 from "d3";
-import {GSelection} from "../d3types";
+import type {GSelection} from "../d3types";
 
 export type Series<D> = Array<D>
 
@@ -18,6 +18,7 @@ export function createPlotContainer(
     color: string
 ): GSelection {
     const {width, height} = plotDimensions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return d3.select<SVGSVGElement, any>(container)
         .attr('width', Math.max(0, width))
         .attr('height', Math.max(0, height))

@@ -1,4 +1,4 @@
-import React, {cloneElement, CSSProperties, JSX, useState} from "react"
+import React, {cloneElement, type CSSProperties, type JSX, useState} from "react"
 import {Button} from "./Button";
 import {noop} from "stream-charts";
 import {
@@ -12,7 +12,7 @@ import {
     withPixels
 } from "react-resizable-grid-layout";
 
-export type Props = {
+type Props = {
     style?: React.CSSProperties
     activeStyle?: React.CSSProperties
     tabNames: Array<string>
@@ -50,7 +50,7 @@ export function Tabs(props: Props): JSX.Element {
     const tabContents = <span>
         {children
             .filter((_, index) => index === activeTab)
-            .map((child, _) => cloneElement(child, {
+            .map((child,) => cloneElement(child, {
                 key: `child-tab-${tabNames[activeTab]}-${activeTab}`,
                 name: tabNames[activeTab]
             }))
@@ -143,17 +143,19 @@ function TabHeader(props: HeaderProps): JSX.Element {
         display: 'flex'
     }}>
         {props.names.map((name, index) => (
-            <div style={{
-                borderBottomStyle: index === props.activeTab ? "solid" : "none",
-                borderBottom: activeTabStyle.color,
-            }}>
-            <Button
+            <div
                 key={`tab-button-booboo-${name}-${index}`}
-                style={index === props.activeTab ? {...activeTabStyle} : {...inactiveTabStyle}}
-                onClick={() => props.setActiveTab(index)}
-            >
-                {name}
-            </Button>
+                style={{
+                    borderBottomStyle: index === props.activeTab ? "solid" : "none",
+                    borderBottomColor: activeTabStyle.color,
+                }}>
+                <Button
+                    key={`tab-button-booboo-${name}-${index}`}
+                    style={index === props.activeTab ? {...activeTabStyle} : {...inactiveTabStyle}}
+                    onClick={() => props.setActiveTab(index)}
+                >
+                    {name}
+                </Button>
             </div>
         ))}
     </div>

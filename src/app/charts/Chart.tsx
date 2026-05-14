@@ -1,22 +1,24 @@
-import {JSX, useEffect, useMemo, useRef} from 'react'
-import {Dimensions, Margin, plotDimensionsFrom} from "./styling/margins";
-import {initialSvgStyle, SvgStyle} from "./styling/svgStyle";
-import {GSelection} from "./d3types";
-import ChartProvider from "./hooks/useChart";
-import PlotDimensionsProvider, {defaultMargin} from "./hooks/usePlotDimensions";
+import {type JSX, useCallback, useMemo, useRef, useState} from 'react'
+import {type Dimensions, type Margin, plotDimensionsFrom} from "./styling/margins";
+import {initialSvgStyle, type SvgStyle} from "./styling/svgStyle";
+import type {GSelection} from "./d3types";
 import * as d3 from "d3";
-import {SeriesStyle} from "./axes/axes";
+import type {SeriesStyle, BaseAxis} from "./axes/axes";
 import {createPlotContainer} from "./plots/plot";
 import {noop} from "./utils";
-import AxesProvider from "./hooks/useAxes";
-import MouseProvider from "./hooks/useMouse";
-import TooltipProvider from "./hooks/useTooltip";
 import {Observable, Subscription} from "rxjs";
-import DataObservableProvider from './hooks/useDataObservable';
-import {BaseSeries} from "./series/baseSeries";
-import InitialDataProvider from "./hooks/useInitialData";
-import {ChartData} from "./observables/ChartData";
+import type {BaseSeries} from "./series/baseSeries";
+import type {ChartData} from "./observables/ChartData";
 import {AxisInterval} from "./axes/AxisInterval";
+import type {BaseAxisRange} from "./axes/BaseAxisRange.ts";
+import {defaultMargin} from "./hooks/defaultPlotDimensions";
+import TooltipProvider from "./hooks/TooltipProvider";
+import PlotDimensionsProvider from "./hooks/PlotDimensionsProvider";
+import MouseProvider from "./hooks/MouseProvider";
+import InitialDataProvider from "./hooks/InitialDataProvider";
+import DataObservableProvider from "./hooks/DataObservableProvider";
+import ChartProvider from "./hooks/ChartProvider";
+import AxesProvider from "./hooks/AxesProvider";
 
 const defaultBackground = '#202020';
 
@@ -238,7 +240,7 @@ export interface Props<CD, D, S extends SeriesStyle> {
     />
 </Chart>
 */
-export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM>(props: Props<CD, D, S>): JSX.Element {
+export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(props: Props<CD, D, S>): JSX.Element {
     const {
         chartId,
 
@@ -246,7 +248,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM>(props:
         height,
         color = '#d2933f',
         backgroundColor = defaultBackground,
-        seriesStyles = new Map(),
+        seriesStyles = new Map<string, S>(),
         initialData,
         asChartData,
         seriesFilter = /./,
@@ -270,22 +272,26 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM>(props:
     )
 
     // hold a reference to the current width and the plot dimensions
-    const plotDimRef = useRef<Dimensions>(plotDimensionsFrom(width, height, margin))
+    const [plotDim, ] = useState<Dimensions>(() => plotDimensionsFrom(width, height, margin))
 
     // the container that holds the d3 svg element
-    const mainGRef = useRef<GSelection | null>(null)
-    const containerRef = useRef<SVGSVGElement>(null)
+    const [mainG, setMainG] = useState<GSelection | null>(null)
+    const [container, setContainer] = useState<SVGSVGElement | null>(null)
     const hoveredSeriesRef = useRef<string | null>(null)
 
-    // creates the main <g> element for the chart if it doesn't already exist, otherwise
-    // updates the svg element with the updated dimensions or style properties
-    useEffect(
-        () => {
-            if (containerRef.current) {
-                // create the main SVG element if it doesn't already exist
-                if (!mainGRef.current) {
-                    mainGRef.current = createPlotContainer(chartId, containerRef.current, plotDimRef.current, color)
-                }
+    // create the main SVG element if it doesn't already exist
+    if (!mainG && container) {
+        setMainG(createPlotContainer(chartId, container, plotDim, color))
+    }
+
+    const setMainGCallback = useCallback(
+        /**
+         * Callback for setting the main SVG container element and updating its dimensions and style.
+         * @param container - The SVG container element or null if not available.
+         */
+        (container:  SVGSVGElement | null) => {
+            if (container) {
+                setContainer(container)
 
                 // build up the svg style from the defaults and any svg style object
                 // passed in as properties
@@ -294,25 +300,25 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM>(props:
                     .join("")
 
                 // when the chart "backgroundColor" property is set (i.e. not the default value),
-                // then we need add it to the styles, overwriting any color that may have been
+                // then we need to add it to the styles, overwriting any color that may have been
                 // set in the svg style object
                 const background = backgroundColor !== defaultBackground ?
                     `background-color: ${backgroundColor}; ` :
                     ''
 
                 // update the dimension and style
-                d3.select<SVGSVGElement, any>(containerRef.current)
+                d3.select<SVGSVGElement, unknown>(container!)
                     .attr('width', width)
                     .attr('height', height)
                     .attr('style', style + background + ` color: ${color}`)
             }
         },
-        [color, backgroundColor, height, svgStyle, width, chartId]
+        [backgroundColor, color, height, svgStyle, width]
     )
 
     return (
         <>
-            <svg ref={containerRef}/>
+            <svg ref={container => setMainGCallback(container)}/>
             <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
                 <AxesProvider onUpdateAxesInterval={onUpdateAxesBounds}>
                     <MouseProvider<D, TM>>
@@ -330,10 +336,10 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM>(props:
                                     onUpdateData={onUpdateData}
                                     onUpdateChartTime={onUpdateChartTime}
                                 >
-                                    <ChartProvider
+                                    <ChartProvider<S, AR, A>
                                         chartId={chartId}
-                                        container={containerRef.current}
-                                        mainG={mainGRef.current}
+                                        container={container}
+                                        mainG={mainG}
 
                                         color={color}
                                         backgroundColor={backgroundColor}

@@ -1,10 +1,10 @@
-import {cloneElement, useEffect, useMemo, JSX} from "react";
-import {defaultTooltipStyle, removeTooltip, TooltipStyle} from "./tooltipUtils";
+import {cloneElement, type JSX, useEffect, useMemo} from "react";
+import {defaultTooltipStyle, removeTooltip, type TooltipStyle} from "./tooltipUtils";
 import * as d3 from "d3";
 import {useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {BaseAxis, SeriesStyle} from "../axes/axes";
-import {TooltipData} from "../hooks/useTooltip";
+import type {BaseAxis, SeriesStyle} from "../axes/axes";
+import type {TooltipData} from "../hooks/useTooltip";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
 
 export interface Props {
@@ -76,11 +76,11 @@ export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, 
 
     const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
 
-    // let the tooltip context know whether the tooltip is visible
-    setVisibilityState(visible)
-
     useEffect(
         () => {
+            // let the tooltip context know whether the tooltip is visible
+            setVisibilityState(visible)
+
             const handlerId = `tooltip-${chartId}`
             if (visible && container) {
                 const contentProvider = tooltipContentProvider()
@@ -99,7 +99,7 @@ export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, 
                                 providerId?: string
                             ) => {
                                 // create the rounded rectangle for the tooltip's background
-                                const rect = d3.select<SVGSVGElement | null, any>(container)
+                                const rect = d3.select<SVGSVGElement | null, unknown>(container)
                                     .append<SVGRectElement>('rect')
                                     .attr('id', `r${time}-${seriesName}-${chartId}`)
                                     .attr('class', 'tooltip')
@@ -137,10 +137,9 @@ export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, 
             }
         },
         [
-            chartId, container, margin, plotDimensions,
-            registerMouseOverHandler, tooltipContentProvider, tooltipStyle,
-            unregisterMouseOverHandler, visible, registerMouseLeaveHandler,
-            unregisterMouseLeaveHandler
+            chartId, container, margin, plotDimensions, registerMouseOverHandler,
+            tooltipContentProvider, tooltipStyle, unregisterMouseOverHandler, visible,
+            registerMouseLeaveHandler, unregisterMouseLeaveHandler, setVisibilityState
         ]
     )
 

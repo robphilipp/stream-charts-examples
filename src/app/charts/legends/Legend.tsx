@@ -1,4 +1,4 @@
-import {BaseAxis, defaultLineStyle, SeriesLineStyle, SeriesStyle} from "../axes/axes";
+import {type BaseAxis, defaultLineStyle, type SeriesLineStyle, type SeriesStyle} from "../axes/axes";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useChart} from "../hooks/useChart";
@@ -6,15 +6,8 @@ import {useInitialData} from "../hooks/useInitialData";
 import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 import * as d3 from "d3";
-
-export enum LegendLocation {
-    // noinspection JSUnusedGlobalSymbols
-    TOP_LEFT = "top-left",
-    TOP_RIGHT = "top-right",
-    BOTTOM_LEFT = "bottom-left",
-    BOTTOM_RIGHT = "bottom-right",
-    EXTERNAL_CONTAINER = "external-container"
-}
+import type {ChartData} from "../observables/ChartData.ts";
+import {defaultLegendStyle, LegendLocation} from "./constants";
 
 export interface LegendStyle {
     /** Font size for the legend labels */
@@ -49,24 +42,6 @@ export interface LegendStyle {
     maxHeight?: number
     /** Duration of the visibility transition in milliseconds */
     transitionDuration: number
-}
-
-export const defaultLegendStyle: LegendStyle = {
-    fontSize: 12,
-    fontFamily: "sans-serif",
-    fontColor: "#d2933f",
-    backgroundColor: "#202020",
-    backgroundOpacity: 0.85,
-    borderColor: "#d2933f",
-    borderWidth: 1,
-    borderOpacity: 0.7,
-    borderRadius: 4,
-    padding: 8,
-    rowGap: 6,
-    swatchWidth: 16,
-    swatchHeight: 3,
-    swatchLabelGap: 6,
-    transitionDuration: 350,
 }
 
 export interface Props {
@@ -112,7 +87,7 @@ const LEGEND_CONTAINER_ID_PREFIX = "stream-charts-legend"
  * ```
  */
 // noinspection JSUnusedGlobalSymbols
-export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(
+export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(
     props: Props
 ): React.ReactElement | null {
     const {
@@ -125,7 +100,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
 
     const {chartId, container, color, seriesStyles, seriesFilter, mouse, hoveredSeriesRef} = useChart<D, S, TM, AR, A>()
     const {margin, plotDimensions} = usePlotDimensions()
-    const {initialData} = useInitialData<any, D>()
+    const {initialData} = useInitialData<CD, D>()
 
     // the mouse over series name interferes with scrolling, so we keep track of the
     // scrolling state so the series-name mouse-over can be disabled during scrolling
@@ -147,12 +122,6 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         [style, plotDimensions.height]
     )
 
-    // Refs don't trigger re-renders when populated, so track readiness in state
-    const [externalContainerReady, setExternalContainerReady] = useState(false)
-    useEffect(() => {
-        setExternalContainerReady(!!externalContainer?.current)
-    }, [externalContainer])
-
     // Track the currently hovered series name so legend entries can be highlighted
     const [hoveredSeriesName, setHoveredSeriesName] = useState<string | null>(null)
     useEffect(() => {
@@ -166,8 +135,8 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     }, [chartId, mouse])
 
     // Keep a ref so D3 closures in the SVG legend always read current styles
-    const seriesStylesRef = useRef<Map<string, S>>(seriesStyles)
-    seriesStylesRef.current = seriesStyles
+    // const seriesStylesRef = useRef<Map<string, S>>(seriesStyles)
+    // seriesStylesRef.current = seriesStyles
 
     const highlightSeriesInPlot = useCallback<(name: string) => void>(name => {
         hoveredSeriesRef.current = name
@@ -175,12 +144,13 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         const {
             highlightColor,
             highlightWidth
-        } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
+        } = (seriesStyles.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
+        // } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
         d3.select(container)
             .selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
             .attr('stroke', highlightColor)
             .attr('stroke-width', highlightWidth)
-    }, [container, hoveredSeriesRef])
+    }, [container, hoveredSeriesRef, seriesStyles])
 
     const restoreSeriesInPlot = useCallback<(name: string) => void>(name => {
         hoveredSeriesRef.current = null
@@ -188,12 +158,13 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
         const {
             color,
             lineWidth
-        } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
+        } = (seriesStyles.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
+        // } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
         d3.select(container)
             .selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
             .attr('stroke', color)
             .attr('stroke-width', lineWidth)
-    }, [container, hoveredSeriesRef])
+    }, [container, hoveredSeriesRef, seriesStyles])
 
     // Derive the filtered list of series names
     const visibleSeriesNames = useMemo<Array<string>>(
@@ -383,7 +354,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
                     .style("fill-opacity", mouseInLegend ? 0.25 : 0)
                     .attr("fill", fontColor)
 
-                legendG.on("wheel.scrollbar", (_: WheelEvent) => {
+                legendG.on("wheel.scrollbar", () => {
                     scrollbar.attr("y", calculateScrollbarY(totalContentHeight, boxHeight, scrollYRef.current, scrollbarHeight, padding))
                 })
             }
@@ -489,7 +460,7 @@ export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A
     )
 
     // HTML portal legend — rendered outside the SVG into an external container
-    if (externalContainerReady && externalContainer?.current && visibleSeriesNames.length > 0) {
+    if (!!externalContainer?.current && externalContainer?.current && visibleSeriesNames.length > 0) {
         const {
             fontSize,
             fontFamily,

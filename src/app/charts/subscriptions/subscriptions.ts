@@ -1,13 +1,13 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {continuousAxisRanges, ContinuousNumericAxis, ordinalAxisRanges, OrdinalStringAxis} from "../axes/axes";
-import {Datum, TimeSeries} from "../series/timeSeries";
+import {continuousAxisRanges, type ContinuousNumericAxis, ordinalAxisRanges, type OrdinalStringAxis} from "../axes/axes";
+import type {Datum, TimeSeries} from "../series/timeSeries";
 import {interval, Observable, Subscription} from "rxjs";
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
-import {AxesAssignment} from "../plots/plot";
+import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import type {AxesAssignment} from "../plots/plot";
 import {AxesState} from "../axes/AxesState";
-import {BaseSeries, emptySeries} from "../series/baseSeries";
-import {IterateChartData} from "../observables/iterates";
-import {IterateDatum, IterateSeries} from "../series/iterateSeries";
+import {type BaseSeries, emptySeries} from "../series/baseSeries";
+import type {IterateChartData} from "../observables/iterates";
+import type {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {
     copyOrdinalDatumExtremum,
     copyOrdinalValueStats,
@@ -15,19 +15,29 @@ import {
     defaultOrdinalValueStats,
     initialMaxValueDatum,
     initialMinValueDatum,
-    OrdinalChartData,
-    OrdinalStats,
-    OrdinalValueStats
+    type OrdinalChartData,
+    type OrdinalStats,
+    type OrdinalValueStats
 } from "../observables/ordinals";
-import {ChartData} from "../observables/ChartData";
-import {OrdinalDatum} from "../series/ordinalSeries";
-import {RefObject} from "react";
+import type {ChartData} from "../observables/ChartData";
+import type {OrdinalDatum} from "../series/ordinalSeries";
+import type {RefObject} from "react";
 import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
-export enum TimeWindowBehavior { SCROLL, SQUEEZE }
+/**
+ * The behavior of the time window when data is added to the chart
+ * Note: replaces enums to support `erasableSyntaxOnly`
+ *  TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+ */
+export const TimeWindowBehavior = {
+    SCROLL: "SCROLL",
+    SQUEEZE: "SQUEEZE"
+} as const
+
+export type TimeWindowBehavior = (typeof TimeWindowBehavior)[keyof typeof TimeWindowBehavior];
 
 /**
  * Creates a subscription to the series observable with the data stream. This is common code
@@ -506,14 +516,14 @@ export function subscriptionOrdinalXFor(
                     const axisId = axisAssignments.get(name)?.yAxis || yAxesState.axisDefaultId().getOrElse("");
                     const currentTime = axesSeries.get(axisId)
                         ?.reduce(
-                            (tMax, _) => Math.max(data.stats.maxDatum.time.time, tMax),
+                            (tMax, ) => Math.max(data.stats.maxDatum.time.time, tMax),
                             -Infinity
                         ) || NaN
                     setCurrentTime(currentTime)
 
                     if (currentTime !== undefined) {
                         // drop data that is older than the max time-window, holding on to the dropped ones
-                        let droppedData: Array<OrdinalDatum> = []
+                        const droppedData: Array<OrdinalDatum> = []
                         while (currentTime - series.data[0].time > dropDataAfter) {
                             const dropped = series.data.shift()
                             if (dropped !== undefined) {

@@ -1,7 +1,7 @@
 import {scan} from 'rxjs/operators';
 import {Observable, range} from 'rxjs';
-import {initialTimeSeriesChartData, TimeSeriesChartData} from "../series/timeSeriesChartData";
-import {Datum, datumOf, TimeSeries} from "../series/timeSeries";
+import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {type Datum, datumOf, type TimeSeries} from "../series/timeSeries";
 import {seriesFrom} from "../series/baseSeries";
 
 /**
@@ -41,13 +41,13 @@ function accumulateTentDataAt(updatePeriod: number):
      * Calculates the next iterate, given the previous iterate, by applying the
      * specified `tentMap` function
      * @param previous The previous iterate
-     * @param iterateNum The iterate
+     * @param _iterateNum The iterate
      * @param tentMap The function to calculate the tent-map
      * @return The next iterate
      */
     return (
         previous: TimeSeriesChartData,
-        iterateNum: number,
+        _iterateNum: number,
         tentMap: (time: number, xn: number) => Datum
     ): TimeSeriesChartData => {
         // make a copy of the current max times, which we'll update with new points
@@ -58,7 +58,7 @@ function accumulateTentDataAt(updatePeriod: number):
         // deep copy of the previous data points, and calculate the next point
         const newPoints = new Map(Array.from(previous.newPoints.entries())
             .map(([name, data]) => [name, data.slice()]))
-        newPoints.forEach((data, _) => {
+        newPoints.forEach((data, ) => {
             const lastDatum = data[data.length - 1]
             const newDatum = tentMap(lastDatum.x + updatePeriod, lastDatum.y)
             data.shift()
@@ -189,7 +189,7 @@ describe('when calculating tent-map iterates', () => {
     }
 
     test('should be able to calculate the tent-map iterates', done => {
-        let results: Array<TimeSeriesChartData> = []
+        const results: Array<TimeSeriesChartData> = []
         const initialData: Array<TimeSeries> = [seriesFrom("test1", [datumOf(1, 0.66)])]
         tentMapTimeSeriesObservable(10, 1.7, initialData).subscribe(chartData => results.push(chartData))
         done()

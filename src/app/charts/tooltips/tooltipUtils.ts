@@ -1,8 +1,8 @@
-import {Series} from "../plots/plot";
+import type {Series} from "../plots/plot";
 import * as d3 from "d3";
-import {Datum} from "../series/timeSeries";
-import {Dimensions, Margin} from "../styling/margins";
-import {OrdinalStringAxis} from "../axes/axes";
+import type {Datum} from "../series/timeSeries";
+import type {Dimensions, Margin} from "../styling/margins";
+import type {OrdinalStringAxis} from "../axes/axes";
 
 /**
  * Properties for rendering the tooltip. This is the style for the container

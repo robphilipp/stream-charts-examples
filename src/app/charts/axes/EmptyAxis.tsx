@@ -1,10 +1,10 @@
-import {addEmptyXAxis, addEmptyYAxis, AxisLocation, ContinuousNumericAxis,} from "./axes";
+import {addEmptyXAxis, addEmptyYAxis, AxisLocation, type ContinuousNumericAxis,} from "./axes";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
-import {Margin} from "../styling/margins";
+import type {Margin} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {Datum} from "../series/timeSeries";
+import type {Datum} from "../series/timeSeries";
 import {AxisInterval} from "./AxisInterval";
 import {ContinuousAxisRange} from "./ContinuousAxisRange";
 
@@ -33,6 +33,7 @@ export function EmptyAxis(props: Props): null {
         chartId,
         container,
         axes,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = useChart<Datum, any, any, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
@@ -68,7 +69,7 @@ export function EmptyAxis(props: Props): null {
     useEffect(
         () => {
             if (container) {
-                const svg = d3.select<SVGSVGElement, any>(container)
+                const svg = d3.select<SVGSVGElement, Datum>(container)
 
                 if (axisRef.current === undefined) {
                     switch (location) {

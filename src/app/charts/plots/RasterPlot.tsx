@@ -1,31 +1,31 @@
-import {AxesAssignment, setClipPathG} from "./plot";
+import {type AxesAssignment, setClipPathG} from "./plot";
 import * as d3 from "d3";
-import {ZoomTransform} from "d3";
+import {type D3DragEvent, type D3ZoomEvent, ZoomTransform} from "d3";
 import {noop} from "../utils";
-import {NoTooltipMetadata, useChart} from "../hooks/useChart";
+import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
-import {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
-import {GSelection} from "../d3types";
+import type {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
+import type {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
-    BaseAxis,
+    type BaseAxis,
     continuousAxisIntervals,
     continuousAxisRanges,
     continuousAxisZoomHandler,
-    ContinuousNumericAxis,
+    type ContinuousNumericAxis,
     defaultLineStyle,
-    OrdinalStringAxis,
+    type OrdinalStringAxis,
     panHandler,
-    SeriesLineStyle
+    type SeriesLineStyle
 } from "../axes/axes";
 import {Observable, Subscription} from "rxjs";
-import {Dimensions, Margin} from "../styling/margins";
+import type {Dimensions, Margin} from "../styling/margins";
 import {subscriptionTimeSeriesFor, subscriptionTimeSeriesWithCadenceFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
-import {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {TooltipData} from "../hooks/useTooltip";
+import type {TooltipData} from "../hooks/useTooltip";
 import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
@@ -163,6 +163,7 @@ export function RasterPlot(props: Props): null {
 
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
+    // eslint-disable-next-line react-hooks/refs
     const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
 
     useEffect(
@@ -302,7 +303,7 @@ export function RasterPlot(props: Props): null {
         (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
-                const svg = d3.select<SVGSVGElement, any>(container)
+                const svg = d3.select<SVGSVGElement, Datum>(container)
 
                 // set up panning
                 if (panEnabled) {
@@ -311,7 +312,7 @@ export function RasterPlot(props: Props): null {
                             d3.select(container).style("cursor", "move")
                             allowTooltipRef.current = false
                         })
-                        .on("drag", (event: any) => {
+                        .on("drag", (event: D3DragEvent<SVGSVGElement, Datum, ContinuousNumericAxis>) => {
                             onPan(event.dx, plotDimensions, timeRanges)
                             // need to update the plot with the new time-ranges
                             updatePlotRef.current(timeRanges, mainGElem)
@@ -327,10 +328,10 @@ export function RasterPlot(props: Props): null {
                 // set up for zooming
                 if (zoomEnabled) {
                     const zoom = d3.zoom<SVGSVGElement, Datum>()
-                        .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                        .filter((event: KeyboardEvent) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
                         .scaleExtent([0, 10])
                         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", (event: any) => {
+                        .on("zoom", (event: D3ZoomEvent<SVGSVGElement, Datum>) => {
                                 onZoom(
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
@@ -389,8 +390,8 @@ export function RasterPlot(props: Props): null {
                         .append<SVGLineElement>('line')
                         .attr('x1', datum => datum.xPixel)
                         .attr('x2', datum => datum.xPixel)
-                        .attr('y1', _ => yUpper(y))
-                        .attr('y2', _ => yLower(y))
+                        .attr('y1', () => yUpper(y))
+                        .attr('y2', () => yLower(y))
                         .attr('stroke', strokeColor)
                         .attr('stroke-width', strokeWidth)
                         .attr('data-series-name', series.name)
@@ -426,8 +427,8 @@ export function RasterPlot(props: Props): null {
                         .each(datum => datum.xPixel = xAxis.scale(datum.x))
                         .attr('x1', datum => datum.xPixel)
                         .attr('x2', datum => datum.xPixel)
-                        .attr('y1', _ => yUpper(y))
-                        .attr('y2', _ => yLower(y))
+                        .attr('y1', () => yUpper(y))
+                        .attr('y2', () => yLower(y))
                         .attr('stroke', strokeColor)
                         .attr('stroke-width', strokeWidth)
 
@@ -474,6 +475,7 @@ export function RasterPlot(props: Props): null {
                         .selectAll<SVGGElement, TimeSeries>('g')
                         .attr("clip-path", `url(#${clipPathId})`)
                 }
+                // eslint-disable-next-line react-hooks/immutability
                 updatePlotRef.current = updatePlot
             }
         },
@@ -485,6 +487,7 @@ export function RasterPlot(props: Props): null {
     const onUpdateTimeRef = useRef(updateAxisRanges)
     useEffect(
         () => {
+            // eslint-disable-next-line react-hooks/immutability
             onUpdateTimeRef.current = updateAxisRanges
         },
         [updateAxisRanges]

@@ -1,4 +1,4 @@
-import {CSSProperties, default as React, JSX, useRef, useState} from "react";
+import {type CSSProperties, type JSX, useRef, useState} from "react";
 import {randomWeightDataObservable} from "./randomWeightData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -14,26 +14,28 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {TimeSeries} from "../charts/series/timeSeries";
-import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import type {TimeSeries} from "../charts/series/timeSeries";
+import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
-import {defaultMargin} from '../charts/hooks/usePlotDimensions';
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
+import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {ScatterPlotTooltipContent} from "../charts/tooltips/ScatterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
 import {ScatterPlot} from "../charts/plots/ScatterPlot";
-import {Legend, LegendLocation} from "../charts/legends/Legend";
+import {Legend} from "../charts/legends/Legend";
 import {assignAxes} from "../charts/plots/plot";
 import * as d3 from "d3";
-import {lightTheme, Theme} from "../ui/Themes";
+import {lightTheme, type Theme} from "../ui/Themes";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {Button} from "../ui/Button";
 import {buttonStyle} from "../ui/utils";
 import {AxisInterval} from "stream-charts";
+import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
+import {LegendLocation} from "../charts/legends/constants";
+import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -71,6 +73,9 @@ const randomData = (delta: number, updatePeriod: number, min: number, max: numbe
     return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
 }
 
+// calculates a unique chart ID when the module is loaded
+const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
+
 /**
  * The properties
  */
@@ -85,7 +90,7 @@ interface Props {
 export function StreamingScatterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        initialData = [],
+        initialData: originalInitialData = [],
     } = props
 
 
@@ -103,11 +108,11 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         marginRight: 20
     }
 
-    const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
+    // const chartId = useRef<number>(CHART_ID)
 
     const randomDataObservable = randomData(25, 50, 10, 1000)
-    const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
-    const observableRef = useRef<Observable<TimeSeriesChartData>>(randomDataObservable(initialDataRef.current))
+    const [initialData, setInitialData] = useState<Array<TimeSeries>>(originalInitialData.map(series => seriesFrom(series.name, series.data.slice())))
+    const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomDataObservable(initialData))
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -121,7 +126,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timeout>(undefined)
+    const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
@@ -193,7 +198,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         style={buttonStyle(theme)}
                         onClick={() => {
                             if (!running) {
-                                observableRef.current = randomDataObservable(initialDataRef.current)
+                                setObservable(randomDataObservable(initialData))
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
                                 intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -209,7 +214,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <Button
                         style={buttonStyle(theme)}
                         onClick={() => {
-                            initialDataRef.current = initialDataFrom(initialData)
+                            setInitialData(initialDataFrom(originalInitialData))
                             setElapsed(0)
                         }}
                         disabled={running}
@@ -289,7 +294,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
             </GridItem>
             <GridItem gridAreaName="chart">
                 <Chart
-                    chartId={chartId.current}
+                    chartId={CHART_ID}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
                     margin={{...defaultMargin, top: 40, bottom: 40, right: 60}}
@@ -305,9 +310,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             highlightColor: colorFor(data.name, index, initialData.length, theme.name)
                         }])
                     )}
-                    initialData={initialDataRef.current}
+                    initialData={initialData}
                     seriesFilter={filter}
-                    seriesObservable={observableRef.current}
+                    seriesObservable={observable}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={25}

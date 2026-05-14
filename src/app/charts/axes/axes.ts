@@ -1,11 +1,11 @@
-import {Dimensions, Margin} from "../styling/margins";
+import type {Dimensions, Margin} from "../styling/margins";
 import {ContinuousAxisRange} from "./ContinuousAxisRange";
 import * as d3 from "d3";
-import {Axis, ScaleBand, ScaleContinuousNumeric, ScaleLinear, ZoomTransform} from "d3";
-import {AxisElementSelection, SvgSelection} from "../d3types";
+import {type Axis, type ScaleBand, type ScaleContinuousNumeric, type ScaleLinear, ZoomTransform} from "d3";
+import type {AxisElementSelection, SvgSelection} from "../d3types";
 import {AxesState} from "./AxesState";
-import {AxesAssignment} from "../plots/plot";
-import {BaseSeries} from "../series/baseSeries";
+import type {AxesAssignment} from "../plots/plot";
+import type {BaseSeries} from "../series/baseSeries";
 import {noop} from "../utils";
 import {OrdinalAxisRange} from "./OrdinalAxisRange";
 import {BaseAxisRange} from "./BaseAxisRange";
@@ -146,16 +146,20 @@ export interface OrdinalStringAxis extends BaseAxis {
 }
 
 /**
- * Enumerates the possible locations of an axis.
+ * The possible locations of an axis.
+ * Note: replaces enums to support `erasableSyntaxOnly`
+ *  TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
  */
-export enum AxisLocation {
+export const AxisLocation = {
     // y-axes
-    Left,
-    Right,
+    Left : "Left",
+    Right: "Right",
     // x-axes
-    Bottom,
-    Top
-}
+    Bottom: "Bottom",
+    Top: "Top"
+} as const
+
+export type AxisLocation = (typeof AxisLocation)[keyof typeof AxisLocation];
 
 /*
         axis clip path definition
@@ -296,7 +300,7 @@ function addOrdinalStringXAxis(
     chartId: number,
     axisId: string,
     svg: SvgSelection,
-    location: AxisLocation.Bottom | AxisLocation.Top,
+    location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
     categories: Array<string>,
     axisLabel: string,
     axesLabelFont: AxesFont,
@@ -390,7 +394,7 @@ function addOrdinalStringYAxis(
     chartId: number,
     axisId: string,
     svg: SvgSelection,
-    location: AxisLocation.Left | AxisLocation.Right,
+    location: typeof AxisLocation.Left | typeof AxisLocation.Right,
     categories: Array<string>,
     axisLabel: string,
     axesLabelFont: AxesFont,
@@ -477,7 +481,7 @@ function updateOrdinalStringXAxis(
     chartId: number,
     axis: OrdinalStringAxis,
     svg: SvgSelection,
-    location: AxisLocation.Bottom | AxisLocation.Top,
+    location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
     names: Array<string>,   // domain (categories)
     range: AxisInterval,    // range (pixels)
     axesLabelFont: AxesFont,
@@ -531,7 +535,7 @@ function updateOrdinalStringYAxis(
     chartId: number,
     axis: OrdinalStringAxis,
     svg: SvgSelection,
-    location: AxisLocation.Left | AxisLocation.Right,
+    location: typeof AxisLocation.Left | typeof AxisLocation.Right,
     names: Array<string>, // domain
     range: AxisInterval,  // range
     axesLabelFont: AxesFont,
@@ -633,7 +637,7 @@ export function addEmptyXAxis(
     axisId: string,
     svg: SvgSelection,
     plotDimensions: Dimensions,
-    location: AxisLocation.Bottom | AxisLocation.Top,
+    location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
     margin: Margin,
     setAxisRangeFor: (axisId: string, timeRange: AxisInterval) => void,
@@ -691,7 +695,7 @@ export function addEmptyYAxis(
     axisId: string,
     svg: SvgSelection,
     plotDimensions: Dimensions,
-    location: AxisLocation.Left | AxisLocation.Right,
+    location: typeof AxisLocation.Left | typeof AxisLocation.Right,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
     margin: Margin,
     setAxisRangeFor: (axisId: string, timeRange: AxisInterval) => void,
@@ -752,7 +756,7 @@ export function addContinuousNumericXAxis(
     axisId: string,
     svg: SvgSelection,
     plotDimensions: Dimensions,
-    location: AxisLocation.Bottom | AxisLocation.Top,
+    location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
     domain: [minValue: number, maxValue: number],
     axesLabelFont: AxesFont,
@@ -815,12 +819,13 @@ function updateLinearXAxis(
     axis: ContinuousNumericAxis,
     plotDimensions: Dimensions,
     margin: Margin,
-    location: AxisLocation.Bottom | AxisLocation.Top,
+    location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
 ): void {
     axis.scale.domain(domain.asTuple()).range([0, plotDimensions.width])
 
     axis.selection
         .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
+        // .transition().duration(60)
         .call(axis.generator)
     svg
         .select(`#${labelIdFor(chartId, location)}`)
@@ -835,7 +840,7 @@ function updateLinearXAxis(
  * @param margin The plot margins for the border of main SVG group
  * @return The number of pixels to translate the x-axis label to the right
  */
-function continuousLabelYTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
+function continuousLabelYTranslation(location: typeof AxisLocation.Bottom | typeof AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ? plotDimensions.height + margin.top + margin.bottom : 0
 }
 
@@ -859,7 +864,7 @@ export function addContinuousNumericYAxis(
     axisId: string,
     svg: SvgSelection,
     plotDimensions: Dimensions,
-    location: AxisLocation.Left | AxisLocation.Right,
+    location: typeof AxisLocation.Left | typeof AxisLocation.Right,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
     domain: [minValue: number, maxValue: number],
     axesLabelFont: AxesFont,
@@ -925,11 +930,12 @@ function updateLinearYAxis(
     plotDimensions: Dimensions,
     margin: Margin,
     axesLabelFont: AxesFont,
-    location: AxisLocation.Left | AxisLocation.Right,
+    location: typeof AxisLocation.Left | typeof AxisLocation.Right,
 ): void {
     axis.scale.domain(domain.asTuple()).range([Math.max(margin.bottom, plotDimensions.height), 0])
     axis.selection
         .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
+        // .transition().duration(60)
         .call(axis.generator)
 
     svg
@@ -946,7 +952,7 @@ function updateLinearYAxis(
  * @param axesLabelFont The font for the axis label
  * @return The number of pixels to translate the y-axis label down
  */
-function continuousLabelXTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesFont): number {
+function continuousLabelXTranslation(location: typeof AxisLocation.Left | typeof AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesFont): number {
     return location === AxisLocation.Left ?
         axesLabelFont.size :
         margin.left + plotDimensions.width + margin.right - axesLabelFont.size
@@ -963,7 +969,7 @@ function continuousLabelXTranslation(location: AxisLocation.Left | AxisLocation.
  * @param margin The margins for the plot
  * @return The number of pixels to translate the x-axis
  */
-function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
+function xTranslation(location: typeof AxisLocation.Left | typeof AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Left ? margin.left : margin.left + plotDimensions.width
 }
 
@@ -974,7 +980,7 @@ function xTranslation(location: AxisLocation.Left | AxisLocation.Right, plotDime
  * @param margin The plot margins for the border of main SVG group
  * @return The number of pixels to translate the y-axis to the down
  */
-function yTranslation(location: AxisLocation.Bottom | AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
+function yTranslation(location: typeof AxisLocation.Bottom | typeof AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ?
         plotDimensions.height + margin.top :
         margin.top
@@ -1251,7 +1257,7 @@ function ordinalPanAxes(
  * to the left or right. After calling the handler function, the plot needs to be updated as well, and this is
  * left for the caller.
  *
- * Please note that the function generated by this function has side effects -- it updates the axes ranges.
+ * Please note that the function generated by this function has side effects -- it updates the axis ranges.
  *
  * @param axesForSeries The distinct axes that cover all the series
  * @param margin The plot margin
@@ -1324,7 +1330,7 @@ export function ordinalPanHandler(
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
      */
-    return (delta: number, plotDimensions: Dimensions, series: Array<string>, ranges: Map<string, OrdinalAxisRange>) => {
+    return (delta: number, plotDimensions: Dimensions, _series: Array<string>, ranges: Map<string, OrdinalAxisRange>) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         ordinalPanAxes(delta, axesForSeries, axesState, ranges, setAxisRangeFor, plotDimensions, margin, constrainToOriginalRange)
         // hey, don't forget to update the plot with the new ranges in the code calling this... :)
@@ -1373,7 +1379,7 @@ export function panHandler2D(
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
      */
-    return (deltaX, deltaY, plotDimensions, series, xRanges, yRanges) => {
+    return (deltaX, deltaY, plotDimensions, _series, xRanges, yRanges) => {
         // run through the x- and y-axes and update them by delta, within the original bounds
         panAxes(deltaX, xAxesForSeries, xAxesState, xRanges, setAxisRange, plotDimensions, margin, constrainToOriginalRange)
         panAxes(deltaY, yAxesForSeries, yAxesState, yRanges, setAxisRange, plotDimensions, margin, constrainToOriginalRange)
@@ -1678,7 +1684,7 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
  */
 export function ordinalRange(axes: Map<string, OrdinalStringAxis>, originalRange: AxisInterval): Map<string, OrdinalAxisRange> {
     return new Map(Array.from(axes.entries())
-        .map(([id, _]) =>
+        .map(([id, ]) =>
             [id, OrdinalAxisRange.from(originalRange.start, originalRange.end)]
         )
     )

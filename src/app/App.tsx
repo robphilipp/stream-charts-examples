@@ -11,7 +11,7 @@ import {
     withPixels
 } from 'react-resizable-grid-layout';
 import {Toggle, ToggleStatus} from "./ui/Toggle";
-import {darkTheme, lightTheme, Theme} from "./ui/Themes";
+import {darkTheme, lightTheme, type Theme} from "./ui/Themes";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 import {initialRandomWeightData} from "./examples/randomWeightData";
 import {initialTentMapData} from "./examples/randomIterateData";

@@ -1,7 +1,7 @@
-import {Datum, datumOf, TimeSeries} from "../charts/series/timeSeries";
+import {type Datum, datumOf, type TimeSeries} from "../charts/series/timeSeries";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {interval, Observable} from "rxjs";
-import {initialTimeSeriesChartData, TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {scan} from "rxjs/operators";
 
 export type IterateFunction = (time: number, xn: number) => Datum
@@ -74,7 +74,7 @@ function accumulateIterateData(
     })
     // deep copy of the previous data points, and calculate the next point
     const newPoints = new Map(Array.from(previous.newPoints.entries()).map(([name, data]) => [name, data.slice()]))
-    newPoints.forEach((data, _) => {
+    newPoints.forEach((data, ) => {
         const lastDatum = data[data.length - 1]
         const newDatum = iterateFunction(lastDatum.x + updatePeriod, lastDatum.y)
         data.shift()

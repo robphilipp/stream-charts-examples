@@ -1,5 +1,5 @@
-import {Datum} from "./timeSeries";
-import {BaseSeries, seriesFrom} from "./baseSeries";
+import type {Datum} from "./timeSeries";
+import {type BaseSeries, seriesFrom} from "./baseSeries";
 
 export type OutlierSeries<M extends readonly number[]> = BaseSeries<OutlierDatum<M>>
 
@@ -32,7 +32,7 @@ export interface OutlierBounds {
  * datum falls outside B2(L, U), then we could consider the datum a "possible outlier" and
  * treat it differently from an "outlier".
  *
- * Note that there constraints.
+ * Note that there are constraints.
  * 1. The cardinatilty of the measures and the bounds must be the same.
  * 2. The i-th bound is associated with the i-th measure.
  *
@@ -43,13 +43,14 @@ export interface OutlierBounds {
  * @see outlierSeriesFor
  *
  * @example
- * const Measures = [0.75, 0.95] as const   // possible-outlier = 0.75, outlier = 0.95
- * const value: Datum = datumOf(1, 10)
+ * // possible-outlier = 0.75, outlier = 0.95
+ * const Measures = [0.75, 0.95] as const;
+ * const value: Datum = datumOf(1, 10);
  * const bounds = [
  *     outlierBoundsFor(21, 121),
  *     outlierBoundsFor(2, 52)
- * ] as const
- * const datum = outlierDatumFor<typeof Measures>(value, Measures, bounds)
+ * ] as const;
+ * const datum = outlierDatumFor<typeof Measures>(value, Measures, bounds);
  */
 export interface OutlierDatum<M extends readonly number[]> {
     /**

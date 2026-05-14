@@ -1,4 +1,4 @@
-import {CSSProperties, default as React, JSX, useEffect, useRef, useState} from "react";
+import {type CSSProperties, type JSX, useEffect, useMemo, useRef, useState} from "react";
 import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomIterateData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -14,23 +14,25 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import {Datum, TimeSeries} from "../charts/series/timeSeries";
-import {BaseSeries, seriesFrom} from "../charts/series/baseSeries";
+import type {Datum, TimeSeries} from "../charts/series/timeSeries";
+import {type BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {Chart} from "../charts/Chart";
-import {defaultMargin} from '../charts/hooks/usePlotDimensions';
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
+import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {defaultTooltipStyle} from "../charts/tooltips/tooltipUtils";
 import {PoincarePlotTooltipContent} from "../charts/tooltips/PoincarePlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
-import {NoCurveFactory, PoincarePlot} from "../charts/plots/PoincarePlot";
-import {IterateChartData, iteratesObservable} from "../charts/observables/iterates";
+import {PoincarePlot} from "../charts/plots/PoincarePlot";
+import {type IterateChartData, iteratesObservable} from "../charts/observables/iterates";
 import * as d3 from "d3";
-import {lightTheme, Theme} from "../ui/Themes";
+import {lightTheme, type Theme} from "../ui/Themes";
 import {Button} from "../ui/Button";
 import {buttonStyle} from "../ui/utils";
+import {NoCurveFactory} from "../charts/plots/constants";
+import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
+import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -160,6 +162,9 @@ const initialVisibility: Visibility = {
     magnifier: false
 }
 
+// calculates a unique chart ID when the module is loaded
+const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
+
 /**
  * The properties
  */
@@ -184,7 +189,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         initialData = [],
     } = props
 
-    const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
+    const chartId = useRef<number>(CHART_ID)
 
     const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
     const [running, setRunning] = useState<boolean>(false)
@@ -210,10 +215,17 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     // holds the iterate function input component as state, updating it when the iterate function
     // input generator changes (e.g. when the user selects a new iterate function
-    const [iterFuncInput, setIterFuncInput] = useState<JSX.Element>(() => iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
-    useEffect(() => {
-        setIterFuncInput(iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
-    }, [iterateFunctionInputGen, theme]);
+    // const [iterFuncInput, setIterFuncInput] = useState<JSX.Element>(() => iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
+    // useEffect(() => {
+    //     setIterFuncInput(iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
+    // }, [iterateFunctionInputGen, theme]);
+    const iterFuncInput = useMemo(
+        () => iterateFunctionInputGen(
+            (iterFn: IterateFunction) => setIterateFunction(() => iterFn),
+            theme
+        ),
+        [iterateFunctionInputGen, theme]
+    )
 
     /**
      * Creates an iterates stream with lag N from a stream of points (time-series chart data
@@ -228,7 +240,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timeout>(undefined)
+    const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
@@ -418,7 +430,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         value={selectedDropAfterName}
                         disabled={running}
                     >
-                        {Array.from(DROP_DATA_AFTER_SECONDS.entries()).map(([name, _]) => (
+                        {Array.from(DROP_DATA_AFTER_SECONDS.entries()).map(([name, ]) => (
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
@@ -437,7 +449,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         value={selectedIterateFunction}
                         disabled={running}
                     >
-                        {Array.from(ITERATE_FUNCTIONS.entries()).map(([name, _]) => (
+                        {Array.from(ITERATE_FUNCTIONS.entries()).map(([name, ]) => (
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>

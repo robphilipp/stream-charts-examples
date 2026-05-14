@@ -1,44 +1,45 @@
-import {AxesAssignment, setClipPathG} from "./plot";
+import {type AxesAssignment, setClipPathG} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
-import {Datum, TimeSeries} from "../series/timeSeries";
-import {GSelection, SvgSelection} from "../d3types";
+import type {Datum, TimeSeries} from "../series/timeSeries";
+import type {GSelection} from "../d3types";
 import {
     axesForSeriesGen,
-    BaseAxis,
-    ContinuousNumericAxis,
+    type BaseAxis,
+    type ContinuousNumericAxis,
     ordinalAxisIntervals,
     ordinalAxisRanges,
     ordinalAxisZoomHandler,
     ordinalPanHandler,
-    OrdinalStringAxis
+    type OrdinalStringAxis
 } from "../axes/axes";
 import {Subscription} from "rxjs";
-import {Dimensions, Margin} from "../styling/margins";
-import {subscriptionOrdinalXFor, WindowedOrdinalStats} from "../subscriptions/subscriptions";
+import type {Dimensions, Margin} from "../styling/margins";
+import {subscriptionOrdinalXFor, type WindowedOrdinalStats} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {copyValueStatsForSeries, OrdinalChartData, OrdinalStats} from "../observables/ordinals";
-import {BaseSeries} from "../series/baseSeries";
-import {calculateOrdinalStats, OrdinalDatum, OrdinalSeries} from "../series/ordinalSeries";
+import {copyValueStatsForSeries, type OrdinalChartData, type OrdinalStats} from "../observables/ordinals";
+import type {BaseSeries} from "../series/baseSeries";
+import {calculateOrdinalStats, type OrdinalDatum, type OrdinalSeries} from "../series/ordinalSeries";
 import {
     applyFillStylesTo,
     applyStrokeStylesTo,
     STROKE_COLOR,
     STROKE_OPACITY,
     STROKE_WIDTH,
-    SvgFillStyle,
-    SvgStrokeStyle
+    type SvgFillStyle,
+    type SvgStrokeStyle
 } from "../styling/svgStyle";
-import {BarSeriesStyle, BarStyle, defaultBarSeriesStyle, LineStyle} from "../styling/barPlotStyle";
-import {TooltipData} from "../hooks/useTooltip";
+import {type BarSeriesStyle, type BarStyle, defaultBarSeriesStyle, type LineStyle} from "../styling/barPlotStyle";
+import type {TooltipData} from "../hooks/useTooltip";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
+import {BAR_CHART_TOOLTIP_PROVIDER_IDS, STREAM_CHARTS_BAR_CHART_ID} from "./constants.ts";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -48,8 +49,6 @@ export type BarChartElementId = {
     readonly windowedMeanValue: string
     readonly windowedMinMax: string
 }
-
-const STREAM_CHARTS_BAR_CHART_ID = 'stream-charts-bar-chart'
 
 // elements of the bar-chart
 const BAR_CHART_CLASS_IDS: BarChartElementId = {
@@ -61,17 +60,6 @@ const BAR_CHART_CLASS_IDS: BarChartElementId = {
 }
 
 const classIdFor = (id: string) => '.' + id
-
-// constants identifying the bar-chart elements for which mouse-over/mouse-leave events are defined
-const TOOLTIP_PROVIDER_ID = STREAM_CHARTS_BAR_CHART_ID + '-tooltip-provider'
-
-export const BAR_CHART_TOOLTIP_PROVIDER_IDS: BarChartElementId = {
-    currentValue: TOOLTIP_PROVIDER_ID + '-current-value',
-    meanValue: TOOLTIP_PROVIDER_ID + '-mean-value',
-    minMax: TOOLTIP_PROVIDER_ID + '-min-max',
-    windowedMeanValue: TOOLTIP_PROVIDER_ID + '-windowed-min-max',
-    windowedMinMax: TOOLTIP_PROVIDER_ID + '-windowed-mean'
-}
 
 export interface Props {
     /**
@@ -213,6 +201,7 @@ export function BarPlot(props: Props): null {
     const seriesRef = useRef<Map<string, BaseSeries<OrdinalDatum>>>(
         new Map(initialData.map(series => [series.name, series]))
     )
+    // eslint-disable-next-line react-hooks/refs
     const statsRef = useRef<WindowedOrdinalStats>(initialOrdinalStats(dataRef.current))
 
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
@@ -221,6 +210,7 @@ export function BarPlot(props: Props): null {
 
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
+    // eslint-disable-next-line react-hooks/refs
     const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
 
     useEffect(
@@ -271,7 +261,7 @@ export function BarPlot(props: Props): null {
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
         // other dependencies are recalculated anyway.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
         [initialData]
     )
 
@@ -318,7 +308,7 @@ export function BarPlot(props: Props): null {
         (ordinalRanges: Map<string, OrdinalAxisRange>, mainGElem: GSelection) => {
             if (container) {
                 // select the svg element bind the data to them
-                const svg: SvgSelection = d3.select<SVGSVGElement, any>(container)
+                const svg = d3.select<SVGSVGElement, Datum>(container)
 
                 // set up panning
                 if (panEnabled) {
@@ -327,7 +317,7 @@ export function BarPlot(props: Props): null {
                             d3.select(container).style("cursor", "move")
                             allowTooltipRef.current = false
                         })
-                        .on("drag", (event: any) => {
+                        .on("drag", event => {
                             const names = dataRef.current.map(series => series.name)
                             onPan(event.dx, plotDimensions, names, ordinalRanges)
                             // need to update the plot with the new time-ranges
@@ -344,10 +334,10 @@ export function BarPlot(props: Props): null {
                 // set up for zooming
                 if (zoomEnabled) {
                     const zoom = d3.zoom<SVGSVGElement, Datum>()
-                        .filter((event: any) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                        .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
                         .scaleExtent([1, 10])
                         .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", (event: any) => {
+                        .on("zoom", event => {
                                 onZoom(
                                     event.transform,
                                     event.sourceEvent.offsetX - margin.left,
@@ -714,6 +704,7 @@ export function BarPlot(props: Props): null {
                         .selectAll<SVGGElement, TimeSeries>('g')
                         .attr("clip-path", `url(#${clipPathId})`)
                 }
+                // eslint-disable-next-line react-hooks/immutability
                 updatePlotRef.current = updatePlot
             }
         },
@@ -844,10 +835,10 @@ function updateOpacityFor<S extends SvgFillStyle | SvgStrokeStyle>(isVisible: bo
  * @return The updated SVG selection (rect SVG element)
  */
 function barFor(
-    selection: d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, any>,
+    selection: d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, unknown>,
     dimensions: BarDimensions,
     style: BarStyle
-): d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, any> {
+): d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, unknown> {
     selection
         .attr('x', () => dimensions.upperX)
         .attr('y', () => dimensions.upperY)
@@ -873,7 +864,7 @@ type PathSegment = {
  * @return The updated SVG selection (rect SVG element)
  */
 function lineFor(
-    selection: d3.Selection<SVGLineElement, OrdinalDatum, SVGGElement, any>,
+    selection: d3.Selection<SVGLineElement, OrdinalDatum, SVGGElement, unknown>,
     pathSegment: PathSegment,
     strokeStyle: Partial<SvgStrokeStyle>
 ) {

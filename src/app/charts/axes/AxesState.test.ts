@@ -1,6 +1,6 @@
 import {AxesState} from "./AxesState";
-import {AxisLocation, BaseAxis} from "./axes";
-import {AxisElementSelection} from "../d3types";
+import {AxisLocation, type BaseAxis} from "./axes";
+import type {AxisElementSelection} from "../d3types";
 
 describe('AxesState', () => {
     describe('creating axes-state', () => {

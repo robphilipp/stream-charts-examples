@@ -1,19 +1,19 @@
 import {
     addContinuousNumericXAxis,
     addContinuousNumericYAxis,
-    AxesFont,
+    type AxesFont,
     AxisLocation,
-    ContinuousNumericAxis,
+    type ContinuousNumericAxis,
     defaultAxesFont,
-    labelIdFor
+    labelIdFor, type SeriesStyle
 } from "./axes";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
-import {ScaleContinuousNumeric} from "d3";
-import {Dimensions, Margin} from "../styling/margins";
+import type {ScaleContinuousNumeric} from "d3";
+import type {Dimensions, Margin} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {Datum} from "../series/timeSeries";
+import type {Datum} from "../series/timeSeries";
 import {AxisInterval} from "./AxisInterval";
 import {ContinuousAxisRange} from "./ContinuousAxisRange";
 
@@ -63,7 +63,7 @@ export function ContinuousAxis(props: Props): null {
         container,
         axes,
         color
-    } = useChart<Datum, any, any, ContinuousAxisRange, ContinuousNumericAxis>()
+    } = useChart<Datum, SeriesStyle, unknown, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         xAxesState,
@@ -107,7 +107,7 @@ export function ContinuousAxis(props: Props): null {
     useEffect(
         () => {
             if (container) {
-                const svg = d3.select<SVGSVGElement, any>(container)
+                const svg = d3.select<SVGSVGElement, Datum>(container)
                 const font: AxesFont = {...defaultAxesFont(), color, ...props.font}
 
                 const handleRangeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
@@ -130,7 +130,6 @@ export function ContinuousAxis(props: Props): null {
                             // add the x-axis to the chart context
                             const [start, end] = AxisInterval.as(domain).asTuple()
                             addXAxis(axisRef.current, axisId, ContinuousAxisRange.from(start, end))
-                            // addXAxis(axisRef.current, axisId, AxisInterval.as(domain))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `x-axis-${chartId}-${axisId}-${location.valueOf()}`
@@ -170,7 +169,6 @@ export function ContinuousAxis(props: Props): null {
                     ) {
                         domainRef.current = domain
                         axisRange.ifPresent(range => setAxisRangeFor(axisId, range.updateOriginal(domain.start, domain.end)))
-
                     }
 
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)

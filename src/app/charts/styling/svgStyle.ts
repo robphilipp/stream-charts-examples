@@ -1,11 +1,12 @@
 import * as d3 from "d3";
-import {BaseType} from "d3";
+import type {BaseType} from "d3";
 
 export interface SvgStyle {
     height?: string | number;
     width?: string | number;
     outline?: string;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [propName: string]: any;
 }
 
@@ -75,8 +76,10 @@ export function updateSvgStrokeOpacity(current: SvgStrokeStyle, opacity: number)
  * @template The SVG G element
  */
 export function applyStrokeStylesTo<E extends BaseType, D, G extends BaseType = SVGGElement>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     selection: d3.Selection<E, D, G, any>,
     style: Partial<SvgStrokeStyle>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ):  d3.Selection<E, D, G, any> {
     if (style.color !== undefined) selection.style(STROKE_COLOR, style.color)
     if (style.width !== undefined) selection.style(STROKE_WIDTH, style.width)
@@ -109,8 +112,10 @@ export function updateSvgFillOpacity(current: SvgFillStyle, opacity: number): Sv
  * @template The SVG G element
  */
 export function applyFillStylesTo<E extends BaseType, D, G extends BaseType = SVGGElement>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     selection: d3.Selection<E, D, G, any>,
     style: Partial<SvgFillStyle>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ):  d3.Selection<E, D, G, any> {
     if (style.color !== undefined) selection.style(FILL_COLOR, style.color)
     if (style.opacity !== undefined) selection.style(FILL_OPACITY, style.opacity)

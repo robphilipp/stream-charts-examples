@@ -1,5 +1,5 @@
-import React, {CSSProperties} from 'react';
-import {JSX} from "react";
+import type {CSSProperties} from 'react';
+import type {JSX} from "react";
 import {useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -16,28 +16,30 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, Theme} from "../ui/Themes";
+import {lightTheme, type Theme} from "../ui/Themes";
 
-import {Datum, TimeSeries} from "../charts/series/timeSeries";
-import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import type {Datum, TimeSeries} from "../charts/series/timeSeries";
+import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
-import {defaultMargin} from '../charts/hooks/usePlotDimensions';
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
 import {EmptyAxis} from "../charts/axes/EmptyAxis";
-import {Tracker, TrackerLabelLocation} from "../charts/trackers/Tracker";
+import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {RasterPlotTooltipContent} from "../charts/tooltips/RasterPlotTooltipContent";
 import {formatNumber, formatTime} from '../charts/utils';
 import {RasterPlot} from "../charts/plots/RasterPlot";
-import {Legend, LegendLocation} from "../charts/legends/Legend";
+import {Legend} from "../charts/legends/Legend";
 import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {AxisInterval} from "../charts/axes/AxisInterval";
 import * as d3 from "d3";
 import {buttonStyle} from "../ui/utils";
+import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
+import {LegendLocation} from "../charts/legends/constants";
+import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -100,6 +102,9 @@ export interface SpikesChartData {
     spikes: Array<{ index: number; spike: Datum }>
 }
 
+// calculates a unique chart ID when the module is loaded
+const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
+
 /**
  * An example wrapper to a raster chart, that accepts an rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
@@ -114,13 +119,15 @@ export interface SpikesChartData {
 export function StreamingRasterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
-        initialData,
+        initialData: originalInitialData = [],
     } = props;
 
-    const chartId = useRef<number>(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
+    // const chartId = useRef<number>(CHART_ID)
 
-    const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
+    const [initialData, setInitialData] = useState<Array<TimeSeries>>(initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
+    const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialData, 25));
+    // const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
+    // const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -133,11 +140,12 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
-    const intervalRef = useRef<NodeJS.Timeout>(undefined)
+    const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
-    const chartTimeRef = useRef<number>(0)
+    const [chartTime, setChartTime] = useState<number>(0)
+    // const chartTimeRef = useRef<number>(0)
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom(series.name, series.data.slice()))
@@ -157,7 +165,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
      * @param times A map associating the axis with its time range
      */
     function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
-        chartTimeRef.current = Math.max(...Array.from(times.values()).map(range => range.end))
+        setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
+        // chartTimeRef.current = Math.max(...Array.from(times.values()).map(range => range.end))
     }
 
     // the input style for the regex filter to select which series to display
@@ -212,7 +221,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         style={buttonStyle(theme)}
                         onClick={() => {
                             if (!running) {
-                                observableRef.current = randomSpikeDataObservable(initialDataRef.current, 50, 0.1)
+                                setObservable(randomSpikeDataObservable(initialData, 50, 0.1))
+                                // observableRef.current = randomSpikeDataObservable(initialData, 50, 0.1)
                                 startTimeRef.current = new Date().valueOf()
                                 setElapsed(0)
                                 intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -228,7 +238,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <Button
                         style={buttonStyle(theme)}
                         onClick={() => {
-                            initialDataRef.current = initialDataFrom(initialData)
+                            setInitialData(initialDataFrom(originalInitialData))
+                            // initialDataRef.current = initialDataFrom(initialData)
                             setElapsed(0)
                         }}
                         disabled={running}
@@ -286,12 +297,14 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <span style={{
                         color: theme.color,
                         marginLeft: 25
-                    }}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>
+                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
+                    {/*}}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>*/}
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
                 <Chart
-                    chartId={chartId.current}
+                    chartId={CHART_ID}
+                    // chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
                     margin={{...defaultMargin, top: 40, right: visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 20 : 35, left: 90, bottom: 50}}
@@ -347,9 +360,11 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     //     }],
                     //     // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                     // ])}
-                    initialData={initialDataRef.current}
+                    initialData={initialData}
+                    // initialData={initialDataRef.current}
                     seriesFilter={filter}
-                    seriesObservable={observableRef.current}
+                    seriesObservable={observable}
+                    // seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={25}
@@ -358,14 +373,14 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[0, 5000]}
+                        domain={[0, 10000]}
                         label="t (ms)"
                         // font={{color: theme.color}}
                     />
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[0, 5000]}
+                        domain={[0, 10000]}
                         label="t (ms)"
                         // font={{color: theme.color}}
                     />
@@ -376,7 +391,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <OrdinalAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
-                        categories={initialDataRef.current.map(series => series.name)}
+                        categories={initialData.map(series => series.name)}
+                        // categories={initialDataRef.current.map(series => series.name)}
                         label="Neuron ID"
                         // axisTickStyle={{rotation: 25}}
                     />
@@ -430,7 +446,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         //     // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         // ])}
                         spikeMargin={1}
-                        dropDataAfter={5000}
+                        dropDataAfter={15000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

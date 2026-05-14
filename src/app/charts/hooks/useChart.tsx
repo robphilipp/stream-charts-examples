@@ -1,13 +1,14 @@
-import {createContext, JSX, MutableRefObject, useContext} from "react";
-import {GSelection} from "../d3types";
-import {BaseAxis, SeriesLineStyle, SeriesStyle} from "../axes/axes";
-import {defaultAxesValues, useAxes, UseAxesValues} from "./useAxes";
-import {defaultMouseValues, useMouse, UseMouseValues} from "./useMouse";
-import {defaultTooltipValues, useTooltip, UseTooltipValues} from "./useTooltip";
-import {SvgStyle} from "../styling/svgStyle";
+import {createContext, type RefObject, useContext} from "react";
+import type {GSelection} from "../d3types";
+import type {BaseAxis, SeriesStyle} from "../axes/axes";
+import {type UseAxesValues} from "./useAxes";
+import {type UseMouseValues} from "./useMouse";
+import {type UseTooltipValues} from "./useTooltip";
+import type {SvgStyle} from "../styling/svgStyle";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
+import {defaultUseChartValues} from "./defaultUseChartValues";
 
-export type NoTooltipMetadata = {}
+export type NoTooltipMetadata = object
 
 /**
  * The values exposed through the {@link useChart} react hook
@@ -17,6 +18,8 @@ export type NoTooltipMetadata = {}
  * @template D The type of the series' datum
  * @template S The type of the series style
  * @template TM The type of the tooltip's metadata (data about the series data)
+ * @template AR The type of the axis range
+ * @template A The type of the axis
  */
 export interface UseChartValues<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis> {
     /**
@@ -67,95 +70,23 @@ export interface UseChartValues<D, S extends SeriesStyle, TM, AR extends BaseAxi
     mouse: UseMouseValues<D, TM>
     tooltip: UseTooltipValues<D, TM>
     /**
-     * Ref tracking the currently-hovered series name (null when nothing is hovered).
+     * Ref tracking the currently hovered series name (null when nothing is hovered).
      * Updated by the Legend; read by plots so new path elements use the correct stroke.
      */
-    hoveredSeriesRef: MutableRefObject<string | null>
+    hoveredSeriesRef: RefObject<string | null>
 }
 
-const defaultUseChartValues: UseChartValues<any, any, any, any, any> = {
-    chartId: NaN,
-    container: null,
-    mainG: null,
-    color: '#d2933f',
-    backgroundColor: '#EEE',
-    svgStyle: new Map(),
-    seriesStyles: new Map(),
-
-    // axes
-    axes: defaultAxesValues(),
-
-    // data
-    seriesFilter: /./,
-
-    // internal chart-interaction event handlers
-    mouse: defaultMouseValues(),
-    tooltip: defaultTooltipValues(),
-    hoveredSeriesRef: { current: null },
-}
-
-const ChartContext = createContext<UseChartValues<any, any, any, any, any>>(defaultUseChartValues)
-
-export interface Props {
-    chartId: number
-    container: SVGSVGElement | null
-    mainG: GSelection | null
-    color: string
-    backgroundColor: string
-    svgStyle: Partial<SvgStyle>
-    seriesStyles?: Map<string, SeriesLineStyle>
-    seriesFilter?: RegExp
-    hoveredSeriesRef: MutableRefObject<string | null>
-
-    children: JSX.Element | Array<JSX.Element>
-}
-
-/**
- * The React context provider for the {@link UseChartValues}
- * @param props The properties
- * @return The children wrapped in this provider
- */
-export default function ChartProvider(props: Props): JSX.Element {
-    const {
-        chartId,
-        container,
-        mainG,
-        color,
-        backgroundColor,
-        seriesFilter = defaultUseChartValues.seriesFilter,
-        svgStyle,
-        seriesStyles = new Map<string, SeriesLineStyle>(),
-        hoveredSeriesRef,
-    } = props
-
-    const axes = useAxes()
-    const mouse = useMouse()
-    const tooltip = useTooltip()
-
-    return <ChartContext.Provider
-        value={{
-            chartId,
-            color,
-            backgroundColor,
-            svgStyle,
-            seriesStyles,
-            seriesFilter,
-            mainG,
-            container,
-
-            axes,
-            mouse,
-            tooltip,
-            hoveredSeriesRef,
-        }}
-    >
-        {props.children}
-    </ChartContext.Provider>
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const ChartContext = createContext<UseChartValues<any, any, any, any, any>>(defaultUseChartValues())
 
 /**
  * React hook that sets up the React context for the chart values.
  * @return The {@link UseChartValues} held in the React context.
+ * @template D The type of the series' datum
+ * @template S The type of the series style
+ * @template TM The type of the tooltip's metadata (data about the series data)
+ * @template AR The type of the axis range
+ * @template A The type of the axis
  */
 export function useChart<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(): UseChartValues<D, S, TM, AR, A> {
     const context = useContext<UseChartValues<D, S, TM, AR, A>>(ChartContext)

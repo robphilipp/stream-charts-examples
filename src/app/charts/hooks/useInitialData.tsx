@@ -1,10 +1,12 @@
-import {createContext, JSX, useContext} from "react";
-import {BaseSeries} from "../series/baseSeries";
-import {ChartData} from "../observables/ChartData";
-
+import {createContext, useContext} from "react";
+import type {BaseSeries} from "../series/baseSeries";
+import type {ChartData} from "../observables/ChartData";
+import {defaultInitialDataValues} from "./defaultInitialDataValues";
 
 /**
  * The values exposed through the {@link useInitialData} react hook
+ * @template CD The type of the chart data
+ * @template D The type of the data object for the series
  */
 export type UseInitialDataValues<CD extends ChartData, D> = {
     /**
@@ -22,37 +24,14 @@ export type UseInitialDataValues<CD extends ChartData, D> = {
     asChartData?: (seriesList: Array<BaseSeries<D>>) => CD
 }
 
-const defaultInitialDataValues: UseInitialDataValues<any, any> = {
-    initialData: new Array<BaseSeries<any>>()
-}
-
-const InitialDataContext = createContext<UseInitialDataValues<any, any>>(defaultInitialDataValues)
-
-export interface Props<CD extends ChartData, D> {
-    initialData: Array<BaseSeries<D>>
-    asChartData?: (seriesList: Array<BaseSeries<D>>) => CD
-    children: JSX.Element | Array<JSX.Element>
-}
-
-/**
- * The React context provider for the {@link UseInitialDataValues}
- * @param props The properties
- * @return The children wrapped in this provider
- */
-export default function InitialDataProvider<CD extends ChartData, D>(props: Props<CD, D>): JSX.Element {
-    const {
-        initialData,
-        asChartData
-    } = props
-
-    return <InitialDataContext.Provider value={{initialData, asChartData}}>
-        {props.children}
-    </InitialDataContext.Provider>
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const InitialDataContext = createContext<UseInitialDataValues<any, any>>(defaultInitialDataValues())
 
 /**
  * React hook that sets up the React context for the initial data values.
  * @return The {@link UseInitialDataValues} held in the React context.
+ * @template CD The type of the chart data
+ * @template D The type of the data object for the series
  */
 export function useInitialData<CD extends ChartData, D>(): UseInitialDataValues<CD, D> {
     const context = useContext<UseInitialDataValues<CD, D>>(InitialDataContext)

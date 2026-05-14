@@ -1,4 +1,4 @@
-import {failureResult, Result, successResult} from "result-fn";
+import {failureResult, type Result, successResult} from "result-fn";
 
 /**
  * Wraps the creation of the regex in a try/catch and returns the regex, wrapped in an option,
@@ -12,6 +12,8 @@ export function regexFilter(regexString: string): Result<RegExp, string> {
         const regex = new RegExp(regexString)
         return successResult(regex)
     } catch(error) {
-        return failureResult(`Unable to compile the regex expression; regex_expression: ${regexString}`)
+        return failureResult(
+            `Unable to compile the regex expression; regex_expression: ${regexString}; error: ${error}`
+        )
     }
 }

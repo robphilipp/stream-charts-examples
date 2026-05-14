@@ -1,15 +1,15 @@
-import {Series} from "../plots/plot";
-import {Dimensions, Margin} from "../styling/margins";
-import {boundingPoints, defaultTooltipStyle, TooltipDimensions, TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
+import {type Series} from "../plots/plot";
+import type {Dimensions, Margin} from "../styling/margins";
+import {boundingPoints, defaultTooltipStyle, type TooltipDimensions, type TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
 import * as d3 from "d3";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "../utils";
-import {TextSelection} from "../d3types";
+import type {TextSelection} from "../d3types";
 import {useEffect, useMemo} from "react";
-import {NoTooltipMetadata, useChart} from "../hooks/useChart";
+import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
-import {Datum, emptyDatum} from "../series/timeSeries";
-import {TooltipData} from "../hooks/useTooltip";
+import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
+import {type Datum, emptyDatum} from "../series/timeSeries";
+import type {TooltipData} from "../hooks/useTooltip";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 /**
@@ -234,6 +234,7 @@ function addTooltipContent(
     const [lower, upper] = boundingPoints(series, time, value => value.x, () => emptyDatum())
 
     // display the neuron ID in the tooltip
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const header = d3.select<SVGSVGElement | null, any>(container)
         .append<SVGTextElement>("text")
         .attr('id', `tn${time}-${seriesName}-${chartId}`)
@@ -248,6 +249,7 @@ function addTooltipContent(
 
     // create the table that shows the points that come before and after the mouse time, and the
     // changes in the time and value
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const table = d3.select<SVGSVGElement | null, any>(container)
         .append("g")
         .attr('id', `t${time}-${seriesName}-header-${chartId}`)

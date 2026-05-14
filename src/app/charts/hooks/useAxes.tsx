@@ -1,23 +1,17 @@
 import {AxesState} from "../axes/AxesState";
-import {BaseAxis} from "../axes/axes";
-import {AxesAssignment} from "../plots/plot";
-import {createContext, JSX, useContext, useRef} from "react";
-import {Dimensions} from "../styling/margins";
-import {usePlotDimensions} from "./usePlotDimensions";
+import type {BaseAxis} from "../axes/axes";
+import type {AxesAssignment} from "../plots/plot";
+import {createContext, useContext} from "react";
+import type {Dimensions} from "../styling/margins";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
 import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
-
-/**
- * No operation function for use when a default function is needed
- */
-const noop = () => {
-    /* empty on purpose */
-}
+import {defaultAxesValues} from "./defaultAxesValues";
 
 /**
  * The values exposed by the hook
  * @template AR The type of the axis range (e.g. {@link ContinuousAxisRange} or {@link OrdinalAxisRange})
+ * @template A The axis type
  */
 export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
     /**
@@ -130,205 +124,15 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
     removeAxesRangesUpdateHandler: (handlerId: string) => void
 }
 
-export const defaultAxesValues = (): UseAxesValues<any, any> => ({
-    xAxesState: AxesState.empty(),
-    yAxesState: AxesState.empty(),
-    addXAxis: noop,
-    addYAxis: noop,
-    setAxisAssignments: noop,
-    axisAssignmentsFor: () => ({xAxis: "", yAxis: ""}),
-    updateAxisRanges: noop,
-    axesRanges: () => new Map<string, any>(),
-    axisRangeFor: () => Optional.empty(),
-    setAxesRanges: noop,
-    setAxisRangeFor: noop,
-    setAxisIntervalFor: noop,
-    setOriginalAxisIntervalFor: noop,
-    resetAxisIntervalFor: noop,
-    resetAxesRanges: noop,
-    addAxesRangesUpdateHandler: () => noop,
-    removeAxesRangesUpdateHandler: () => noop,
-})
-
 // the context for axes
-const AxesContext = createContext<UseAxesValues<any, any>>(defaultAxesValues())
-
-export type Props = {
-    /**y
-     * Callback when axes bounds change.
-     * @param ranges The ranges (start, end) for each axis in the plot
-     */
-    onUpdateAxesInterval?: (ranges: Map<string, AxisInterval>) => void
-
-    children: JSX.Element | Array<JSX.Element>
-}
-
-/**
- * The React context provider for the {@link UseAxesValues}
- * @param props The properties
- * @return The children wrapped in this provider
- */
-export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxis>(props: Props): JSX.Element {
-    const {onUpdateAxesInterval, children} = props
-
-    const plotDimensions = usePlotDimensions()
-
-    const xAxesStateRef = useRef<AxesState<A>>(AxesState.empty<A>())
-    const yAxesStateRef = useRef<AxesState<A>>(AxesState.empty<A>())
-    const axisAssignmentsRef = useRef<Map<string, AxesAssignment>>(new Map())
-    const axesBoundsUpdateHandlersRef = useRef<Map<string, (updates: Map<string, AR>, plotDim: Dimensions) => void>>(new Map())
-    const axesRangeRef = useRef<Map<string, AR>>(new Map())
-
-    /**
-     * Retrieves the x-axis and y-axis assignments for the specified series. If the axis does not have
-     * an assignment, then we assume it is using the default x- and y-axes.
-     * @param seriesName The name of the series for which to retrieve the axes assignments
-     * @return An {@link AxesAssignment} for the specified axes.
-     */
-    function axisAssignmentsFor(seriesName: string): AxesAssignment {
-        return axisAssignmentsRef.current.get(seriesName) || {
-            xAxis: xAxesStateRef.current.axisDefaultId().getOrElse(""),
-            yAxis: yAxesStateRef.current.axisDefaultId().getOrElse("")
-        }
-    }
-
-    /**
-     * Called when the domain/range is updated on one or more of the chart's axes (generally x-axes). In turn,
-     * dispatches the update to all the internal domain/range update handlers.
-     * @param updates A map holding the axis ID to the updated axis time-range (i.e., map(axis_id, axis_time_range))
-     */
-    function updateAxisRanges(updates: Map<string, AR>): void {
-        // update the current time-ranges reference
-        updates.forEach((range, id) => {
-            axesRangeRef.current.set(id, range)
-        })
-        // dispatch the updates to all the registered handlers
-        axesBoundsUpdateHandlersRef.current
-            .forEach((handler, ) => handler(updates, plotDimensions.plotDimensions))
-    }
-
-    /**
-     * Sets the axis ranges specified in the input map
-     * @param ranges The ranges to set
-     */
-    function setAxesRanges(ranges: Map<string, AR>): void {
-        ranges.forEach((range, id) => {
-            axesRangeRef.current.set(id, range)
-        })
-    }
-
-    /**
-     * Sets the axis range for the specified axis ID
-     * @param axisId The axis ID
-     * @param range The range to set
-     */
-    function setAxisRangeFor(axisId: string, range: AR): void {
-        axesRangeRef.current.set(axisId, range)
-    }
-
-    /**
-     * Sets the axis bounds for the specified axis ID. Note that this does not
-     * change the original axis interval
-     * @param axisId The axis ID
-     * @param interval The interval
-     */
-    function setAxisIntervalFor(axisId: string, interval: AxisInterval): void {
-        Optional.ofNullable(axesRangeRef.current.get(axisId))
-            .map(range => range.update(interval.start, interval.end) as AR)
-            .ifPresent(updatedRange => axesRangeRef.current.set(axisId, updatedRange))
-    }
-
-    /**
-     * Sets the original axis interval for the axis range
-     * @param axisId The axis ID
-     * @param interval The interval to which to set the origin interval
-     */
-    function setOriginalAxisIntervalFor(axisId: string, interval: AxisInterval): void {
-        Optional.ofNullable(axesRangeRef.current.get(axisId))
-            .map(range => range.updateOriginal(interval.start, interval.end) as AR)
-            .ifPresent(updatedRange => axesRangeRef.current.set(axisId, updatedRange))
-    }
-
-    /**
-     * Resets the bounds for the specified axis to the original range
-     * @param axisId The ID of the axis
-     */
-    function resetAxisIntervalFor(axisId: string): void {
-        Optional
-            .ofNullable(axesRangeRef.current.get(axisId))
-            .map(range => new Map<string, AR>([[axisId, range]]))
-            .ifPresent(updates => updateAxisRanges(updates))
-    }
-
-    /**
-     * Resets the bounds of all the axes to their original value or to the values specified
-     * in the optional bounds map.
-     * @param [axesRanges=new Map()] An optional map holds bounds for specified axes. The map
-     * associates an axis ID with the new bounds.
-     */
-    function resetAxesRanges(axesRanges: Map<string, AR> = new Map()): void {
-        updateAxisRanges(axesRanges)
-    }
-
-    /**
-     * Adds a handler to deal with updates to the bounds of the axes
-     * @param handlerId the unique ID of the handler
-     * @param handler The handler function that accepts a map of updates and a plot dimension
-     * @return A map with all the handlers
-     */
-    function addAxesRangesUpdateHandler(
-        handlerId: string,
-        handler: (updates: Map<string, AR>, plotDim: Dimensions) => void
-    ): Map<string, (updates: Map<string, AR>, plotDim: Dimensions) => void> {
-        if (axesBoundsUpdateHandlersRef.current.has(handlerId)) {
-            throw new Error(
-                `Handler with ID already exists, please remove it before adding it; ` +
-                `handler_id: ${handlerId}; ` +
-                `existing_handler_ids: [${Array.from(axesBoundsUpdateHandlersRef.current.keys()).join(", ")}]`
-            )
-        }
-      return axesBoundsUpdateHandlersRef.current.set(handlerId, handler)
-    }
-
-    return <AxesContext.Provider
-        value={{
-            xAxesState: xAxesStateRef.current,
-            yAxesState: yAxesStateRef.current,
-            addXAxis: (axis, id, range: AR) => {
-                xAxesStateRef.current = xAxesStateRef.current.addAxis(axis, id)
-                if (range !== undefined) {
-                    axesRangeRef.current.set(id, range)
-                }
-            },
-            addYAxis: (axis, id, range: AR) => {
-                yAxesStateRef.current = yAxesStateRef.current.addAxis(axis, id)
-                if (range !== undefined) {
-                    axesRangeRef.current.set(id, range)
-                }
-            },
-            setAxisAssignments: assignments => axisAssignmentsRef.current = assignments,
-            axisAssignmentsFor: seriesName => axisAssignmentsFor(seriesName),
-            updateAxisRanges,
-            axesRanges: () => new Map<string, AR>(axesRangeRef.current),
-            axisRangeFor: axisId => Optional.ofNullable(axesRangeRef.current.get(axisId)),
-            setAxesRanges,
-            setAxisRangeFor,
-            setAxisIntervalFor,
-            setOriginalAxisIntervalFor,
-            resetAxesRanges,
-            resetAxisIntervalFor,
-            onUpdateAxesInterval,
-            addAxesRangesUpdateHandler,
-            removeAxesRangesUpdateHandler: handlerId => axesBoundsUpdateHandlersRef.current.delete(handlerId),
-        }}
-    >
-        {children}
-    </AxesContext.Provider>
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const AxesContext = createContext<UseAxesValues<any, any>>(defaultAxesValues())
 
 /**
  * React hook that sets up the React context for the chart values.
  * @return The {@link UseAxesValues} held in the React context.
+ * @template AR The type of the axis range (e.g. {@link ContinuousAxisRange} or {@link OrdinalAxisRange})
+ * @template A The axis type
  */
 export function useAxes<AR extends BaseAxisRange, A extends BaseAxis>(): UseAxesValues<AR, A> {
     const context = useContext<UseAxesValues<AR, A>>(AxesContext)

@@ -1,11 +1,11 @@
-import {SvgSelection, TrackerSelection} from "../d3types";
+import type {SvgSelection, TrackerSelection} from "../d3types";
+import type {Selection} from "d3";
 import * as d3 from "d3";
-import {Selection} from "d3";
-import {Datum} from "../series/timeSeries";
-import {containerDimensionsFrom, Dimensions, Margin, plotDimensionsFrom} from "../styling/margins";
-import {BoundingBox, mouseInPlotAreaFor, textDimensions} from "../utils";
-import {AxisLocation, ContinuousNumericAxis} from "../axes/axes";
-import {TrackerAxisInfo, TrackerAxisUpdate, TrackerLabelLocation} from "./Tracker";
+import type {Datum} from "../series/timeSeries";
+import {containerDimensionsFrom, type Dimensions, type Margin, plotDimensionsFrom} from "../styling/margins";
+import {type BoundingBox, mouseInPlotAreaFor, textDimensions} from "../utils";
+import {AxisLocation, type ContinuousNumericAxis} from "../axes/axes";
+import {type TrackerAxisInfo, type TrackerAxisUpdate} from "./Tracker";
 import React from "react";
 
 export interface TrackerLabelFont {
@@ -74,6 +74,17 @@ function trackerLabelId(chartId: number, axisLocation: AxisLocation): string {
             return `${TRACKER_ID}-label-horizontal-${chartId}-${axisLocation}`
     }
 }
+
+/**
+ * The location of the tracker label
+ * Note: replaces enums to support `erasableSyntaxOnly`
+ *  TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+ */
+export const TrackerLabelLocation = {
+    Nowhere: "Nowhere",
+    ByAxis: "ByAxis",
+} as const
+export type TrackerLabelLocation = (typeof TrackerLabelLocation)[keyof typeof TrackerLabelLocation]
 
 /**
  * Creates or returns the existing SVG elements for displaying a tracker line that is either
@@ -331,7 +342,7 @@ function handleShowVerticalTracker(
 
             // when the label-style is to be with the mouse
             if (labelStyle === TrackerLabelLocation.ByAxis) {
-                const label = d3.select<SVGTextElement, any>(`#${trackerLabelId(chartId, axis.location)}`)
+                const label = d3.select<SVGTextElement, Datum>(`#${trackerLabelId(chartId, axis.location)}`)
                     .attr('fill', labelFont.color)
                     .attr('font-family', labelFont.family)
                     .attr('font-size', labelFont.size)
@@ -340,7 +351,7 @@ function handleShowVerticalTracker(
                     .text(() => trackerLabel(axis.scale.invert(x - margin.left)))
 
 
-                const labelBackground = d3.select<SVGRectElement, any>(`#${trackerLabelId(chartId, axis.location)}-background`)
+                const labelBackground = d3.select<SVGRectElement, Datum>(`#${trackerLabelId(chartId, axis.location)}-background`)
                     .attr('fill', backgroundColor)
                     .attr('opacity', () => inPlot ? 0.8 : 0)
                     .attr('rx', '5px')
@@ -413,9 +424,9 @@ function handleShowHorizontalTracker(
 
     type AxisAndLabelInfo = {
         axis: ContinuousNumericAxis
-        labelSelection:  d3.Selection<SVGTextElement, any, HTMLElement, any>
+        labelSelection:  d3.Selection<SVGTextElement, Datum, HTMLElement, Datum>
         labelBoundingBox: BoundingBox,
-        labelBackground: d3.Selection<SVGRectElement, any, HTMLElement, any>
+        labelBackground: d3.Selection<SVGRectElement, Datum, HTMLElement, Datum>
     }
     //
     // need to calculate each axis-label position separately, because at the plot edges, the axis-label
@@ -436,7 +447,7 @@ function handleShowHorizontalTracker(
                 .attr('stroke-width', trackerStyle.lineWidth)
                 .attr('opacity', () => inPlot ? 1 : 0)
 
-            const label = d3.select<SVGTextElement, any>(`#${trackerLabelId(chartId, axis.location)}`)
+            const label = d3.select<SVGTextElement, Datum>(`#${trackerLabelId(chartId, axis.location)}`)
                 .attr('fill', labelFont.color)
                 .attr('font-family', labelFont.family)
                 .attr('font-size', labelFont.size)
@@ -444,7 +455,7 @@ function handleShowHorizontalTracker(
                 .attr('opacity', () => inPlot ? 1 : 0)
                 .text(() => trackerLabel(axis.scale.invert(y - margin.top)))
 
-            const labelBackground = d3.select<SVGRectElement, any>(`#${trackerLabelId(chartId, axis.location)}-background`)
+            const labelBackground = d3.select<SVGRectElement, Datum>(`#${trackerLabelId(chartId, axis.location)}-background`)
                 .attr('fill', backgroundColor)
                 .attr('opacity', () => inPlot && labelStyle !== TrackerLabelLocation.Nowhere ? 0.8 : 0)
                 .attr('rx', '5px')
