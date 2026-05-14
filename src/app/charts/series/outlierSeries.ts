@@ -120,6 +120,7 @@ export function outlierDatumFor<M extends readonly number[]>(
  * @return A {@link Result} object with the outcome of the operation. If the operation is successful,
  * then the result is an {@link OutlierSeries} object. If the operation is not successful, then
  * the result is an array of error messages.
+ * @template M The type of the measures that is expressed as a tuple of numbers.
  */
 export function outlierSeriesFor<M extends readonly number[]>(
     name: string,

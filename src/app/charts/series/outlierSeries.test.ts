@@ -120,9 +120,9 @@ describe('when creating an outlier series', () => {
             'series1',
             measures,
             [
+                [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53), outlierBoundsFor(4, 54)]],
                 // @ts-expect-error - bounds for datum should have the same length as measures
                 [1, 11, [outlierBoundsFor(21, 121), outlierBoundsFor(2, 52)]],
-                [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53), outlierBoundsFor(4, 54)]],
                 [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54), outlierBoundsFor(5, 55)]]
             ]
         )
@@ -131,10 +131,10 @@ describe('when creating an outlier series', () => {
     it('should be able to create an outlier series without a const type or as a tuple and have runtime checking', () => {
         const measures = [50, 90, 95].map(n => n + 1)
         const result = outlierSeriesFor<typeof measures>(
-            'series1',
+            'no-series',
             measures,
             [
-                // this first bounds is missing one bound and will cause the creation of the series for fail
+                // the first bounds-array is missing one bound and will cause the creation of the series for fail
                 [1, 11, [outlierBoundsFor(21, 121), outlierBoundsFor(2, 52)]],
                 [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53), outlierBoundsFor(4, 54)]],
                 [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54), outlierBoundsFor(5, 55)]]
