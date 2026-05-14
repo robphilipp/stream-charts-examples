@@ -1,5 +1,6 @@
 import type {Datum} from "./timeSeries";
 import {type BaseSeries, seriesFrom} from "./baseSeries";
+import {failureResult, type Result, successResult} from "result-fn";
 
 export type OutlierSeries<M extends readonly number[]> = BaseSeries<OutlierDatum<M>>
 
@@ -80,29 +81,71 @@ export function outlierBoundsFor(lower: number, upper: number): OutlierBounds {
     return {lower, upper}
 }
 
+/**
+ * Creates an outlier datum from the (x, y) value and the bounds associated with each measure. Because
+ * the length of the bounds-array must be the same as the length of the measures-array, this returns
+ * a {@link Result} object with the outcome of the operation.
+ * @param datum The (x, y) value
+ * @param measures The measures array where each measure is associated with a bound of the same index
+ * @param bounds The bounds array where each bound is associated with a measure of the same index
+ * @return A {@link Result} object with the outcome of the operation. If the operation is successful,
+ * then the result is an {@link OutlierDatum} object. If the operation is not successful, then
+ * the result is a {@link string} with the error message.
+ */
 export function outlierDatumFor<M extends readonly number[]>(
     datum: Datum,
     measures: readonly [...M],
     bounds: {readonly [K in keyof M]: OutlierBounds},
-): OutlierDatum<M> {
-    return {datum, bounds, measures: measures as M}
+): Result<OutlierDatum<M>, string> {
+    if (measures.length !== bounds.length) {
+        return failureResult(
+            `The number of measures and bounds must be the same; ` +
+            `datum: (${datum.x}, ${datum.y}); ` +
+            `measures_length: ${measures.length}; ` +
+            `bounds_length: ${bounds.length}; ` +
+            `measures: [${measures.join(", ")}]; ` +
+            `bounds: [${Object.values(bounds).map(b => `(${b.lower}, ${b.upper})`).join(", ")}]`
+        )
+    }
+    return successResult({datum, bounds, measures: measures as M})
 }
 
 /**
- * Creates an outlier series from the name and the array of (x, y, bounds) tuples (tuples)
+ * Creates an outlier series from the name and the array of (x, y, bounds) tuples (tuples). If any of the
+ * datum have bounds that do not have the same length as the measures, then this function will fail and
+ * return a failure result. Otherwise, it will return a success result with the outlier series.
  * @param name The name of the series
  * @param measures The measures that are associated with the series
- * @param datum The array of (x, y, bounds) tuples that define the series
+ * @param data The array of (x, y, bounds) tuples that define the series
+ * @return A {@link Result} object with the outcome of the operation. If the operation is successful,
+ * then the result is an {@link OutlierSeries} object. If the operation is not successful, then
+ * the result is an array of error messages.
  */
 export function outlierSeriesFor<M extends readonly number[]>(
     name: string,
     measures: readonly [...M],
-    datum: Array<[time: number, value: number, bounds: { readonly [K in keyof M]: OutlierBounds}]>
-): OutlierSeries<M> {
-    const outlierData = datum.map(
-        ([time, value, bounds]) =>
-            outlierDatumFor({x: time, y: value}, measures, bounds)
+    data: Array<[time: number, value: number, bounds: { readonly [K in keyof M]: OutlierBounds}]>
+): Result<OutlierSeries<M>, Array<string>> {
+    // enrich each datum in the data array with the measures
+    const outlierData = data.map(
+        ([time, value, bounds]) => outlierDatumFor({x: time, y: value}, measures, bounds)
     )
-    return seriesFrom(name, outlierData)
+
+    // if all data has bounds-dimensions that match the measures-dimensions, then we can safely
+    // create the outlier series, otherwise we must report the error and return an empty series
+    if (outlierData.filter(datum => datum.succeeded).length === data.length) {
+        return successResult(
+            seriesFrom(
+                name,
+                outlierData.map(datum => datum.getOrThrow(() => new Error("Outlier datum bounds and measure mismatch")))
+            )
+        )
+    }
+    // collect all the errors for datum whose bounds and measures dimensions did not
+    // match and report each error
+    return failureResult(outlierData
+        .filter(result => result.failed)
+        .map(result => result.error!)
+    )
 }
 

@@ -1,5 +1,6 @@
 import {outlierBoundsFor, outlierDatumFor, type OutlierSeries, outlierSeriesFor} from "./outlierSeries";
 import {datumOf} from "./timeSeries";
+import type {Result} from "result-fn";
 
 describe('when creating outlier datum', () => {
     it('should be able to create an outlier datum with bounds and measures as long as there is a measure for each bound', () => {
@@ -9,8 +10,10 @@ describe('when creating outlier datum', () => {
             outlierBoundsFor(21, 121),
             outlierBoundsFor(2, 52)
         ] as const
-        const datum = outlierDatumFor<typeof Measures>(value, Measures, bounds)
-        expect(datum).toBeDefined()
+        const result = outlierDatumFor<typeof Measures>(value, Measures, bounds)
+        expect(result).toBeDefined()
+        expect(result.succeeded).toBe(true)
+        const datum = result.getOrThrow(() => new Error("oops"))
         expect(datum.bounds).toHaveLength(Measures.length)
         expect(datum.measures[0]).toBe(50)
         expect(datum.measures[1]).toBe(92)
@@ -31,7 +34,7 @@ describe('when creating outlier datum', () => {
 describe('when creating an outlier series', () => {
     it('should be able to create an outlier series', () => {
         const Measures = [50, 92] as const
-        const series: OutlierSeries<typeof Measures> = outlierSeriesFor<typeof Measures>(
+        const result: Result<OutlierSeries<typeof Measures>, Array<string>> = outlierSeriesFor<typeof Measures>(
             'series1',
             Measures,
             [
@@ -46,7 +49,9 @@ describe('when creating an outlier series', () => {
                 [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54)]]
             ]
         )
-        expect(series).toBeDefined()
+        expect(result).toBeDefined()
+        expect(result.succeeded).toBe(true)
+        const series = result.getOrThrow(() => new Error("oops"))
         expect(series.name).toBe('series1')
         expect(series.data).toHaveLength(3)
 
@@ -88,4 +93,60 @@ describe('when creating an outlier series', () => {
             ]
         )
     })
+
+    it('should be able to create an outlier series without a const type but cast as a tuple', () => {
+        const measures = [50, 90, 95].map(n => n + 1) as [number, number, number]
+        const result = outlierSeriesFor<typeof measures>(
+            'series1',
+            measures,
+            [
+                [1, 11, [outlierBoundsFor(21, 121), outlierBoundsFor(2, 52), outlierBoundsFor(2, 52)]],
+                [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53), outlierBoundsFor(4, 54)]],
+                [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54), outlierBoundsFor(5, 55)]]
+            ]
+        )
+
+        expect(result).toBeDefined()
+        expect(result.succeeded).toBe(true)
+        const series = result.getOrThrow(() => new Error("oops"))
+
+        expect(series.data[0].bounds[0]).toEqual({lower: 21, upper: 121})
+        expect(series.data[0].bounds[1]).toEqual({lower: 2, upper: 52})
+    })
+
+    it('should be able to create an outlier series without a const type but cast as a tuple and still maintain checking', () => {
+        const measures = [50, 90, 95].map(n => n + 1) as [number, number, number]
+        outlierSeriesFor<typeof measures>(
+            'series1',
+            measures,
+            [
+                // @ts-expect-error - bounds for datum should have the same length as measures
+                [1, 11, [outlierBoundsFor(21, 121), outlierBoundsFor(2, 52)]],
+                [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53), outlierBoundsFor(4, 54)]],
+                [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54), outlierBoundsFor(5, 55)]]
+            ]
+        )
+    })
+
+    it('should be able to create an outlier series without a const type or as a tuple and have runtime checking', () => {
+        const measures = [50, 90, 95].map(n => n + 1)
+        const result = outlierSeriesFor<typeof measures>(
+            'series1',
+            measures,
+            [
+                // this first bounds is missing one bound and will cause the creation of the series for fail
+                [1, 11, [outlierBoundsFor(21, 121), outlierBoundsFor(2, 52)]],
+                [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53), outlierBoundsFor(4, 54)]],
+                [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54), outlierBoundsFor(5, 55)]]
+            ]
+        )
+
+        expect(result).toBeDefined()
+        expect(result.failed).toBe(true)
+        expect(result.error).toHaveLength(1)
+        expect(result.error![0]).toEqual(
+            "The number of measures and bounds must be the same; datum: (1, 11); measures_length: 3; bounds_length: 2; measures: [51, 91, 96]; bounds: [(21, 121), (2, 52)]"
+        )
+    })
+
 })
