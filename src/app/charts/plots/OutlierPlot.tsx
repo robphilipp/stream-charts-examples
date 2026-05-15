@@ -80,6 +80,8 @@ export interface OutlierBandTooltipMetadata {
     measure: number
     /** The index of the hovered band (0 = tightest / most confident). */
     bandIndex: number
+    /** Number of visible points whose y-value falls within the band bounds. */
+    pointsInBand: number
 }
 
 /**
@@ -270,12 +272,14 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 const style = seriesStyles.get(series.name) ?? defaultLineStyle()
                 const plotData: Array<OutlierDatum<M>> = series.name.match(seriesFilter) ? series.data : []
                 const numBands = plotData.length > 0 ? plotData[0].bounds.length : 0
+                // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
+                const safeId = series.name.replace(/\s+/g, '_')
 
                 // render the widest (highest-index) band first so the narrower, more-confident
                 // bands stack on top with darker opacity
                 for (let bandIndex = numBands - 1; bandIndex >= 0; bandIndex--) {
                     const opacity = Math.min(1, bandOpacity + (numBands - 1 - bandIndex) * bandOpacityStep)
-                    const areaId = `${series.name}-${chartId}-outlier-band-${bandIndex}`
+                    const areaId = `${safeId}-${chartId}-outlier-band-${bandIndex}`
                     const areaGen = d3.area<OutlierDatum<M>>()
                         .x(d => xAxis.scale(d.datum.x) || 0)
                         .y0(d => yAxis.scale(d.bounds[bandIndex].lower) || 0)
@@ -301,10 +305,11 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                 .on("mouseover", (event: MouseEvent) => {
                                     if (measure == null || !container) return
                                     const [x, y] = d3.pointer(event, container)
+                                    const pointsInBand = calcPointsInBand(plotData, bandIndex)
                                     mouseOverHandlerFor(`tooltip-${chartId}`)?.(
                                         series.name,
                                         bandIndex,
-                                        {series: series.data, metadata: {measure, bandIndex}},
+                                        {series: series.data, metadata: {measure, bandIndex, pointsInBand}},
                                         [x, y]
                                     )
                                 })
@@ -320,7 +325,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 }
 
                 // central line for the series y-value
-                const lineId = `${series.name}-${chartId}-outlier-line`
+                const lineId = `${safeId}-${chartId}-outlier-line`
                 const isHovered = hoveredSeriesRef.current === series.name
                 const stroke = isHovered ? style.highlightColor : style.color
                 const strokeWidth = isHovered ? style.highlightWidth : style.lineWidth
@@ -354,7 +359,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 // point markers (one circle per datum)
                 if (markerRadius != null && markerRadius >= 0) {
                     const radius = markerRadius
-                    const markerGroupId = `${series.name}-${chartId}-outlier-markers`
+                    const markerGroupId = `${safeId}-${chartId}-outlier-markers`
                     const markerGroup = mainGElem
                         .selectAll<SVGGElement, Array<OutlierDatum<M>>>(`#${markerGroupId}`)
                         .data([plotData], () => `${series.name}-markers`)
@@ -403,7 +408,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 const outlierPoints = plotData
                     .map(outlierFor)
                     .filter((o): o is {datum: OutlierDatum<M>, color: string} => o !== null)
-                const outlierGroupId = `${series.name}-${chartId}-outlier-points`
+                const outlierGroupId = `${safeId}-${chartId}-outlier-points`
                 const outlierGroup = mainGElem
                     .selectAll<SVGGElement, Array<{datum: OutlierDatum<M>, color: string}>>(`#${outlierGroupId}`)
                     .data([outlierPoints], () => `${series.name}-outlier-points`)
@@ -544,4 +549,28 @@ function axesFor(
         throw Error("Outlier plot requires that y-axis be of type ContinuousNumericAxis")
     }
     return [xAxis, yAxis]
+}
+
+/**
+ * Calculate the number of points within a specific outlier band.
+ * @param plotData The array of outlier data points.
+ * @param bandIndex The index of the outlier band to calculate points for.
+ * @param [subtractLowerBandCount=true] Whether to subtract the count of points in the lower band. Defaults to true.
+ * @returns The number of points within the specified outlier band.
+ */
+function calcPointsInBand<M extends readonly number[]>(plotData: Array<OutlierDatum<M>>, bandIndex: number, subtractLowerBandCount: boolean = true): number {
+    // function to count the points in a specific outlier band
+    const countPointsInBand = (bandIndex: number) =>
+        plotData
+            .filter(datum =>
+                datum.datum.y >= datum.bounds[bandIndex].lower && datum.datum.y <= datum.bounds[bandIndex].upper
+            ).length
+
+    const pointsInBand = countPointsInBand(bandIndex)
+    // we need to subtract the points in the lower band. recall that each band has ALL the points
+    // in the band's range, not what we may think of visually
+    if (bandIndex > 0 && subtractLowerBandCount) {
+        return pointsInBand - countPointsInBand(bandIndex - 1)
+    }
+    return pointsInBand
 }

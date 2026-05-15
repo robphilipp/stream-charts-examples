@@ -37,12 +37,12 @@ import {regexFilter} from "../charts/filters/regexFilter"
 const MEASURES = [0.68, 0.95, 0.997] as const
 type Measures = typeof MEASURES
 
-const SERIES_NAME = "signal"
+const SERIES_NAME = "Spot Price Index"
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 const UPDATE_PERIOD = 25
 const NOISE_SIGMA = 0.5
-const PERIODS: Array<[period: number, offset: number]> = [[4000, 0], [970, 1.3], [310, 2.1]]
-const PERIOD_MAGNITUDE = 40
+const PERIODS: Array<[period: number, offset: number]> = [[4000, -1], [970, 1.3], [310, 2.1]]
+const PERIOD_MAGNITUDE = 30
 const INITIAL_POINT_COUNT = 100  // 100 * 25ms = 2500ms, fills the default x-axis window
 
 function buildBaseFunction() {
@@ -286,8 +286,8 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
-                        domain={[-150, 150]}
-                        label="Value"
+                        domain={[0, 250]}
+                        label="Spot Price Index"
                     />
                     <OutlierPlot<Measures>
                         interpolation={interpolation}

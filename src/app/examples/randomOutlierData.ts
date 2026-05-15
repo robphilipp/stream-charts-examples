@@ -60,7 +60,7 @@ export function periodicWithSeveralBandsFn<M extends readonly number[]>(
         // to get the value. We also used these values to calculate the bounds for each
         // point
         const periodValues = periods.map(
-            ([period, offset]) => magnitude * Math.sin(time / period + offset)
+            ([period, offset]) => magnitude * Math.cos(time / period + offset) + 32
         )
 
         // add noise to simulate the data

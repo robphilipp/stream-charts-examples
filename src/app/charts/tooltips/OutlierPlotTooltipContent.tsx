@@ -70,8 +70,7 @@ function addTooltipContent(
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
 ): TooltipDimensions {
-    const {measure} = metadata
-    const innerProb = ((1 - measure) * 100).toFixed(1)
+    const {measure, pointsInBand} = metadata
     const outerProb = (measure * 100).toFixed(1)
     const [x, y] = mouseCoords
 
@@ -97,9 +96,18 @@ function addTooltipContent(
         tooltipStyle,
         `Points outside of this band have a ${outerProb}% probability of being an outlier`
     )
+    const countText = createTextElement(
+        mainGroup,
+        `${idPrefix}-c`,
+        tooltipStyle,
+        `Points in band: ${pointsInBand}`
+    )
 
     const lineHeight = textHeightFor(header)
-    const contentWidth = Math.max(textWidthFor(header), textWidthFor(measureText), textWidthFor(explanation))
+    const contentWidth = Math.max(
+        textWidthFor(header), textWidthFor(measureText),
+        textWidthFor(explanation), textWidthFor(countText)
+    )
     const contentHeight = lineHeight * 4
 
     const xCoord = tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin)
@@ -108,8 +116,9 @@ function addTooltipContent(
     const yTip = yCoord + tooltipStyle.paddingTop + lineHeight
 
     header.attr("x", xTip).attr("y", yTip)
-    measureText .attr("x", xTip).attr("y", yTip + lineHeight)
-    explanation .attr("x", xTip).attr("y", yTip + lineHeight * 2)
+    measureText.attr("x", xTip).attr("y", yTip + lineHeight)
+    explanation.attr("x", xTip).attr("y", yTip + lineHeight * 2)
+    countText  .attr("x", xTip).attr("y", yTip + lineHeight * 3)
 
     return {x: xCoord, y: yCoord, contentWidth, contentHeight}
 }
