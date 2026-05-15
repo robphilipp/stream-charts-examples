@@ -26,6 +26,8 @@ import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
+import type {OutlierChartData} from "../observables/outliers";
+import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries";
 
 /**
  * The behavior of the time window when data is added to the chart
@@ -373,6 +375,90 @@ export function subscriptionIteratesFor(
     // provide the subscription to the caller
     onSubscribe(subscription)
 
+    return subscription
+}
+
+/**
+ * Creates a subscription to the outlier-chart-data observable. Mirrors {@link subscriptionTimeSeriesFor}
+ * but works with {@link OutlierDatum} where the (x, y) value is nested under `datum`. The visible
+ * time-window scrolls (or squeezes) as the latest datum's time advances past the current end of
+ * the x-axis range.
+ * @param seriesObservable The observable streaming outlier-chart-data
+ * @param onSubscribe Callback for when the observable is subscribed to
+ * @param windowingTime Buffer interval (ms) before flushing batched data to the chart
+ * @param axisAssignments Map associating each series to its x- and y-axes
+ * @param xAxesState The current state of the x-axis
+ * @param onUpdateData Optional callback fired when new data arrives for a series
+ * @param dropDataAfter Drops series data points older than this many milliseconds
+ * @param updateTimingAndPlot Callback that updates the plot and timing after the time-window changes
+ * @param seriesMap A `map(series_name -> series)` updated in place as new data arrives
+ * @param setCurrentTime Callback that records the current time for an axis
+ * @param timeWindowBehavior Whether the time-axis scrolls or squeezes when data passes the end
+ * @param initialTimes Initial start-times for each axis (used by the squeeze behavior)
+ * @return The RxJS subscription
+ */
+export function subscriptionOutlierFor<M extends readonly number[]>(
+    seriesObservable: Observable<OutlierChartData<M>>,
+    onSubscribe: (subscription: Subscription) => void,
+    windowingTime: number,
+    axisAssignments: Map<string, AxesAssignment>,
+    xAxesState: AxesState<ContinuousNumericAxis>,
+    onUpdateData: ((seriesName: string, data: Array<OutlierDatum<M>>) => void) | undefined,
+    dropDataAfter: number,
+    updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
+    seriesMap: Map<string, OutlierSeries<M>>,
+    setCurrentTime: (axisId: string, end: number) => void,
+    timeWindowBehavior: TimeWindowBehavior = TimeWindowBehavior.SCROLL,
+    initialTimes: Map<string, number> = new Map<string, number>(),
+): Subscription {
+    const subscription = seriesObservable
+        .pipe(bufferTime(windowingTime))
+        .subscribe(dataList => {
+            dataList.forEach(data => {
+                const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+
+                data.newPoints.forEach((newData, name) => {
+                    const series = seriesMap.get(name) || emptySeries<OutlierDatum<M>>(name)
+                    if (!seriesMap.has(name)) seriesMap.set(name, series)
+
+                    if (onUpdateData) onUpdateData(name, newData)
+
+                    series.data.push(...newData)
+
+                    const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId().getOrElse("")
+                    const currentAxisTime = newData.reduce(
+                        (tMax, datum) => Math.max(tMax, datum.datum.x),
+                        -Infinity
+                    )
+
+                    if (Number.isFinite(currentAxisTime)) {
+                        while (series.data.length > 0 && currentAxisTime - series.data[0].datum.x > dropDataAfter) {
+                            series.data.shift()
+                        }
+
+                        const range = timesWindows.get(axisId)
+                        const [startTime, endTime] = Optional.ofNullable(range?.current)
+                            .map(interval => interval.asTuple())
+                            .getOrElse([0, 0])
+                        if (range !== undefined && endTime < currentAxisTime) {
+                            const timeWindow = endTime - startTime
+                            const timeRange = ContinuousAxisRange.from(
+                                timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
+                                    initialTimes.get(axisId)! :
+                                    Math.max(0, currentAxisTime - timeWindow),
+                                Math.max(currentAxisTime, timeWindow)
+                            )
+                            timesWindows.set(axisId, timeRange)
+                            setCurrentTime(axisId, endTime)
+                        }
+                    }
+                })
+
+                updateTimingAndPlot(timesWindows)
+            })
+        })
+
+    onSubscribe(subscription)
     return subscription
 }
 

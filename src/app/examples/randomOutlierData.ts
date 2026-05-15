@@ -1,20 +1,15 @@
-// import {interval, Observable} from "rxjs";
-// import {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
-// import {OutlierDatum, OutlierSeries} from "../charts/series/outlierSeries";
-// import {map} from "rxjs/operators";
-//
-// const Measures = [0.75, 0.95] as const
-
 import {interval, type Observable} from "rxjs";
 import type {OutlierChartData} from "../charts/observables/outliers.ts";
 import {
     type OutlierBounds,
     outlierBoundsFor,
     type OutlierDatum,
-    outlierDatumFor
+    outlierDatumFor,
+    type OutlierSeries
 } from "../charts/series/outlierSeries.ts";
 import {map} from "rxjs/operators";
 import {datumOf} from "../charts/series/timeSeries.ts";
+import {seriesFrom} from "../charts/series/baseSeries.ts";
 
 export function randomOutlierDataObservable<M extends readonly number[]>(
     seriesName: string,
@@ -22,15 +17,38 @@ export function randomOutlierDataObservable<M extends readonly number[]>(
     measures: M,
     sigmaNoise: number = 1,
     updatePeriod: number = 25,
+    startTime: number = 0,
 ): Observable<OutlierChartData<M>> {
+    const seriesNames = new Set<string>([seriesName])
     return interval(updatePeriod).pipe(
-        // convert the number sequence to a time
-        map(sequence => (sequence + 1) * updatePeriod),
-
-        // calculate the outlier datum
-        // map(time => baseFunction(time, sigmaNoise, measures))
-        map(time => ({newPoints: new Map([[seriesName, [baseFunction(time, sigmaNoise, measures)]]])} as OutlierChartData<M>))
+        map(sequence => startTime + (sequence + 1) * updatePeriod),
+        map(time => ({
+            seriesNames,
+            newPoints: new Map([[seriesName, [baseFunction(time, sigmaNoise, measures)]]])
+        } as OutlierChartData<M>))
     )
+}
+
+/**
+ * Generates a static initial outlier series by evaluating {@link baseFunction} at successive
+ * time-steps. Useful for pre-populating a chart so users see data before any streaming starts.
+ * The generated points line up with what {@link randomOutlierDataObservable} would emit, so a
+ * streaming run starting at `numPoints * updatePeriod` continues the series seamlessly.
+ */
+export function initialOutlierData<M extends readonly number[]>(
+    seriesName: string,
+    baseFunction: (x: number, sigma: number, measures: M) => OutlierDatum<M>,
+    measures: M,
+    sigmaNoise: number,
+    updatePeriod: number,
+    numPoints: number,
+): Array<OutlierSeries<M>> {
+    const data: Array<OutlierDatum<M>> = []
+    for (let i = 0; i < numPoints; ++i) {
+        const time = (i + 1) * updatePeriod
+        data.push(baseFunction(time, sigmaNoise, measures))
+    }
+    return [seriesFrom<OutlierDatum<M>>(seriesName, data)]
 }
 
 export function periodicWithSeveralBandsFn<M extends readonly number[]>(
@@ -52,7 +70,7 @@ export function periodicWithSeveralBandsFn<M extends readonly number[]>(
         )
 
         // add noise to simulate the data
-        const value = baseValue + magnitude * sigma * (2 * Math.random() - 1)
+        const value = baseValue + magnitude * sigma * (2 * Math.random() - 1) * (Math.random() > 0.99 ? 3 * (1 + Math.random()) : 1)
 
         // calculate the bounds based on the measures and the base value (without noise)
         const bounds = measures

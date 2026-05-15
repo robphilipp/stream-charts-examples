@@ -20,6 +20,7 @@ import {Tabs} from "./ui/Tabs";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {StreamingPoincareChart} from "./examples/StreamingPoincareChart";
 import {StreamingBarChart} from "./examples/StreamingBarChart";
+import {StreamingOutlierChart} from "./examples/StreamingOutlierChart";
 
 const seriesNames: Array<string> = []
 for (let i = 0; i < 30; ++i) {
@@ -100,7 +101,7 @@ const App: React.FC = () => {
             </GridItem>
             <GridItem gridAreaName="scatter-chart">
                 <Tabs
-                    tabNames={["Scatter", "Raster", "Poincare", "Bar"]}
+                    tabNames={["Scatter", "Raster", "Poincare", "Bar", "Outlier"]}
                     withGrids={true}
                     style={{
                         backgroundColor: theme.backgroundColor,
@@ -142,6 +143,11 @@ const App: React.FC = () => {
                         initialData={initialBarData}
                         seriesHeight={20}
                         plotWidth={900}
+                    />
+                    {/* tab 5: Outlier */}
+                    <StreamingOutlierChart
+                        theme={theme}
+                        timeWindow={2500}
                     />
                 </Tabs>
             </GridItem>
