@@ -70,12 +70,12 @@ export function periodicWithSeveralBandsFn<M extends readonly number[]>(
         )
 
         // add noise to simulate the data
-        const value = baseValue + magnitude * sigma * (2 * Math.random() - 1) * (Math.random() > 0.99 ? 3 * (1 + Math.random()) : 1)
+        const value = baseValue + magnitude * sigma * (2 * Math.random() - 1) * (Math.random() > 0.99 ? 3 * (1 + Math.random()) : 0.7)
 
         // calculate the bounds based on the measures and the base value (without noise)
         const bounds = measures
-            .map(measure => {
-                const bandWidth = magnitude * sigma * measure
+            .map((measure, index) => {
+                const bandWidth = magnitude * sigma * measure * (index+1)
                 return outlierBoundsFor(baseValue - bandWidth, baseValue + bandWidth)
             })
 

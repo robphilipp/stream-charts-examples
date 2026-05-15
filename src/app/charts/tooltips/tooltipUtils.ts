@@ -214,3 +214,34 @@ export function findPointAndNeighbors<D>(
     const upper = (index < data.length - 1) ? data[index+1] : emptyDatum()
     return [lower, point, upper, index]
 }
+
+/**
+ * Calculates the width and height of the tooltip content.
+ * @param textSelection The SVG text selection
+ * @returns The width and height of the tooltip content
+ */
+export function textDimensionsFor(textSelection: d3.Selection<SVGTextElement, unknown, null, undefined>): {width: number, height: number} {
+    const boundingRect = textSelection.node()?.getBBox()
+    return {
+        width: boundingRect?.width ?? 0,
+        height: boundingRect?.height ?? 0
+    }
+}
+
+/**
+ * Calculates the width and height of the tooltip content.
+ * @param textSelection The SVG text selection
+ * @returns The width and height of the tooltip content
+ */
+export function textWidthFor(textSelection: d3.Selection<SVGTextElement, unknown, null, undefined>): number {
+    return textDimensionsFor(textSelection).width
+}
+
+/**
+ * Calculates the width and height of the tooltip content.
+ * @param textSelection The SVG text selection
+ * @returns The width and height of the tooltip content
+ */
+export function textHeightFor(textSelection: d3.Selection<SVGTextElement, unknown, null, undefined>): number {
+    return textDimensionsFor(textSelection).height
+}

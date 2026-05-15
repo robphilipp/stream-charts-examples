@@ -19,6 +19,8 @@ import {Chart} from "../charts/Chart"
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis"
 import {AxisLocation, defaultLineStyle} from "../charts/axes/axes"
 import {OutlierPlot} from "../charts/plots/OutlierPlot"
+import {Tooltip} from "../charts/tooltips/Tooltip"
+import {OutlierPlotTooltipContent} from "../charts/tooltips/OutlierPlotTooltipContent"
 import type {OutlierChartData} from "../charts/observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../charts/series/outlierSeries"
 import {seriesFrom} from "../charts/series/baseSeries"
@@ -32,7 +34,7 @@ import {AxisInterval} from "../charts/axes/AxisInterval"
 import {regexFilter} from "../charts/filters/regexFilter"
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
-const MEASURES = [1, 2, 3] as const
+const MEASURES = [0.68, 0.95, 0.997] as const
 type Measures = typeof MEASURES
 
 const SERIES_NAME = "signal"
@@ -136,6 +138,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
     const [showMarkers, setShowMarkers] = useState<boolean>(true)
+    const [showTooltip, setShowTooltip] = useState<boolean>(true)
 
     const startTimeRef = useRef<number>(new Date().valueOf())
     const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -237,6 +240,14 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                         labelColor={theme.color}
                         onChange={() => setShowMarkers(!showMarkers)}
                     />
+                    <Checkbox
+                        checked={showTooltip}
+                        label="tooltip"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        labelColor={theme.color}
+                        onChange={() => setShowTooltip(!showTooltip)}
+                    />
                     <span style={{color: theme.color, marginLeft: 25}}>
                         lag: {formatTime(Math.max(0, elapsed - chartTime))} ms
                     </span>
@@ -289,6 +300,18 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                         markerRadius={showMarkers ? 2 : 0}
                         outlierMarkerColors={['#f4c542', '#f08a3b', '#d62728']}
                     />
+                    <Tooltip
+                        visible={showTooltip}
+                        style={{
+                            fontColor: theme.color,
+                            backgroundColor: theme.backgroundColor,
+                            borderColor: theme.color,
+                            backgroundOpacity: 0.9,
+                            borderOpacity: 0.5,
+                        }}
+                    >
+                        <OutlierPlotTooltipContent/>
+                    </Tooltip>
                 </Chart>
             </GridItem>
         </Grid>
