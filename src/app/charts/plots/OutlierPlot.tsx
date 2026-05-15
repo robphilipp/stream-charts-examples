@@ -72,6 +72,56 @@ export interface Props {
     outlierMarkerColors?: ReadonlyArray<string>
 }
 
+const BAND_TOOLTIP_ID = 'outlier-band-tooltip'
+
+function getOrCreateBandTooltipDiv(): HTMLDivElement {
+    const existing = document.getElementById(BAND_TOOLTIP_ID) as HTMLDivElement | null
+    if (existing) return existing
+    const div = document.createElement('div')
+    div.id = BAND_TOOLTIP_ID
+    div.style.cssText = [
+        'position:fixed',
+        'display:none',
+        'background:rgba(32,32,32,0.85)',
+        'color:#fff',
+        'padding:8px 12px',
+        'border-radius:5px',
+        'font-size:12px',
+        'font-family:sans-serif',
+        'border:1px solid #d2933f',
+        'pointer-events:none',
+        'z-index:9999',
+        'max-width:260px',
+        'line-height:1.6',
+    ].join(';')
+    document.body.appendChild(div)
+    return div
+}
+
+function showBandTooltip(event: MouseEvent, measure: number): void {
+    const div = getOrCreateBandTooltipDiv()
+    const innerPct = ((1 - measure) * 100).toFixed(1)
+    const outerPct = (measure * 100).toFixed(1)
+    div.innerHTML =
+        `<b>Measure: ${measure}</b><br>` +
+        `Points <b>inside</b> this band have a <b>${innerPct}%</b> probability of being an outlier.<br>` +
+        `Points <b>outside</b> this band have a <b>${outerPct}%</b> probability of being an outlier.`
+    div.style.display = 'block'
+    positionBandTooltip(event)
+}
+
+function positionBandTooltip(event: MouseEvent): void {
+    const div = document.getElementById(BAND_TOOLTIP_ID) as HTMLDivElement | null
+    if (!div) return
+    div.style.left = `${event.clientX + 14}px`
+    div.style.top = `${event.clientY - 10}px`
+}
+
+function hideBandTooltip(): void {
+    const div = document.getElementById(BAND_TOOLTIP_ID) as HTMLDivElement | null
+    if (div) div.style.display = 'none'
+}
+
 /**
  * Renders a streaming outlier plot. Each series consists of {@link OutlierDatum} points, where every
  * datum carries an (x, y) value plus a set of (lower, upper) bounds — one per measure. The plot
@@ -268,6 +318,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                         .y0(d => yAxis.scale(d.bounds[bandIndex].lower) || 0)
                         .y1(d => yAxis.scale(d.bounds[bandIndex].upper) || 0)
                         .curve(interpolation)
+                    const measure = plotData.length > 0 ? plotData[0].measures[bandIndex] : undefined
 
                     mainGElem
                         .selectAll<SVGPathElement, Array<OutlierDatum<M>>>(`#${areaId}`)
@@ -278,12 +329,19 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                 .attr("class", "outlier-band")
                                 .attr("id", areaId)
                                 .attr("data-series-name", series.name)
+                                .attr("data-measure", measure ?? "")
                                 .attr("fill", style.color)
                                 .attr("fill-opacity", opacity)
                                 .attr("stroke", "none")
                                 .attr("transform", `translate(${margin.left}, ${margin.top})`)
                                 .attr("clip-path", `url(#${clipPathId})`)
-                                .attr("d", areaGen),
+                                .attr("d", areaGen)
+                                .on("mouseover", (event: MouseEvent) => {
+                                    const m = parseFloat((event.currentTarget as SVGPathElement).getAttribute("data-measure") ?? "")
+                                    if (!isNaN(m)) showBandTooltip(event, m)
+                                })
+                                .on("mousemove", positionBandTooltip)
+                                .on("mouseleave", hideBandTooltip),
                             update => update
                                 .attr("fill", style.color)
                                 .attr("fill-opacity", opacity)
