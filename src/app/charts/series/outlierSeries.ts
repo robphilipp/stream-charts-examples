@@ -2,7 +2,13 @@ import type {Datum} from "./timeSeries";
 import {type BaseSeries, seriesFrom} from "./baseSeries";
 import {failureResult, type Result, successResult} from "result-fn";
 
-export type OutlierSeries<M extends readonly number[]> = BaseSeries<OutlierDatum<M>>
+export type OutlierSeries<M extends readonly number[]> = BaseSeries<OutlierDatum<M>> & {
+    /**
+     * The descriptions of the measures. For example, this could be a series of descriptions
+     * of the probabilities of the point being an outlier.
+     */
+    readonly measureDescriptions?: {readonly [K in keyof M]: string}
+}
 
 /**
  * The bounds of a datum.

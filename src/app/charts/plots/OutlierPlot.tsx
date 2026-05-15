@@ -29,6 +29,8 @@ import {subscriptionOutlierFor, TimeWindowBehavior} from "../subscriptions/subsc
 import type {OutlierChartData} from "../observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries"
 
+type OutlierDatumColor<M extends readonly number[]> = {datum: OutlierDatum<M>, color: string}
+
 export interface Props {
     /**
      * Holds the mapping between a series and the axis it uses (is assigned). The
@@ -45,9 +47,21 @@ export interface Props {
      * Number of milliseconds of data to hold in memory before dropping it. Defaults to infinity.
      */
     dropDataAfter?: number
+    /**
+     * Whether to enable panning and zooming. Defaults to false.
+     */
     panEnabled?: boolean
+    /**
+     * Whether to enable zooming. Defaults to false.
+     */
     zoomEnabled?: boolean
+    /**
+     * Whether to require the shift or ctrl key to be held down when zooming. Defaults to true.
+     */
     zoomKeyModifiersRequired?: boolean
+    /**
+     * Behavior for time windowing. Defaults to TimeWindowBehavior.FIXED.
+     */
     timeWindowBehavior?: TimeWindowBehavior
     /**
      * Base fill-opacity for the outermost (widest) outlier band. Inner (narrower / more
@@ -76,11 +90,21 @@ export interface Props {
  * Metadata carried through the tooltip system when the user hovers over an outlier band.
  */
 export interface OutlierBandTooltipMetadata {
-    /** The measure (confidence level) associated with the hovered band. */
+    /**
+     * The measure (confidence level) associated with the hovered band.
+     */
     measure: number
-    /** The index of the hovered band (0 = tightest / most confident). */
+    /**
+     * The measure (confidence level) associated with the band below the hovered band.
+     */
+    lowerMeasure?: number
+    /**
+     * The index of the hovered band (0 = tightest / most confident).
+     */
     bandIndex: number
-    /** Number of visible points whose y-value falls within the band bounds. */
+    /**
+     * Number of visible points whose y-value falls within the band bounds.
+     */
     pointsInBand: number
 }
 
@@ -286,6 +310,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                         .y1(d => yAxis.scale(d.bounds[bandIndex].upper) || 0)
                         .curve(interpolation)
                     const measure = plotData.length > 0 ? plotData[0].measures[bandIndex] : undefined
+                    const lowerMeasure = plotData.length > 0 && bandIndex > 0 ? plotData[0].measures[bandIndex-1] : undefined
 
                     mainGElem
                         .selectAll<SVGPathElement, Array<OutlierDatum<M>>>(`#${areaId}`)
@@ -309,7 +334,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                     mouseOverHandlerFor(`tooltip-${chartId}`)?.(
                                         series.name,
                                         bandIndex,
-                                        {series: series.data, metadata: {measure, bandIndex, pointsInBand}},
+                                        {series: series.data, metadata: {measure, lowerMeasure, bandIndex, pointsInBand}},
                                         [x, y]
                                     )
                                 })
@@ -395,22 +420,13 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                         )
                 }
 
-                // outlier points: any point that falls outside at least one bound is rendered
-                // as a red r=4 marker (unconditionally, regardless of the markerRadius prop).
-                // The fill color is taken from outlierMarkerColors at the index of the largest
-                // exceeded bound; falls back to "red" if the prop is absent or the index is
-                // out of range.
-                const outlierFor = (d: OutlierDatum<M>): {datum: OutlierDatum<M>, color: string} | null => {
-                    const idx = largestExceededBoundIndex(d)
-                    if (idx < 0) return null
-                    return {datum: d, color: outlierMarkerColors?.[idx] ?? "red"}
-                }
                 const outlierPoints = plotData
-                    .map(outlierFor)
-                    .filter((o): o is {datum: OutlierDatum<M>, color: string} => o !== null)
+                    .map(outlier => outlierFor(outlier, outlierMarkerColors))
+                    .filter((outlier): outlier is OutlierDatumColor<M> => outlier !== null)
+
                 const outlierGroupId = `${safeId}-${chartId}-outlier-points`
                 const outlierGroup = mainGElem
-                    .selectAll<SVGGElement, Array<{datum: OutlierDatum<M>, color: string}>>(`#${outlierGroupId}`)
+                    .selectAll<SVGGElement, Array<OutlierDatumColor<M>>>(`#${outlierGroupId}`)
                     .data([outlierPoints], () => `${series.name}-outlier-points`)
                     .join(
                         enter => enter
@@ -425,21 +441,21 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                     )
 
                 outlierGroup
-                    .selectAll<SVGCircleElement, {datum: OutlierDatum<M>, color: string}>("circle")
+                    .selectAll<SVGCircleElement, OutlierDatumColor<M>>("circle")
                     .data(outlierPoints)
                     .join(
                         enter => enter
                             .append("circle")
                             .attr("r", 4)
-                            .attr("fill", o => o.color)
+                            .attr("fill", outlier => outlier.color)
                             .attr("stroke", "none")
-                            .attr("cx", o => xAxis.scale(o.datum.datum.x) || 0)
+                            .attr("cx", outlier => xAxis.scale(outlier.datum.datum.x) || 0)
                             .attr("cy", o => yAxis.scale(o.datum.datum.y) || 0),
                         update => update
                             .attr("r", 4)
-                            .attr("fill", o => o.color)
-                            .attr("cx", o => xAxis.scale(o.datum.datum.x) || 0)
-                            .attr("cy", o => yAxis.scale(o.datum.datum.y) || 0),
+                            .attr("fill", outlier => outlier.color)
+                            .attr("cx", outlier => xAxis.scale(outlier.datum.datum.x) || 0)
+                            .attr("cy", outlier => yAxis.scale(outlier.datum.datum.y) || 0),
                         exit => exit.remove()
                     )
             })
@@ -573,4 +589,26 @@ function calcPointsInBand<M extends readonly number[]>(plotData: Array<OutlierDa
         return pointsInBand - countPointsInBand(bandIndex - 1)
     }
     return pointsInBand
+}
+
+/**
+ * outlier points: any point that falls outside at least one bound is rendered
+ * as a red r=4 marker (unconditionally, regardless of the markerRadius prop).
+ * The fill color is taken from outlierMarkerColors at the index of the largest
+ * exceeded bound; falls back to "red" if the prop is absent or the index is
+ * out of range.
+ * @param datum the outlier datum to determine the color for
+ * @param [outlierMarkerColors=[]] array of colors to use for outlier markers
+ * @returns an object with the datum and color, or null if the datum is not an outlier
+ */
+function outlierFor<M extends readonly number[]>(
+    datum: OutlierDatum<M>,
+    outlierMarkerColors: ReadonlyArray<string> = []
+): OutlierDatumColor<M> | null {
+    const bandIndex = largestExceededBoundIndex(datum)
+    if (bandIndex < 0) return null
+    return {
+        datum,
+        color: outlierMarkerColors[bandIndex] ?? "red"
+    }
 }

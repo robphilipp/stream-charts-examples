@@ -30,12 +30,26 @@ export interface Props {
  * {@link OutlierPlot}.
  */
 export function OutlierPlotTooltipContent(props: Props): null {
-    const {chartId, container, tooltip} =
-        useChart<OutlierDatum<readonly number[]>, SeriesLineStyle, OutlierBandTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
+    const {
+        chartId,
+        container,
+        tooltip
+    } = useChart<OutlierDatum<readonly number[]>, SeriesLineStyle, OutlierBandTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {registerTooltipContentProvider} = tooltip
-    const {margin, plotDimensions} = usePlotDimensions()
-    const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...props.style}), [props.style])
+
+    const {
+        margin,
+        plotDimensions
+    } = usePlotDimensions()
+
+    const tooltipStyle = useMemo(
+        () => ({
+            ...defaultTooltipStyle,
+            ...props.style
+        }),
+        [props.style]
+    )
 
     useEffect(
         () => {
@@ -70,8 +84,13 @@ function addTooltipContent(
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
 ): TooltipDimensions {
-    const {measure, pointsInBand} = metadata
-    const outerProb = (measure * 100).toFixed(1)
+    const {
+        measure,
+        lowerMeasure = 0,
+        pointsInBand
+    } = metadata
+    const outerProb = ((1 - measure) * 100).toFixed(1)
+    const innerProb = ((measure - lowerMeasure) * 100).toFixed(1)
     const [x, y] = mouseCoords
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,7 +113,7 @@ function addTooltipContent(
         mainGroup,
         `${idPrefix}-o`,
         tooltipStyle,
-        `Points outside of this band have a ${outerProb}% probability of being an outlier`
+        `Points have a ${innerProb}% of being in this band, and a ${outerProb}% probability of being outside this band`
     )
     const countText = createTextElement(
         mainGroup,

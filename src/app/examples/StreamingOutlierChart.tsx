@@ -45,14 +45,14 @@ const PERIODS: Array<[period: number, offset: number]> = [[4000, -1], [970, 1.3]
 const PERIOD_MAGNITUDE = 30
 const INITIAL_POINT_COUNT = 100  // 100 * 25ms = 2500ms, fills the default x-axis window
 
-function buildBaseFunction() {
+function baseDataFnFactory() {
     return periodicWithSeveralBandsFn<Measures>(PERIODS, PERIOD_MAGNITUDE)
 }
 
 function defaultInitialOutlierData(): Array<OutlierSeries<Measures>> {
     return initialOutlierData<Measures>(
         SERIES_NAME,
-        buildBaseFunction(),
+        baseDataFnFactory(),
         MEASURES,
         NOISE_SIGMA,
         UPDATE_PERIOD,
@@ -121,7 +121,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     const buildObservable = (initData: Array<OutlierSeries<Measures>>): Observable<OutlierChartData<Measures>> =>
         randomOutlierDataObservable<Measures>(
             SERIES_NAME,
-            buildBaseFunction(),
+            baseDataFnFactory(),
             MEASURES,
             NOISE_SIGMA,
             UPDATE_PERIOD,

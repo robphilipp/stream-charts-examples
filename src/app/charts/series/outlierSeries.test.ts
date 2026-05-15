@@ -134,7 +134,7 @@ describe('when creating an outlier series', () => {
             'no-series',
             measures,
             [
-                // the first bounds-array is missing one bound and will cause the creation of the series for fail
+                // the first bounds-array is missing one bound and will cause the creation of the series to fail
                 [1, 11, [outlierBoundsFor(21, 121), outlierBoundsFor(2, 52)]],
                 [2, 12, [outlierBoundsFor(22, 122), outlierBoundsFor(3, 53), outlierBoundsFor(4, 54)]],
                 [3, 13, [outlierBoundsFor(23, 123), outlierBoundsFor(4, 54), outlierBoundsFor(5, 55)]]
