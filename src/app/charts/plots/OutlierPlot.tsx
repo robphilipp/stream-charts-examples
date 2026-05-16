@@ -106,6 +106,11 @@ export interface OutlierBandTooltipMetadata {
      * Number of visible points whose y-value falls within the band bounds.
      */
     pointsInBand: number
+    /**
+     * Optional description of each measure (confidence level).
+     */
+    // measureDescriptions?: {readonly [K in keyof M]: string}
+    measureDescription?: string
 }
 
 /**
@@ -309,8 +314,9 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                         .y0(d => yAxis.scale(d.bounds[bandIndex].lower) || 0)
                         .y1(d => yAxis.scale(d.bounds[bandIndex].upper) || 0)
                         .curve(interpolation)
-                    const measure = plotData.length > 0 ? plotData[0].measures[bandIndex] : undefined
-                    const lowerMeasure = plotData.length > 0 && bandIndex > 0 ? plotData[0].measures[bandIndex-1] : undefined
+                    const measure = series.measures[bandIndex]
+                    const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex-1] : undefined
+                    const measureDescription = series.measureDescriptions?.[bandIndex]
 
                     mainGElem
                         .selectAll<SVGPathElement, Array<OutlierDatum<M>>>(`#${areaId}`)
@@ -334,7 +340,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                     mouseOverHandlerFor(`tooltip-${chartId}`)?.(
                                         series.name,
                                         bandIndex,
-                                        {series: series.data, metadata: {measure, lowerMeasure, bandIndex, pointsInBand}},
+                                        {series: series.data, metadata: {measure, lowerMeasure, bandIndex, pointsInBand, measureDescription}},
                                         [x, y]
                                     )
                                 })

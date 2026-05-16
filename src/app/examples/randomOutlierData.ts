@@ -5,11 +5,11 @@ import {
     outlierBoundsFor,
     type OutlierDatum,
     outlierDatumFor,
-    type OutlierSeries
+    type OutlierSeries,
+    outlierSeriesFrom
 } from "../charts/series/outlierSeries.ts";
 import {map} from "rxjs/operators";
 import {datumOf} from "../charts/series/timeSeries.ts";
-import {seriesFrom} from "../charts/series/baseSeries.ts";
 
 export function randomOutlierDataObservable<M extends readonly number[]>(
     seriesName: string,
@@ -42,13 +42,14 @@ export function initialOutlierData<M extends readonly number[]>(
     sigmaNoise: number,
     updatePeriod: number,
     numPoints: number,
+    measureDescriptions?: {readonly [K in keyof M]: string}
 ): Array<OutlierSeries<M>> {
     const data: Array<OutlierDatum<M>> = []
     for (let i = 0; i < numPoints; ++i) {
         const time = (i + 1) * updatePeriod
         data.push(baseFunction(time, sigmaNoise, measures))
     }
-    return [seriesFrom<OutlierDatum<M>>(seriesName, data)]
+    return [outlierSeriesFrom(seriesName, data, measures, measureDescriptions)]
 }
 
 export function periodicWithSeveralBandsFn<M extends readonly number[]>(

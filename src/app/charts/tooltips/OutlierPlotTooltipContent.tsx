@@ -87,7 +87,8 @@ function addTooltipContent(
     const {
         measure,
         lowerMeasure = 0,
-        pointsInBand
+        pointsInBand,
+        measureDescription
     } = metadata
     const outerProb = ((1 - measure) * 100).toFixed(1)
     const innerProb = ((measure - lowerMeasure) * 100).toFixed(1)
@@ -109,12 +110,15 @@ function addTooltipContent(
         tooltipStyle,
         `Measure: ${measure}`
     )
-    const explanation = createTextElement(
+    let explanation = createTextElement(
         mainGroup,
         `${idPrefix}-o`,
         tooltipStyle,
         `Points have a ${innerProb}% of being in this band, and a ${outerProb}% probability of being outside this band`
     )
+    if (measureDescription) {
+        explanation = createTextElement(mainGroup, `${idPrefix}-o`, tooltipStyle, measureDescription)
+    }
     const countText = createTextElement(
         mainGroup,
         `${idPrefix}-c`,

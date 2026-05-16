@@ -22,8 +22,7 @@ import {OutlierPlot} from "../charts/plots/OutlierPlot"
 import {Tooltip} from "../charts/tooltips/Tooltip"
 import {OutlierPlotTooltipContent} from "../charts/tooltips/OutlierPlotTooltipContent"
 import type {OutlierChartData} from "../charts/observables/outliers"
-import type {OutlierDatum, OutlierSeries} from "../charts/series/outlierSeries"
-import {seriesFrom} from "../charts/series/baseSeries"
+import {type OutlierSeries, outlierSeriesFrom} from "../charts/series/outlierSeries"
 import {lightTheme, type Theme} from "../ui/Themes"
 import {Button} from "../ui/Button"
 import Checkbox from "../ui/Checkbox"
@@ -36,6 +35,11 @@ import {regexFilter} from "../charts/filters/regexFilter"
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
 const MEASURES = [0.68, 0.95, 0.997] as const
 type Measures = typeof MEASURES
+const MEASURE_DESCRIPTIONS = [
+    "Points in this band are not outliers.",
+    "Points in this band are unlikely to be outliers.",
+    "Points in this band are possibly outliers. Points outside of this band are likely outliers.",
+] as readonly [string, string, string]
 
 const SERIES_NAME = "Spot Price Index"
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
@@ -57,6 +61,7 @@ function defaultInitialOutlierData(): Array<OutlierSeries<Measures>> {
         NOISE_SIGMA,
         UPDATE_PERIOD,
         INITIAL_POINT_COUNT,
+        MEASURE_DESCRIPTIONS
     )
 }
 
@@ -73,7 +78,7 @@ function lastTimeIn(seriesList: Array<OutlierSeries<Measures>>): number {
  * otherwise the pristine seed gets mutated and "Clear" silently becomes a no-op.
  */
 function freshCopyOf(template: Array<OutlierSeries<Measures>>): Array<OutlierSeries<Measures>> {
-    return template.map(series => seriesFrom<OutlierDatum<Measures>>(series.name, series.data.slice()))
+    return template.map(series => outlierSeriesFrom(series.name, series.data.slice(), series.measures, series.measureDescriptions))
 }
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([

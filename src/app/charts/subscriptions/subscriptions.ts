@@ -418,7 +418,7 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
                 const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
                 data.newPoints.forEach((newData, name) => {
-                    const series = seriesMap.get(name) || emptySeries<OutlierDatum<M>>(name)
+                    const series = seriesMap.get(name) || emptySeries<OutlierDatum<M>>(name) as OutlierSeries<M>
                     if (!seriesMap.has(name)) seriesMap.set(name, series)
 
                     if (onUpdateData) onUpdateData(name, newData)

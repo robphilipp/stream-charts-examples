@@ -1,8 +1,13 @@
 import type {Datum} from "./timeSeries";
 import {type BaseSeries, seriesFrom} from "./baseSeries";
-import {failureResult, type Result, successResult} from "result-fn";
+import {failureResult, type Result, resultFromAll, successResult} from "result-fn";
 
-export type OutlierSeries<M extends readonly number[]> = BaseSeries<OutlierDatum<M>> & {
+export interface OutlierSeries<M extends readonly number[]> extends BaseSeries<OutlierDatum<M>> {
+    /**
+     * The measures of the datum. For example, this could be a series of probabilities of
+     * the point being an outlier.
+     */
+    readonly measures: readonly [...M]
     /**
      * The descriptions of the measures. For example, this could be a series of descriptions
      * of the probabilities of the point being an outlier.
@@ -65,11 +70,6 @@ export interface OutlierDatum<M extends readonly number[]> {
      */
     readonly datum: Datum
     /**
-     * The measures of the datum. For example, this could be a series of probabilities of
-     * the point being an outlier.
-     */
-    readonly measures: M
-    /**
      * The bounds of the measures. For example, if the measures are probabilities, then
      * the bounds are a series that hold the lower and upper bounds for each probability
      * in the measures.
@@ -113,7 +113,7 @@ export function outlierDatumFor<M extends readonly number[]>(
             `bounds: [${Object.values(bounds).map(b => `(${b.lower}, ${b.upper})`).join(", ")}]`
         )
     }
-    return successResult({datum, bounds, measures: measures as M})
+    return successResult({datum, bounds})
 }
 
 /**
@@ -123,6 +123,7 @@ export function outlierDatumFor<M extends readonly number[]>(
  * @param name The name of the series
  * @param measures The measures that are associated with the series
  * @param data The array of (x, y, bounds) tuples that define the series
+ * @param [measureDescriptions=undefined] The descriptions of the measures
  * @return A {@link Result} object with the outcome of the operation. If the operation is successful,
  * then the result is an {@link OutlierSeries} object. If the operation is not successful, then
  * the result is an array of error messages.
@@ -131,23 +132,24 @@ export function outlierDatumFor<M extends readonly number[]>(
 export function outlierSeriesFor<M extends readonly number[]>(
     name: string,
     measures: readonly [...M],
-    data: Array<[time: number, value: number, bounds: { readonly [K in keyof M]: OutlierBounds}]>
+    data: Array<[time: number, value: number, bounds: { readonly [K in keyof M]: OutlierBounds}]>,
+    measureDescriptions?: {readonly [K in keyof M]: string}
 ): Result<OutlierSeries<M>, Array<string>> {
     // enrich each datum in the data array with the measures
     const outlierData = data.map(
-        ([time, value, bounds]) => outlierDatumFor({x: time, y: value}, measures, bounds)
+        ([time, value, bounds]) =>
+            outlierDatumFor({x: time, y: value}, measures, bounds)
     )
 
     // if all data has bounds-dimensions that match the measures-dimensions, then we can safely
     // create the outlier series, otherwise we must report the error and return an empty series
     if (outlierData.filter(datum => datum.succeeded).length === data.length) {
-        return successResult(
-            seriesFrom(
-                name,
-                outlierData.map(datum => datum.getOrThrow(() => new Error("Outlier datum bounds and measure mismatch")))
-            )
-        )
+        // convert the Array<Result<OutlierDatum<M>, string>> to Result<Array<OutlierDatum<M>>, Array<string>>
+        return resultFromAll(outlierData)
+            .map(data => outlierSeriesFrom(name, data, measures, measureDescriptions))
+            .mapFailure(failure => [failure])
     }
+
     // collect all the errors for datum whose bounds and measures dimensions did not
     // match and report each error
     return failureResult(outlierData
@@ -156,3 +158,20 @@ export function outlierSeriesFor<M extends readonly number[]>(
     )
 }
 
+/**
+ * Creates an outlier series for the data and measures
+ * @param name The name of the series
+ * @param outlierData The data for the series
+ * @param measures The measure defining the outlier bands
+ * @param measureDescriptions The (optional) meaning of each band
+ * @return An outlier series
+ * @template M The outlier metadata
+ */
+export function outlierSeriesFrom<M extends readonly number[]>(
+    name: string,
+    outlierData: Array<OutlierDatum<M>>,
+    measures: readonly [...M],
+    measureDescriptions?: {readonly [K in keyof M]: string}
+): OutlierSeries<M> {
+    return {...seriesFrom(name, outlierData), measures, measureDescriptions}
+}

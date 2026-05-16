@@ -15,8 +15,6 @@ describe('when creating outlier datum', () => {
         expect(result.succeeded).toBe(true)
         const datum = result.getOrThrow(() => new Error("oops"))
         expect(datum.bounds).toHaveLength(Measures.length)
-        expect(datum.measures[0]).toBe(50)
-        expect(datum.measures[1]).toBe(92)
     })
 
     it('should not be able to create an outlier datum when the number of measures does not equal the number of bounds', () => {
@@ -58,7 +56,6 @@ describe('when creating an outlier series', () => {
         // all the bounds should have the same length and values as the measures
         series.data.forEach(datum => {
             expect(datum.bounds).toHaveLength(Measures.length)
-            expect(datum.measures).toEqual([50, 92])
         })
 
         // each datum may have a different set of bounds, but they should be the
