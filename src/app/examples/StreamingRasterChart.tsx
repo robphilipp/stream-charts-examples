@@ -233,7 +233,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             setRunning(!running)
                         }}
                     >
-                        {running ? "Stop" : "Run"}
+                        {running ? "Pause" : "Run"}
                     </Button>
                     <Button
                         style={buttonStyle(theme)}

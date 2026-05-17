@@ -108,7 +108,7 @@ function addTooltipContent(
         mainGroup,
         `${idPrefix}-m`,
         tooltipStyle,
-        `Measure: ${measure}`
+        `Band: ` + (lowerMeasure ? `${lowerMeasure} - ` : ``) + `${measure}`
     )
     let explanation = createTextElement(
         mainGroup,
