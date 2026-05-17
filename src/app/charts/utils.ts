@@ -109,3 +109,15 @@ export const minMaxOf = <T>(accessor: (v: T) => number) =>
         Math.min(d3.min(data, series => d3.min(series, datum => accessor(datum))) || 0, currentMinMax[0]),
         Math.max(d3.max(data, series => d3.max(series, datum => accessor(datum))) || 1, currentMinMax[1])
     ]
+
+/**
+ * User specified series name may have spaces, and these may not be valid CSS ids. This
+ * function replaces spaces with underscores.
+ * @param name The name to be made safe for CSS
+ * @return The name with spaces replaced with underscores
+ */
+export function makeIdSafeForCss(name: string): string {
+    // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
+    return name.replace(/\s+/g, '_')
+
+}

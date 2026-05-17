@@ -382,8 +382,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ScatterPlot
                         interpolation={interpolation}
                         axisAssignments={new Map([
-                            ['test2', assignAxes("x-axis-2", "y-axis-2")],
-                            ['test3', assignAxes("x-axis-2", "y-axis-1")],
+                            ['Series 2', assignAxes("x-axis-2", "y-axis-2")],
+                            ['Series 3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
                         dropDataAfter={40000}
                         panEnabled={true}
@@ -402,9 +402,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 }
 
 function colorFor(name: string, index: number, numSeries: number, themeName: string): string {
-    if (name === 'test1') return 'orange'
-    if (name === 'test2') return themeName === 'light' ? 'blue' : 'gray'
-    if (name === 'test3') return themeName === 'light' ? 'dodgerblue' : 'gray'
+    if (name === 'Series 1') return 'orange'
+    if (name === 'Series 2') return themeName === 'light' ? 'blue' : 'gray'
+    if (name === 'Series 3') return themeName === 'light' ? 'dodgerblue' : 'gray'
 
     const ratio = index / numSeries / 2
     return themeName === 'light' ?
@@ -413,15 +413,15 @@ function colorFor(name: string, index: number, numSeries: number, themeName: str
 }
 
 function linewidthFor(name: string): number {
-    if (name === 'test1') return 1
-    if (name === 'test2' || name === 'test3') return 3
+    if (name === 'Series 1') return 1
+    if (name === 'Series 2' || name === 'Series 3') return 3
 
     return 1
 }
 
 function highlightLinewidthFor(name: string): number {
-    if (name === 'test1') return 3
-    if (name === 'test2' || name === 'test3') return 5
+    if (name === 'Series 1') return 3
+    if (name === 'Series 2' || name === 'Series 3') return 5
 
     return 3
 }

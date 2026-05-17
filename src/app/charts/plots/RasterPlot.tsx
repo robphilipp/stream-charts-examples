@@ -1,7 +1,7 @@
 import {type AxesAssignment, setClipPathG} from "./plot";
 import * as d3 from "d3";
 import {type D3DragEvent, type D3ZoomEvent, ZoomTransform} from "d3";
-import {noop} from "../utils";
+import {makeIdSafeForCss, noop} from "../utils";
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import type {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
@@ -374,7 +374,7 @@ export function RasterPlot(props: Props): null {
                     const plotData = (series.name.match(seriesFilter)) ? series.data : []
 
                     const seriesContainer = svg
-                        .select<SVGGElement>(`#${series.name}-${chartId}-raster`)
+                        .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-raster`)
                         .selectAll<SVGLineElement, PixelDatum>('line')
                         .data(plotData as PixelDatum[])
 
@@ -467,7 +467,7 @@ export function RasterPlot(props: Props): null {
                         .enter()
                         .append('g')
                         .attr('class', 'spikes-series')
-                        .attr('id', series => `${series.name}-${chartId}-raster`)
+                        .attr('id', series => `${makeIdSafeForCss(series.name)}-${chartId}-raster`)
                         .attr('transform', `translate(${margin.left}, ${margin.top})`)
 
                 } else {

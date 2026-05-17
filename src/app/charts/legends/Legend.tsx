@@ -505,6 +505,7 @@ export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR ex
             opacity: visible ? 1 : 0,
             transition: visible ? `opacity ${transitionDuration}ms ease-in-out` : "none",
             pointerEvents: visible ? "auto" : "none",
+            whiteSpace: "nowrap",
         }
 
         const anyHovered = hoveredSeriesName !== null

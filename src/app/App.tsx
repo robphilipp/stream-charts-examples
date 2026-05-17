@@ -24,7 +24,7 @@ import {StreamingOutlierChart} from "./examples/StreamingOutlierChart";
 
 const seriesNames: Array<string> = []
 for (let i = 0; i < 30; ++i) {
-    seriesNames.push(`test${i}`)
+    seriesNames.push(`Series ${i}`)
 }
 const initialScatterData = initialRandomWeightData(seriesNames, 10, 500, 50, 20, 100)
 const iterateSeriesNames = seriesNames.slice(1, 2)
@@ -32,7 +32,7 @@ const initialIterateData = initialTentMapData(25, new Map<string, number>(iterat
 
 const spikeSeriesNames: Array<string> = []
 for (let i = 0; i < 50; ++i) {
-    spikeSeriesNames.push(`neuron${i + 1}`)
+    spikeSeriesNames.push(`HC ${i + 1}`)
 }
 const initialSpikeData = initialRandomWeightData(spikeSeriesNames, 10, 500, 200, 20, 10)
 const initialBarData = initialSineFnData(spikeSeriesNames.slice(0, 50), 1000, 4)

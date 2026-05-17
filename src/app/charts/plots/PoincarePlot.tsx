@@ -14,7 +14,7 @@ import {
 } from "../axes/axes";
 import {type GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
-import {formatTime, noop, textDimensions} from "../utils";
+import {formatTime, makeIdSafeForCss, noop, textDimensions} from "../utils";
 import type {Dimensions, Margin} from "../styling/margins";
 import {subscriptionIteratesFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
@@ -479,6 +479,8 @@ export function PoincarePlot(props: Props): null {
                     })
 
                 boundedSeries.forEach((data, name) => {
+                    const seriesId = makeIdSafeForCss(name)
+
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
                     const [xAxisLinear, yAxisLinear] = axesFor(
@@ -513,7 +515,7 @@ export function PoincarePlot(props: Props): null {
                                 enter => enter
                                     .append("path")
                                     .attr("class", 'iterate-series-lines')
-                                    .attr("id", `${name}-${chartId}-poincare`)
+                                    .attr("id", `${seriesId}-${chartId}-poincare`)
                                     .attr("d", pathGenerator.curve(interpolation))
                                     .style("fill", "none")
                                     .style("stroke", seriesLineStyle.color)
@@ -534,8 +536,8 @@ export function PoincarePlot(props: Props): null {
                             .join(
                                 enter => enter
                                     .append("circle")
-                                    .attr("class", `${name}-${chartId}-poincare-points`)
-                                    .attr("id", (_, index) => `${name}-${chartId}-poincare-point-${index}`)
+                                    .attr("class", `${seriesId}-${chartId}-poincare-points`)
+                                    .attr("id", (_, index) => `${seriesId}-${chartId}-poincare-point-${index}`)
                                     .attr("fill", seriesLineStyle.color)
                                     .attr("stroke", "none")
                                     .attr("cx", (d: IteratePoint) => xAxisLinear.scale(d.n) || 0)
@@ -747,7 +749,9 @@ function handleMouseEnterPoint(
      * @param index The index of the iterate
      */
     function showInfo(index: number): void {
-        d3.select(`#${seriesName}-${chartId}-poincare-point-${index}`)
+        const seriesId = makeIdSafeForCss(seriesName)
+
+        d3.select(`#${seriesId}-${chartId}-poincare-point-${index}`)
             .attr("r", circleRadius)
             .style("fill", d3.rgb(highlightColor).brighter(0.7).toString())
             .style("stroke-width", circleStroke)
@@ -763,12 +767,12 @@ function handleMouseEnterPoint(
         // text readable when the chart is busy)
         const rect = svg
             .append("rect")
-            .attr("class", `${seriesName}-${chartId}-poincare-point-text-background`)
+            .attr("class", `${seriesId}-${chartId}-poincare-point-text-background`)
 
         // add the information about the iterate as a text element
         const textElement = svg
             .append("text")
-            .attr('class', `${seriesName}-${chartId}-poincare-point-text`)
+            .attr('class', `${seriesId}-${chartId}-poincare-point-text`)
             .attr('fill', highlightColor)
             .attr('font-family', 'sans-serif')
             .attr('font-size', 11)

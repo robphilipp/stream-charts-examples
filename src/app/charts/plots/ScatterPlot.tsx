@@ -17,7 +17,7 @@ import {
 } from "../axes/axes";
 import type {GSelection} from "../d3types";
 import {Observable, Subscription} from "rxjs";
-import {noop} from "../utils";
+import {makeIdSafeForCss, noop} from "../utils";
 import type {Dimensions, Margin} from "../styling/margins";
 import {
     subscriptionTimeSeriesFor,
@@ -359,6 +359,8 @@ export function ScatterPlot(props: Props): null {
                 const clipPathId = setClipPathG(chartId, mainGElem, plotDimensions)
 
                 boundedSeries.forEach((data, name) => {
+                    const seriesId = makeIdSafeForCss(name)
+
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
                     const [xAxisLinear, yAxisLinear] = axesFor(
@@ -377,13 +379,13 @@ export function ScatterPlot(props: Props): null {
 
                     // create the time-series paths
                     mainGElem
-                        .selectAll(`#${name}-${chartId}-scatter`)
+                        .selectAll(`#${seriesId}-${chartId}-scatter`)
                         .data([[], plotData], () => `${name}`)
                         .join(
                             enter => enter
                                 .append("path")
                                 .attr("class", 'time-series-lines')
-                                .attr("id", `${name}-${chartId}-scatter`)
+                                .attr("id", `${seriesId}-${chartId}-scatter`)
                                 .attr("data-series-name", name)
                                 .attr(
                                     "d",

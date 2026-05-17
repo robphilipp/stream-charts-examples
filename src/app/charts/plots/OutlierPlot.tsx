@@ -10,7 +10,7 @@ import {useInitialData} from "../hooks/useInitialData"
 import {usePlotDimensions} from "../hooks/usePlotDimensions"
 import {type AxesAssignment, setClipPathG} from "./plot"
 import type {GSelection} from "../d3types"
-import {noop} from "../utils"
+import {makeIdSafeForCss, noop} from "../utils"
 import type {Dimensions} from "../styling/margins"
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange"
 import {AxisInterval} from "../axes/AxisInterval"
@@ -29,7 +29,7 @@ import {subscriptionOutlierFor, TimeWindowBehavior} from "../subscriptions/subsc
 import type {OutlierChartData} from "../observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries"
 
-type OutlierDatumColor<M extends readonly number[]> = {datum: OutlierDatum<M>, color: string}
+type OutlierDatumColor<M extends readonly number[]> = { datum: OutlierDatum<M>, color: string }
 
 export interface Props {
     /**
@@ -302,20 +302,20 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 const plotData: Array<OutlierDatum<M>> = series.name.match(seriesFilter) ? series.data : []
                 const numBands = plotData.length > 0 ? plotData[0].bounds.length : 0
                 // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
-                const safeId = series.name.replace(/\s+/g, '_')
+                const seriesId = makeIdSafeForCss(series.name)
 
                 // render the widest (highest-index) band first so the narrower, more-confident
                 // bands stack on top with darker opacity
                 for (let bandIndex = numBands - 1; bandIndex >= 0; bandIndex--) {
                     const opacity = Math.min(1, bandOpacity + (numBands - 1 - bandIndex) * bandOpacityStep)
-                    const areaId = `${safeId}-${chartId}-outlier-band-${bandIndex}`
+                    const areaId = `${seriesId}-${chartId}-outlier-band-${bandIndex}`
                     const areaGen = d3.area<OutlierDatum<M>>()
                         .x(d => xAxis.scale(d.datum.x) || 0)
                         .y0(d => yAxis.scale(d.bounds[bandIndex].lower) || 0)
                         .y1(d => yAxis.scale(d.bounds[bandIndex].upper) || 0)
                         .curve(interpolation)
                     const measure = series.measures[bandIndex]
-                    const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex-1] : undefined
+                    const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex - 1] : undefined
                     const measureDescription = series.measureDescriptions?.[bandIndex]
 
                     mainGElem
@@ -340,7 +340,16 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                     mouseOverHandlerFor(`tooltip-${chartId}`)?.(
                                         series.name,
                                         bandIndex,
-                                        {series: series.data, metadata: {measure, lowerMeasure, bandIndex, pointsInBand, measureDescription}},
+                                        {
+                                            series: series.data,
+                                            metadata: {
+                                                measure,
+                                                lowerMeasure,
+                                                bandIndex,
+                                                pointsInBand,
+                                                measureDescription
+                                            }
+                                        },
                                         [x, y]
                                     )
                                 })
@@ -356,7 +365,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 }
 
                 // central line for the series y-value
-                const lineId = `${safeId}-${chartId}-outlier-line`
+                const lineId = `${seriesId}-${chartId}-outlier-line`
                 const isHovered = hoveredSeriesRef.current === series.name
                 const stroke = isHovered ? style.highlightColor : style.color
                 const strokeWidth = isHovered ? style.highlightWidth : style.lineWidth
@@ -390,7 +399,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 // point markers (one circle per datum)
                 if (markerRadius != null && markerRadius >= 0) {
                     const radius = markerRadius
-                    const markerGroupId = `${safeId}-${chartId}-outlier-markers`
+                    const markerGroupId = `${seriesId}-${chartId}-outlier-markers`
                     const markerGroup = mainGElem
                         .selectAll<SVGGElement, Array<OutlierDatum<M>>>(`#${markerGroupId}`)
                         .data([plotData], () => `${series.name}-markers`)
@@ -430,7 +439,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                     .map(outlier => outlierFor(outlier, outlierMarkerColors))
                     .filter((outlier): outlier is OutlierDatumColor<M> => outlier !== null)
 
-                const outlierGroupId = `${safeId}-${chartId}-outlier-points`
+                const outlierGroupId = `${seriesId}-${chartId}-outlier-points`
                 const outlierGroup = mainGElem
                     .selectAll<SVGGElement, Array<OutlierDatumColor<M>>>(`#${outlierGroupId}`)
                     .data([outlierPoints], () => `${series.name}-outlier-points`)
