@@ -330,7 +330,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={new Map<string, BarSeriesStyle>([
-                        ['neuron1', {
+                        ['HC 1', {
                             ...defaultBarSeriesStyle('orange'),
                             lineWidth: 2,
                             minMaxBar: {
@@ -341,7 +341,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                                 }
                             }
                         } as BarSeriesStyle],
-                        ['neuron14', {
+                        ['HC 14', {
                             ...defaultBarSeriesStyle(theme.name === 'light' ? 'blue' : 'gray'),
                             lineWidth: 3,
                             highlightWidth: 5,
@@ -351,7 +351,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             }
 
                         } as BarSeriesStyle],
-                        ['neuron31', {
+                        ['HC 31', {
                             ...defaultBarSeriesStyle('green'),
                             lineWidth: 2,
                         } as BarSeriesStyle],

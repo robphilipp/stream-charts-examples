@@ -1,7 +1,7 @@
 import {type AxesAssignment, setClipPathG} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {noop} from "../utils";
+import {makeIdSafeForCss, noop} from "../utils";
 import {useChart} from "../hooks/useChart";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import type {Datum, TimeSeries} from "../series/timeSeries";
@@ -395,7 +395,7 @@ export function BarPlot(props: Props): null {
                     )
 
                     svg
-                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                        .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
                         .selectAll<SVGRectElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.minMax))
                         .data(plotData)
                         .join(
@@ -452,7 +452,7 @@ export function BarPlot(props: Props): null {
                         )
 
                         svg
-                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                            .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
                             .selectAll<SVGRectElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.windowedMinMax))
                             .data(plotData)
                             .join(
@@ -500,7 +500,7 @@ export function BarPlot(props: Props): null {
                         // mean line
                         const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
                         svg
-                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                            .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
                             .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.meanValue))
                             .data(showMeanValueLines ? plotData : [])
                             .join(
@@ -553,7 +553,7 @@ export function BarPlot(props: Props): null {
 
                         const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
                         svg
-                            .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                            .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
                             .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.windowedMeanValue))
                             .data(showWindowedMeanValueLines ? plotData : [])
                             .join(
@@ -608,7 +608,7 @@ export function BarPlot(props: Props): null {
                     //
                     // value lines
                     svg
-                        .select<SVGGElement>(`#${series.name}-${chartId}-bar`)
+                        .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
                         .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.currentValue))
                         .data(showValueLines ? plotData : [])
                         .join(
@@ -696,7 +696,7 @@ export function BarPlot(props: Props): null {
                         .enter()
                         .append('g')
                         .attr('class', 'spikes-series')
-                        .attr('id', series => `${series.name}-${chartId}-bar`)
+                        .attr('id', series => `${makeIdSafeForCss(series.name)}-${chartId}-bar`)
                         .attr('transform', `translate(${margin.left}, ${margin.top})`)
 
                 } else {

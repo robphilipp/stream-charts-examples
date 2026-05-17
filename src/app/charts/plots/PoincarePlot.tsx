@@ -504,12 +504,12 @@ export function PoincarePlot(props: Props): null {
 
                     if (interpolation === undefined) {
                         mainGElem
-                            .selectAll(`#${name}-${chartId}-poincare`)
+                            .selectAll(`#${makeIdSafeForCss(name)}-${chartId}-poincare`)
                             .remove()
                     } else {
                         // create the time-series paths
                         mainGElem
-                            .selectAll(`#${name}-${chartId}-poincare`)
+                            .selectAll(`#${makeIdSafeForCss(name)}-${chartId}-poincare`)
                             .data([[], plotData], () => `${name}`)
                             .join(
                                 enter => enter
@@ -531,7 +531,7 @@ export function PoincarePlot(props: Props): null {
                     // when specified, show a circle for the actual data point
                     if (showPoints) {
                         mainGElem
-                            .selectAll(`.${name}-${chartId}-poincare-points`)
+                            .selectAll(`.${makeIdSafeForCss(name)}-${chartId}-poincare-points`)
                             .data(plotData, () => `${name}`)
                             .join(
                                 enter => enter
@@ -819,13 +819,14 @@ function handleMouseLeavePoint(
     color: string,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    d3.selectAll<SVGPathElement, Datum>(`.${seriesName}-${chartId}-poincare-points`)
+    const seriesId = makeIdSafeForCss(seriesName)
+    d3.selectAll<SVGPathElement, Datum>(`.${seriesId}-${chartId}-poincare-points`)
         .attr("r", 2)
         .style("fill", color)
         .style("stroke", "none")
-    d3.selectAll(`.${seriesName}-${chartId}-poincare-point-arrows`).remove()
-    d3.selectAll(`.${seriesName}-${chartId}-poincare-point-text`).remove()
-    d3.selectAll(`.${seriesName}-${chartId}-poincare-point-text-background`).remove()
+    d3.selectAll(`.${seriesId}-${chartId}-poincare-point-arrows`).remove()
+    d3.selectAll(`.${seriesId}-${chartId}-poincare-point-text`).remove()
+    d3.selectAll(`.${seriesId}-${chartId}-poincare-point-text-background`).remove()
 
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)
