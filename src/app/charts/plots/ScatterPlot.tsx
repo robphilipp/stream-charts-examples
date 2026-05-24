@@ -378,7 +378,12 @@ export function ScatterPlot(props: Props): null {
                     if (xAxisLinear === undefined || yAxisLinear === undefined) return
 
                     // grab the style for the series
-                    const {color, lineWidth, highlightColor, highlightWidth} = seriesStyles.get(name) || defaultLineStyle()
+                    const {
+                        color,
+                        lineWidth,
+                        highlightColor,
+                        highlightWidth
+                    } = seriesStyles.get(name) || defaultLineStyle()
 
                     // only show the data for which the filter matches
                     const plotData = (name.match(seriesFilter)) ? data : []
@@ -448,7 +453,20 @@ export function ScatterPlot(props: Props): null {
                                     .attr("class", "scatter-markers")
                                     .attr("data-series-name", name)
                                     .attr("transform", `translate(${margin.left}, ${margin.top})`)
-                                    .attr("clip-path", `url(#${clipPathId})`),
+                                    .attr("clip-path", `url(#${clipPathId})`)
+                                    .on("mouseover", (event: MouseEvent) => {
+                                        if (allowTooltip.current) {
+                                            const [x, y] = d3.pointer(event, container)
+                                            const time = Math.round(xAxisLinear.scale.invert(x - margin.left))
+                                            mouseOverHandlerFor(`tooltip-${chartId}`)?.(name, time, {
+                                                series: plotData,
+                                                metadata: {}
+                                            }, [x, y])
+                                        }
+                                    })
+                                    .on("mouseleave", () => {
+                                        mouseLeaveHandlerFor(`tooltip-${chartId}`)?.(name)
+                                    }),
                                 update => update,
                                 exit => exit.remove()
                             )
@@ -471,28 +489,6 @@ export function ScatterPlot(props: Props): null {
                                     .attr("cy", d => yAxisLinear.scale(d.y) || 0),
                                 exit => exit.remove()
                             )
-                            .on("mouseover", (event: MouseEvent) => {
-                                // mainGElem.select(`#${seriesId}-${chartId}-scatter`)
-                                //     .attr("stroke", highlightColor)
-                                //     .attr("stroke-width", highlightWidth)
-                                // markerGroup.selectAll<SVGCircleElement, Datum>("circle")
-                                //     .attr("fill", highlightColor)
-                                //     .attr("r", markerRadius + 2)
-                                if (allowTooltip.current) {
-                                    const [x, y] = d3.pointer(event, container)
-                                    const time = Math.round(xAxisLinear.scale.invert(x - margin.left))
-                                    mouseOverHandlerFor(`tooltip-${chartId}`)?.(name, time, {series: plotData, metadata: {}}, [x, y])
-                                }
-                            })
-                            .on("mouseleave", () => {
-                                // mainGElem.select(`#${seriesId}-${chartId}-scatter`)
-                                //     .attr("stroke", color)
-                                //     .attr("stroke-width", lineWidth)
-                                // markerGroup.selectAll<SVGCircleElement, Datum>("circle")
-                                //     .attr("fill", color)
-                                //     .attr("r", markerRadius)
-                                mouseLeaveHandlerFor(`tooltip-${chartId}`)?.(name)
-                            })
                     } else {
                         mainGElem.selectAll(`#${markerGroupId}`).remove()
                     }
@@ -697,7 +693,7 @@ function handleMouseOverSeries(
         .attr('stroke-width', highlightWidth)
 
     if (mouseOverHandlerFor && allowTooltip) {
-        mouseOverHandlerFor(seriesName, time, {series,  metadata: {}}, [x, y])
+        mouseOverHandlerFor(seriesName, time, {series, metadata: {}}, [x, y])
     }
 }
 

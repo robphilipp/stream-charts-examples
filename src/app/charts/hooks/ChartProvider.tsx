@@ -75,6 +75,7 @@ export default function ChartProvider<S extends SeriesStyle, AR extends BaseAxis
     const axes = useAxes<AR, A>()
     const mouse = useMouse()
     const tooltip = useTooltip()
+    // holds the name of the currently selected/hovered series to allow components to share this state
     const [hoveredSeriesName, setHoveredSeriesName] = useState<string | null>(null)
 
     return <ChartContext.Provider
