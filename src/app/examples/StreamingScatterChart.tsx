@@ -246,6 +246,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <Checkbox
                         key={5}
                         checked={visibility.markers}
+                        disabled={running}
                         label="markers"
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.color}
@@ -396,7 +397,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             ['Series 2', assignAxes("x-axis-2", "y-axis-2")],
                             ['Series 3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
-                        dropDataAfter={40000}
+                        dropDataAfter={30000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

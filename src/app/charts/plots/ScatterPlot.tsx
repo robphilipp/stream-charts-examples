@@ -439,9 +439,10 @@ export function ScatterPlot(props: Props): null {
                             exit => exit.remove()
                         )
 
-                    // point markers (one circle per datum)
+                    // point markers (one circle per datum) — suppressed while streaming because
+                    // updating O(n) circle positions every frame causes stutter vs. O(1) for a line path
                     const markerGroupId = `${seriesId}-${chartId}-scatter-markers`
-                    if (markerRadius != null && markerRadius >= 0) {
+                    if (markerRadius != null && markerRadius >= 0 && !shouldSubscribe) {
                         const radius = hoveredSeriesName === name ? markerRadius + 2 : markerRadius
                         const markerGroup = mainGElem
                             .selectAll<SVGGElement, Array<Datum>>(`#${markerGroupId}`)
@@ -501,7 +502,7 @@ export function ScatterPlot(props: Props): null {
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
             mouseOverHandlerFor, mouseLeaveHandlerFor,
-            hoveredSeriesName, markerRadius
+            hoveredSeriesName, markerRadius, shouldSubscribe
         ]
     )
 
