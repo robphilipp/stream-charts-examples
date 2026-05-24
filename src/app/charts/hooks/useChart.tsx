@@ -1,4 +1,4 @@
-import {createContext, type RefObject, useContext} from "react";
+import {createContext, type SetStateAction, type Dispatch, useContext} from "react";
 import type {GSelection} from "../d3types";
 import type {BaseAxis, SeriesStyle} from "../axes/axes";
 import {type UseAxesValues} from "./useAxes";
@@ -70,10 +70,14 @@ export interface UseChartValues<D, S extends SeriesStyle, TM, AR extends BaseAxi
     mouse: UseMouseValues<D, TM>
     tooltip: UseTooltipValues<D, TM>
     /**
-     * Ref tracking the currently hovered series name (null when nothing is hovered).
-     * Updated by the Legend; read by plots so new path elements use the correct stroke.
+     * Holds the series name that is currently highlighted
      */
-    hoveredSeriesRef: RefObject<string | null>
+    hoveredSeriesName: string | null
+    /**
+     * Sets the name of the series that is highlighted, allowing other components to share this
+     * highlight state
+     */
+    setHoveredSeriesName:  Dispatch<SetStateAction<string | null>>
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

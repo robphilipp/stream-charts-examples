@@ -1,13 +1,13 @@
 import type {BaseAxis, SeriesStyle} from "../axes/axes";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
-import type {JSX, RefObject} from "react";
+import {type JSX, useState} from "react";
 import {defaultUseChartValues} from "./defaultUseChartValues";
 import {useAxes} from "./useAxes";
 import {useMouse} from "./useMouse";
 import {useTooltip} from "./useTooltip";
 import type {GSelection} from "../d3types";
 import type {SvgStyle} from "../styling/svgStyle";
-import { ChartContext } from "./useChart";
+import {ChartContext} from "./useChart";
 
 /**
  * The properties for the {@link ChartProvider}
@@ -46,10 +46,6 @@ export interface Props<S extends SeriesStyle> {
      * An optional regular expression uses against the series names to determine which series to show in the chart
      */
     seriesFilter?: RegExp
-    /**
-     * A reference to the currently hovered series
-     */
-    hoveredSeriesRef: RefObject<string | null>
 
     children: JSX.Element | Array<JSX.Element>
 }
@@ -74,12 +70,12 @@ export default function ChartProvider<S extends SeriesStyle, AR extends BaseAxis
         seriesFilter = defaultUseChartValues().seriesFilter,
         svgStyle,
         seriesStyles = new Map<string, S>(),
-        hoveredSeriesRef,
     } = props
 
     const axes = useAxes<AR, A>()
     const mouse = useMouse()
     const tooltip = useTooltip()
+    const [hoveredSeriesName, setHoveredSeriesName] = useState<string | null>(null)
 
     return <ChartContext.Provider
         value={{
@@ -95,7 +91,8 @@ export default function ChartProvider<S extends SeriesStyle, AR extends BaseAxis
             axes,
             mouse,
             tooltip,
-            hoveredSeriesRef,
+            hoveredSeriesName,
+            setHoveredSeriesName
         }}
     >
         {props.children}

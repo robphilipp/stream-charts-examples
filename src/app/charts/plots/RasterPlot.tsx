@@ -101,7 +101,7 @@ export function RasterPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse,
-        hoveredSeriesRef,
+        hoveredSeriesName,
     } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
@@ -366,7 +366,7 @@ export function RasterPlot(props: Props): null {
                         highlightColor: defaultLineStyle().color
                     }
 
-                    const isHovered = hoveredSeriesRef.current === series.name
+                    const isHovered = hoveredSeriesName === series.name
                     const strokeColor = isHovered ? highlightColor : color
                     const strokeWidth = isHovered ? (highlightWidth || lineWidth) : lineWidth
 
@@ -446,7 +446,7 @@ export function RasterPlot(props: Props): null {
             xAxesState, yAxesState,
             zoomEnabled, zoomKeyModifiersRequired,
             spikeMargin,
-            hoveredSeriesRef
+            hoveredSeriesName,
         ]
     )
 

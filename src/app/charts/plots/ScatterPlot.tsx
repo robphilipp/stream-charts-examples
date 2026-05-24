@@ -73,6 +73,11 @@ export interface Props {
      */
     withCadenceOf?: number
     timeWindowBehavior?: TimeWindowBehavior
+    /**
+     * Radius (px) of the circle marker drawn at each datum. When omitted or `undefined`,
+     * no markers are rendered.
+     */
+    markerRadius?: number
     // initialTimes?: Map<string, number>
 }
 
@@ -105,7 +110,7 @@ export function ScatterPlot(props: Props): null {
         seriesStyles,
         seriesFilter,
         mouse,
-        hoveredSeriesRef,
+        hoveredSeriesName,
     } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
@@ -143,6 +148,7 @@ export function ScatterPlot(props: Props): null {
         zoomKeyModifiersRequired = true,
         withCadenceOf,
         timeWindowBehavior = TimeWindowBehavior.SCROLL,
+        markerRadius,
     } = props
 
     const initialTimes = useMemo(
@@ -395,8 +401,8 @@ export function ScatterPlot(props: Props): null {
                                         .curve(interpolation)
                                 )
                                 .attr("fill", "none")
-                                .attr("stroke", hoveredSeriesRef.current === name ? highlightColor : color)
-                                .attr("stroke-width", hoveredSeriesRef.current === name ? highlightWidth : lineWidth)
+                                .attr("stroke", hoveredSeriesName === name ? highlightColor : color)
+                                .attr("stroke-width", hoveredSeriesName === name ? highlightWidth : lineWidth)
                                 .attr('transform', `translate(${margin.left}, ${margin.top})`)
                                 .attr("clip-path", `url(#${clipPathId})`)
                                 .on(
@@ -427,6 +433,69 @@ export function ScatterPlot(props: Props): null {
                             update => update,
                             exit => exit.remove()
                         )
+
+                    // point markers (one circle per datum)
+                    const markerGroupId = `${seriesId}-${chartId}-scatter-markers`
+                    if (markerRadius != null && markerRadius >= 0) {
+                        const radius = hoveredSeriesName === name ? markerRadius + 2 : markerRadius
+                        const markerGroup = mainGElem
+                            .selectAll<SVGGElement, Array<Datum>>(`#${markerGroupId}`)
+                            .data([plotData], () => `${name}-markers`)
+                            .join(
+                                enter => enter
+                                    .append("g")
+                                    .attr("id", markerGroupId)
+                                    .attr("class", "scatter-markers")
+                                    .attr("data-series-name", name)
+                                    .attr("transform", `translate(${margin.left}, ${margin.top})`)
+                                    .attr("clip-path", `url(#${clipPathId})`),
+                                update => update,
+                                exit => exit.remove()
+                            )
+
+                        markerGroup
+                            .selectAll<SVGCircleElement, Datum>("circle")
+                            .data(plotData)
+                            .join(
+                                enter => enter
+                                    .append("circle")
+                                    .attr("r", radius)
+                                    .attr("fill", hoveredSeriesName === name ? highlightColor : color)
+                                    .attr("stroke", "none")
+                                    .attr("cx", d => xAxisLinear.scale(d.x) || 0)
+                                    .attr("cy", d => yAxisLinear.scale(d.y) || 0),
+                                update => update
+                                    .attr("r", radius)
+                                    .attr("fill", hoveredSeriesName === name ? highlightColor : color)
+                                    .attr("cx", d => xAxisLinear.scale(d.x) || 0)
+                                    .attr("cy", d => yAxisLinear.scale(d.y) || 0),
+                                exit => exit.remove()
+                            )
+                            .on("mouseover", (event: MouseEvent) => {
+                                // mainGElem.select(`#${seriesId}-${chartId}-scatter`)
+                                //     .attr("stroke", highlightColor)
+                                //     .attr("stroke-width", highlightWidth)
+                                // markerGroup.selectAll<SVGCircleElement, Datum>("circle")
+                                //     .attr("fill", highlightColor)
+                                //     .attr("r", markerRadius + 2)
+                                if (allowTooltip.current) {
+                                    const [x, y] = d3.pointer(event, container)
+                                    const time = Math.round(xAxisLinear.scale.invert(x - margin.left))
+                                    mouseOverHandlerFor(`tooltip-${chartId}`)?.(name, time, {series: plotData, metadata: {}}, [x, y])
+                                }
+                            })
+                            .on("mouseleave", () => {
+                                // mainGElem.select(`#${seriesId}-${chartId}-scatter`)
+                                //     .attr("stroke", color)
+                                //     .attr("stroke-width", lineWidth)
+                                // markerGroup.selectAll<SVGCircleElement, Datum>("circle")
+                                //     .attr("fill", color)
+                                //     .attr("r", markerRadius)
+                                mouseLeaveHandlerFor(`tooltip-${chartId}`)?.(name)
+                            })
+                    } else {
+                        mainGElem.selectAll(`#${markerGroupId}`).remove()
+                    }
                 })
             }
         },
@@ -436,7 +505,7 @@ export function ScatterPlot(props: Props): null {
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
             mouseOverHandlerFor, mouseLeaveHandlerFor,
-            hoveredSeriesRef
+            hoveredSeriesName, markerRadius
         ]
     )
 

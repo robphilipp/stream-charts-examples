@@ -1,9 +1,9 @@
-import {type JSX, useCallback, useMemo, useRef, useState} from 'react'
+import {type JSX, useCallback, useMemo, useState} from 'react'
 import {type Dimensions, type Margin, plotDimensionsFrom} from "./styling/margins";
 import {initialSvgStyle, type SvgStyle} from "./styling/svgStyle";
 import type {GSelection} from "./d3types";
 import * as d3 from "d3";
-import type {SeriesStyle, BaseAxis} from "./axes/axes";
+import type {BaseAxis, SeriesStyle} from "./axes/axes";
 import {createPlotContainer} from "./plots/plot";
 import {noop} from "./utils";
 import {Observable, Subscription} from "rxjs";
@@ -277,7 +277,6 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
     // the container that holds the d3 svg element
     const [mainG, setMainG] = useState<GSelection | null>(null)
     const [container, setContainer] = useState<SVGSVGElement | null>(null)
-    const hoveredSeriesRef = useRef<string | null>(null)
 
     // create the main SVG element if it doesn't already exist
     if (!mainG && container) {
@@ -346,7 +345,6 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                                         svgStyle={svgStyle}
                                         seriesStyles={seriesStyles}
                                         seriesFilter={seriesFilter}
-                                        hoveredSeriesRef={hoveredSeriesRef}
                                     >
                                         {
                                             // the chart elements are the children

@@ -1,4 +1,4 @@
-import {type BaseAxis, defaultLineStyle, type SeriesLineStyle, type SeriesStyle} from "../axes/axes";
+import {type BaseAxis, type SeriesStyle} from "../axes/axes";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useChart} from "../hooks/useChart";
@@ -98,7 +98,16 @@ export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR ex
         container: externalContainer
     } = props
 
-    const {chartId, container, color, seriesStyles, seriesFilter, mouse, hoveredSeriesRef} = useChart<D, S, TM, AR, A>()
+    const {
+        chartId,
+        container,
+        color,
+        seriesStyles,
+        seriesFilter,
+        mouse,
+        hoveredSeriesName,
+        setHoveredSeriesName
+    } = useChart<D, S, TM, AR, A>()
     const {margin, plotDimensions} = usePlotDimensions()
     const {initialData} = useInitialData<CD, D>()
 
@@ -123,7 +132,6 @@ export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR ex
     )
 
     // Track the currently hovered series name so legend entries can be highlighted
-    const [hoveredSeriesName, setHoveredSeriesName] = useState<string | null>(null)
     useEffect(() => {
         const handlerId = `legend-${chartId}`
         mouse.registerMouseOverHandler(handlerId, seriesName => setHoveredSeriesName(seriesName))
@@ -132,39 +140,22 @@ export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR ex
             mouse.unregisterMouseOverHandler(handlerId)
             mouse.unregisterMouseLeaveHandler(handlerId)
         }
-    }, [chartId, mouse])
+    }, [chartId, mouse, setHoveredSeriesName])
 
-    // Keep a ref so D3 closures in the SVG legend always read current styles
-    // const seriesStylesRef = useRef<Map<string, S>>(seriesStyles)
-    // seriesStylesRef.current = seriesStyles
+    const highlightSeriesInPlot = useCallback<(name: string) => void>(
+        name => {
+            setHoveredSeriesName(name)
+            if (!container) return
+        },
+        [container, setHoveredSeriesName]
+    )
 
-    const highlightSeriesInPlot = useCallback<(name: string) => void>(name => {
-        hoveredSeriesRef.current = name
-        if (!container) return
-        const {
-            highlightColor,
-            highlightWidth
-        } = (seriesStyles.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        // } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        d3.select(container)
-            .selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
-            .attr('stroke', highlightColor)
-            .attr('stroke-width', highlightWidth)
-    }, [container, hoveredSeriesRef, seriesStyles])
-
-    const restoreSeriesInPlot = useCallback<(name: string) => void>(name => {
-        hoveredSeriesRef.current = null
-        if (!container) return
-        const {
-            color,
-            lineWidth
-        } = (seriesStyles.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        // } = (seriesStylesRef.current.get(name) as SeriesLineStyle | undefined) || defaultLineStyle()
-        d3.select(container)
-            .selectAll<SVGPathElement, unknown>(`path[data-series-name="${name}"], line[data-series-name="${name}"]`)
-            .attr('stroke', color)
-            .attr('stroke-width', lineWidth)
-    }, [container, hoveredSeriesRef, seriesStyles])
+    const restoreSeriesInPlot = useCallback<(name: string) => void>(
+        () => {
+            if (!container) return
+        },
+        [container]
+    )
 
     // Derive the filtered list of series names
     const visibleSeriesNames = useMemo<Array<string>>(
@@ -403,31 +394,27 @@ export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR ex
                     .attr("height", rowHeight + rowGap)
                     .style("fill", backgroundColor)
                     .style("fill-opacity", 0)
-                .on("mouseover", () => {
-                    if (isWheelingRef.current) return
-                    setHoveredSeriesName(prevName => {
-                        // restore any previous names in case the events
-                        // get out of order this prevents multiple series
-                        // being highlighted when the mouse moves quickly
-                        if (prevName && prevName !== name) {
-                            restoreSeriesInPlot(prevName)
-                        }
-                        return name
+                    .on("mouseover", () => {
+                        if (isWheelingRef.current) return
+                        setHoveredSeriesName(prevName => {
+                            // restore any previous names in case the events
+                            // get out of order this prevents multiple series
+                            // being highlighted when the mouse moves quickly
+                            if (prevName && prevName !== name) {
+                                restoreSeriesInPlot(prevName)
+                            }
+                            return name
+                        })
+                        highlightSeriesInPlot(name)
                     })
-                    highlightSeriesInPlot(name)
-                })
-                .on("mouseleave", () => {
-                    setHoveredSeriesName(null)
-                    restoreSeriesInPlot(name)
-                })
+                    .on("mouseleave", () => {
+                        setHoveredSeriesName(null)
+                        restoreSeriesInPlot(name)
+                    })
 
             })
         },
-        [
-            visible, container, externalContainer, chartId, visibleSeriesNames,
-            legendStyle, location, offset, margin, plotDimensions, color,
-            seriesStyles, highlightSeriesInPlot, restoreSeriesInPlot, mouseInLegend
-        ]
+        [visible, container, externalContainer, chartId, visibleSeriesNames, legendStyle, location, offset, margin, plotDimensions, color, seriesStyles, highlightSeriesInPlot, restoreSeriesInPlot, mouseInLegend, setHoveredSeriesName]
     )
 
     // Update SVG row opacity when the hovered series changes

@@ -52,6 +52,7 @@ interface Visibility {
     tracker: boolean;
     magnifier: boolean;
     legend: boolean;
+    markers: boolean;
 }
 
 const initialVisibility: Visibility = {
@@ -59,6 +60,7 @@ const initialVisibility: Visibility = {
     tracker: false,
     magnifier: false,
     legend: false,
+    markers: false,
 }
 
 const LEGEND_LOCATIONS = new Map<string, LegendLocation>([
@@ -241,6 +243,15 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         labelColor={theme.color}
                         onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                     />
+                    <Checkbox
+                        key={5}
+                        checked={visibility.markers}
+                        label="markers"
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.color}
+                        labelColor={theme.color}
+                        onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
+                    />
                     <select
                         name="interpolations"
                         style={{
@@ -389,6 +400,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
+                        markerRadius={visibility.markers ? 2 : undefined}
                         // withCadenceOf={30}
                         // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
                     />

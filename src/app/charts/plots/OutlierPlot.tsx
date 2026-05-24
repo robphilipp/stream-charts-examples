@@ -128,7 +128,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         axes,
         seriesStyles,
         seriesFilter,
-        hoveredSeriesRef,
+        hoveredSeriesName,
         mouse,
     } = useChart<OutlierDatum<M>, SeriesLineStyle, OutlierBandTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
@@ -366,7 +366,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
 
                 // central line for the series y-value
                 const lineId = `${seriesId}-${chartId}-outlier-line`
-                const isHovered = hoveredSeriesRef.current === series.name
+                const isHovered = hoveredSeriesName === series.name
                 const stroke = isHovered ? style.highlightColor : style.color
                 const strokeWidth = isHovered ? style.highlightWidth : style.lineWidth
                 const lineGen = d3.line<OutlierDatum<M>>()
@@ -480,7 +480,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
             zoomKeyModifiersRequired, onZoom, axisAssignments,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
-            bandOpacity, bandOpacityStep, markerRadius, outlierMarkerColors, hoveredSeriesRef,
+            bandOpacity, bandOpacityStep, markerRadius, outlierMarkerColors, hoveredSeriesName,
             mouseOverHandlerFor, mouseLeaveHandlerFor
         ]
     )
