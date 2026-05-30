@@ -85,31 +85,44 @@ function addTooltipContent(
     tooltipStyle: TooltipStyle,
 ): TooltipDimensions {
     const {
-        measure,
+        datum,
+        upperMeasure = 1,
         lowerMeasure = 0,
         pointsInBand,
         measureDescription
     } = metadata
-    const outerProb = ((1 - measure) * 100).toFixed(1)
-    const innerProb = ((measure - lowerMeasure) * 100).toFixed(1)
+    const outerProb = ((1 - upperMeasure) * 100).toFixed(1)
+    const innerProb = ((upperMeasure - lowerMeasure) * 100).toFixed(1)
     const [x, y] = mouseCoords
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mainGroup = d3.select<SVGSVGElement | null, any>(container)
     const idPrefix = `ob${time}-${seriesName}-${chartId}`
 
+    // create the text elements that get displayed in the tooltip
+    const elements: Array<d3.Selection<SVGTextElement, unknown, null, undefined>> = []
     const header = createTextElement(
         mainGroup,
         `${idPrefix}-h`,
         {...tooltipStyle, fontWeight: tooltipStyle.fontWeight + 300},
         `Series: ${seriesName}`
     )
+    elements.push(header)
+    if (datum) {
+        elements.push(createTextElement(
+            mainGroup,
+            `${idPrefix}-p`,
+            tooltipStyle,
+            `(${datum.datum.x}, ${datum.datum.y})`
+        ))
+    }
     const measureText = createTextElement(
         mainGroup,
         `${idPrefix}-m`,
         tooltipStyle,
-        `Band: ` + (lowerMeasure ? `${lowerMeasure} - ` : ``) + `${measure}`
+        `Band: ` + (lowerMeasure ? `${lowerMeasure} - ` : ``) + `${upperMeasure}`
     )
+    elements.push(measureText)
     let explanation = createTextElement(
         mainGroup,
         `${idPrefix}-o`,
@@ -119,29 +132,33 @@ function addTooltipContent(
     if (measureDescription) {
         explanation = createTextElement(mainGroup, `${idPrefix}-o`, tooltipStyle, measureDescription)
     }
+    elements.push(explanation)
     const countText = createTextElement(
         mainGroup,
         `${idPrefix}-c`,
         tooltipStyle,
         `Points in band: ${pointsInBand}`
     )
+    elements.push(countText)
 
+    // tooltip dimensions
     const lineHeight = textHeightFor(header)
     const contentWidth = Math.max(
         textWidthFor(header), textWidthFor(measureText),
         textWidthFor(explanation), textWidthFor(countText)
     )
-    const contentHeight = lineHeight * 4
+    const contentHeight = lineHeight * elements.length
 
+    // tooltip positioning
     const xCoord = tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin)
     const yCoord = tooltipY(y, contentHeight, plotDimensions, tooltipStyle, margin)
     const xTip = xCoord + tooltipStyle.paddingLeft
     const yTip = yCoord + tooltipStyle.paddingTop + lineHeight
 
-    header.attr("x", xTip).attr("y", yTip)
-    measureText.attr("x", xTip).attr("y", yTip + lineHeight)
-    explanation.attr("x", xTip).attr("y", yTip + lineHeight * 2)
-    countText  .attr("x", xTip).attr("y", yTip + lineHeight * 3)
+    // update the element attributes
+    elements.forEach((element, index) => {
+        element.attr("x", xTip).attr("y", yTip + lineHeight * index)
+    })
 
     return {x: xCoord, y: yCoord, contentWidth, contentHeight}
 }
