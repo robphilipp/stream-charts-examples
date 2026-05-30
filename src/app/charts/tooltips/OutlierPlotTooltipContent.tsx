@@ -101,7 +101,10 @@ export function OutlierPlotTooltipContent(props: Props): null {
                 )
             }
         },
-        [bandFormatter, chartId, container, datumFormatter, margin, measureFormatter, plotDimensions, registerTooltipContentProvider, tooltipStyle]
+        [
+            bandFormatter, chartId, container, datumFormatter, margin, measureFormatter,
+            plotDimensions, registerTooltipContentProvider, tooltipStyle
+        ]
     )
 
     return null
@@ -126,7 +129,6 @@ function addTooltipContent(
         upperMeasure = 1,
         lowerMeasure = 0,
         pointsInBand,
-        // measureDescription
     } = metadata
     const outerProb = 1 - upperMeasure
     const innerProb = upperMeasure - lowerMeasure
@@ -160,7 +162,6 @@ function addTooltipContent(
         `${idPrefix}-m`,
         tooltipStyle,
         bandFormatter(lowerMeasure, upperMeasure)
-        // `Band: ` + (lowerMeasure ? `${lowerMeasure} - ` : ``) + `${upperMeasure}`
     )
     elements.push(measureText)
     elements.push(createTextElement(mainGroup, `${idPrefix}-l1`, tooltipStyle, " "))

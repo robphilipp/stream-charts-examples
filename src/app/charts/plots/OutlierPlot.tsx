@@ -110,10 +110,6 @@ export interface OutlierBandTooltipMetadata<M extends readonly number[] = readon
      * Number of visible points whose y-value falls within the band bounds.
      */
     pointsInBand: number
-    /**
-     * Optional description of each measure (confidence level).
-     */
-    // measureDescription?: string
 }
 
 /**
@@ -352,7 +348,6 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                                     lowerMeasure,
                                                     bandIndex,
                                                     pointsInBand,
-                                                    // measureDescription
                                                 }
                                             },
                                             [x, y]
@@ -495,7 +490,6 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                             lowerMeasure,
                                             bandIndex,
                                             pointsInBand,
-                                            // measureDescription: "",
                                         }
                                     },
                                     [x, y]

@@ -351,7 +351,10 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                                 datumFormatter={(x, y) => <div>Index: <b>{y.toFixed(2)} USD</b> (<em>@ {x.toFixed(0)} ms</em>)</div>}
                                 bandFormatter={(lower, upper) => <div>Band: [{lower}, {upper})</div>}
                                 measureFormatter={htmlMeasureDescription}
-                            />
+                            >
+                                {/* You can uncomment the MyOutlierHtmlTooltipContent below to use a custom tooltip */}
+                                {/*<MyOutlierHtmlTooltipContent/>*/}
+                            </OutlierPlotHtmlTooltipContent>
                         }
                     </Tooltip>
                 </Chart>
