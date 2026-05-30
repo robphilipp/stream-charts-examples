@@ -20,9 +20,18 @@ import {
 } from "./useOutlierTooltip.tsx"
 
 // Re-export context types so callers only need to import from this file
-export type {TooltipLocation, TooltipSeriesName, TooltipContent, OutlierTooltipContentFormatters, OutlierTooltipContextValue}
+export type {
+    TooltipLocation,
+    TooltipSeriesName,
+    TooltipContent,
+    OutlierTooltipContentFormatters,
+    OutlierTooltipContextValue
+}
 
 export type Props = {
+    /**
+     * Style overrides for the tooltip.
+     */
     style?: Partial<TooltipStyle>
     /**
      * Custom tooltip content. Receives tooltip data and formatters via {@link useOutlierTooltip}.
@@ -58,10 +67,19 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
         mouse,
     } = useChart<OutlierDatum<readonly number[]>, SeriesLineStyle, OutlierBandTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
-    const {registerTooltipContentProvider} = tooltip
-    const {registerMouseLeaveHandler, unregisterMouseLeaveHandler} = mouse
+    const {
+        registerTooltipContentProvider
+    } = tooltip
 
-    const {margin, plotDimensions} = usePlotDimensions()
+    const {
+        registerMouseLeaveHandler,
+        unregisterMouseLeaveHandler
+    } = mouse
+
+    const {
+        margin,
+        plotDimensions
+    } = usePlotDimensions()
 
     const tooltipStyle = useMemo<TooltipStyle>(
         () => ({...defaultTooltipStyle, ...style}),
@@ -74,6 +92,7 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
     useEffect(
         () => {
             if (container) {
+                // if (keepOpen && tooltip != null) return
                 registerTooltipContentProvider(
                     (
                         seriesName: string,
@@ -88,7 +107,7 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
                 )
             }
         },
-        [chartId, container, margin, plotDimensions, registerTooltipContentProvider, tooltipStyle]
+        [chartId, container, margin, plotDimensions, registerTooltipContentProvider, tooltip, tooltipContent, tooltipStyle]
     )
 
     // Register a mouse-leave handler to unmount the portal — <Tooltip> handles its own SVG cleanup
@@ -134,7 +153,8 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
     const content = (children as ReactElement<Props> | undefined)?.props.children
 
     return createPortal(
-        <UseOutlierTooltip.Provider value={{tooltipContent, tooltipStyle, datumFormatter, bandFormatter, measureFormatter}}>
+        <UseOutlierTooltip.Provider
+            value={{tooltipContent, tooltipStyle, datumFormatter, bandFormatter, measureFormatter}}>
             <div style={divStyle}>
                 {content ?? <DefaultOutlierHtmlTooltipContent/>}
             </div>
