@@ -31,6 +31,8 @@ import {defaultMargin} from "../charts/hooks/defaultPlotDimensions"
 import {formatTime} from "../charts/utils"
 import {AxisInterval} from "../charts/axes/AxisInterval"
 import {regexFilter} from "../charts/filters/regexFilter"
+import {OutlierPlotHtmlTooltipContent} from "../charts/tooltips/OutlierPlotHtmlTooltipContent.tsx";
+import {Toggle, ToggleStatus} from "../ui/Toggle.tsx";
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
 const MEASURES = [0.68, 0.95, 0.997] as const
@@ -147,11 +149,20 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
     const [showMarkers, setShowMarkers] = useState<boolean>(true)
     const [showTooltip, setShowTooltip] = useState<boolean>(true)
+    const [tooltipType, setTooltipType] = useState<'html' | 'svg'>('html')
 
     const startTimeRef = useRef<number>(new Date().valueOf())
     const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
     const [chartTime, setChartTime] = useState<number>(0)
+
+    function handleToggleTooltipType(status: ToggleStatus): void {
+        if (status === ToggleStatus.OFF) {
+            setTooltipType('html')
+        } else {
+            setTooltipType('svg')
+        }
+    }
 
     function handleUpdateRegex(updatedFilter: string): void {
         setFilterValue(updatedFilter)
@@ -256,6 +267,18 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                         labelColor={theme.color}
                         onChange={() => setShowTooltip(!showTooltip)}
                     />
+                    {showTooltip &&
+                        <Toggle
+                            leftLabel="HTML"
+                            rightLabel="SVG"
+                            onToggle={handleToggleTooltipType}
+                            toggleOffColor={theme.color}
+                            toggleOffBackgroundColor={theme.backgroundColor}
+                            toggleOnColor={theme.color}
+                            toggleOnBackgroundColor={theme.backgroundColor}
+                            toggleBorderColor={theme.color}
+                            labelFontColor={theme.color}
+                        />}
                     <span style={{color: theme.color, marginLeft: 25}}>
                         lag: {formatTime(Math.max(0, elapsed - chartTime))} ms
                     </span>
@@ -318,7 +341,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                             borderOpacity: 0.5,
                         }}
                     >
-                        <OutlierPlotTooltipContent/>
+                        {tooltipType === 'svg' ? <OutlierPlotTooltipContent/> : <OutlierPlotHtmlTooltipContent/>}
                     </Tooltip>
                 </Chart>
             </GridItem>

@@ -1,6 +1,5 @@
 import type {Series} from "../plots/plot";
 import * as d3 from "d3";
-import type {Datum} from "../series/timeSeries";
 import type {Dimensions, Margin} from "../styling/margins";
 import type {OrdinalStringAxis} from "../axes/axes";
 
@@ -80,10 +79,17 @@ export interface TooltipDimensions {
 }
 
 /**
- * Removes the tooltip when the mouse has moved away from the spike
+ * Removes the tooltip when the mouse has moved away from the spike. SVG tooltip elements
+ * are removed via D3; HTML tooltip elements are removed via the native DOM API.
  */
 export function removeTooltip() {
-    d3.selectAll<SVGPathElement, Datum>('.tooltip').remove()
+    document.querySelectorAll('.tooltip').forEach(element => {
+        if (element instanceof SVGElement) {
+            d3.select(element).remove()
+        } else {
+            element.remove()
+        }
+    })
 }
 
 /**
