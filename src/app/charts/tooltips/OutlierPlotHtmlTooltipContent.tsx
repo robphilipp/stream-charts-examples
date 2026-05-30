@@ -21,7 +21,6 @@ import {
 
 // Re-export context types so callers only need to import from this file
 export type {TooltipLocation, TooltipSeriesName, TooltipContent, OutlierTooltipContentFormatters, OutlierTooltipContextValue}
-// export {useOutlierTooltip} from "./OutlierTooltipContext.tsx"
 
 export type Props = {
     style?: Partial<TooltipStyle>
