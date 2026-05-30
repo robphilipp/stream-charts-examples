@@ -113,7 +113,7 @@ export interface OutlierBandTooltipMetadata<M extends readonly number[] = readon
     /**
      * Optional description of each measure (confidence level).
      */
-    measureDescription?: string
+    // measureDescription?: string
 }
 
 /**
@@ -319,7 +319,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                         .curve(interpolation)
                     const upperMeasure = series.measures[bandIndex]
                     const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex - 1] : undefined
-                    const measureDescription = series.measureDescriptions?.[bandIndex]
+                    // const measureDescription = series.measureDescriptions?.[bandIndex]
 
                     mainGElem
                         .selectAll<SVGPathElement, Array<OutlierDatum<M>>>(`#${areaId}`)
@@ -352,7 +352,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                                     lowerMeasure,
                                                     bandIndex,
                                                     pointsInBand,
-                                                    measureDescription
+                                                    // measureDescription
                                                 }
                                             },
                                             [x, y]
@@ -495,7 +495,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                                             lowerMeasure,
                                             bandIndex,
                                             pointsInBand,
-                                            measureDescription: "",
+                                            // measureDescription: "",
                                         }
                                     },
                                     [x, y]

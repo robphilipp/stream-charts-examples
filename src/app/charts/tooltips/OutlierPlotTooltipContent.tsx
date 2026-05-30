@@ -6,7 +6,8 @@ import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes"
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange"
 import {
     defaultTooltipStyle,
-    textHeightFor, textWidthFor,
+    textHeightFor,
+    textWidthFor,
     type TooltipDimensions,
     type TooltipStyle,
     tooltipX,
@@ -19,6 +20,28 @@ import type {Dimensions, Margin} from "../styling/margins"
 
 export interface Props {
     style?: Partial<TooltipStyle>
+    /**
+     * Formatter for the datum
+     * @param x X-coordinate of the datum
+     * @param y Y-coordinate of the datum
+     * @return a human-readable description of the datum
+     */
+    datumFormatter?: (x: number, y: number) => string
+    /**
+     * Formatter for the measure
+     * @param lower Lower bound of the band
+     * @param upper Upper bound of the band
+     * @return a human-readable description of the band
+     */
+    bandFormatter?: (lower: number, upper: number) => string
+    /**
+     * Formatter for the measure description
+     * @param innerProb Probability of points being within this band where the band is defined by
+     * the lower and upper bounds.
+     * @param outerProb Probability of points being outside this band (greater than the upper bound)
+     * @return a human-readable description of the band
+     */
+    measureFormatter?: (innerProb: number, outerProb: number) => Array<string>
 }
 
 /**
@@ -30,6 +53,16 @@ export interface Props {
  * {@link OutlierPlot}.
  */
 export function OutlierPlotTooltipContent(props: Props): null {
+    const {
+        style,
+        datumFormatter = (x: number, y: number) => `(${x}, ${y})`,
+        bandFormatter = (lower: number, upper: number) => `Band: ${lower} \u2B62 ${upper}`,
+        measureFormatter = (innerProb: number, outerProb: number) => [
+            `Points have a ${(innerProb * 100).toFixed(1)}% probability of being in this band,`,
+            `and a ${(outerProb * 100).toFixed(1)}% probability of being outside this band.`
+        ],
+    } = props
+
     const {
         chartId,
         container,
@@ -46,9 +79,9 @@ export function OutlierPlotTooltipContent(props: Props): null {
     const tooltipStyle = useMemo(
         () => ({
             ...defaultTooltipStyle,
-            ...props.style
+            ...style
         }),
-        [props.style]
+        [style]
     )
 
     useEffect(
@@ -62,12 +95,13 @@ export function OutlierPlotTooltipContent(props: Props): null {
                         mouseCoords: [x: number, y: number]
                     ) => addTooltipContent(
                         seriesName, time, tooltipData.metadata, mouseCoords,
-                        chartId, container, margin, plotDimensions, tooltipStyle
+                        chartId, container, margin, plotDimensions, tooltipStyle,
+                        datumFormatter, bandFormatter, measureFormatter
                     )
                 )
             }
         },
-        [chartId, container, margin, plotDimensions, registerTooltipContentProvider, tooltipStyle]
+        [bandFormatter, chartId, container, datumFormatter, margin, measureFormatter, plotDimensions, registerTooltipContentProvider, tooltipStyle]
     )
 
     return null
@@ -83,16 +117,19 @@ function addTooltipContent(
     margin: Margin,
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
+    datumFormatter: (x: number, y: number) => string,
+    bandFormatter: (lower: number, upper: number) => string,
+    measureFormatter: (innerProb: number, outerProb: number) => Array<string>,
 ): TooltipDimensions {
     const {
         datum,
         upperMeasure = 1,
         lowerMeasure = 0,
         pointsInBand,
-        measureDescription
+        // measureDescription
     } = metadata
-    const outerProb = ((1 - upperMeasure) * 100).toFixed(1)
-    const innerProb = ((upperMeasure - lowerMeasure) * 100).toFixed(1)
+    const outerProb = 1 - upperMeasure
+    const innerProb = upperMeasure - lowerMeasure
     const [x, y] = mouseCoords
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,35 +141,43 @@ function addTooltipContent(
     const header = createTextElement(
         mainGroup,
         `${idPrefix}-h`,
-        {...tooltipStyle, fontWeight: tooltipStyle.fontWeight + 300},
+        {...tooltipStyle, fontWeight: tooltipStyle.fontWeight + 500, fontSize: tooltipStyle.fontSize + 2},
         `Series: ${seriesName}`
     )
     elements.push(header)
+    elements.push(createTextElement(mainGroup, `${idPrefix}-lh0`, tooltipStyle, " "))
+
     if (datum) {
         elements.push(createTextElement(
             mainGroup,
             `${idPrefix}-p`,
             tooltipStyle,
-            `(${datum.datum.x}, ${datum.datum.y})`
+            datumFormatter(datum.datum.x, datum.datum.y)
         ))
     }
     const measureText = createTextElement(
         mainGroup,
         `${idPrefix}-m`,
         tooltipStyle,
-        `Band: ` + (lowerMeasure ? `${lowerMeasure} - ` : ``) + `${upperMeasure}`
+        bandFormatter(lowerMeasure, upperMeasure)
+        // `Band: ` + (lowerMeasure ? `${lowerMeasure} - ` : ``) + `${upperMeasure}`
     )
     elements.push(measureText)
-    let explanation = createTextElement(
-        mainGroup,
-        `${idPrefix}-o`,
-        tooltipStyle,
-        `Points have a ${innerProb}% of being in this band, and a ${outerProb}% probability of being outside this band`
-    )
-    if (measureDescription) {
-        explanation = createTextElement(mainGroup, `${idPrefix}-o`, tooltipStyle, measureDescription)
-    }
-    elements.push(explanation)
+    elements.push(createTextElement(mainGroup, `${idPrefix}-l1`, tooltipStyle, " "))
+
+    const explanation = measureFormatter(innerProb, outerProb)
+        .map(line => {
+            const elem = createTextElement(
+                mainGroup,
+                `${idPrefix}-m`,
+                tooltipStyle,
+                line
+            )
+            elements.push(elem)
+            return elem
+        })
+    elements.push(createTextElement(mainGroup, `${idPrefix}-l2`, tooltipStyle, " "))
+
     const countText = createTextElement(
         mainGroup,
         `${idPrefix}-c`,
@@ -145,7 +190,7 @@ function addTooltipContent(
     const lineHeight = textHeightFor(header)
     const contentWidth = Math.max(
         textWidthFor(header), textWidthFor(measureText),
-        textWidthFor(explanation), textWidthFor(countText)
+        textWidthFor(countText), ...explanation.map(line => textWidthFor(line))
     )
     const contentHeight = lineHeight * elements.length
 

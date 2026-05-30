@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from "react"
+import React, {type JSX, useEffect, useMemo, useState} from "react"
 import {createPortal} from "react-dom"
 import * as d3 from "d3"
 import {useChart} from "../hooks/useChart"
@@ -12,6 +12,28 @@ import type {OutlierDatum} from "../series/outlierSeries"
 
 export interface Props {
     style?: Partial<TooltipStyle>
+    /**
+     * Formatter for the datum
+     * @param x X-coordinate of the datum
+     * @param y Y-coordinate of the datum
+     * @return a human-readable description of the datum
+     */
+    datumFormatter?: (x: number, y: number) => string | JSX.Element
+    /**
+     * Formatter for the measure
+     * @param lower Lower bound of the band
+     * @param upper Upper bound of the band
+     * @return a human-readable description of the band
+     */
+    bandFormatter?: (lower: number, upper: number) => string | JSX.Element
+    /**
+     * Formatter for the measure description
+     * @param innerProb Probability of points being within this band where the band is defined by
+     * the lower and upper bounds.
+     * @param outerProb Probability of points being outside this band (greater than the upper bound)
+     * @return a human-readable description of the band
+     */
+    measureFormatter?: (innerProb: number, outerProb: number) => string | JSX.Element
 }
 
 interface TooltipContent {
@@ -20,7 +42,6 @@ interface TooltipContent {
     upperMeasure: number
     lowerMeasure: number
     pointsInBand: number
-    measureDescription?: string
     left: number
     top: number
 }
@@ -36,6 +57,13 @@ interface TooltipContent {
  */
 export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement | null {
     const {
+        style,
+        datumFormatter = (x: number, y: number) => `(${x}, ${y})`,
+        bandFormatter = (lower: number, upper: number) => `Band: ${lower} \u2B62 ${upper}`,
+        measureFormatter = (innerProb: number, outerProb: number) => `Points have a ${(innerProb * 100).toFixed(1)}% probability of being in this band, and a ${(outerProb * 100).toFixed(1)}% probability of being outside this band`,
+    } = props
+
+    const {
         chartId,
         container,
         tooltip,
@@ -48,8 +76,8 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
     const {margin, plotDimensions} = usePlotDimensions()
 
     const tooltipStyle = useMemo(
-        () => ({...defaultTooltipStyle, ...props.style}),
-        [props.style]
+        () => ({...defaultTooltipStyle, ...style}),
+        [style]
     )
 
     const [tooltipContent, setTooltipContent] = useState<TooltipContent | null>(null)
@@ -94,12 +122,13 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
         upperMeasure,
         lowerMeasure,
         pointsInBand,
-        measureDescription,
         left,
         top
     } = tooltipContent
-    const outerProb = ((1 - upperMeasure) * 100).toFixed(1)
-    const innerProb = ((upperMeasure - lowerMeasure) * 100).toFixed(1)
+    const outerProb = 1 - upperMeasure
+    const innerProb = upperMeasure - lowerMeasure
+    // const outerProb = ((1 - upperMeasure) * 100).toFixed(1)
+    // const innerProb = ((upperMeasure - lowerMeasure) * 100).toFixed(1)
 
     const bg = d3.color(tooltipStyle.backgroundColor) as d3.RGBColor | null
     const bgColor = bg
@@ -128,16 +157,11 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
 
     return createPortal(
         <div style={divStyle}>
-            <div style={{fontWeight: tooltipStyle.fontWeight + 300}}>Series: {seriesName}</div>
+            <div style={{fontWeight: tooltipStyle.fontWeight + 500, fontSize: tooltipStyle.fontSize + 2}}>Series: {seriesName}</div>
             <hr/>
-            {datum && <div>({datum.datum.x}, {datum.datum.y})</div>}
-            <div>Band: {lowerMeasure ? `${lowerMeasure} \u2013 ` : ''}{upperMeasure}</div>
-            <div>
-                {measureDescription != null && measureDescription.length > 0 ?
-                    measureDescription :
-                    `Points have a ${innerProb}% of being in this band, and a ${outerProb}% probability of being outside this band`
-                }
-            </div>
+            {datum && <div>{datumFormatter(datum.datum.x, datum.datum.y)}</div>}
+            {bandFormatter(lowerMeasure, upperMeasure)}
+            {measureFormatter(innerProb, outerProb)}
             <div>Points in band: {pointsInBand}</div>
         </div>,
         document.body
@@ -156,7 +180,6 @@ function buildTooltipContent(
         upperMeasure = 1,
         lowerMeasure = 0,
         pointsInBand,
-        measureDescription,
     } = metadata
 
     const svgRect = container.getBoundingClientRect()
@@ -164,7 +187,7 @@ function buildTooltipContent(
     const left = Math.min(svgRect.left + mouseCoords[0] + 12, window.innerWidth - ESTIMATED_WIDTH)
     const top = svgRect.top + mouseCoords[1] + 12
 
-    setTooltipContent({seriesName, datum, upperMeasure, lowerMeasure, pointsInBand, measureDescription, left, top})
+    setTooltipContent({seriesName, datum, upperMeasure, lowerMeasure, pointsInBand, left, top})
 
     // Return off-screen coordinates so the Tooltip parent's SVG rect is invisible
     return {x: NaN, y: NaN, contentWidth: 0, contentHeight: 0}

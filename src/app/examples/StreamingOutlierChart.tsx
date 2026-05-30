@@ -318,7 +318,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         domain={[0, 250]}
-                        label="Spot Price Index"
+                        label="Spot Price Index (USD)"
                     />
                     <OutlierPlot<Measures>
                         interpolation={interpolation}
@@ -341,10 +341,57 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                             borderOpacity: 0.5,
                         }}
                     >
-                        {tooltipType === 'svg' ? <OutlierPlotTooltipContent/> : <OutlierPlotHtmlTooltipContent/>}
+                        {tooltipType === 'svg' ?
+                            <OutlierPlotTooltipContent
+                                datumFormatter={(x, y) => `(${x.toFixed(0)} ms, ${y.toFixed(2)} USD)`}
+                                bandFormatter={(lower, upper) => `Band: [${lower}, ${upper})`}
+                                measureFormatter={svgMeasureDescription}
+                            /> :
+                            <OutlierPlotHtmlTooltipContent
+                                datumFormatter={(x, y) => <div>Index: <b>{y.toFixed(2)} USD</b> (<em>@ {x.toFixed(0)} ms</em>)</div>}
+                                bandFormatter={(lower, upper) => <div>Band: [{lower}, {upper})</div>}
+                                measureFormatter={htmlMeasureDescription}
+                            />
+                        }
                     </Tooltip>
                 </Chart>
             </GridItem>
         </Grid>
     )
+}
+
+/**
+ * Creates the JSX element that describes the probability of points being in or outside the outlier band.
+ * @param innerProb The probability of points being within the outlier band.
+ * @param outerProb The probability of points being outside the outlier band.
+ */
+function svgMeasureDescription(innerProb: number, outerProb: number): Array<string> {
+    if (Math.abs(outerProb) < 1e-4) {
+        return [`Points have a ${(innerProb * 100).toFixed(1)}% probability of being in this band.`]
+    }
+    return [
+        `Points have a ${(innerProb * 100).toFixed(1)}% probability of being in this band,`,
+        `and a ${(outerProb * 100).toFixed(1)}% probability of being outside this band.`
+    ]
+}
+
+/**
+ * Creates the JSX element that describes the probability of points being in or outside the outlier band.
+ * @param innerProb The probability of points being within the outlier band.
+ * @param outerProb The probability of points being outside the outlier band.
+ */
+function htmlMeasureDescription(innerProb: number, outerProb: number): JSX.Element {
+    if (Math.abs(outerProb) < 1e-4) {
+        return <div>
+            <hr/>
+            Points have a {(innerProb * 100).toFixed(1)}% probability of being in this band.
+            <hr/>
+        </div>
+    }
+    return <div>
+        <hr/>
+        <div>Points have a {(innerProb * 100).toFixed(1)}% probability of being in this band,</div>
+        <div>and a {(outerProb * 100).toFixed(1)}% probability of being outside this band.</div>
+        <hr/>
+    </div>
 }
