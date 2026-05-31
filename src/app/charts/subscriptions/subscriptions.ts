@@ -1,5 +1,10 @@
 import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {continuousAxisRanges, type ContinuousNumericAxis, ordinalAxisRanges, type OrdinalStringAxis} from "../axes/axes";
+import {
+    continuousAxisRanges,
+    type ContinuousNumericAxis,
+    ordinalAxisRanges,
+    type OrdinalStringAxis
+} from "../axes/axes";
 import type {Datum, TimeSeries} from "../series/timeSeries";
 import {interval, Observable, Subscription} from "rxjs";
 import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
@@ -426,10 +431,7 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
                     series.data.push(...newData)
 
                     const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId().getOrElse("")
-                    const currentAxisTime = newData.reduce(
-                        (tMax, datum) => Math.max(tMax, datum.datum.x),
-                        -Infinity
-                    )
+                    const currentAxisTime = Math.max(...newData.map(datum => datum.datum.x), -Infinity)
 
                     if (Number.isFinite(currentAxisTime)) {
                         while (series.data.length > 0 && currentAxisTime - series.data[0].datum.x > dropDataAfter) {
@@ -437,9 +439,7 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
                         }
 
                         const range = timesWindows.get(axisId)
-                        const [startTime, endTime] = Optional.ofNullable(range?.current)
-                            .map(interval => interval.asTuple())
-                            .getOrElse([0, 0])
+                        const [startTime, endTime] = range?.current?.asTuple() ?? [0, 0]
                         if (range !== undefined && endTime < currentAxisTime) {
                             const timeWindow = endTime - startTime
                             const timeRange = ContinuousAxisRange.from(

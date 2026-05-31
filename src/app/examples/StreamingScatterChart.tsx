@@ -397,7 +397,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             ['Series 2', assignAxes("x-axis-2", "y-axis-2")],
                             ['Series 3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
-                        dropDataAfter={30000}
+                        dropDataAfter={3000000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

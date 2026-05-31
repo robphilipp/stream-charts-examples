@@ -322,7 +322,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                     />
                     <OutlierPlot<Measures>
                         interpolation={interpolation}
-                        dropDataAfter={20000}
+                        dropDataAfter={2000000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

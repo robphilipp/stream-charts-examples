@@ -413,7 +413,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     </Tooltip>
                     <BarPlot
                         barMargin={1}
-                        dropDataAfter={5000}
+                        dropDataAfter={5000000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
