@@ -311,7 +311,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[0, 10000]}
+                        domain={[0, 40000]}
                         label="Time (ms)"
                     />
                     <ContinuousAxis

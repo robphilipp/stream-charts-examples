@@ -1,6 +1,7 @@
 import type {Datum} from "./timeSeries";
 import {type BaseSeries, seriesFrom} from "./baseSeries";
 import {failureResult, type Result, resultFromAll, successResult} from "result-fn";
+import type {FastQueue} from "./FastQueue.ts";
 
 export interface OutlierSeries<M extends readonly number[]> extends BaseSeries<OutlierDatum<M>> {
     /**
@@ -169,7 +170,7 @@ export function outlierSeriesFor<M extends readonly number[]>(
  */
 export function outlierSeriesFrom<M extends readonly number[]>(
     name: string,
-    outlierData: Array<OutlierDatum<M>>,
+    outlierData: Array<OutlierDatum<M>> | FastQueue<OutlierDatum<M>>,
     measures: readonly [...M],
     measureDescriptions?: {readonly [K in keyof M]: string}
 ): OutlierSeries<M> {

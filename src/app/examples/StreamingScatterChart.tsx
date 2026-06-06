@@ -14,7 +14,7 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import type {TimeSeries} from "../charts/series/timeSeries";
+import type {Datum, TimeSeries} from "../charts/series/timeSeries";
 import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
@@ -138,7 +138,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const legendContainerRef = useRef<HTMLDivElement>(null)
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
-        return data.map(series => seriesFrom(series.name, series.data.slice()))
+        return data.map(series => seriesFrom<Datum>(series.name, series.data.slice()))
     }
 
     /**
@@ -397,7 +397,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             ['Series 2', assignAxes("x-axis-2", "y-axis-2")],
                             ['Series 3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
-                        dropDataAfter={3000000}
+                        dropDataAfter={50000}
+                        // dropDataAfter={3000000}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

@@ -1,8 +1,9 @@
 import type {Dimensions} from "../styling/margins";
 import * as d3 from "d3";
 import type {GSelection} from "../d3types";
+import type {FastQueue} from "../series/FastQueue.ts";
 
-export type Series<D> = Array<D>
+export type Series<D> = Array<D> | FastQueue<D>
 
 /**
  * Creates the main SVG for holding the plot.

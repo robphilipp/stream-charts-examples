@@ -10,6 +10,7 @@ import {map, scan} from "rxjs/operators";
 import type {Datum} from "../series/timeSeries";
 import {copyOrdinalDatum, nonEmptyOrdinalDatum, type OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
 import {type ChartData, copyChartData, defaultChartData} from "./ChartData";
+import {FastQueue} from "../series/FastQueue.ts";
 
 export interface OrdinalChartData extends ChartData {
     /**
@@ -22,7 +23,8 @@ export interface OrdinalChartData extends ChartData {
      * Map holding the name of the series (the time-series identifier) and the associated
      * data points for that time-series (`map(series_name -> array(datum))`)
      */
-    newPoints: Map<string, Array<OrdinalDatum>>
+    // newPoints: Map<string, Array<OrdinalDatum>>
+    newPoints: Map<string, FastQueue<OrdinalDatum>>
 }
 
 /**
@@ -131,7 +133,8 @@ export const copyOrdinalStats = (data: OrdinalStats): OrdinalStats => ({
 const emptyOrdinalData = (): OrdinalChartData => ({
     ...defaultChartData(),
     stats: defaultOrdinalStats(),
-    newPoints: new Map<string, Array<OrdinalDatum>>()
+    newPoints: new Map<string, FastQueue<OrdinalDatum>>()
+    // newPoints: new Map<string, Array<OrdinalDatum>>()
 })
 
 /**
@@ -141,7 +144,8 @@ const emptyOrdinalData = (): OrdinalChartData => ({
 export const copyOrdinalDataFrom = (data: OrdinalChartData): OrdinalChartData => ({
     ...copyChartData(data),
     stats: copyOrdinalStats(data.stats),
-    newPoints: new Map<string, Array<OrdinalDatum>>(Array.from(data.newPoints.entries()).map(([name, points]) => [name, points.slice()])),
+    newPoints: new Map<string, FastQueue<OrdinalDatum>>(Array.from(data.newPoints.entries()).map(([name, points]) => [name, points.slice()])),
+    // newPoints: new Map<string, Array<OrdinalDatum>>(Array.from(data.newPoints.entries()).map(([name, points]) => [name, points.slice()])),
 })
 
 type Accumulator = {
@@ -221,7 +225,8 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                         })
 
                         // convert the new points to ordinal datum
-                        accum.newPoints.set(name, series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y)))
+                        accum.newPoints.set(name, FastQueue.fromArray(series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y))))
+                        // accum.newPoints.set(name, series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y)))
                     })
                 return {previous, accumulated: accum}
             }, initialAccumulate()),

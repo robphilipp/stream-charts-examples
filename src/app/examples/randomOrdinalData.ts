@@ -58,7 +58,7 @@ export function initialOrdinalChartData(seriesList: Array<BaseSeries<OrdinalDatu
         maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.time).getOrElse(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [
             series.name,
-            series.data.map(datum => ({x: datum.time, y: datum.value})),
+            series.data.map(datum => ({x: datum.time, y: datum.value} as Datum)),
         ])),
         currentTime: currentTime
     }

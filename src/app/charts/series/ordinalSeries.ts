@@ -7,6 +7,7 @@ import {
     type OrdinalStats,
     type OrdinalValueStats
 } from "../observables/ordinals";
+import type {FastQueue} from "./FastQueue.ts";
 
 /**
  * An immutable datum object for series with a category and value.
@@ -92,7 +93,8 @@ export function initialOrdinalChartData(seriesList: Array<OrdinalSeries>): Ordin
     return {
         seriesNames: new Set(seriesList.map(series => series.name)),
         stats: calculateOrdinalStats(seriesList),
-        newPoints: new Map<string, Array<OrdinalDatum>>(seriesList.map(series => [
+        // newPoints: new Map<string, Array<OrdinalDatum>>(seriesList.map(series => [
+        newPoints: new Map<string, FastQueue<OrdinalDatum>>(seriesList.map(series => [
             series.name,
             series.data.map(datum => ({
                 time: datum.time,

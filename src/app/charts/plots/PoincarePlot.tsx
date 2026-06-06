@@ -25,9 +25,10 @@ import {useInitialData} from "../hooks/useInitialData";
 import {type TooltipData, useTooltip} from "../hooks/useTooltip";
 import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
+import {FastQueue} from "../series/FastQueue.ts";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
-type IteratePointSeries = Array<IteratePoint>
+type IteratePointSeries = FastQueue<IteratePoint>
 
 function generateAxisRangeMap(axes: Map<string, BaseAxis>): Map<string, ContinuousAxisRange> {
     return new Map(
@@ -496,7 +497,7 @@ export function PoincarePlot(props: Props): null {
                     }
 
                     // only show the data for which the filter matches
-                    const plotData = (name.match(seriesFilter)) ? data : []
+                    const plotData = (name.match(seriesFilter)) ? data : FastQueue.empty<IteratePoint>()
 
                     const pathGenerator = d3.line<IteratePoint>()
                         .x(d => xAxis.scale(d.n || 0))

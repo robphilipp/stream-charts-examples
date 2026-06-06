@@ -32,6 +32,7 @@ import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
+import type {FastQueue} from "../series/FastQueue.ts";
 
 export interface Props {
     /**
@@ -307,7 +308,7 @@ export function ScatterPlot(props: Props): null {
                 // data to the underlying Series, and the dataRef is used so that we can just use
                 // dataRef.current and don't have to do Array.from(seriesRef.current.values()) which
                 // creates a temporary array
-                const boundedSeries = new Map<string, Array<Datum>>(dataRef.current.map(series => [
+                const boundedSeries = new Map<string, FastQueue<Datum>>(dataRef.current.map(series => [
                     series.name,
                     series.data
                 ]))

@@ -28,6 +28,7 @@ import {
 import {subscriptionOutlierFor, TimeWindowBehavior} from "../subscriptions/subscriptions"
 import type {OutlierChartData} from "../observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries"
+import {FastQueue} from "../series/FastQueue.ts";
 
 type OutlierDatumColor<M extends readonly number[]> = { datum: OutlierDatum<M>, color: string }
 
@@ -298,7 +299,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 if (xAxis === undefined || yAxis === undefined) return
 
                 const style = seriesStyles.get(series.name) ?? defaultLineStyle()
-                const plotData: Array<OutlierDatum<M>> = series.name.match(seriesFilter) ? series.data : []
+                const plotData = series.name.match(seriesFilter) ? series.data : FastQueue.empty<OutlierDatum<M>>()
                 const numBands = plotData.length > 0 ? plotData[0].bounds.length : 0
                 // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
                 const seriesId = makeIdSafeForCss(series.name)
@@ -624,7 +625,7 @@ function axesFor(
  * @returns The number of points within the specified outlier band.
  */
 function calcPointsInBand<M extends readonly number[]>(
-    plotData: Array<OutlierDatum<M>>,
+    plotData: Array<OutlierDatum<M>> | FastQueue<OutlierDatum<M>>,
     bandIndex: number,
     subtractLowerBandCount: boolean = true
 ): number {
@@ -648,23 +649,6 @@ function calcPointsInBand<M extends readonly number[]>(
     return pointsInBand
 }
 
-// /**
-//  * Searches for the closest point to the given x-value
-//  * @param x The x-value (chart) for which to find the point
-//  * @param plotData The series of outlier datum
-//  */
-// function findPointFor<M extends readonly number[]>(
-//     x: number,
-//     plotData: Array<OutlierDatum<M>>
-// ): Optional<OutlierDatum<M>> {
-//     plotData.find(datum => Math.abs(datum.datum.x - x))
-//     // const bandIndex = findBandIndexForTime(x, plotData)
-//     // if (bandIndex === null) return null
-//     // const pointsInBand = calcPointsInBand(plotData, bandIndex)
-//     // return plotData.find(datum => datum.datum.x === time)
-// }
-
-
 type CategorizedData<M extends readonly number[]> = {
     regular: Array<OutlierDatum<M>>,
     outlier: Array<OutlierDatumColor<M>>
@@ -678,7 +662,7 @@ type CategorizedData<M extends readonly number[]> = {
  * @template M Type of the measure
  */
 function categorizePoints<M extends readonly number[]>(
-    data: Array<OutlierDatum<M>>,
+    data: FastQueue<OutlierDatum<M>>,
     outlierMarkerColors: ReadonlyArray<string> = []
 ): CategorizedData<M> {
     return data.reduce<CategorizedData<M>>(
