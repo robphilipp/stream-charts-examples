@@ -1,5 +1,5 @@
 import {emptySeries, seriesFrom} from "./baseSeries";
-import {FastQueue} from "./FastQueue.ts";
+import {FastShiftArray} from "./FastShiftArray.ts";
 
 describe('should be able to create an empty series', () => {
     test('an empty series should be empty', () => {
@@ -56,6 +56,6 @@ describe('should be able to create a series from data', () => {
     });
 
     test('series data should equal original data', () => {
-        expect(series.data).toEqual(FastQueue.fromArray(data));
+        expect(series.data).toEqual(FastShiftArray.fromArray(data));
     });
 });

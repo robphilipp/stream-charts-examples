@@ -29,7 +29,7 @@
  *
  * @typeParam T - The element type stored in the queue.
  */
-export class FastQueue<T> implements Array<T> {
+export class FastShiftArray<T> implements Array<T> {
     [index: number]: T
     private items: Array<T> = []
     private headIndex: number = 0
@@ -58,7 +58,7 @@ export class FastQueue<T> implements Array<T> {
         // causing deoptimization and negating the O(1) advantage over Array.shift().
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this
-        return new Proxy<FastQueue<T>>(this, {
+        return new Proxy<FastShiftArray<T>>(this, {
             get: (target: this, prop: string | symbol, receiver): T | Array<T> => {
                 // Check if the property being accessed is a number/index
                 if (typeof prop === 'string') {
@@ -127,8 +127,8 @@ export class FastQueue<T> implements Array<T> {
      * console.log(src); // [1, 2, 3, 4] — same backing array
      * ```
      */
-    static fromArray<T>(array: Array<T>, useProxy: boolean = true): FastQueue<T> {
-        return new FastQueue<T>(array, 0, useProxy)
+    static fromArray<T>(array: Array<T>, useProxy: boolean = true): FastShiftArray<T> {
+        return new FastShiftArray<T>(array, 0, useProxy)
     }
 
     /**
@@ -148,8 +148,8 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...q]); // [1, 2, 3, 4]
      * ```
      */
-    static copyFromArray<T>(array: Array<T>): FastQueue<T> {
-        return FastQueue.fromArray(array.slice())
+    static copyFromArray<T>(array: Array<T>): FastShiftArray<T> {
+        return FastShiftArray.fromArray(array.slice())
     }
 
     /**
@@ -164,8 +164,8 @@ export class FastQueue<T> implements Array<T> {
      * console.log(q.length); // 2
      * ```
      */
-    static empty<T>(): FastQueue<T> {
-        return new FastQueue<T>()
+    static empty<T>(): FastShiftArray<T> {
+        return new FastShiftArray<T>()
     }
 
     // -------------------------------------------------------------------------
@@ -312,13 +312,13 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...q.slice(-2)]);   // [3, 4]
      * ```
      */
-    slice(start?: number, end?: number): FastQueue<T> {
+    slice(start?: number, end?: number): FastShiftArray<T> {
         const len = this.length
         let s = start ?? 0
         let e = end ?? len
         if (s < 0) s = Math.max(0, len + s)
         if (e < 0) e = Math.max(0, len + e)
-        return FastQueue.fromArray(this.items.slice(s + this.headIndex, e + this.headIndex))
+        return FastShiftArray.fromArray(this.items.slice(s + this.headIndex, e + this.headIndex))
     }
 
     /**
@@ -594,7 +594,7 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...q]); // [3, 2, 1]
      * ```
      */
-    reverse(): FastQueue<T> {
+    reverse(): FastShiftArray<T> {
         const totalLength = this.items.length
         const logicalLength = totalLength - this.headIndex
         for (let i = 0; i < Math.floor(logicalLength / 2); i++) {
@@ -622,8 +622,8 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...q]); // [1, 2, 3]
      * ```
      */
-    toReversed(): FastQueue<T> {
-        return FastQueue.fromArray(this.items.slice(this.headIndex).reverse())
+    toReversed(): FastShiftArray<T> {
+        return FastShiftArray.fromArray(this.items.slice(this.headIndex).reverse())
     }
 
     /**
@@ -665,8 +665,8 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...q]); // [3, 1, 2]
      * ```
      */
-    toSorted(compareFn?: (a: T, b: T) => number): FastQueue<T> {
-        return FastQueue.fromArray(this.items.slice(this.headIndex).sort(compareFn))
+    toSorted(compareFn?: (a: T, b: T) => number): FastShiftArray<T> {
+        return FastShiftArray.fromArray(this.items.slice(this.headIndex).sort(compareFn))
     }
 
     /**
@@ -685,10 +685,10 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...q]); // [1, 2, 3, 4]
      * ```
      */
-    toSpliced(start: number, deleteCount: number, ...items: T[]): FastQueue<T>
-    toSpliced(start: number, deleteCount?: number): FastQueue<T>
-    toSpliced(start: number, deleteCount?: number, ...items: T[]): FastQueue<T> {
-        return FastQueue.fromArray(this.items.slice(this.headIndex).toSpliced(start, deleteCount ?? this.length, ...items))
+    toSpliced(start: number, deleteCount: number, ...items: T[]): FastShiftArray<T>
+    toSpliced(start: number, deleteCount?: number): FastShiftArray<T>
+    toSpliced(start: number, deleteCount?: number, ...items: T[]): FastShiftArray<T> {
+        return FastShiftArray.fromArray(this.items.slice(this.headIndex).toSpliced(start, deleteCount ?? this.length, ...items))
     }
 
     /**
@@ -708,8 +708,8 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...q]); // [1, 2, 3]
      * ```
      */
-    with(index: number, value: T): FastQueue<T> {
-        return FastQueue.fromArray(this.items.slice(this.headIndex).with(index, value))
+    with(index: number, value: T): FastShiftArray<T> {
+        return FastShiftArray.fromArray(this.items.slice(this.headIndex).with(index, value))
     }
 
     // -------------------------------------------------------------------------
@@ -732,10 +732,10 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...doubled]); // [2, 4, 6]
      * ```
      */
-    map<U>(callback: (value: T, index: number, array: T[]) => U, _thisArg?: T): FastQueue<U> {
+    map<U>(callback: (value: T, index: number, array: T[]) => U, _thisArg?: T): FastShiftArray<U> {
         const totalLength = this.items.length
 
-        if (this.headIndex >= totalLength) return FastQueue.empty()
+        if (this.headIndex >= totalLength) return FastShiftArray.empty()
 
         // Pre-allocating size avoids dynamic resizing overhead
         const result = new Array<U>(totalLength - this.headIndex)
@@ -743,7 +743,7 @@ export class FastQueue<T> implements Array<T> {
         for (let i = this.headIndex; i < totalLength; i++) {
             result[i - this.headIndex] = callback(this.items[i], i - this.headIndex, this.items)
         }
-        return FastQueue.fromArray(result)
+        return FastShiftArray.fromArray(result)
     }
 
     /**
@@ -760,9 +760,9 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...r]); // [1, 10, 2, 20, 3, 30]
      * ```
      */
-    flatMap<U>(callback: (value: T, index: number, array: T[]) => U | ReadonlyArray<U>, _thisArg?: any): FastQueue<U> {
+    flatMap<U>(callback: (value: T, index: number, array: T[]) => U | ReadonlyArray<U>, _thisArg?: any): FastShiftArray<U> {
         const totalLength = this.items.length
-        if (this.headIndex >= totalLength) return FastQueue.empty()
+        if (this.headIndex >= totalLength) return FastShiftArray.empty()
         const result: Array<U> = []
         for(let i = this.headIndex; i < totalLength; i++) {
             const value = callback(this.items[i], i - this.headIndex, this.items)
@@ -772,7 +772,7 @@ export class FastQueue<T> implements Array<T> {
                 result.push(value as U)
             }
         }
-        return FastQueue.fromArray(result)
+        return FastShiftArray.fromArray(result)
     }
 
     /**
@@ -790,7 +790,7 @@ export class FastQueue<T> implements Array<T> {
      * ```
      */
     flat<A, D extends number = 1>(this: A, depth?: D): FlatArray<A, D>[] {
-        return FastQueue.fromArray((this as unknown as FastQueue<T>).items.slice((this as unknown as FastQueue<T>).headIndex).flat(depth)) as unknown as FlatArray<A, D>[]
+        return FastShiftArray.fromArray((this as unknown as FastShiftArray<T>).items.slice((this as unknown as FastShiftArray<T>).headIndex).flat(depth)) as unknown as FlatArray<A, D>[]
     }
 
     /**
@@ -809,11 +809,11 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...evens]); // [2, 4]
      * ```
      */
-    filter<S extends T>(predicate: (value: T, index: number, array: T[]) => value is S, thisArg?: any): FastQueue<S>
-    filter(predicate: (value: T, index: number, array: T[]) => unknown, thisArg?: any): FastQueue<T>
-    filter(predicate: (value: T, index: number, array: T[]) => boolean): FastQueue<T> {
+    filter<S extends T>(predicate: (value: T, index: number, array: T[]) => value is S, thisArg?: any): FastShiftArray<S>
+    filter(predicate: (value: T, index: number, array: T[]) => unknown, thisArg?: any): FastShiftArray<T>
+    filter(predicate: (value: T, index: number, array: T[]) => boolean): FastShiftArray<T> {
         const totalLength = this.items.length
-        if (this.headIndex >= totalLength) return FastQueue.empty()
+        if (this.headIndex >= totalLength) return FastShiftArray.empty()
 
         const result: Array<T> = []
         for(let i = this.headIndex; i < totalLength; i++) {
@@ -821,7 +821,7 @@ export class FastQueue<T> implements Array<T> {
                 result.push(this.items[i])
             }
         }
-        return FastQueue.fromArray(result)
+        return FastShiftArray.fromArray(result)
     }
 
     /**
@@ -840,16 +840,16 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...r]); // [1, 2, 3, 4, 5]
      * ```
      */
-    concat(...items: (T | ConcatArray<T>)[]): FastQueue<T> {
+    concat(...items: (T | ConcatArray<T>)[]): FastShiftArray<T> {
         const base = this.items.slice(this.headIndex)
         for (const item of items) {
-            if (Array.isArray(item) || item instanceof FastQueue) {
+            if (Array.isArray(item) || item instanceof FastShiftArray) {
                 for (const v of (item as Iterable<T>)) base.push(v)
             } else {
                 base.push(item as T)
             }
         }
-        return FastQueue.fromArray(base)
+        return FastShiftArray.fromArray(base)
     }
 
     /**
@@ -867,7 +867,7 @@ export class FastQueue<T> implements Array<T> {
      * console.log([...a.concatArray(b)]); // [1, 2, 3, 4]
      * ```
      */
-    concatArray(array: FastQueue<T>): FastQueue<T> {
+    concatArray(array: FastShiftArray<T>): FastShiftArray<T> {
         return this.concat(...array)
     }
 
@@ -1285,9 +1285,4 @@ export class FastQueue<T> implements Array<T> {
      * `with` inside a `with` statement does not shadow the method.
      */
     readonly [Symbol.unscopables]: { [K in keyof any[]]?: boolean } = { with: true } as unknown as { [K in keyof any[]]?: boolean }
-
-    // [Symbol.dispose](): void {
-    //     this.items = []
-    //     this.headIndex = 0
-    // }
 }

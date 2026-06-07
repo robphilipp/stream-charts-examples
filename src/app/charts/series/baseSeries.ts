@@ -1,5 +1,5 @@
 import {failureResult, type Result, successResult} from "result-fn";
-import {FastQueue} from "./FastQueue.ts";
+import {FastShiftArray} from "./FastShiftArray.ts";
 
 /**
  * A spike series holding an array of spike (time, value) datum, the name and supplemental information
@@ -7,7 +7,7 @@ import {FastQueue} from "./FastQueue.ts";
  */
 export interface BaseSeries<D> {
     readonly name: string;
-    data: FastQueue<D>;
+    data: FastShiftArray<D>;
     // data: Array<D>;
     readonly last: () => Result<D, string>;
     readonly length: () => number;
@@ -22,10 +22,10 @@ export interface BaseSeries<D> {
  * @see seriesFromTuples
  * @see emptySeries
  */
-export function seriesFrom<D>(name: string, data: Array<D> | FastQueue<D> = []): BaseSeries<D> {
+export function seriesFrom<D>(name: string, data: Array<D> | FastShiftArray<D> = []): BaseSeries<D> {
     return {
         name: name,
-        data: data instanceof Array ? FastQueue.fromArray<D>(data) : data,
+        data: data instanceof Array ? FastShiftArray.fromArray<D>(data) : data,
         last: () => data ? (data.length > 0 ? successResult<D, string>(data[data.length - 1]) : failureResult<D, string>("Data is empty")) : failureResult<D, string>("Data is not defined"),
         length: () => data ? data.length : 0,
         isEmpty: () => data ? data.length === 0 : true

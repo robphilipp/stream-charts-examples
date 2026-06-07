@@ -154,8 +154,13 @@ export function RasterPlot(props: Props): null {
     //
     // the series in the "dataRef" object are the ones bound to the DOM elements in d3, and so as these
     // are updated, d3 will update the DOM elements (the elements in this plot).
-    const dataRef = useRef<Array<TimeSeries>>(initialData.slice() as Array<TimeSeries>)
-    const seriesRef = useRef<Map<string, TimeSeries>>(new Map(initialData.map(series => [series.name, series as TimeSeries])))
+    const dataRef = useRef<Array<TimeSeries>>(initialData.slice())
+    const seriesRef = useRef<Map<string, TimeSeries>>(
+        new Map(initialData.map(
+            series => [series.name, series]
+            )
+        )
+    )
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 

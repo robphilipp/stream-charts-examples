@@ -28,7 +28,7 @@ import {
 import {subscriptionOutlierFor, TimeWindowBehavior} from "../subscriptions/subscriptions"
 import type {OutlierChartData} from "../observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries"
-import {FastQueue} from "../series/FastQueue.ts";
+import {FastShiftArray} from "../series/FastShiftArray.ts";
 
 type OutlierDatumColor<M extends readonly number[]> = { datum: OutlierDatum<M>, color: string }
 
@@ -299,7 +299,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 if (xAxis === undefined || yAxis === undefined) return
 
                 const style = seriesStyles.get(series.name) ?? defaultLineStyle()
-                const plotData = series.name.match(seriesFilter) ? series.data : FastQueue.empty<OutlierDatum<M>>()
+                const plotData = series.name.match(seriesFilter) ? series.data : FastShiftArray.empty<OutlierDatum<M>>()
                 const numBands = plotData.length > 0 ? plotData[0].bounds.length : 0
                 // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
                 const seriesId = makeIdSafeForCss(series.name)
@@ -625,7 +625,7 @@ function axesFor(
  * @returns The number of points within the specified outlier band.
  */
 function calcPointsInBand<M extends readonly number[]>(
-    plotData: Array<OutlierDatum<M>> | FastQueue<OutlierDatum<M>>,
+    plotData: Array<OutlierDatum<M>> | FastShiftArray<OutlierDatum<M>>,
     bandIndex: number,
     subtractLowerBandCount: boolean = true
 ): number {
@@ -662,7 +662,7 @@ type CategorizedData<M extends readonly number[]> = {
  * @template M Type of the measure
  */
 function categorizePoints<M extends readonly number[]>(
-    data: FastQueue<OutlierDatum<M>>,
+    data: FastShiftArray<OutlierDatum<M>>,
     outlierMarkerColors: ReadonlyArray<string> = []
 ): CategorizedData<M> {
     return data.reduce<CategorizedData<M>>(

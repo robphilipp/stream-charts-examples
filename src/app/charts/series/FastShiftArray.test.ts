@@ -1,5 +1,5 @@
 import {describe, expect, it} from "@jest/globals";
-import {FastQueue} from "./FastQueue.ts";
+import {FastShiftArray} from "./FastShiftArray.ts";
 
 describe("FastQueue", () => {
 
@@ -7,20 +7,20 @@ describe("FastQueue", () => {
 
     /** Shift n elements off the front of a queue, mirroring what the caller
      *  does to a plain array so both start at the same logical data. */
-    function shiftN<T>(queue: FastQueue<T>, n: number): FastQueue<T> {
+    function shiftN<T>(queue: FastShiftArray<T>, n: number): FastShiftArray<T> {
         for (let i = 0; i < n; i++) queue.shift()
         return queue
     }
 
     /** Return the logical contents of a FastQueue as a plain array. */
-    const toArr = <T>(q: FastQueue<T>): T[] => q.toArray()
+    const toArr = <T>(q: FastShiftArray<T>): T[] => q.toArray()
 
     /** Build (array, freshQueue, shiftedQueue) from the same source data. */
     function fixtures<T>(data: T[], shiftBy = 5) {
         const array = [...data]
-        const fresh = FastQueue.fromArray([...data])
+        const fresh = FastShiftArray.fromArray([...data])
         // pad with dummy values, then shift them away – gives headIndex=shiftBy
-        const shifted = FastQueue.fromArray([...Array(shiftBy).fill(null as T), ...data])
+        const shifted = FastShiftArray.fromArray([...Array(shiftBy).fill(null as T), ...data])
         shiftN(shifted, shiftBy)
         return {array, fresh, shifted}
     }
@@ -31,13 +31,13 @@ describe("FastQueue", () => {
 
     describe("basic FastQueue functionality", () => {
         it("should be able to create an empty queue", () => {
-            const queue = FastQueue.empty<number>()
+            const queue = FastShiftArray.empty<number>()
             expect(queue.isEmpty()).toBe(true)
             expect(queue.toArray()).toEqual([])
             expect(queue.isNotEmpty()).toBe(false)
         })
         it("should be able to add and remove items", () => {
-            const queue = FastQueue.fromArray<number>([1, 2, 3])
+            const queue = FastShiftArray.fromArray<number>([1, 2, 3])
             expect(queue.isEmpty()).toBe(false)
             expect(queue.isNotEmpty()).toBe(true)
             expect(queue.get(0)).toBe(1)
@@ -50,7 +50,7 @@ describe("FastQueue", () => {
         })
 
         it("should be able to compact the shifted data", () => {
-            const queue = FastQueue.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
+            const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
             shiftN(queue, 50)
             expect(queue.length).toBe(50)
             // @ts-ignore
@@ -62,34 +62,34 @@ describe("FastQueue", () => {
         })
 
         it("should be able to concat an array", () => {
-            const queue = FastQueue.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
-            const otherQueue = FastQueue.fromArray<number>(Array.from({length: 50}, (_, i) => i + 101))
+            const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
+            const otherQueue = FastShiftArray.fromArray<number>(Array.from({length: 50}, (_, i) => i + 101))
             const concatenatedQueue = queue.concatArray(otherQueue)
             expect(concatenatedQueue.toArray()).toEqual(Array.from({length: 150}, (_, i) => i + 1))
         })
 
         it("should be able to map items", () => {
-            const queue = FastQueue.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
+            const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
             const mappedQueue = queue.map<number>(x => x * 2)
             expect(mappedQueue.toArray()).toEqual(Array.from({length: 100}, (_, i) => (i + 1) * 2))
         })
 
         it("should be able to map items after shift", () => {
-            const queue = FastQueue.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
+            const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
             for (let i = 0; i < 5; i++) queue.shift()
             const mappedQueue = queue.map(x => x * 2)
             expect(mappedQueue.toArray()).toEqual(Array.from({length: 95}, (_, i) => (i + 6) * 2))
         })
 
         it("should allow using [] indexing", () => {
-            const queue = FastQueue.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
+            const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
             shiftN(queue, 50)
             expect(queue.get(0)).toBe(51)
             expect(queue[0]).toBe(51)
         })
 
         it("should allow filtering", () => {
-            const queue = FastQueue.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
+            const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
             shiftN(queue, 50)
             const filteredQueue = queue.filter(x => x % 2 === 0)
             expect(filteredQueue[0]).toBe(52)
@@ -188,7 +188,7 @@ describe("FastQueue", () => {
         })
 
         it("returns undefined on empty queue", () => {
-            expect(FastQueue.empty<number>().pop()).toBeUndefined()
+            expect(FastShiftArray.empty<number>().pop()).toBeUndefined()
         })
     })
 
@@ -426,14 +426,14 @@ describe("FastQueue", () => {
     describe("flat", () => {
         it("flattens one level by default", () => {
             const data = [[1, 2], [3, 4], [5, 6]]
-            const queue = FastQueue.fromArray(data)
+            const queue = FastShiftArray.fromArray(data)
             expect([...queue.flat()]).toEqual(data.flat())
         })
 
         it("flattens nested arrays after shift", () => {
             const data = [[1, 2], [3, 4], [5, 6], [7, 8]]
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const queue = FastQueue.fromArray([null as any, null as any, ...data])
+            const queue = FastShiftArray.fromArray([null as any, null as any, ...data])
             shiftN(queue, 2)
             expect([...queue.flat()]).toEqual(data.flat())
         })
@@ -484,7 +484,7 @@ describe("FastQueue", () => {
         })
 
         it("throws on empty with no initial value", () => {
-            expect(() => FastQueue.empty<number>().reduce((a, b) => a + b)).toThrow(TypeError)
+            expect(() => FastShiftArray.empty<number>().reduce((a, b) => a + b)).toThrow(TypeError)
         })
     })
 
@@ -505,7 +505,7 @@ describe("FastQueue", () => {
         })
 
         it("throws on empty with no initial value", () => {
-            expect(() => FastQueue.empty<number>().reduceRight((a, b) => a + b)).toThrow(TypeError)
+            expect(() => FastShiftArray.empty<number>().reduceRight((a, b) => a + b)).toThrow(TypeError)
         })
     })
 
@@ -527,7 +527,7 @@ describe("FastQueue", () => {
         })
 
         it("returns true on empty", () => {
-            expect(FastQueue.empty<number>().every(x => x > 0)).toBe([].every(x => x > 0))
+            expect(FastShiftArray.empty<number>().every(x => x > 0)).toBe([].every(x => x > 0))
         })
     })
 
@@ -606,7 +606,7 @@ describe("FastQueue", () => {
 
         it("concatenates FastQueues", () => {
             const {array, fresh, shifted} = fixtures([1, 2, 3])
-            const extra = FastQueue.fromArray([4, 5])
+            const extra = FastShiftArray.fromArray([4, 5])
             expect(toArr(fresh.concat(extra))).toEqual(array.concat([4, 5]))
             expect(toArr(shifted.concat(extra))).toEqual(array.concat([4, 5]))
         })
@@ -785,7 +785,7 @@ describe("FastQueue", () => {
 
         it(`time to create a queue of ${LARGE_QUEUE_LENGTH} items`, () => {
             const start = performance.mark("start")
-            FastQueue.fromArray<number>(
+            FastShiftArray.fromArray<number>(
                 Array.from({length: LARGE_QUEUE_LENGTH}, (_, i) => i + 1),
                 USE_PROXY
             )
@@ -795,7 +795,7 @@ describe("FastQueue", () => {
         })
 
         it(`time for a single shift on a queue of ${LARGE_QUEUE_LENGTH} items`, () => {
-            const queue = FastQueue.fromArray<number>(
+            const queue = FastShiftArray.fromArray<number>(
                 Array.from({length: LARGE_QUEUE_LENGTH}, (_, i) => i + 1),
                 USE_PROXY
             )
@@ -807,7 +807,7 @@ describe("FastQueue", () => {
         })
 
         it(`amortized time per shift on ${MEDIUM_QUEUE_LENGTH} items`, () => {
-            const queue = FastQueue.fromArray<number>(
+            const queue = FastShiftArray.fromArray<number>(
                 Array.from({length: MEDIUM_QUEUE_LENGTH}, (_, i) => i + 1),
                 USE_PROXY
             )
