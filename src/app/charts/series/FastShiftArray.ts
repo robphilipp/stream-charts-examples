@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-const COMPACTING_SIZE: number = 10000
+const COMPACTING_SIZE: number = 100000
 
 /**
  * An O(1)-shift queue that fully satisfies the `Array<T>` interface.
@@ -498,7 +498,7 @@ export class FastShiftArray<T> implements Array<T> {
         if (this.headIndex > this.compactingSize) {
             this.items = this.items.slice(this.headIndex)
             this.headIndex = 0
-            // console.log("compacted")
+            console.log("compacted")
         }
 
         return item

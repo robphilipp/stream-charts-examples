@@ -2,6 +2,7 @@ import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../charts/se
 import {type TimeSeries} from "../charts/series/timeSeries";
 import {interval, Observable} from "rxjs";
 import {map} from "rxjs/operators";
+import {FastShiftArray} from "../charts/series/FastShiftArray.ts";
 
 const UPDATE_PERIOD_MS = 25;
 
@@ -32,10 +33,10 @@ function randomSpikeData(
             .map(name => {
                 return [
                     name,
-                    [{
+                    FastShiftArray.fromArray([{
                         x: sequenceTime + maxTime,
                         y: Math.random()
-                    }]
+                    }])
                 ]
             }))
     };

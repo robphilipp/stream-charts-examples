@@ -216,15 +216,15 @@ export function RasterPlot(props: Props): null {
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
         () => {
-            dataRef.current = initialData.slice() as Array<TimeSeries>
-            seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
+            dataRef.current = initialData.slice()
+            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
             currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
                     .map(([id, range]) => {
                         // grab the current range, then calculate the minimum time from the initial data, and
                         // set that as the start, and then add the range to it for the end time
                         const [start, end] = range.original.asTuple()
-                        const minTime = (initialData as Array<TimeSeries>)
+                        const minTime = initialData
                             .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
                             .reduce(
                                 (tMin: number, series: TimeSeries) => Math.min(

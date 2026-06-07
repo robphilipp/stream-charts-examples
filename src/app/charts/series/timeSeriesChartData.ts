@@ -1,5 +1,6 @@
 import type {Datum, TimeSeries} from "./timeSeries";
 import {type ChartData, defaultChartData} from "../observables/ChartData";
+import {FastShiftArray} from "./FastShiftArray.ts";
 
 /**
  * The spike-chart data produced by the rxjs observable that is pushed to a streaming chart
@@ -58,10 +59,10 @@ export function initialTimeSeriesChartData(seriesList: Array<TimeSeries>, curren
         maxTimes: new Map(seriesList.map(series => [series.name, series.last().map(datum => datum.x).getOrElse(0)])),
         newPoints: new Map<string, Array<Datum>>(seriesList.map(series => [
             series.name,
-            [{
+            FastShiftArray.fromArray([{
                 x: series.last().map(datum => datum.x).getOrElse(0),
                 y: series.last().map(datum => datum.y).getOrElse(0)
-            }]
+            }])
         ])),
         currentTime: currentTime
     }

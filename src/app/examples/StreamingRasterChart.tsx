@@ -1,5 +1,4 @@
-import type {CSSProperties} from 'react';
-import type {JSX} from "react";
+import type {CSSProperties, JSX} from 'react';
 import {useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -122,12 +121,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         initialData: originalInitialData = [],
     } = props;
 
-    // const chartId = useRef<number>(CHART_ID)
-
-    const [initialData, setInitialData] = useState<Array<TimeSeries>>(initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialData, 25));
-    // const initialDataRef = useRef<Array<TimeSeries>>(initialDataFrom(initialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    // const observableRef = useRef<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialDataRef.current, 25));
+    const [initialData, setInitialData] = useState<Array<TimeSeries>>(() => initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
+    const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialData, 50));
     const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
@@ -377,17 +372,17 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         label="t (ms)"
                         // font={{color: theme.color}}
                     />
-                    <ContinuousAxis
-                        axisId="x-axis-2"
-                        location={AxisLocation.Top}
-                        domain={[0, 10000]}
-                        label="t (ms)"
-                        // font={{color: theme.color}}
-                    />
-                    {/*<EmptyAxis*/}
+                    {/*<ContinuousAxis*/}
                     {/*    axisId="x-axis-2"*/}
                     {/*    location={AxisLocation.Top}*/}
+                    {/*    domain={[0, 10000]}*/}
+                    {/*    label="t (ms)"*/}
+                    {/*    // font={{color: theme.color}}*/}
                     {/*/>*/}
+                    <EmptyAxis
+                        axisId="x-axis-2"
+                        location={AxisLocation.Top}
+                    />
                     <OrdinalAxis
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
