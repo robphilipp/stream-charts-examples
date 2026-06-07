@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+const COMPACTING_SIZE: number = 10000
+
 /**
  * An O(1)-shift queue that fully satisfies the `Array<T>` interface.
  *
@@ -22,9 +24,9 @@
  * @example
  * ```ts
  * const q = FastQueue.fromArray([1, 2, 3]);
- * q.push(4);          // [1, 2, 3, 4]
- * q.shift();          // 1  (O(1))
- * console.log(q[0]);  // 2
+ * q.push(4); // [1, 2, 3, 4]
+ * q.shift(); // 1  (O(1))
+ * console.log(q[0]); // 2
  * ```
  *
  * @typeParam T - The element type stored in the queue.
@@ -33,20 +35,29 @@ export class FastShiftArray<T> implements Array<T> {
     [index: number]: T
     private items: Array<T> = []
     private headIndex: number = 0
+    private readonly compactingSize: number = COMPACTING_SIZE
 
     /**
      * Private constructor — use the static factory methods instead.
      *
-     * @param items     - The backing storage array.
-     * @param headIndex - Index into `items` where logical index 0 begins.
-     * @param useProxy  - When `true` (default) wraps `this` in a `Proxy` so
+     * @param items The backing storage array.
+     * @param headIndex Index into `items` where logical index 0 begins.
+     * @param useProxy When `true` (default) wraps `this` in a `Proxy` so
      *                    that bracket-notation reads/writes apply the offset.
      *                    Pass `false` only for internal use where the proxy
      *                    overhead is unnecessary (e.g. `copyFromArray`).
+     * @param compactingSize When the number of shifted elements hits this number
+     * then those values are dropped and the headIndex is set back to zero
      */
-    private constructor(items: Array<T> = [], headIndex: number = 0, useProxy: boolean = true) {
+    private constructor(
+        items: Array<T> = [],
+        headIndex: number = 0,
+        useProxy: boolean = true,
+        compactingSize = COMPACTING_SIZE
+    ) {
         this.items = items
         this.headIndex = headIndex
+        this.compactingSize = compactingSize
 
         if (!useProxy) return
 
@@ -115,8 +126,10 @@ export class FastShiftArray<T> implements Array<T> {
      * Pass `useProxy = false` only when you know you will never use bracket
      * notation to read or write elements.
      *
-     * @param array    - The array to wrap.
-     * @param useProxy - Whether to apply the index-offset Proxy (default `true`).
+     * @param array The array to wrap.
+     * @param [useProxy=true] Optional parameter that determines whether to apply the index-offset proxy.
+     * @param [compactingSize=100,000] Optional parameter that determines the number of shifts
+     * before compacting the array.
      * @returns A new `FastQueue<T>` backed by `array`.
      *
      * @example
@@ -127,8 +140,12 @@ export class FastShiftArray<T> implements Array<T> {
      * console.log(src); // [1, 2, 3, 4] — same backing array
      * ```
      */
-    static fromArray<T>(array: Array<T>, useProxy: boolean = true): FastShiftArray<T> {
-        return new FastShiftArray<T>(array, 0, useProxy)
+    static fromArray<T>(
+        array: Array<T>,
+        useProxy: boolean = true,
+        compactingSize: number = COMPACTING_SIZE
+    ): FastShiftArray<T> {
+        return new FastShiftArray<T>(array, 0, useProxy, compactingSize)
     }
 
     /**
@@ -136,7 +153,10 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * The queue owns its own storage; mutations do not affect the original.
      *
-     * @param array - The array to copy.
+     * @param array The array to copy.
+     * @param [useProxy=true] Optional parameter that determines whether to apply the index-offset proxy.
+     * @param [compactingSize=100,000] Optional parameter that determines the number of shifts
+     * before compacting the array.
      * @returns A new `FastQueue<T>` with independent storage.
      *
      * @example
@@ -148,13 +168,20 @@ export class FastShiftArray<T> implements Array<T> {
      * console.log([...q]); // [1, 2, 3, 4]
      * ```
      */
-    static copyFromArray<T>(array: Array<T>): FastShiftArray<T> {
-        return FastShiftArray.fromArray(array.slice())
+    static copyFromArray<T>(
+        array: Array<T>,
+        useProxy: boolean = true,
+        compactingSize: number = COMPACTING_SIZE
+    ): FastShiftArray<T> {
+        return FastShiftArray.fromArray(array.slice(), useProxy, compactingSize)
     }
 
     /**
      * Creates an empty `FastQueue<T>`.
      *
+     * @param [useProxy=true] Optional parameter that determines whether to apply the index-offset proxy.
+     * @param [compactingSize=100,000] Optional parameter that determines the number of shifts
+     * before compacting the array.
      * @returns A new empty `FastQueue<T>`.
      *
      * @example
@@ -164,8 +191,8 @@ export class FastShiftArray<T> implements Array<T> {
      * console.log(q.length); // 2
      * ```
      */
-    static empty<T>(): FastShiftArray<T> {
-        return new FastShiftArray<T>()
+    static empty<T>(useProxy: boolean = true, compactingSize: number = COMPACTING_SIZE): FastShiftArray<T> {
+        return new FastShiftArray<T>([], 0, useProxy, compactingSize)
     }
 
     // -------------------------------------------------------------------------
@@ -178,7 +205,7 @@ export class FastShiftArray<T> implements Array<T> {
      * Equivalent to `queue[index]` but useful when the proxy is disabled or
      * when you want an explicit method call for clarity.
      *
-     * @param index - Zero-based logical index.
+     * @param index Zero-based logical index.
      * @returns The element, or `undefined` if `index` is out of range.
      *
      * @example
@@ -214,7 +241,7 @@ export class FastShiftArray<T> implements Array<T> {
      * Setting `length` translates to `items.length = value + headIndex` so
      * internal accounting stays consistent.
      *
-     * @param value - The new logical length.
+     * @param value The new logical length.
      *
      * @example
      * ```ts
@@ -278,8 +305,8 @@ export class FastShiftArray<T> implements Array<T> {
      * Returns a plain `Array<T>` containing the logical elements from `start`
      * (inclusive) to `end` (exclusive).
      *
-     * @param start - Zero-based start index (default `0`).
-     * @param end   - Zero-based end index (default `this.length`).
+     * @param start Zero-based start index (default `0`).
+     * @param end Zero-based end index (default `this.length`).
      * @returns A plain `Array<T>` — never a `FastQueue`.
      *
      * @example
@@ -301,15 +328,15 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * Negative indices are supported: `-1` refers to the last element.
      *
-     * @param start - Zero-based start index (inclusive, default `0`).
-     * @param end   - Zero-based end index (exclusive, default `this.length`).
+     * @param start Zero-based start index (inclusive, default `0`).
+     * @param end Zero-based end index (exclusive, default `this.length`).
      * @returns A new `FastQueue<T>` with fresh backing storage.
      *
      * @example
      * ```ts
      * const q = FastQueue.fromArray([0, 1, 2, 3, 4]);
      * console.log([...q.slice(1, 3)]); // [1, 2]
-     * console.log([...q.slice(-2)]);   // [3, 4]
+     * console.log([...q.slice(-2)]); // [3, 4]
      * ```
      */
     slice(start?: number, end?: number): FastShiftArray<T> {
@@ -328,13 +355,13 @@ export class FastShiftArray<T> implements Array<T> {
      * bypass the `headIndex` offset so they always refer to the tail of the
      * logical sequence.
      *
-     * @param index - Zero-based (or negative) index.
+     * @param index Zero-based (or negative) index.
      * @returns The element, or `undefined` if out of range.
      *
      * @example
      * ```ts
      * const q = FastQueue.fromArray([10, 20, 30]);
-     * console.log(q.at(0));  // 10
+     * console.log(q.at(0)); // 10
      * console.log(q.at(-1)); // 30
      * ```
      */
@@ -346,16 +373,16 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Returns the index of the first occurrence of `value`, or `-1` if not found.
      *
-     * @param value - The value to search for.
-     * @param index - Optional starting position (default `0`).
+     * @param value The value to search for.
+     * @param index Optional starting position (default `0`).
      * @returns Zero-based logical index, or `-1`.
      *
      * @example
      * ```ts
      * const q = FastQueue.fromArray(['a', 'b', 'c', 'b']);
-     * console.log(q.indexOf('b'));    // 1
+     * console.log(q.indexOf('b')); // 1
      * console.log(q.indexOf('b', 2)); // 3
-     * console.log(q.indexOf('z'));    // -1
+     * console.log(q.indexOf('z')); // -1
      * ```
      */
     indexOf(value: T, index?: number): number {
@@ -366,8 +393,8 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Returns the index of the last occurrence of `value`, or `-1` if not found.
      *
-     * @param value - The value to search for.
-     * @param index - Optional starting position for the backward search.
+     * @param value The value to search for.
+     * @param index Optional starting position for the backward search.
      * @returns Zero-based logical index, or `-1`.
      *
      * @example
@@ -393,13 +420,13 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Returns `true` if `searchElement` is present in the queue.
      *
-     * @param searchElement - Value to search for.
-     * @param fromIndex     - Optional starting index (default `0`).
+     * @param searchElement Value to search for.
+     * @param fromIndex Optional starting index (default `0`).
      *
      * @example
      * ```ts
      * const q = FastQueue.fromArray([1, 2, NaN]);
-     * console.log(q.includes(2));   // true
+     * console.log(q.includes(2)); // true
      * console.log(q.includes(NaN)); // true  (uses SameValueZero)
      * ```
      */
@@ -414,7 +441,7 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Appends one or more elements to the end of the queue.
      *
-     * @param item - Elements to append.
+     * @param item Elements to append.
      * @returns The new logical length of the queue.
      *
      * @example
@@ -437,7 +464,7 @@ export class FastShiftArray<T> implements Array<T> {
      * ```ts
      * const q = FastQueue.fromArray([1, 2, 3]);
      * console.log(q.pop()); // 3
-     * console.log([...q]);  // [1, 2]
+     * console.log([...q]); // [1, 2]
      * ```
      */
     pop(): T | undefined {
@@ -457,7 +484,7 @@ export class FastShiftArray<T> implements Array<T> {
      * ```ts
      * const q = FastQueue.fromArray([10, 20, 30]);
      * console.log(q.shift()); // 10  (O(1))
-     * console.log(q[0]);      // 20
+     * console.log(q[0]); // 20
      * ```
      */
     shift(): T | undefined {
@@ -468,9 +495,10 @@ export class FastShiftArray<T> implements Array<T> {
         this.headIndex++
 
         // Optional: Periodic cleanup to prevent infinite memory growth
-        if (this.headIndex > 100000) {
+        if (this.headIndex > this.compactingSize) {
             this.items = this.items.slice(this.headIndex)
             this.headIndex = 0
+            // console.log("compacted")
         }
 
         return item
@@ -482,7 +510,7 @@ export class FastShiftArray<T> implements Array<T> {
      * If `headIndex >= elements.length`, elements are written into the ghost
      * slots in-place without allocation.  Otherwise, a new array is created.
      *
-     * @param elements - Elements to prepend, in order.
+     * @param elements Elements to prepend, in order.
      * @returns The new logical length.
      *
      * @example
@@ -510,17 +538,17 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Removes and/or inserts elements at `start`.
      *
-     * @param start       - Zero-based logical index at which to start changing the queue.
-     * @param deleteCount - Number of elements to remove.
-     * @param insertItems - Elements to insert in place of the removed elements.
+     * @param start Zero-based logical index at which to start changing the queue.
+     * @param deleteCount Number of elements to remove.
+     * @param insertItems Elements to insert in place of the removed elements.
      * @returns An array of the removed elements.
      *
      * @example
      * ```ts
      * const q = FastQueue.fromArray([1, 2, 3, 4]);
      * const removed = q.splice(1, 2, 9, 8);
-     * console.log(removed);  // [2, 3]
-     * console.log([...q]);   // [1, 9, 8, 4]
+     * console.log(removed); // [2, 3]
+     * console.log([...q]); // [1, 9, 8, 4]
      * ```
      */
     splice(start: number, deleteCount?: number, ...insertItems: T[]): T[] {
@@ -535,9 +563,9 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * Indices are logical (zero-based); negative values are not supported.
      *
-     * @param value - Value to fill with.
-     * @param start - Start index (default `0`).
-     * @param end   - End index (default `this.length`).
+     * @param value Value to fill with.
+     * @param start Start index (default `0`).
+     * @param end End index (default `this.length`).
      * @returns `this` for chaining.
      *
      * @example
@@ -561,9 +589,9 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * All indices are logical (zero-based).
      *
-     * @param target - Zero-based index where the copied section will be pasted.
-     * @param start  - Zero-based index of the section start to copy from.
-     * @param end    - Zero-based index of the section end (exclusive).
+     * @param target Zero-based index where the copied section will be pasted.
+     * @param start Zero-based index of the section start to copy from.
+     * @param end Zero-based index of the section end (exclusive).
      * @returns `this` for chaining.
      *
      * @example
@@ -632,7 +660,7 @@ export class FastShiftArray<T> implements Array<T> {
      * Ghost slots are discarded during the sort, so `headIndex` is reset to 0
      * afterward.
      *
-     * @param compareFn - Optional comparison function (same semantics as `Array.sort`).
+     * @param compareFn Optional comparison function (same semantics as `Array.sort`).
      * @returns `this`.
      *
      * @example
@@ -654,7 +682,7 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Returns a new sorted `FastQueue` without modifying the original.
      *
-     * @param compareFn - Optional comparison function.
+     * @param compareFn Optional comparison function.
      * @returns A new `FastQueue<T>` in sorted order.
      *
      * @example
@@ -672,9 +700,9 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Returns a new `FastQueue` with a splice applied, without modifying the original.
      *
-     * @param start       - Zero-based logical start index.
-     * @param deleteCount - Number of elements to remove.
-     * @param items       - Elements to insert.
+     * @param start Zero-based logical start index.
+     * @param deleteCount Number of elements to remove.
+     * @param items Elements to insert.
      * @returns A new `FastQueue<T>`.
      *
      * @example
@@ -696,8 +724,8 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * The original queue is not modified.
      *
-     * @param index - Zero-based logical index.
-     * @param value - Replacement value.
+     * @param index Zero-based logical index.
+     * @param value Replacement value.
      * @returns A new `FastQueue<T>`.
      *
      * @example
@@ -721,7 +749,7 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * Indices passed to `callback` are zero-based logical indices.
      *
-     * @param callback - Function called for each element.
+     * @param callback Function called for each element.
      * @param _thisArg - Unused (bound via arrow function in the caller).
      * @returns A new `FastQueue<U>`.
      *
@@ -749,7 +777,7 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Maps each element through `callback` and flattens the result one level deep.
      *
-     * @param callback - Function that returns a value or a readonly array.
+     * @param callback Function that returns a value or a readonly array.
      * @param _thisArg - Unused.
      * @returns A new flattened `FastQueue<U>`.
      *
@@ -778,15 +806,14 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Flattens the queue up to `depth` levels and returns a plain `Array`.
      *
-     * @param this  - Typed as the outer container (`A`) for recursive flattening.
-     * @param depth - Maximum depth to flatten (default `1`).
+     * @param depth Maximum depth to flatten (default `1`).
      * @returns A plain `FlatArray<A, D>[]`.
      *
      * @example
      * ```ts
      * const q = FastQueue.fromArray([[1, 2], [3, [4, 5]]]);
-     * console.log(q.flat());    // [1, 2, 3, [4, 5]]
-     * console.log(q.flat(2));   // [1, 2, 3, 4, 5]
+     * console.log(q.flat()); // [1, 2, 3, [4, 5]]
+     * console.log(q.flat(2)); // [1, 2, 3, 4, 5]
      * ```
      */
     flat<A, D extends number = 1>(this: A, depth?: D): FlatArray<A, D>[] {
@@ -798,8 +825,8 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * The type-guard overload narrows the element type to `S`.
      *
-     * @param predicate - Test function.
-     * @param thisArg   - Value to use as `this` inside `predicate`.
+     * @param predicate Test function.
+     * @param thisArg Value to use as `this` inside `predicate`.
      * @returns A new `FastQueue<S>` or `FastQueue<T>`.
      *
      * @example
@@ -830,7 +857,7 @@ export class FastShiftArray<T> implements Array<T> {
      * Each item in `items` may be a single element `T` or a `ConcatArray<T>`
      * (e.g. another array or `FastQueue`).
      *
-     * @param items - Elements or arrays to concatenate.
+     * @param items Elements or arrays to concatenate.
      * @returns A new `FastQueue<T>`.
      *
      * @example
@@ -857,7 +884,7 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * Convenience wrapper around `concat` for `FastQueue`-to-`FastQueue` merges.
      *
-     * @param array - The queue to append.
+     * @param array The queue to append.
      * @returns A new `FastQueue<T>`.
      *
      * @example
@@ -881,8 +908,7 @@ export class FastShiftArray<T> implements Array<T> {
      * When called without `initialValue` the first element is used as the seed
      * and processing starts at index 1.
      *
-     * @param callback    - Reducer function.
-     * @param initialValue - Optional initial accumulator value.
+     * @param callback Reducer function.
      * @returns The accumulated result.
      * @throws `TypeError` if the queue is empty and no `initialValue` is given.
      *
@@ -890,12 +916,30 @@ export class FastShiftArray<T> implements Array<T> {
      * ```ts
      * const q = FastQueue.fromArray([1, 2, 3, 4]);
      * console.log(q.reduce((acc, x) => acc + x, 0)); // 10
-     * console.log(q.reduce((acc, x) => acc + x));    // 10
+     * console.log(q.reduce((acc, x) => acc + x)); // 10
      * ```
      */
     reduce(callback: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T): T
-    reduce(callback: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T, initialValue: T): T
-    reduce<U>(callback: (previousValue: U, currentValue: T, currentIndex: number, array: T[]) => U, initialValue: U): U
+    /**
+     * Reduces the queue to a single value, processing elements left-to-right.
+     *
+     * When called without `initialValue` the first element is used as the seed
+     * and processing starts at index 1.
+     *
+     * @param callback Reducer function.
+     * @param initial Optional initial accumulator value.
+     * @returns The accumulated result.
+     * @throws `TypeError` if the queue is empty and no `initialValue` is given.
+     *
+     * @example
+     * ```ts
+     * const q = FastQueue.fromArray([1, 2, 3, 4]);
+     * console.log(q.reduce((acc, x) => acc + x, 0)); // 10
+     * console.log(q.reduce((acc, x) => acc + x)); // 10
+     * ```
+     */
+    reduce(callback: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T, initial: T): T
+    reduce<U>(callback: (previousValue: U, currentValue: T, currentIndex: number, array: T[]) => U, initial: U): U
     reduce<U>(callback: (previous: T | U, current: T, index: number, array: T[]) => T | U, initial?: T | U): T | U {
         const totalLength = this.items.length
         let i = this.headIndex
@@ -915,8 +959,7 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Reduces the queue to a single value, processing elements right-to-left.
      *
-     * @param callback     - Reducer function.
-     * @param initialValue - Optional initial accumulator value.
+     * @param callback Reducer function.
      * @returns The accumulated result.
      * @throws `TypeError` if the queue is empty and no `initialValue` is given.
      *
@@ -927,8 +970,22 @@ export class FastShiftArray<T> implements Array<T> {
      * ```
      */
     reduceRight(callback: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T): T
-    reduceRight(callback: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T, initialValue: T): T
-    reduceRight<U>(callback: (previousValue: U, currentValue: T, currentIndex: number, array: T[]) => U, initialValue: U): U
+    /**
+     * Reduces the queue to a single value, processing elements right-to-left.
+     *
+     * @param callback Reducer function.
+     * @param initial Optional initial accumulator value.
+     * @returns The accumulated result.
+     * @throws `TypeError` if the queue is empty and no `initialValue` is given.
+     *
+     * @example
+     * ```ts
+     * const q = FastQueue.fromArray([1, 2, 3]);
+     * console.log(q.reduceRight((acc, x) => acc + x, '')); // '321'
+     * ```
+     */
+    reduceRight(callback: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T, initial: T): T
+    reduceRight<U>(callback: (previousValue: U, currentValue: T, currentIndex: number, array: T[]) => U, initial: U): U
     reduceRight<U>(callback: (previous: T | U, current: T, index: number, array: T[]) => T | U, initial?: T | U): T | U {
         const totalLength = this.items.length
         let i = totalLength - 1
@@ -950,8 +1007,8 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * The type-guard overload narrows the return type to `S`.
      *
-     * @param predicate - Test function.
-     * @param thisArg   - Value to use as `this` inside `predicate`.
+     * @param predicate Test function.
+     * @param thisArg Value to use as `this` inside `predicate`.
      *
      * @example
      * ```ts
@@ -977,7 +1034,7 @@ export class FastShiftArray<T> implements Array<T> {
      * Returns the zero-based logical index of the first element for which
      * `predicate` returns truthy, or `-1` if none match.
      *
-     * @param predicate - Test function.
+     * @param predicate Test function.
      * @param _thisArg  - Unused.
      *
      * @example
@@ -1003,8 +1060,8 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * The type-guard overload narrows the return type to `S`.
      *
-     * @param predicate - Test function.
-     * @param thisArg   - Value to use as `this` inside `predicate`.
+     * @param predicate Test function.
+     * @param thisArg Value to use as `this` inside `predicate`.
      *
      * @example
      * ```ts
@@ -1030,7 +1087,7 @@ export class FastShiftArray<T> implements Array<T> {
      * Returns the zero-based logical index of the last element for which
      * `predicate` returns truthy, or `-1`.
      *
-     * @param predicate - Test function.
+     * @param predicate Test function.
      * @param _thisArg  - Unused.
      *
      * @example
@@ -1058,8 +1115,8 @@ export class FastShiftArray<T> implements Array<T> {
      * Short-circuits on the first failing element.  The type-guard overload
      * narrows `this` to `S[]` when it returns `true`.
      *
-     * @param predicate - Test function.
-     * @param thisArg   - Value to use as `this` inside `predicate`.
+     * @param predicate Test function.
+     * @param thisArg Value to use as `this` inside `predicate`.
      *
      * @example
      * ```ts
@@ -1085,7 +1142,7 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * Short-circuits on the first matching element.
      *
-     * @param predicate - Test function.
+     * @param predicate Test function.
      * @param _thisArg  - Unused.
      *
      * @example
@@ -1114,7 +1171,7 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Executes `callback` once for each logical element, in order.
      *
-     * @param callback - Function to execute for each element.
+     * @param callback Function to execute for each element.
      * @param _thisArg - Unused.
      *
      * @example
@@ -1134,14 +1191,14 @@ export class FastShiftArray<T> implements Array<T> {
     /**
      * Joins all logical elements into a string with `separator` between each pair.
      *
-     * @param separator - String placed between elements (default `','`).
+     * @param separator String placed between elements (default `','`).
      * @returns The joined string.
      *
      * @example
      * ```ts
      * const q = FastQueue.fromArray([1, 2, 3]);
      * console.log(q.join('-')); // '1-2-3'
-     * console.log(q.join());    // '1,2,3'
+     * console.log(q.join()); // '1,2,3'
      * ```
      */
     join(separator: string = ','): string {
