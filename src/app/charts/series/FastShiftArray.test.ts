@@ -889,13 +889,10 @@ describe("FastShiftArray", () => {
             arrayDuration: number,
             shiftArrayDuration: number,
         }
+
         it("should be that the shift() function is faster than Array.shift()", () => {
-            // const ARRAY_DOUBLING = 2
-            // const NUM_DOUBLING_PERIODS = 10
-            // const BASE_SIZE = 1000
             const table =
-                [10, 50, 100]//, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-                // Array.from({length: NUM_DOUBLING_PERIODS}, (_, index) => BASE_SIZE * Math.pow(ARRAY_DOUBLING, index + 1))
+                [10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                 .map(size => shiftPerformance(1000 * size, 0.5, 100000))
                 .reduce(
                     (table: Array<Array<string>>, timing) => {
@@ -922,8 +919,6 @@ describe("FastShiftArray", () => {
                     maximumFractionDigits: fractionDigits
                 });
         }
-
-
 
         function updateTable(row: Array<string>, table: Array<Array<string>>): Array<Array<string>> {
             table.push(row)

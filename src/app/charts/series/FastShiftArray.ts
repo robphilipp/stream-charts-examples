@@ -69,18 +69,41 @@ export class FastShiftArray<T> implements Array<T> {
         // causing deoptimization and negating the O(1) advantage over Array.shift().
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this
+        // Methods are bound to `self` lazily and cached here, so a method is bound
+        // exactly once per instance rather than on every property access. A hot loop
+        // of `proxy.shift()` calls then reuses one stable function object: no
+        // per-call `bind()` allocation, and the call site stays monomorphic so V8
+        // can inline it. (Binding on every `get` makes the proxied shift
+        // slower than Array.shift() for small/medium arrays.)
+        const boundMethods = new Map<string | symbol, (...args: Array<any>) => any>()
         return new Proxy<FastShiftArray<T>>(this, {
             get: (target: this, prop: string | symbol, receiver): T | Array<T> => {
-                // Check if the property being accessed is a number/index
+                // Check if the property being accessed is a number/index. Array
+                // index keys always start with a digit, so gate the (relatively
+                // costly) Number() coercion on the first char code — this skips it
+                // for every method name (`shift`, `push`, …), which is the hot path
+                // when the queue is used as a drop-in array.
                 if (typeof prop === 'string') {
-                    const index = Number(prop)
-                    if (!isNaN(index)) {
-                        return self.items[index + self.headIndex] as T
+                    const code = prop.charCodeAt(0)
+                    if (code >= 48 && code <= 57) {       // '0'–'9'
+                        const index = Number(prop)
+                        if (!isNaN(index)) {
+                            return self.items[index + self.headIndex] as T
+                        }
                     }
                 }
 
+                // Reuse the already-bound method if we have one.
+                const cached = boundMethods.get(prop)
+                if (cached !== undefined) return cached as T
+
                 const value = Reflect.get(target, prop, receiver)
-                return (typeof value === 'function' ? value.bind(self) : value) as T
+                if (typeof value === 'function') {
+                    const bound = value.bind(self)
+                    boundMethods.set(prop, bound)
+                    return bound as T
+                }
+                return value as T
             },
             set: (_target: this, prop: string | symbol, value: unknown): boolean => {
                 if (typeof prop === 'string') {
