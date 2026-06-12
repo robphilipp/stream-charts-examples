@@ -6,8 +6,8 @@ const COMPACTING_SIZE: number = 100000
 /**
  * An O(1)-shift queue that fully satisfies the `Array<T>` interface.
  *
- * A standard `Array.shift()` is O(n) because every remaining element must be
- * copied down by one slot.  `FastQueue` avoids that by tracking a `headIndex`
+ * A standard `Array.shift()` is O(n) because one slot must copy down every
+ * remaining element.  `FastQueue` avoids that by tracking a `headIndex`
  * offset into the underlying storage array: shifting simply increments the
  * pointer.  All logical indices presented to callers are zero-based and
  * automatically translated to internal indices via `+ headIndex`.
@@ -25,7 +25,7 @@ const COMPACTING_SIZE: number = 100000
  * ```ts
  * const q = FastQueue.fromArray([1, 2, 3]);
  * q.push(4); // [1, 2, 3, 4]
- * q.shift(); // 1  (O(1))
+ * q.shift(); // 1 (O(1))
  * console.log(q[0]); // 2
  * ```
  *
@@ -42,11 +42,11 @@ export class FastShiftArray<T> implements Array<T> {
      *
      * @param items The backing storage array.
      * @param headIndex Index into `items` where logical index 0 begins.
-     * @param useProxy When `true` (default) wraps `this` in a `Proxy` so
+     * @param [useProxy=true] When `true` (default) wraps `this` in a `Proxy` so
      *                    that bracket-notation reads/writes apply the offset.
      *                    Pass `false` only for internal use where the proxy
      *                    overhead is unnecessary (e.g. `copyFromArray`).
-     * @param compactingSize When the number of shifted elements hits this number
+     * @param [compactingSize=100,000] When the number of shifted elements hits this number
      * then those values are dropped and the headIndex is set back to zero
      */
     private constructor(

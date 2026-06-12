@@ -862,26 +862,23 @@ describe("FastShiftArray", () => {
             performance.mark("start-fast-shift")
             shiftN<number, FastShiftArray<number>>(fast, fast.length / 2)
             performance.mark("end-fast-shift")
-            const t = performance.measure("create", "start-fast-shift", "end-fast-shift")
+            const shiftArrayPerf = performance.measure("create", "start-fast-shift", "end-fast-shift")
 
             performance.mark("start-array-shift")
             shiftN<number, Array<number>>(array, array.length / 2)
             performance.mark("end-array-shift")
-            const tArray = performance.measure("create", "start-array-shift", "end-array-shift")
-            const format = (value: number, fractionDigits: number = 0) =>
-                value.toLocaleString('en-US', {minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits});
-            // const formatLength = (value: number) => value.toLocaleString('en-US', {maximumFractionDigits: 0});
-            const improvement = format(tArray.duration / t.duration, 1)
-            const shiftArrayTime = format(t.duration)
-            const arrayTime = format(tArray.duration)
-            console.log(
-                `Performing shift() ${format(array.length / 2)} times on a ${format(array.length)} element ` +
-                `FastShiftArray if ${improvement} times faster than Array; ` +
-                `FastShiftArray shift: ${shiftArrayTime} ms; regular array shift: ${arrayTime} ms`
-            )
-            console.log(``)
-            expect(t.duration).toBeLessThan(tArray.duration)
+            const arrayPerf = performance.measure("create", "start-array-shift", "end-array-shift")
+            // console.log(
+            //     `Performing shift() ${format(array.length / 2)} times on a ${format(array.length)} element ` +
+            //     `FastShiftArray if ${format(tArray.duration / t.duration, 1)} times faster than Array; ` +
+            //     `FastShiftArray shift: ${format(t.duration)} ms; regular array shift: ${format(tArray.duration)} ms`
+            // )
+            expect(shiftArrayPerf.duration).toBeLessThan(arrayPerf.duration)
         })
+
+        //
+        // --- for manual performance testings ---
+        //
 
         type ShiftPerformanceTiming = {
             arraySize: number,
@@ -890,7 +887,7 @@ describe("FastShiftArray", () => {
             shiftArrayDuration: number,
         }
 
-        it("should be that the shift() function is faster than Array.shift()", () => {
+        xit("should be that the shift() function is faster than Array.shift()", () => {
             const table =
                 [10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                 .map(size => shiftPerformance(1000 * size, 0.5, 100000))
