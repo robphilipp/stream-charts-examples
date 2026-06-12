@@ -43,5 +43,6 @@ dist-ssr
 .env.production.local
 
 .idea/
+.history/
 
 src/app/*.tar.gz
