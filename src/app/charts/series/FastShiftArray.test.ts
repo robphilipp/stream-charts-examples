@@ -1,18 +1,18 @@
 import {describe, expect, it} from "@jest/globals";
 import {FastShiftArray} from "./FastShiftArray.ts";
 
-describe("FastQueue", () => {
+describe("FastShiftArray", () => {
 
     // ── helpers ────────────────────────────────────────────────────────────────
 
     /** Shift n elements off the front of a queue, mirroring what the caller
      *  does to a plain array so both start at the same logical data. */
-    function shiftN<T>(queue: FastShiftArray<T>, n: number): FastShiftArray<T> {
+    function shiftN<T, A extends Array<T>>(queue: A, n: number): A {
         for (let i = 0; i < n; i++) queue.shift()
         return queue
     }
 
-    /** Return the logical contents of a FastQueue as a plain array. */
+    /** Return the logical contents of a FastShiftArray as a plain array. */
     const toArr = <T>(q: FastShiftArray<T>): T[] => q.toArray()
 
     /** Build (array, freshQueue, shiftedQueue) from the same source data. */
@@ -27,9 +27,9 @@ describe("FastQueue", () => {
 
     const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-    // ── basic FastQueue operations ─────────────────────────────────────────────
+    // ── basic FastShiftArray operations ─────────────────────────────────────────────
 
-    describe("basic FastQueue functionality", () => {
+    describe("basic FastShiftArray functionality", () => {
         it("should be able to create an empty queue", () => {
             const queue = FastShiftArray.empty<number>()
             expect(queue.isEmpty()).toBe(true)
@@ -51,11 +51,13 @@ describe("FastQueue", () => {
 
         it("should be able to compact the shifted data", () => {
             const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
-            shiftN(queue, 50)
+            shiftN<number, FastShiftArray<number>>(queue, 50)
             expect(queue.length).toBe(50)
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
             expect(queue.items.length).toBe(100)
             queue.compact()
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
             expect(queue.items.length).toBe(50)
             expect(queue.toArray()).toEqual(Array.from({length: 50}, (_, i) => i + 51))
@@ -83,14 +85,14 @@ describe("FastQueue", () => {
 
         it("should allow using [] indexing", () => {
             const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
-            shiftN(queue, 50)
+            shiftN<number, FastShiftArray<number>>(queue, 50)
             expect(queue.get(0)).toBe(51)
             expect(queue[0]).toBe(51)
         })
 
         it("should allow filtering", () => {
             const queue = FastShiftArray.fromArray<number>(Array.from({length: 100}, (_, i) => i + 1))
-            shiftN(queue, 50)
+            shiftN<number, FastShiftArray<number>>(queue, 50)
             const filteredQueue = queue.filter(x => x % 2 === 0)
             expect(filteredQueue[0]).toBe(52)
             expect(filteredQueue.toArray()).toEqual(Array.from({length: 25}, (_, i) => (i + 26) * 2))
@@ -404,6 +406,33 @@ describe("FastQueue", () => {
             const shiftedArgs: [number, number, number[]][] = []
             shifted.map((v, i) => { shiftedArgs.push([v, i, []]); return v })
             expect(shiftedArgs.map(x => x[1])).toEqual(arrayArgs.map(x => x[1]))
+        })
+
+        it("FastShiftArray.map should return the same results as Array.map", () => {
+            const fn = (x: number) => x * 2
+            // create an array with 100 elements starting at 1
+            const baseArray = Array.from({length: 100}, (_, i) => i + 1)
+            // create an array for which each element of the baseArray is doubled
+            const array = baseArray.map(fn)
+            // create a FastShiftArray with from the baseArray and double each element
+            const fast = FastShiftArray.fromArray(baseArray).map(fn)
+            // the array and FastShiftArray should have the same results
+            expect(fast.toArray()).toEqual(array)
+        })
+
+        it("FastShiftArray.map should return the same results as Array.map after shifting", () => {
+            const fn = (x: number) => x * 2
+            // create an array with 100 elements starting at 51
+            const array = Array.from({length: 100}, (_, i) => i + 51)
+            // create a FastShiftArray with 150 elements starting at 1
+            const fast = FastShiftArray.fromArray(
+                Array.from({length: 150}, (_, i) => i + 1)
+            )
+            // shift the first 50 elements so the array should now have a length of 100
+            // with the first element being 51
+            shiftN<number, FastShiftArray<number>>(fast, 50)
+            // when we map the array and FastShiftArray, we should get the same results
+            expect(fast.map(fn).toArray()).toEqual(array.map(fn))
         })
     })
 
@@ -790,7 +819,7 @@ describe("FastQueue", () => {
                 USE_PROXY
             )
             const t = performance.measure("create", start)
-            console.log(`fastqueue: create: ${t.duration} ms`)
+            console.log(`FastShiftArray: create: ${t.duration} ms`)
             expect(t.duration).toBeLessThan(1000)
         })
 
@@ -802,7 +831,7 @@ describe("FastQueue", () => {
             const start = performance.mark("start")
             queue.shift()
             const t = performance.measure("shift", start)
-            console.log(`fastqueue: shift: ${t.duration} ms`)
+            console.log(`FastShiftArray: shift: ${t.duration} ms`)
             expect(t.duration).toBeLessThan(1000)
         })
 
@@ -812,9 +841,9 @@ describe("FastQueue", () => {
                 USE_PROXY
             )
             const start = performance.mark("start")
-            shiftN(queue, queue.length)
+            shiftN<number, FastShiftArray<number>>(queue, queue.length)
             const t = performance.measure("shift", start)
-            console.log(`fastqueue: shift: ${t.duration} ms, ${t.duration / MEDIUM_QUEUE_LENGTH} ms per shift; proxy: ${USE_PROXY}`)
+            console.log(`FastShiftArray: shift: ${t.duration} ms, ${t.duration / MEDIUM_QUEUE_LENGTH} ms per shift; proxy: ${USE_PROXY}`)
             expect(t.duration).toBeLessThan(1500)
         })
 
@@ -825,5 +854,106 @@ describe("FastQueue", () => {
             const t = performance.measure("shift", start)
             console.log(`regular array: shift: ${t.duration} ms, ${t.duration / MEDIUM_QUEUE_LENGTH} ms per shift`)
         })
+
+        it("should shift faster than a regular Array", () => {
+            const array = Array.from({length: 5000 * 2}, (_, i) => i + 1)
+            const fast = FastShiftArray.fromArray<number>(array.slice(), USE_PROXY)
+
+            performance.mark("start-fast-shift")
+            shiftN<number, FastShiftArray<number>>(fast, fast.length / 2)
+            performance.mark("end-fast-shift")
+            const t = performance.measure("create", "start-fast-shift", "end-fast-shift")
+
+            performance.mark("start-array-shift")
+            shiftN<number, Array<number>>(array, array.length / 2)
+            performance.mark("end-array-shift")
+            const tArray = performance.measure("create", "start-array-shift", "end-array-shift")
+            const format = (value: number, fractionDigits: number = 0) =>
+                value.toLocaleString('en-US', {minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits});
+            // const formatLength = (value: number) => value.toLocaleString('en-US', {maximumFractionDigits: 0});
+            const improvement = format(tArray.duration / t.duration, 1)
+            const shiftArrayTime = format(t.duration)
+            const arrayTime = format(tArray.duration)
+            console.log(
+                `Performing shift() ${format(array.length / 2)} times on a ${format(array.length)} element ` +
+                `FastShiftArray if ${improvement} times faster than Array; ` +
+                `FastShiftArray shift: ${shiftArrayTime} ms; regular array shift: ${arrayTime} ms`
+            )
+            console.log(``)
+            expect(t.duration).toBeLessThan(tArray.duration)
+        })
+
+        type ShiftPerformanceTiming = {
+            arraySize: number,
+            numShifts: number,
+            arrayDuration: number,
+            shiftArrayDuration: number,
+        }
+        it("should be that the shift() function is faster than Array.shift()", () => {
+            // const ARRAY_DOUBLING = 2
+            // const NUM_DOUBLING_PERIODS = 10
+            // const BASE_SIZE = 1000
+            const table =
+                [10, 50, 100]//, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+                // Array.from({length: NUM_DOUBLING_PERIODS}, (_, index) => BASE_SIZE * Math.pow(ARRAY_DOUBLING, index + 1))
+                .map(size => shiftPerformance(1000 * size, 0.5, 100000))
+                .reduce(
+                    (table: Array<Array<string>>, timing) => {
+                        const row = [
+                            `${format(timing.arraySize)}`,
+                            `${format(timing.numShifts)}`,
+                            `${format(timing.shiftArrayDuration)}`,
+                            `${format(timing.arrayDuration)}`,
+                            `${format(timing.arrayDuration / timing.shiftArrayDuration, 1)}`
+                        ]
+                        return updateTable(row, table)
+                    },
+                    [['Array Size', 'Num Shifts', 'FastShiftArray (ms)', 'Array (ms)', 'Speed-up']]
+                )
+            console.log(table)
+            expect(true).toBe(true)
+        })
+
+        function format(value: number, fractionDigits: number = 0): string {
+            return value.toLocaleString(
+                'en-US',
+                {
+                    minimumFractionDigits: fractionDigits,
+                    maximumFractionDigits: fractionDigits
+                });
+        }
+
+
+
+        function updateTable(row: Array<string>, table: Array<Array<string>>): Array<Array<string>> {
+            table.push(row)
+            return table
+        }
+
+        function shiftPerformance(
+            arraySize: number,
+            shiftFraction: number = 0.5,
+            compactingSize: number = 100000
+        ): ShiftPerformanceTiming {
+            const array = Array.from({length: arraySize}, (_, i) => i + 1)
+            const fast = FastShiftArray.fromArray<number>(array.slice(), USE_PROXY, compactingSize)
+
+            performance.mark("start-array-shift")
+            shiftN<number, Array<number>>(array, arraySize * shiftFraction)
+            performance.mark("end-array-shift")
+            const arrayPerf = performance.measure("array-shift", "start-array-shift", "end-array-shift")
+
+            performance.mark("start-fast-shift")
+            shiftN<number, FastShiftArray<number>>(fast, arraySize * shiftFraction)
+            performance.mark("end-fast-shift")
+            const shiftArrayPerf = performance.measure("fast-shift", "start-fast-shift", "end-fast-shift")
+
+            return {
+                arraySize,
+                numShifts: arraySize * shiftFraction,
+                arrayDuration: arrayPerf.duration,
+                shiftArrayDuration: shiftArrayPerf.duration
+            }
+        }
     })
 })

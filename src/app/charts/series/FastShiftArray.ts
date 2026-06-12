@@ -496,9 +496,9 @@ export class FastShiftArray<T> implements Array<T> {
 
         // Optional: Periodic cleanup to prevent infinite memory growth
         if (this.headIndex > this.compactingSize) {
-            this.items = this.items.slice(this.headIndex)
+            this.items = this.items.splice(0, this.headIndex)
             this.headIndex = 0
-            console.log("compacted")
+            // console.log("compacted")
         }
 
         return item
