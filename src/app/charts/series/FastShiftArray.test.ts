@@ -1,5 +1,6 @@
 import {describe, expect, it} from "@jest/globals";
 import {FastShiftArray} from "./FastShiftArray.ts";
+import {DataFrame} from "data-frame-ts";
 
 describe("FastShiftArray", () => {
 
@@ -887,10 +888,10 @@ describe("FastShiftArray", () => {
             shiftArrayDuration: number,
         }
 
-        xit("should be that the shift() function is faster than Array.shift()", () => {
+        it("should be that the shift() function is faster than Array.shift()", () => {
             const table =
                 [10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-                .map(size => shiftPerformance(1000 * size, 0.5, 100000))
+                .map(size => shiftPerformance(1000 * size, 0.5, 10000))
                 .reduce(
                     (table: Array<Array<string>>, timing) => {
                         const row = [
@@ -907,6 +908,79 @@ describe("FastShiftArray", () => {
             console.log(table)
             expect(true).toBe(true)
         })
+
+        xit("generate performance matrix", () => {
+            for (let i = 5; i > 0; --i) {
+                runAndPreparePerformanceResults(Math.pow(10, i))
+            }
+            expect(true).toBe(true)
+        })
+
+        function runAndPreparePerformanceResults(compactingSize: number = 100000): void {
+            const tables: Array<DataFrame<number>> = []
+            const arraySizes = [10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+            const initialDataFrame = DataFrame.fromProvider<number>(arraySizes.length, 5, () => 0).getOrThrow()
+            for (let i = 0; i < 10; ++i) {
+                tables.push(
+                    runPerformanceFor(arraySizes, compactingSize)
+                )
+            }
+
+            const sum = tables.reduce(
+                (accum: DataFrame<number>, table: DataFrame<number>) => {
+                    return accum.mapElements((value, row, column) => value + table.elementAt(row, column).getOrThrow())
+                },
+                initialDataFrame.copy()
+            )
+
+            const mean = sum.mapElements(value => value / tables.length)
+
+            const sumDiffs = tables.reduce(
+                (accum, table) => {
+                    return accum.mapElements((diffSum, row, column) =>
+                        diffSum + Math.pow(table.elementAt(row, column).getOrThrow() - mean.elementAt(row, column).getOrThrow(), 2))
+                },
+                initialDataFrame.copy()
+            )
+            const std = sumDiffs.mapElements(value => Math.sqrt(value / tables.length))
+
+            const display = mean.mapElements(
+                (value, row, column) => {
+                    if (column >= 2) {
+                        return `${format(value, 2)} ± ${format(std.elementAt(row, column).getOrThrow(), 2)}`
+                    } else {
+                        return format(value)
+                    }
+                }
+            )
+
+            console.log(
+                `FastShiftArray compacts when head = ${compactingSize}\n\n` +
+                "| Array Size | Num Shifts | FastShiftArray (ms) | Array (ms) | Speed-up |\n" +
+                "|-----------:|-----------:|--------------------:|-----------:|---------:|\n" +
+                display.rowSlices().map(row => `| ${row.join("|")} |`).join("\n")
+            )
+        }
+
+        function runPerformanceFor(arraySizes: Array<number>, compactingSize: number): DataFrame<number> {
+            return DataFrame.from(arraySizes
+                .map(size => shiftPerformance(1000 * size, 0.5, compactingSize))
+                .reduce(
+                    (table: Array<Array<number>>, timing: ShiftPerformanceTiming) => {
+                        const row = [
+                            timing.arraySize,
+                            timing.numShifts,
+                            timing.shiftArrayDuration,
+                            timing.arrayDuration,
+                            timing.arrayDuration / timing.shiftArrayDuration
+                        ]
+                        table.push(row)
+                        return table
+                    },
+                    []
+                )
+            ).getOrThrow()
+        }
 
         function format(value: number, fractionDigits: number = 0): string {
             return value.toLocaleString(

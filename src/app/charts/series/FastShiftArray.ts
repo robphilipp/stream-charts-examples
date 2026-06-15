@@ -517,11 +517,10 @@ export class FastShiftArray<T> implements Array<T> {
         this.items[this.headIndex] = undefined as T; // Allow garbage collection
         this.headIndex++
 
-        // Optional: Periodic cleanup to prevent infinite memory growth
+        // periodic cleanup to free up unused memery
         if (this.headIndex > this.compactingSize) {
             this.items = this.items.splice(0, this.headIndex)
             this.headIndex = 0
-            // console.log("compacted")
         }
 
         return item
@@ -545,7 +544,7 @@ export class FastShiftArray<T> implements Array<T> {
      */
     unshift(...elements: T[]): number {
         if (this.headIndex >= elements.length) {
-            // Enough free slots before headIndex — write in-place without allocation
+            // enough free slots before headIndex — write in-place without allocation
             const newHead = this.headIndex - elements.length
             for (let i = 0; i < elements.length; i++) {
                 this.items[newHead + i] = elements[i]
