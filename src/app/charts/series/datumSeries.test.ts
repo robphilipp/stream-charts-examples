@@ -1,5 +1,5 @@
 import {emptySeries, seriesFrom} from "./baseSeries";
-import {FastShiftArray} from "./FastShiftArray.ts";
+import {FastShiftArray} from "fast-shift-array";
 
 describe('should be able to create an empty series', () => {
     test('an empty series should be empty', () => {

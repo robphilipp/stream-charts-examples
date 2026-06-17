@@ -1,7 +1,7 @@
 import type {Dimensions} from "../styling/margins";
 import * as d3 from "d3";
 import type {GSelection} from "../d3types";
-import type {FastShiftArray} from "../series/FastShiftArray.ts";
+import type {FastShiftArray} from "fast-shift-array";
 
 export type Series<D> = Array<D> | FastShiftArray<D>
 

@@ -10,7 +10,7 @@ import {map, scan} from "rxjs/operators";
 import type {Datum} from "../series/timeSeries";
 import {copyOrdinalDatum, nonEmptyOrdinalDatum, type OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
 import {type ChartData, copyChartData, defaultChartData} from "./ChartData";
-import {FastShiftArray} from "../series/FastShiftArray.ts";
+import {FastShiftArray} from "fast-shift-array";
 
 export interface OrdinalChartData extends ChartData {
     /**

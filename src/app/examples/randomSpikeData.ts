@@ -2,7 +2,7 @@ import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../charts/se
 import {type TimeSeries} from "../charts/series/timeSeries";
 import {interval, Observable} from "rxjs";
 import {map} from "rxjs/operators";
-import {FastShiftArray} from "../charts/series/FastShiftArray.ts";
+import {FastShiftArray} from "fast-shift-array";
 
 const UPDATE_PERIOD_MS = 25;
 

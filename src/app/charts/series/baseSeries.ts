@@ -1,5 +1,5 @@
 import {failureResult, type Result, successResult} from "result-fn";
-import {FastShiftArray} from "./FastShiftArray.ts";
+import {FastShiftArray} from "fast-shift-array";
 
 /**
  * A spike series holding an array of spike (time, value) datum, the name and supplemental information

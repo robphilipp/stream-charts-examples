@@ -1,6 +1,6 @@
 import type {Datum, TimeSeries} from "./timeSeries";
 import {type ChartData, defaultChartData} from "../observables/ChartData";
-import {FastShiftArray} from "./FastShiftArray.ts";
+import {FastShiftArray} from "fast-shift-array";
 
 /**
  * The spike-chart data produced by the rxjs observable that is pushed to a streaming chart

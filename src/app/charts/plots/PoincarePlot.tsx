@@ -25,7 +25,7 @@ import {useInitialData} from "../hooks/useInitialData";
 import {type TooltipData, useTooltip} from "../hooks/useTooltip";
 import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
-import {FastShiftArray} from "../series/FastShiftArray.ts";
+import {FastShiftArray} from "fast-shift-array";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
 type IteratePointSeries = FastShiftArray<IteratePoint>

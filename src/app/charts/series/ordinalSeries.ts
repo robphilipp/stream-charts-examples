@@ -7,7 +7,7 @@ import {
     type OrdinalStats,
     type OrdinalValueStats
 } from "../observables/ordinals";
-import type {FastShiftArray} from "./FastShiftArray.ts";
+import type {FastShiftArray} from "fast-shift-array";
 
 /**
  * An immutable datum object for series with a category and value.

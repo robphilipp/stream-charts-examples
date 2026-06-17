@@ -32,7 +32,7 @@ import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
-import type {FastShiftArray} from "../series/FastShiftArray.ts";
+import type {FastShiftArray} from "fast-shift-array";
 
 export interface Props {
     /**

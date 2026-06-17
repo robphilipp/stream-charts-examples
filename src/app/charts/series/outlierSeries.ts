@@ -1,7 +1,7 @@
 import type {Datum} from "./timeSeries";
 import {type BaseSeries, seriesFrom} from "./baseSeries";
 import {failureResult, type Result, resultFromAll, successResult} from "result-fn";
-import type {FastShiftArray} from "./FastShiftArray.ts";
+import type {FastShiftArray} from "fast-shift-array";
 
 export interface OutlierSeries<M extends readonly number[]> extends BaseSeries<OutlierDatum<M>> {
     /**

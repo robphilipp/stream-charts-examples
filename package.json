@@ -32,6 +32,7 @@
   "dependencies": {
     "d3": "^7.9.0",
     "data-frame-ts": "^1.1.0",
+    "fast-shift-array": "^0.1.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-resizable-grid-layout": "^0.3.1",

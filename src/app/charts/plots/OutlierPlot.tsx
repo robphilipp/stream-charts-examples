@@ -28,7 +28,7 @@ import {
 import {subscriptionOutlierFor, TimeWindowBehavior} from "../subscriptions/subscriptions"
 import type {OutlierChartData} from "../observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries"
-import {FastShiftArray} from "../series/FastShiftArray.ts";
+import {FastShiftArray} from "fast-shift-array";
 
 type OutlierDatumColor<M extends readonly number[]> = { datum: OutlierDatum<M>, color: string }
 
