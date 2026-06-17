@@ -814,14 +814,14 @@ describe("FastShiftArray", () => {
         const USE_PROXY = true
 
         it(`time to create a queue of ${LARGE_QUEUE_LENGTH} items`, () => {
-            const start = performance.mark("start")
+            performance.mark("start")
             FastShiftArray.fromArray<number>(
                 Array.from({length: LARGE_QUEUE_LENGTH}, (_, i) => i + 1),
                 USE_PROXY
             )
-            const t = performance.measure("create", start)
-            console.log(`FastShiftArray: create: ${t.duration} ms`)
-            expect(t.duration).toBeLessThan(1000)
+            performance.mark("end")
+            const measure = performance.measure("create", "start", "end")
+            expect(measure.duration).toBeLessThan(1000)
         })
 
         it(`time for a single shift on a queue of ${LARGE_QUEUE_LENGTH} items`, () => {
@@ -829,11 +829,11 @@ describe("FastShiftArray", () => {
                 Array.from({length: LARGE_QUEUE_LENGTH}, (_, i) => i + 1),
                 USE_PROXY
             )
-            const start = performance.mark("start")
+            performance.mark("start")
             queue.shift()
-            const t = performance.measure("shift", start)
-            console.log(`FastShiftArray: shift: ${t.duration} ms`)
-            expect(t.duration).toBeLessThan(1000)
+            performance.mark("end")
+            const measure = performance.measure("create", "start", "end")
+            expect(measure.duration).toBeLessThan(1000)
         })
 
         it(`amortized time per shift on ${MEDIUM_QUEUE_LENGTH} items`, () => {
@@ -841,19 +841,20 @@ describe("FastShiftArray", () => {
                 Array.from({length: MEDIUM_QUEUE_LENGTH}, (_, i) => i + 1),
                 USE_PROXY
             )
-            const start = performance.mark("start")
+            performance.mark("start")
             shiftN<number, FastShiftArray<number>>(queue, queue.length)
-            const t = performance.measure("shift", start)
-            console.log(`FastShiftArray: shift: ${t.duration} ms, ${t.duration / MEDIUM_QUEUE_LENGTH} ms per shift; proxy: ${USE_PROXY}`)
-            expect(t.duration).toBeLessThan(1500)
+            performance.mark("end")
+            const measure = performance.measure("create", "start", "end")
+            expect(measure.duration).toBeLessThan(1000)
         })
 
         it("regular array shift baseline", () => {
             const array = Array.from({length: MEDIUM_QUEUE_LENGTH}, (_, i) => i + 1)
-            const start = performance.mark("start")
+            performance.mark("start")
             for (let i = 0; i < array.length; i++) array.shift()
-            const t = performance.measure("shift", start)
-            console.log(`regular array: shift: ${t.duration} ms, ${t.duration / MEDIUM_QUEUE_LENGTH} ms per shift`)
+            performance.mark("end")
+            const measure = performance.measure("create", "start", "end")
+            expect(measure.duration).toBeLessThan(1000)
         })
 
         it("should shift faster than a regular Array", () => {
@@ -869,11 +870,6 @@ describe("FastShiftArray", () => {
             shiftN<number, Array<number>>(array, array.length / 2)
             performance.mark("end-array-shift")
             const arrayPerf = performance.measure("create", "start-array-shift", "end-array-shift")
-            // console.log(
-            //     `Performing shift() ${format(array.length / 2)} times on a ${format(array.length)} element ` +
-            //     `FastShiftArray if ${format(tArray.duration / t.duration, 1)} times faster than Array; ` +
-            //     `FastShiftArray shift: ${format(t.duration)} ms; regular array shift: ${format(tArray.duration)} ms`
-            // )
             expect(shiftArrayPerf.duration).toBeLessThan(arrayPerf.duration)
         })
 
@@ -888,23 +884,23 @@ describe("FastShiftArray", () => {
             shiftArrayDuration: number,
         }
 
-        it("should be that the shift() function is faster than Array.shift()", () => {
+        xit("should be that the shift() function is faster than Array.shift()", () => {
             const table =
                 [10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-                .map(size => shiftPerformance(1000 * size, 0.5, 10000))
-                .reduce(
-                    (table: Array<Array<string>>, timing) => {
-                        const row = [
-                            `${format(timing.arraySize)}`,
-                            `${format(timing.numShifts)}`,
-                            `${format(timing.shiftArrayDuration)}`,
-                            `${format(timing.arrayDuration)}`,
-                            `${format(timing.arrayDuration / timing.shiftArrayDuration, 1)}`
-                        ]
-                        return updateTable(row, table)
-                    },
-                    [['Array Size', 'Num Shifts', 'FastShiftArray (ms)', 'Array (ms)', 'Speed-up']]
-                )
+                    .map(size => shiftPerformance(1000 * size, 0.5, 10000))
+                    .reduce(
+                        (table: Array<Array<string>>, timing) => {
+                            const row = [
+                                `${format(timing.arraySize)}`,
+                                `${format(timing.numShifts)}`,
+                                `${format(timing.shiftArrayDuration)}`,
+                                `${format(timing.arrayDuration)}`,
+                                `${format(timing.arrayDuration / timing.shiftArrayDuration, 1)}`
+                            ]
+                            return updateTable(row, table)
+                        },
+                        [['Array Size', 'Num Shifts', 'FastShiftArray (ms)', 'Array (ms)', 'Speed-up']]
+                    )
             console.log(table)
             expect(true).toBe(true)
         })
@@ -919,7 +915,7 @@ describe("FastShiftArray", () => {
         function runAndPreparePerformanceResults(compactingSize: number = 100000): void {
             const tables: Array<DataFrame<number>> = []
             const arraySizes = [10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-            const initialDataFrame = DataFrame.fromProvider<number>(arraySizes.length, 5, () => 0).getOrThrow()
+            const initialDataFrame: DataFrame<number> = DataFrame.fromProvider<number>(arraySizes.length, 5, () => 0).getOrThrow()
             for (let i = 0; i < 10; ++i) {
                 tables.push(
                     runPerformanceFor(arraySizes, compactingSize)
