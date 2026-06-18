@@ -29,6 +29,7 @@ import type {TooltipData} from "../hooks/useTooltip";
 import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
+import {FastShiftArray} from "fast-shift-array";
 
 export interface Props {
     /**
@@ -376,12 +377,7 @@ export function RasterPlot(props: Props): null {
                     const strokeWidth = isHovered ? (highlightWidth || lineWidth) : lineWidth
 
                     // only show the data for which the regex filter matches
-                    const plotData = (series.name.match(seriesFilter)) ? series.data : []
-
-                    const seriesContainer = svg
-                        .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-raster`)
-                        .selectAll<SVGLineElement, PixelDatum>('line')
-                        .data(plotData as PixelDatum[])
+                    const plotData: FastShiftArray<Datum> = (series.name.match(seriesFilter)) ? series.data : FastShiftArray.empty<Datum>()
 
                     //
                     // enter new elements
@@ -389,56 +385,53 @@ export function RasterPlot(props: Props): null {
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const y = yAxis.scale(series.name) || 0
-                    // enter
-                    seriesContainer
-                        .enter()
-                        .append<SVGLineElement>('line')
-                        .attr('x1', datum => datum.xPixel)
-                        .attr('x2', datum => datum.xPixel)
-                        .attr('y1', () => yUpper(y))
-                        .attr('y2', () => yLower(y))
-                        .attr('stroke', strokeColor)
-                        .attr('stroke-width', strokeWidth)
-                        .attr('data-series-name', series.name)
-                        .attr('class', 'spikes-lines')
-                        .on(
-                            "mouseover",
-                            (event, datumArray) =>
-                                handleMouseOverSeries(
-                                    container,
-                                    xAxis,
-                                    series.name,
-                                    datumArray,
-                                    event,
-                                    margin,
-                                    seriesStyles,
-                                    allowTooltipRef.current,
-                                    mouseOverHandlerFor(`tooltip-${chartId}`)
+                    mainGElem
+                        .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-raster`)
+                        .selectAll<SVGLineElement, PixelDatum>('line')
+                        .data(plotData as FastShiftArray<PixelDatum>)
+                        .join(
+                            enter => enter
+                                .append<SVGLineElement>('line')
+                                .attr('x1', datum => xAxis.scale(datum.x))
+                                .attr('x2', datum => xAxis.scale(datum.x))
+                                // .attr('x1', datum => datum.xPixel)
+                                // .attr('x2', datum => datum.xPixel)
+                                .attr('y1', () => yUpper(y))
+                                .attr('y2', () => yLower(y))
+                                .attr('stroke', strokeColor)
+                                .attr('stroke-width', strokeWidth)
+                                .attr('data-series-name', series.name)
+                                .attr('class', 'spikes-lines')
+                                .on(
+                                    "mouseover",
+                                    (event, datumArray) =>
+                                        handleMouseOverSeries(
+                                            container,
+                                            xAxis,
+                                            series.name,
+                                            datumArray,
+                                            event,
+                                            margin,
+                                            seriesStyles,
+                                            allowTooltipRef.current,
+                                            mouseOverHandlerFor(`tooltip-${chartId}`)
+                                        )
                                 )
+                                .on(
+                                    "mouseleave",
+                                    event => handleMouseLeaveSeries(
+                                        series.name,
+                                        event.currentTarget,
+                                        seriesStyles,
+                                        mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                                    )
+                                ),
+                            update => update
+                                .attr('x1', datum => xAxis.scale(datum.x))
+                                .attr('x2', datum => xAxis.scale(datum.x))
+                            ,
+                            exit => exit.remove()
                         )
-                        .on(
-                            "mouseleave",
-                            event => handleMouseLeaveSeries(
-                                series.name,
-                                event.currentTarget,
-                                seriesStyles,
-                                mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                            )
-                        )
-                        .each(datum => datum.xPixel = xAxis.scale(datum.x))
-
-                    // update
-                    seriesContainer
-                        .each(datum => datum.xPixel = xAxis.scale(datum.x))
-                        .attr('x1', datum => datum.xPixel)
-                        .attr('x2', datum => datum.xPixel)
-                        .attr('y1', () => yUpper(y))
-                        .attr('y2', () => yLower(y))
-                        .attr('stroke', strokeColor)
-                        .attr('stroke-width', strokeWidth)
-
-                    // exit old elements
-                    seriesContainer.exit().remove()
                 })
             }
         },
