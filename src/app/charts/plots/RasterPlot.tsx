@@ -379,12 +379,14 @@ export function RasterPlot(props: Props): null {
                     // only show the data for which the regex filter matches
                     const plotData: FastShiftArray<Datum> = (series.name.match(seriesFilter)) ? series.data : FastShiftArray.empty<Datum>()
 
-                    //
-                    // enter new elements
+                    // grab the functions that are used to determine the lower and upper coordinates of
+                    // the raster line (y1, y2) and then calculate the values (y1, y2) using those functions
                     const {yUpper, yLower} = yCoordsFn(yAxis.scale.bandwidth(), lineWidth, spikeLineMargin)
-
-                    // grab the value (index) associated with the series name (this is a category axis)
                     const y = yAxis.scale(series.name) || 0
+                    const y1 = yUpper(y)
+                    const y2 = yLower(y)
+
+                    // manage the svg elements representing the raster lines
                     mainGElem
                         .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-raster`)
                         .selectAll<SVGLineElement, PixelDatum>('line')
@@ -394,10 +396,8 @@ export function RasterPlot(props: Props): null {
                                 .append<SVGLineElement>('line')
                                 .attr('x1', datum => xAxis.scale(datum.x))
                                 .attr('x2', datum => xAxis.scale(datum.x))
-                                // .attr('x1', datum => datum.xPixel)
-                                // .attr('x2', datum => datum.xPixel)
-                                .attr('y1', () => yUpper(y))
-                                .attr('y2', () => yLower(y))
+                                .attr('y1', () => y1)
+                                .attr('y2', () => y2)
                                 .attr('stroke', strokeColor)
                                 .attr('stroke-width', strokeWidth)
                                 .attr('data-series-name', series.name)
@@ -426,9 +426,12 @@ export function RasterPlot(props: Props): null {
                                         mouseLeaveHandlerFor(`tooltip-${chartId}`)
                                     )
                                 ),
+                            // these are needed for resize and zoom
                             update => update
                                 .attr('x1', datum => xAxis.scale(datum.x))
                                 .attr('x2', datum => xAxis.scale(datum.x))
+                                .attr('y1', () => y1)
+                                .attr('y2', () => y2)
                             ,
                             exit => exit.remove()
                         )
