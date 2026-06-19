@@ -72,7 +72,7 @@ export function ContinuousAxis(props: Props): null {
         addYAxis,
         axisRangeFor,
         setAxisIntervalFor,
-        setAxisRangeFor,
+        updateAxisRanges,
         addAxesRangesUpdateHandler,
     } = axes
 
@@ -96,6 +96,7 @@ export function ContinuousAxis(props: Props): null {
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
     const domainRef = useRef<AxisInterval>(AxisInterval.as(domain))
+    const domainPropRef = useRef<[min: number, max: number]>(domain)
     useEffect(
         () => {
             axisIdRef.current = axisId
@@ -147,7 +148,6 @@ export function ContinuousAxis(props: Props): null {
                             // add the y-axis to the chart context
                             const [start, end] = AxisInterval.as(domain).asTuple()
                             addYAxis(axisRef.current, axisId, ContinuousAxisRange.from(start, end))
-                            // addYAxis(axisRef.current, axisId, AxisInterval.as(domain))
 
                             // add an update handler
                             rangeUpdateHandlerIdRef.current = `y-axis-${chartId}-${axisId}-${location.valueOf()}`
@@ -156,19 +156,22 @@ export function ContinuousAxis(props: Props): null {
                     }
                 } else {
                     const axisRange = axisRangeFor(axisId)
-                    const domain = axisRange
+                    const currentDomain = axisRange
                         .map(range => range.current)
                         .getOrElse(AxisInterval.empty())
-                    if (domain.isNotEmpty()) {
-                        axisRef.current.update(domain, plotDimensions, margin)
-                    }
+                    const propDomain = AxisInterval.as(domain)
 
                     if (
-                        (updateAxisBasedOnDomainValues && (domainRef.current.start !== domain.start || domainRef.current.end !== domain.end)) ||
-                        (!updateAxisBasedOnDomainValues && domainRef.current !== domain)
+                        (updateAxisBasedOnDomainValues && !domainRef.current.equals(propDomain)) ||
+                        (!updateAxisBasedOnDomainValues && domainPropRef.current !== domain)
                     ) {
-                        domainRef.current = domain
-                        axisRange.ifPresent(range => setAxisRangeFor(axisId, range.updateOriginal(domain.start, domain.end)))
+                        domainRef.current = propDomain
+                        domainPropRef.current = domain
+                        updateAxisRanges(new Map([
+                            [axisId, ContinuousAxisRange.from(propDomain.start, propDomain.end)]
+                        ]))
+                    } else if (currentDomain.isNotEmpty()) {
+                        axisRef.current.update(currentDomain, plotDimensions, margin)
                     }
 
                     svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
@@ -180,7 +183,7 @@ export function ContinuousAxis(props: Props): null {
             scale, container, margin, plotDimensions, setAxisIntervalFor,
             axisRangeFor,
             addAxesRangesUpdateHandler,
-            setAxisRangeFor,
+            updateAxisRanges,
             color, updateAxisBasedOnDomainValues
         ]
     )
