@@ -21,6 +21,7 @@ import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {StreamingPoincareChart} from "./examples/StreamingPoincareChart";
 import {StreamingBarChart} from "./examples/StreamingBarChart";
 import {StreamingOutlierChart} from "./examples/StreamingOutlierChart";
+import Intro from "./examples/Intro.tsx";
 
 const seriesNames: Array<string> = []
 for (let i = 0; i < 30; ++i) {
@@ -101,7 +102,7 @@ const App: React.FC = () => {
             </GridItem>
             <GridItem gridAreaName="scatter-chart">
                 <Tabs
-                    tabNames={["Scatter", "Raster", "Poincare", "Bar", "Outlier"]}
+                    tabNames={["Intro", "Scatter", "Raster", "Poincare", "Bar", "Outlier"]}
                     withGrids={true}
                     style={{
                         backgroundColor: theme.backgroundColor,
@@ -116,6 +117,8 @@ const App: React.FC = () => {
                         width: 'auto',
                     }}
                 >
+                    {/* tab 0: Intro */}
+                    <Intro theme={theme}/>
                     {/* tab 1: Scatter */}
                     <StreamingScatterChart
                         theme={theme}
