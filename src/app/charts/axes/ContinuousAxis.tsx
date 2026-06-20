@@ -95,6 +95,8 @@ export function ContinuousAxis(props: Props): null {
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
+    // holds on the domain from the original props so that we can determine whether the props changed
+    // or whether the axis change from resizing, zoom, scrolling, etc
     const domainRef = useRef<AxisInterval>(AxisInterval.as(domain))
     const domainPropRef = useRef<[min: number, max: number]>(domain)
     useEffect(
@@ -155,14 +157,22 @@ export function ContinuousAxis(props: Props): null {
                         }
                     }
                 } else {
-                    const axisRange = axisRangeFor(axisId)
-                    const currentDomain = axisRange
+                    // calculate the current domain for the axis based on the current interval (range)
+                    const currentDomain = axisRangeFor(axisId)
                         .map(range => range.current)
                         .getOrElse(AxisInterval.empty())
+
+                    // convert the domain from the props to an axis interval for easier comparison
                     const propDomain = AxisInterval.as(domain)
 
+                    // select whether to update based on whether we have specified that we update the axis
+                    // range when the domain from the props changes. If the conditions of the first if
+                    // statement are met, then we do a full update of the axis (we update the current, original
+                    // range and make the callback that the range has changed with the updated range map)
                     if (
+                        // update axis when the domain from the props has changed
                         (updateAxisBasedOnDomainValues && !domainRef.current.equals(propDomain)) ||
+                        // or when the axis range has actually changed, but we don't update from props
                         (!updateAxisBasedOnDomainValues && domainPropRef.current !== domain)
                     ) {
                         domainRef.current = propDomain
@@ -170,7 +180,9 @@ export function ContinuousAxis(props: Props): null {
                         updateAxisRanges(new Map([
                             [axisId, ContinuousAxisRange.from(propDomain.start, propDomain.end)]
                         ]))
-                    } else if (currentDomain.isNotEmpty()) {
+                    }
+                    // otherwise, if the domina exists, update the current axis
+                    else if (currentDomain.isNotEmpty()) {
                         axisRef.current.update(currentDomain, plotDimensions, margin)
                     }
 

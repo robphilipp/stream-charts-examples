@@ -630,7 +630,7 @@ function GaussMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => vo
     const {theme = lightTheme, onFunctionChange} = props
 
     const [alpha, setAlpha] = useState<string>('4.90')
-    const [beta, setBeta] = useState<string>('-0.58')
+    const [beta, setBeta] = useState<string>('-0.52')
 
     // we need the useEffect so that on mount, we issue the callback with the new iterate
     // function
