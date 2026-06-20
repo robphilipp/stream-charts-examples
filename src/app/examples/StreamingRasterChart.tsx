@@ -449,8 +449,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     />
                 </Chart>
             </GridItem>
-            <GridItem gridAreaName="chart-legend">
-                <div ref={legendContainerRef} style={{marginTop: 30, padding: 8 }} />
+            <GridItem gridAreaName="chart-legend" isVisible={visibility.legend}>
+                <div ref={legendContainerRef} style={{marginTop: 30, padding: 8}}/>
             </GridItem>
         </Grid>
     );
