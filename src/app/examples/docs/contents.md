@@ -1,26 +1,32 @@
-### what do we have here?
+### what do these pages cover?
 
-[stream-charts](https://www.npmjs.com/package/stream-charts) is a react-based library for building real-time time-series charts for viewing high-frequency data. Ingesting and plotting new data for about 100 time-series every 25 ms isn't generally a problem.
-
-This application contains example uses of the [stream-charts](https://www.npmjs.com/package/stream-charts) library.
-
-For reference, you're in the "**Intro**" tab, which provides a series of pages describing the examples presented in this application. 
-
-You use the navigation bar to navigate between these pages. Yeah, the navigation looks like this, and you can see it up there **&#x2197;**.
+Each of the tabs in the tabs presents an example of a particular chart type.
 
 <figure>
-    <img src="./public/images/navigation-bar.png" alt="Navigation Bar" width="350px">
+    <img src="./public/images/tabs.png" alt="Navigation Bar" width="550px">
     <figcaption>
-        <b>Figure 1</b> The navigation bar. If it gets in the way, you can move it.
+        <b>Figure 2</b> The "tabs" holding the example charts (and this introduction). The underlined table is the currently active tab.
     </figcaption>
 </figure>
 
-If the navigation bar gets in the way, you can move it by clicking and dragging it. The buttons on the navigation bar allow you to navigation to the next page, previous page, and to the first and last pages – should be pretty obvious &#x1F60A;. 
+Currently, there are five chart types available, each presented as an example in one of the tabs.
 
-When the `First` or `Previous` buttons are disabled, that means you're on the first page. And similarly, when the `Next` and `Last` buttons are disabled, that means you're on the last page.
+1. **Scatter** – Used for plotting multiple time-series. The data are connected by a line and can have markers.
+2. **Raster** – Used for plotting time-events (such as the firing of a neuron).
+3. **Poincare** – Used when looking for auto-correlations in a time-series. Accepts a time-series as input and plots `d[i+n]` (y-axis) against `d[i]` (x-axis) where `n` is the lag. Provides the Tent map, Gaussian map, and the Logistic map as examples.
+4. **Bar** – Used for plotting multiple time-series as bars that show the current value, min/max, and mean values.
+5. **Outlier** – Used for displaying a single time-series that is annotated with model bounds.
 
-Try navigating to the next page by clicking the `Next` button (but not the one in the figure).
 
+The next pages describe:
+1. the anatomy of the example charts,
+2. common control bar functions,
+3. control bar functions specific to each chart type and what the chart represents,
+4. legends, 
+5. tooltips, and
+6. a description of each chart type.
+
+Click on the `Next` button in the navigation bar to continue.
 
 [//]: # (Each tab in this application contains an example chart for one of the available stream-charts plot types. Each of these)
 

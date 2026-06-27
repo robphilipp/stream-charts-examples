@@ -27,7 +27,7 @@ type Props = {
  * @param props
  * @return A floating navigation bar
  */
-export function FloatingNavigation(props: Props): JSX.Element {
+export function FloatingBar(props: Props): JSX.Element {
     const {
         location = {offsetFrom: "bottom", offset: 20},
         style,

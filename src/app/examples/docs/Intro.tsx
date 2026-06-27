@@ -11,15 +11,16 @@ import {
 } from "react";
 import {Button} from "../../ui/Button.tsx";
 import intro_page from "./intro.md?raw";
+import contents from "./contents.md?raw";
 import anatomy_of_example_page from "./anatomy-of-example.md?raw";
 import ReactMarkdown, {type ExtraProps} from "react-markdown";
 import rehypeRaw from 'rehype-raw';
 import {buttonStyle, interpolateColor} from "../../ui/utils.ts";
 import {useGridCell} from "react-resizable-grid-layout";
-import {FloatingNavigation} from "../../ui/FloatingNavigation.tsx";
+import {FloatingBar} from "../../ui/FloatingBar.tsx";
 import {backIcon, firstIcon, forwardIcon, lastIcon} from "../../ui/Icons.tsx";
 
-const pages = [intro_page, anatomy_of_example_page]
+const pages = [intro_page, contents, anatomy_of_example_page]
 
 function style(theme: Theme, height: number): CSSProperties {
     return {
@@ -77,14 +78,14 @@ export default function Intro(props: Props) {
                 {pages[pageNum]}
             </ReactMarkdown>
 
-            <FloatingNavigation style={{...theme}} location={{offsetFrom: "top", offset: 120}}>
+            <FloatingBar style={{...theme}} location={{offsetFrom: "top", offset: 120}}>
                 <Navigation
                     theme={theme}
                     pageNum={pageNum}
                     numPages={numPages}
                     updatePageNum={setPageNum}
                 />
-            </FloatingNavigation>
+            </FloatingBar>
         </div>
     )
 }
@@ -187,7 +188,7 @@ function CustomImage(
     image: ClassAttributes<HTMLImageElement> & ImgHTMLAttributes<HTMLImageElement> & ExtraProps,
     css: CSSProperties
 ): JSX.Element {
-    return <img src={image.src} alt={image.alt} style={{...image.style, ...css}}/>
+    return <img src={image.src} alt={image.alt} width={image.width} height={image.height} style={{...image.style, ...css}}/>
 }
 
 function CustomVideo(
