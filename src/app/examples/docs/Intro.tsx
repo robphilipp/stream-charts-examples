@@ -26,8 +26,6 @@ function style(theme: Theme, height: number): CSSProperties {
         backgroundColor: theme.backgroundColor,
         color: theme.color,
         width: 'auto',
-        // marginLeft: 40,
-        // marginRight: 40,
         paddingRight: 140,
         paddingLeft: 40,
         maxWidth: 750,
@@ -79,7 +77,7 @@ export default function Intro(props: Props) {
                 {pages[pageNum]}
             </ReactMarkdown>
 
-            <FloatingNavigation style={{...theme}} location={"top"} locationOffset={120}>
+            <FloatingNavigation style={{...theme}} location={{offsetFrom: "top", offset: 120}}>
                 <Navigation
                     theme={theme}
                     pageNum={pageNum}

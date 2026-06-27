@@ -1,37 +1,43 @@
 import type {Theme} from "./Themes.ts";
 import React, {type CSSProperties, type JSX, useRef, useState} from "react";
 
-type Location = "top" | "bottom"
+type Location = {
+    // offset from the top or bottom of the screen
+    offsetFrom: "top" | "bottom"
+    // the offset in pixels
+    offset: number
+}
 
-type FloatingNavigationStyle = CSSProperties & Theme & {
+type FloatingNavigationStyle = CSSProperties & Partial<Theme> & {
     boxShadowColor?: string,
     borderColor?: string
 }
 
 type Props = {
     location?: Location
-    locationOffset?: number
     style: FloatingNavigationStyle
     children: JSX.Element
 }
 
 /**
- *
+ * A floating navigation bar that can be dragged and repositioned. Initial position is
+ * determined by the `location` prop, which can be either "top" or "bottom" with the
+ * offset from that location. The `location` prop can be used to adjust the initial
+ * position of the navigation bar.
  * @param props
  * @return A floating navigation bar
  */
 export function FloatingNavigation(props: Props): JSX.Element {
     const {
-        location = "bottom",
-        locationOffset = 20,
+        location = {offsetFrom: "bottom", offset: 20},
         style,
         children
     } = props
 
     const {
         disabledBackgroundColor,
-        boxShadowColor = disabledBackgroundColor,
-        borderColor = disabledBackgroundColor,
+        boxShadowColor = disabledBackgroundColor || "none",
+        borderColor = disabledBackgroundColor || "none",
     } = style
 
     const navRef = useRef<HTMLDivElement>(null)
@@ -101,7 +107,7 @@ export function FloatingNavigation(props: Props): JSX.Element {
         onPointerCancel={endDrag}
         onMouseOver={() => setMouseInBounds(true)}
         onMouseLeave={() => setMouseInBounds(false)}
-        style={navStyle({}, location, locationOffset, boxShadowColor, borderColor, offset.x, offset.y, isDragging, mouseInBounds)}
+        style={navStyle({boxShadowColor, borderColor}, location, offset.x, offset.y, isDragging, mouseInBounds)}
     >
         <div style={{
             cursor: "grab",
@@ -119,11 +125,8 @@ export function FloatingNavigation(props: Props): JSX.Element {
 }
 
 function navStyle(
-    style: CSSProperties,
+    style: FloatingNavigationStyle,
     location: Location,
-    locationOffset: number,
-    boxShadowColor: string,
-    borderColor: string,
     x: number = 0,
     y: number = 0,
     isDragging: boolean = false,
@@ -137,12 +140,11 @@ function navStyle(
         background: style.backgroundColor,
         opacity: mouseInBounds ? 1 : 0.8,
         backdropFilter: mouseInBounds ? "blur(10px)" : "blur(2px)",
-        boxShadow: mouseInBounds ? `0 10px 25px ${boxShadowColor}` : "none",
-        border: mouseInBounds ? "none" : `1px solid ${borderColor}`,
+        boxShadow: mouseInBounds ? `0 10px 25px ${style.boxShadowColor}` : "none",
+        border: mouseInBounds ? "none" : `1px solid ${style.borderColor}`,
     }
     const baseStyle: CSSProperties = {
         position: "fixed",
-        // top: 20, /* Distance from the bottom of the screen */
         left: "50%",
         zIndex: 1000, /* Keeps it on top of other content */
         userSelect: "none",
@@ -156,10 +158,13 @@ function navStyle(
         padding: "7px 20px 7px 15px",
         borderRadius: 50,
     }
-    if (location === "bottom") {
-        baseStyle.bottom = locationOffset
-    } else {
-        baseStyle.top = locationOffset
+    switch (location.offsetFrom) {
+        case "top":
+            baseStyle.top = location.offset
+            break
+        case "bottom":
+        default:
+            baseStyle.bottom = location.offset
     }
     return {...baseStyle, ...dynamicStyle, ...style}
 }
