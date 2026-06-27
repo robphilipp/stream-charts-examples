@@ -21,7 +21,7 @@ import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {StreamingPoincareChart} from "./examples/StreamingPoincareChart";
 import {StreamingBarChart} from "./examples/StreamingBarChart";
 import {StreamingOutlierChart} from "./examples/StreamingOutlierChart";
-import Intro from "./examples/Intro.tsx";
+import Intro from "./examples/docs/Intro.tsx";
 
 const seriesNames: Array<string> = []
 for (let i = 0; i < 30; ++i) {

@@ -6,6 +6,7 @@ interface Props {
     disabledStyle?: CSSProperties
     onClick: (event: MouseEvent<HTMLButtonElement>) => void
     disabled?: boolean
+    icon?: ((color: string) => JSX.Element)
     children: JSX.Element | string
 }
 
@@ -17,9 +18,13 @@ const defaultButtonStyle: CSSProperties = {
     borderWidth: 1,
     borderRadius: 3,
     color: '#202020',
-    width: 50,
-    padding: 4,
+    // width: 50,
+    padding: 6,
     cursor: 'pointer',
+    display: "inline-flex",  /* Keeps the button inline while allowing flex rules */
+    alignItems: "center",   /* Centers the icon and text vertically */
+    justifyContent: "center", /* Centers the content horizontally */
+    gap: 3,              /* Controls the exact space between the icon and text */
 }
 
 const defaultDisabledButtonStyle = {
@@ -36,6 +41,7 @@ export function Button(props: Props): JSX.Element {
         },
         onClick,
         disabled = false,
+        icon,
         children
     } = props
 
@@ -61,7 +67,9 @@ export function Button(props: Props): JSX.Element {
         onMouseOver={() => setHovered(true)}
         onMouseOut={() => setHovered(false)}
         disabled={disabled}
-        style={buttonStyle}>
+        style={buttonStyle}
+    >
+        {icon ? icon((disabled ? disabledStyle.color : style.color) as string) : <></>}
         {children}
     </button>
 
