@@ -1,13 +1,38 @@
 import type {Theme} from "./Themes.ts";
 import React, {type CSSProperties, type JSX, useRef, useState} from "react";
 
+type Location = "top" | "bottom"
+
+type FloatingNavigationStyle = CSSProperties & Theme & {
+    boxShadowColor?: string,
+    borderColor?: string
+}
+
 type Props = {
-    theme: Theme,
+    location?: Location
+    locationOffset?: number
+    style: FloatingNavigationStyle
     children: JSX.Element
 }
 
+/**
+ *
+ * @param props
+ * @return A floating navigation bar
+ */
 export function FloatingNavigation(props: Props): JSX.Element {
-    const {theme, children} = props
+    const {
+        location = "bottom",
+        locationOffset = 20,
+        style,
+        children
+    } = props
+
+    const {
+        disabledBackgroundColor,
+        boxShadowColor = disabledBackgroundColor,
+        borderColor = disabledBackgroundColor,
+    } = style
 
     const navRef = useRef<HTMLDivElement>(null)
     const dragStateRef = useRef<{
@@ -76,30 +101,7 @@ export function FloatingNavigation(props: Props): JSX.Element {
         onPointerCancel={endDrag}
         onMouseOver={() => setMouseInBounds(true)}
         onMouseLeave={() => setMouseInBounds(false)}
-        style={navStyle({}, offset.x, offset.y, isDragging, mouseInBounds)}
-        // style={{
-        //     position: "fixed",
-        //     bottom: 20, /* Distance from the bottom of the screen */
-        //     left: "50%",
-        //     transform: `translate3d(calc(-50% + ${offset.x}px), ${offset.y}px, 0)`,
-        //     zIndex: 1000, /* Keeps it on top of other content */
-        //     userSelect: "none",
-        //     touchAction: "none",
-        //     cursor: isDragging ? "grabbing" : "grab",
-        //
-        //     display: "flex",
-        //     alignItems: "center",
-        //     gap: 5,
-        //
-        //     /* Floating pill styling */
-        //     background: theme.backgroundColor,
-        //     opacity: mouseInBounds ? 1 : 0.8,
-        //     backdropFilter: mouseInBounds ? "blur(10px)" : "blur(2px)",
-        //     padding: "7px 20px 7px 15px",
-        //     borderRadius: 50,
-        //     boxShadow: mouseInBounds ? `0 10px 25px ${theme.disabledBackgroundColor}` : "none",
-        //     border: mouseInBounds ? "none" : `1px solid ${theme.disabledBackgroundColor}`,
-        // }}
+        style={navStyle({}, location, locationOffset, boxShadowColor, borderColor, offset.x, offset.y, isDragging, mouseInBounds)}
     >
         <div style={{
             cursor: "grab",
@@ -108,9 +110,9 @@ export function FloatingNavigation(props: Props): JSX.Element {
             gap: "2px",
             touchAction: "none",
         }}>
-            <div style={{width: "12px", height: "2px", backgroundColor: theme.color, borderRadius: "1px"}}/>
-            <div style={{width: "12px", height: "2px", backgroundColor: theme.color, borderRadius: "1px"}}/>
-            <div style={{width: "12px", height: "2px", backgroundColor: theme.color, borderRadius: "1px"}}/>
+            <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
+            <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
+            <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
         </div>
         {children}
     </div>
@@ -118,6 +120,10 @@ export function FloatingNavigation(props: Props): JSX.Element {
 
 function navStyle(
     style: CSSProperties,
+    location: Location,
+    locationOffset: number,
+    boxShadowColor: string,
+    borderColor: string,
     x: number = 0,
     y: number = 0,
     isDragging: boolean = false,
@@ -131,12 +137,12 @@ function navStyle(
         background: style.backgroundColor,
         opacity: mouseInBounds ? 1 : 0.8,
         backdropFilter: mouseInBounds ? "blur(10px)" : "blur(2px)",
-        boxShadow: mouseInBounds ? `0 10px 25px ${style.backgroundColor}` : "none",
-        border: mouseInBounds ? "none" : `1px solid ${style.backgroundColor}`,
+        boxShadow: mouseInBounds ? `0 10px 25px ${boxShadowColor}` : "none",
+        border: mouseInBounds ? "none" : `1px solid ${borderColor}`,
     }
     const baseStyle: CSSProperties = {
         position: "fixed",
-        bottom: 20, /* Distance from the bottom of the screen */
+        // top: 20, /* Distance from the bottom of the screen */
         left: "50%",
         zIndex: 1000, /* Keeps it on top of other content */
         userSelect: "none",
@@ -150,5 +156,10 @@ function navStyle(
         padding: "7px 20px 7px 15px",
         borderRadius: 50,
     }
-    return {...baseStyle, ...style, ...dynamicStyle}
+    if (location === "bottom") {
+        baseStyle.bottom = locationOffset
+    } else {
+        baseStyle.top = locationOffset
+    }
+    return {...baseStyle, ...dynamicStyle, ...style}
 }

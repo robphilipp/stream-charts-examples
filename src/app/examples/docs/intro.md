@@ -1,3 +1,5 @@
+### what do we have here?
+
 This application contains example uses of the [stream-charts](https://www.npmjs.com/package/stream-charts) library. This "Intro" tab provides a series of pages describing the examples presented in the tabs labeled "Scatter", "Raster", "Poincare", "Bar", and "Outlier". Each tab provides an example of a particular chart type provided in the library.
 
 The next pages describe:

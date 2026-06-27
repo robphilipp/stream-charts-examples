@@ -79,7 +79,7 @@ export default function Intro(props: Props) {
                 {pages[pageNum]}
             </ReactMarkdown>
 
-            <FloatingNavigation theme={theme}>
+            <FloatingNavigation style={{...theme}} location={"top"} locationOffset={120}>
                 <Navigation
                     theme={theme}
                     pageNum={pageNum}
