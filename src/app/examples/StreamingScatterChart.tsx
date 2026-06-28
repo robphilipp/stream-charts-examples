@@ -174,12 +174,12 @@ export function StreamingScatterChart(props: Props): JSX.Element {
             dimensionsSupplier={useGridCell}
             gridTemplateColumns={gridTrackTemplateBuilder()
                 .addTrack(withFraction(1))
-                .addTrack(withPixels(visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 100 : 50))
+                .addTrack(withPixels(visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 100 : 0))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
                 .addTrack(withPixels(50))
                 .addTrack(withFraction(1))
-                .addTrack(withPixels(50))
+                // .addTrack(withPixels(50))
                 .build()}
             gridTemplateAreas={gridTemplateAreasBuilder()
                 .addArea("chart-controls", gridArea(1, 1))
@@ -189,7 +189,18 @@ export function StreamingScatterChart(props: Props): JSX.Element {
             styles={{color: '#d2933f'}}
         >
             <GridItem gridAreaName="chart-controls">
-                <div>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    flexWrap: 'nowrap',
+                    alignItems: 'center',
+                    overflowY: 'hidden',
+                    overflowX: 'auto',
+                    scrollbarWidth: "thin",
+                    whiteSpace: 'nowrap',
+                    width: '100%',
+                    minWidth: 0,
+                }}>
                     <label style={{color: theme.color}}>regex filter <input
                         type="text"
                         value={filterValue}
