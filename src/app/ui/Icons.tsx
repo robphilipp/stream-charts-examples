@@ -79,3 +79,69 @@ export function firstIcon(color: string): JSX.Element {
         </svg>
     )
 }
+
+export function runIcon(color: string): JSX.Element {
+    return (
+        <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
+            <path
+                d="M6 3 L12 7.5 L6 12 L6 3"
+                stroke={color}
+                fill={color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+            />
+        </svg>
+    )
+}
+
+export function collapseIcon(color: string): JSX.Element {
+    return (
+        <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
+            <path
+                d="M6 3 L10 7.5 L6 12 L6 3"
+                stroke={color}
+                fill={color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                transform={`translate(0, -5) rotate(90, 7.5 7.5)`}
+            />
+            <path
+                d="M6 3 L10 7.5 L6 12 L6 3"
+                stroke={color}
+                fill={color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                transform={`translate(0, 5) rotate(-90, 7.5 7.5)`}
+            />
+        </svg>
+    )
+}
+
+export function expandIcon(color: string): JSX.Element {
+    return (
+        <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
+            <path
+                d="M6 3 L10 7.5 L6 12 L6 3"
+                stroke={color}
+                fill={color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                transform={`translate(0,4) rotate(90, 7.5 7.5)`}
+            />
+            <path
+                d="M6 3 L10 7.5 L6 12 L6 3"
+                stroke={color}
+                fill={color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                transform={`translate(0, -4) rotate(-90, 7.5 7.5)`}
+            />
+        </svg>
+    )
+}
+

@@ -1,4 +1,4 @@
-import {type CSSProperties, type JSX, useRef, useState} from "react";
+import {type JSX, useRef, useState} from "react";
 import {randomWeightDataObservable} from "./randomWeightData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -23,19 +23,21 @@ import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {ScatterPlotTooltipContent} from "../charts/tooltips/ScatterPlotTooltipContent";
-import {formatNumber, formatTime} from '../charts/utils';
+import {formatNumber} from '../charts/utils';
 import {ScatterPlot} from "../charts/plots/ScatterPlot";
 import {Legend} from "../charts/legends/Legend";
 import {assignAxes} from "../charts/plots/plot";
 import * as d3 from "d3";
 import {lightTheme, type Theme} from "../ui/Themes";
 import {seriesFrom} from "../charts/series/baseSeries";
-import {Button} from "../ui/Button";
-import {buttonStyle} from "../ui/utils";
 import {AxisInterval} from "stream-charts";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {LegendLocation} from "../charts/legends/constants";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
+import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
+import {CommonControls} from "./CommonControls.tsx";
+import {buttonStyle} from "../ui/utils.ts";
+import {ExecutionControls} from "./ExecutionControls.tsx";
 
 const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -96,19 +98,19 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     } = props
 
 
-    const inputStyle: CSSProperties = {
-        backgroundColor: theme.backgroundColor,
-        outlineStyle: 'none',
-        borderColor: theme.color,
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: theme.color,
-        fontSize: 12,
-        padding: 4,
-        margin: 6,
-        marginRight: 20
-    }
+    // const inputStyle: CSSProperties = {
+    //     backgroundColor: theme.backgroundColor,
+    //     outlineStyle: 'none',
+    //     borderColor: theme.color,
+    //     borderStyle: 'solid',
+    //     borderWidth: 1,
+    //     borderRadius: 3,
+    //     color: theme.color,
+    //     fontSize: 12,
+    //     padding: 4,
+    //     margin: 6,
+    //     marginRight: 20
+    // }
 
     // const chartId = useRef<number>(CHART_ID)
 
@@ -169,6 +171,24 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
+    function handleRunPauseClick(): void {
+        if (!running) {
+            setObservable(randomDataObservable(initialData))
+            startTimeRef.current = new Date().valueOf()
+            setElapsed(0)
+            intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
+        } else {
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            intervalRef.current = undefined
+        }
+        setRunning(!running)
+    }
+
+    function handleClearClick(): void {
+        setInitialData(initialDataFrom(originalInitialData))
+        setElapsed(0)
+    }
+
     return (
         <Grid
             dimensionsSupplier={useGridCell}
@@ -192,107 +212,76 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 <div style={{
                     display: 'flex',
                     flexDirection: 'row',
-                    flexWrap: 'nowrap',
-                    alignItems: 'center',
-                    overflowY: 'hidden',
-                    overflowX: 'auto',
-                    scrollbarWidth: "thin",
-                    whiteSpace: 'nowrap',
+                    gap: 8,
+                    alignItems: 'flex-start',
                     width: '100%',
                     minWidth: 0,
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    scrollbarWidth: 'thin',
                 }}>
-                    <label style={{color: theme.color}}>regex filter <input
-                        type="text"
-                        value={filterValue}
-                        onChange={event => handleUpdateRegex(event.currentTarget.value)}
-                        style={inputStyle}
-                    /></label>
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={() => {
-                            if (!running) {
-                                setObservable(randomDataObservable(initialData))
-                                startTimeRef.current = new Date().valueOf()
-                                setElapsed(0)
-                                intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
-                            } else {
-                                if (intervalRef.current) clearInterval(intervalRef.current)
-                                intervalRef.current = undefined
-                            }
-                            setRunning(!running)
-                        }}
-                    >
-                        {running ? "Pause" : "Run"}
-                    </Button>
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={() => {
-                            setInitialData(initialDataFrom(originalInitialData))
-                            setElapsed(0)
-                        }}
-                        disabled={running}
-                    >
-                        Clear
-                    </Button>
-                    <Checkbox
-                        key={1}
-                        checked={visibility.tooltip && !running}
-                        disabled={running}
-                        label="tooltip"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                <ExpandableControlBar
+                    expandButtonStyle={buttonStyle(theme)}
+                    backgroundColor={theme.backgroundColor}
+                    borderColor={theme.disabledBackgroundColor}
+                    borderRadius={10}
+                    // width={720}
+                    // summary={
+                    //     <span style={{color: theme.color}}>
+                    //         run: {running ? 'running' : 'paused'} | filter: {filterValue ? `"${filterValue}"` : 'all'} | tooltip: {visibility.tooltip ? 'on' : 'off'} | tracker: {visibility.tracker ? 'on' : 'off'} | lag: {formatTime(Math.max(0, elapsed - chartTime))} ms
+                    //     </span>
+                    // }
+                >
+                    <ExecutionControls
+                        theme={theme}
+                        type="header"
+                        running={running}
+                        onRunPauseClick={handleRunPauseClick}
+                        onClearClick={handleClearClick}
                     />
-                    <Checkbox
-                        key={2}
-                        checked={visibility.tracker && !running}
-                        disabled={running}
-                        label="tracker"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                    <CommonControls
+                        theme={theme}
+                        type="controls"
+                        filterValue={filterValue}
+                        handleFilterUpdate={handleUpdateRegex}
+                        //
+                        running={running}
+                        // onRunPauseClick={handleRunPauseClick}
+                        // onClearClick={handleClearClick}
+                        //
+                        isTooltipSelected={visibility.tooltip}
+                        onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                        isTrackerSelected={visibility.tracker}
+                        onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                        //
+                        lag={elapsed - chartTime}
                     />
-                    <Checkbox
-                        key={5}
-                        checked={visibility.markers}
-                        disabled={running}
-                        label="markers"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
-                    />
-                    <select
-                        name="interpolations"
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            color: theme.color,
-                            borderColor: theme.color,
-                            padding: 5,
-                            borderRadius: 3,
-                            outlineStyle: 'none'
-                        }}
-                        onChange={event => handleInterpolationChange(event.currentTarget.value)}
-                        value={selectedInterpolationName}
-                    >
-                        {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
-                            <option key={value} value={value}>{name}</option>
-                        ))}
-                    </select>
-                    <Checkbox
-                        key={3}
-                        checked={visibility.legend}
-                        label="legend"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
-                    />
-                    {visibility.legend &&
+                </ExpandableControlBar>
+                <ExpandableControlBar
+                    expandButtonStyle={buttonStyle(theme)}
+                    backgroundColor={theme.backgroundColor}
+                    borderColor={theme.color}
+                    borderRadius={10}
+                    // width={520}
+                    // summary={
+                    //     <span style={{color: theme.color}}>
+                    //         markers: {visibility.markers ? 'on' : 'off'} | interpolation: {INTERPOLATIONS.get(selectedInterpolationName)?.[0] ?? 'Linear'} | legend: {visibility.legend ? 'on' : 'off'} | location: {visibility.legend ? Array.from(LEGEND_LOCATIONS.entries()).find(([, value]) => value === legendLocation)?.[0] ?? 'External' : 'hidden'}
+                    //     </span>
+                    // }
+                >
+                    <>
+                        <Checkbox
+                            key={5}
+                            checked={visibility.markers}
+                            disabled={running}
+                            label="markers"
+                            backgroundColor={theme.backgroundColor}
+                            borderColor={theme.color}
+                            labelColor={theme.color}
+                            onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
+                        />
                         <select
-                            name="legend-location"
+                            name="interpolations"
                             style={{
                                 backgroundColor: theme.backgroundColor,
                                 color: theme.color,
@@ -301,19 +290,169 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 borderRadius: 3,
                                 outlineStyle: 'none'
                             }}
-                            onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
-                            value={legendLocation}
+                            onChange={event => handleInterpolationChange(event.currentTarget.value)}
+                            value={selectedInterpolationName}
                         >
-                            {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
-                                <option key={name} value={value}>{name}</option>
+                            {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
+                                <option key={value} value={value}>{name}</option>
                             ))}
                         </select>
-                    }
-                    <span style={{
-                        color: theme.color,
-                        marginLeft: 25
-                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
+                        <Checkbox
+                            key={3}
+                            checked={visibility.legend}
+                            label="legend"
+                            backgroundColor={theme.backgroundColor}
+                            borderColor={theme.color}
+                            labelColor={theme.color}
+                            onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
+                        />
+                        {visibility.legend &&
+                            <select
+                                name="legend-location"
+                                style={{
+                                    backgroundColor: theme.backgroundColor,
+                                    color: theme.color,
+                                    borderColor: theme.color,
+                                    padding: 5,
+                                    borderRadius: 3,
+                                    outlineStyle: 'none'
+                                }}
+                                onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
+                                value={legendLocation}
+                            >
+                                {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
+                                    <option key={name} value={value}>{name}</option>
+                                ))}
+                            </select>
+                        }
+                    </>
+                </ExpandableControlBar>
                 </div>
+                {/*<div style={{*/}
+                {/*    display: 'flex',*/}
+                {/*    flexDirection: 'row',*/}
+                {/*    flexWrap: 'nowrap',*/}
+                {/*    alignItems: 'center',*/}
+                {/*    overflowY: 'hidden',*/}
+                {/*    overflowX: 'auto',*/}
+                {/*    scrollbarWidth: "thin",*/}
+                {/*    whiteSpace: 'nowrap',*/}
+                {/*    width: '100%',*/}
+                {/*    minWidth: 0,*/}
+                {/*}}>*/}
+                {/*    <label style={{color: theme.color}}>regex filter <input*/}
+                {/*        type="text"*/}
+                {/*        value={filterValue}*/}
+                {/*        onChange={event => handleUpdateRegex(event.currentTarget.value)}*/}
+                {/*        style={inputStyle}*/}
+                {/*    /></label>*/}
+                {/*    <Button*/}
+                {/*        style={buttonStyle(theme)}*/}
+                {/*        onClick={() => {*/}
+                {/*            if (!running) {*/}
+                {/*                setObservable(randomDataObservable(initialData))*/}
+                {/*                startTimeRef.current = new Date().valueOf()*/}
+                {/*                setElapsed(0)*/}
+                {/*                intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)*/}
+                {/*            } else {*/}
+                {/*                if (intervalRef.current) clearInterval(intervalRef.current)*/}
+                {/*                intervalRef.current = undefined*/}
+                {/*            }*/}
+                {/*            setRunning(!running)*/}
+                {/*        }}*/}
+                {/*    >*/}
+                {/*        {running ? "Pause" : "Run"}*/}
+                {/*    </Button>*/}
+                {/*    <Button*/}
+                {/*        style={buttonStyle(theme)}*/}
+                {/*        onClick={() => {*/}
+                {/*            setInitialData(initialDataFrom(originalInitialData))*/}
+                {/*            setElapsed(0)*/}
+                {/*        }}*/}
+                {/*        disabled={running}*/}
+                {/*    >*/}
+                {/*        Clear*/}
+                {/*    </Button>*/}
+                {/*    <Checkbox*/}
+                {/*        key={1}*/}
+                {/*        checked={visibility.tooltip && !running}*/}
+                {/*        disabled={running}*/}
+                {/*        label="tooltip"*/}
+                {/*        backgroundColor={theme.backgroundColor}*/}
+                {/*        borderColor={theme.color}*/}
+                {/*        labelColor={theme.color}*/}
+                {/*        onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}*/}
+                {/*    />*/}
+                {/*    <Checkbox*/}
+                {/*        key={2}*/}
+                {/*        checked={visibility.tracker && !running}*/}
+                {/*        disabled={running}*/}
+                {/*        label="tracker"*/}
+                {/*        backgroundColor={theme.backgroundColor}*/}
+                {/*        borderColor={theme.color}*/}
+                {/*        labelColor={theme.color}*/}
+                {/*        onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}*/}
+                {/*    />*/}
+                {/*    <Checkbox*/}
+                {/*        key={5}*/}
+                {/*        checked={visibility.markers}*/}
+                {/*        disabled={running}*/}
+                {/*        label="markers"*/}
+                {/*        backgroundColor={theme.backgroundColor}*/}
+                {/*        borderColor={theme.color}*/}
+                {/*        labelColor={theme.color}*/}
+                {/*        onChange={() => setVisibility({...visibility, markers: !visibility.markers})}*/}
+                {/*    />*/}
+                {/*    <select*/}
+                {/*        name="interpolations"*/}
+                {/*        style={{*/}
+                {/*            backgroundColor: theme.backgroundColor,*/}
+                {/*            color: theme.color,*/}
+                {/*            borderColor: theme.color,*/}
+                {/*            padding: 5,*/}
+                {/*            borderRadius: 3,*/}
+                {/*            outlineStyle: 'none'*/}
+                {/*        }}*/}
+                {/*        onChange={event => handleInterpolationChange(event.currentTarget.value)}*/}
+                {/*        value={selectedInterpolationName}*/}
+                {/*    >*/}
+                {/*        {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (*/}
+                {/*            <option key={value} value={value}>{name}</option>*/}
+                {/*        ))}*/}
+                {/*    </select>*/}
+                {/*    <Checkbox*/}
+                {/*        key={3}*/}
+                {/*        checked={visibility.legend}*/}
+                {/*        label="legend"*/}
+                {/*        backgroundColor={theme.backgroundColor}*/}
+                {/*        borderColor={theme.color}*/}
+                {/*        labelColor={theme.color}*/}
+                {/*        onChange={() => setVisibility({...visibility, legend: !visibility.legend})}*/}
+                {/*    />*/}
+                {/*    {visibility.legend &&*/}
+                {/*        <select*/}
+                {/*            name="legend-location"*/}
+                {/*            style={{*/}
+                {/*                backgroundColor: theme.backgroundColor,*/}
+                {/*                color: theme.color,*/}
+                {/*                borderColor: theme.color,*/}
+                {/*                padding: 5,*/}
+                {/*                borderRadius: 3,*/}
+                {/*                outlineStyle: 'none'*/}
+                {/*            }}*/}
+                {/*            onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}*/}
+                {/*            value={legendLocation}*/}
+                {/*        >*/}
+                {/*            {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (*/}
+                {/*                <option key={name} value={value}>{name}</option>*/}
+                {/*            ))}*/}
+                {/*        </select>*/}
+                {/*    }*/}
+                {/*    <span style={{*/}
+                {/*        color: theme.color,*/}
+                {/*        marginLeft: 25*/}
+                {/*    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>*/}
+                {/*</div>*/}
             </GridItem>
             <GridItem gridAreaName="chart">
                 <Chart
