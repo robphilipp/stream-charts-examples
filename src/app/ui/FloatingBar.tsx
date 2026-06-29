@@ -139,7 +139,7 @@ function navStyle(
         /* Floating pill styling */
         background: style.backgroundColor,
         opacity: mouseInBounds ? 1 : 0.8,
-        backdropFilter: mouseInBounds ? "blur(10px)" : "blur(2px)",
+        backdropFilter: mouseInBounds ? "blur(10px)" : "blur(4px)",
         boxShadow: mouseInBounds ? `0 10px 25px ${style.boxShadowColor}` : "none",
         border: mouseInBounds ? "none" : `1px solid ${style.borderColor}`,
     }

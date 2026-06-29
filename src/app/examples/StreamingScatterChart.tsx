@@ -197,7 +197,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 .addTrack(withPixels(visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 100 : 0))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
-                .addTrack(withPixels(50))
+                .addTrack(withPixels(70))
                 .addTrack(withFraction(1))
                 // .addTrack(withPixels(50))
                 .build()}
@@ -216,117 +216,112 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     alignItems: 'flex-start',
                     width: '100%',
                     minWidth: 0,
-                    overflowX: 'auto',
-                    overflowY: 'hidden',
-                    scrollbarWidth: 'thin',
                 }}>
-                <ExpandableControlBar
-                    expandButtonStyle={buttonStyle(theme)}
-                    backgroundColor={theme.backgroundColor}
-                    borderColor={theme.disabledBackgroundColor}
-                    borderRadius={10}
-                    // width={720}
-                    // summary={
-                    //     <span style={{color: theme.color}}>
-                    //         run: {running ? 'running' : 'paused'} | filter: {filterValue ? `"${filterValue}"` : 'all'} | tooltip: {visibility.tooltip ? 'on' : 'off'} | tracker: {visibility.tracker ? 'on' : 'off'} | lag: {formatTime(Math.max(0, elapsed - chartTime))} ms
-                    //     </span>
-                    // }
-                >
-                    <ExecutionControls
-                        theme={theme}
-                        type="header"
-                        running={running}
-                        onRunPauseClick={handleRunPauseClick}
-                        onClearClick={handleClearClick}
-                    />
-                    <CommonControls
-                        theme={theme}
-                        type="controls"
-                        filterValue={filterValue}
-                        handleFilterUpdate={handleUpdateRegex}
-                        //
-                        running={running}
-                        // onRunPauseClick={handleRunPauseClick}
-                        // onClearClick={handleClearClick}
-                        //
-                        isTooltipSelected={visibility.tooltip}
-                        onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
-                        isTrackerSelected={visibility.tracker}
-                        onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}
-                        //
-                        lag={elapsed - chartTime}
-                    />
-                </ExpandableControlBar>
-                <ExpandableControlBar
-                    expandButtonStyle={buttonStyle(theme)}
-                    backgroundColor={theme.backgroundColor}
-                    borderColor={theme.color}
-                    borderRadius={10}
-                    // width={520}
-                    // summary={
-                    //     <span style={{color: theme.color}}>
-                    //         markers: {visibility.markers ? 'on' : 'off'} | interpolation: {INTERPOLATIONS.get(selectedInterpolationName)?.[0] ?? 'Linear'} | legend: {visibility.legend ? 'on' : 'off'} | location: {visibility.legend ? Array.from(LEGEND_LOCATIONS.entries()).find(([, value]) => value === legendLocation)?.[0] ?? 'External' : 'hidden'}
-                    //     </span>
-                    // }
-                >
-                    <>
-                        <Checkbox
-                            key={5}
-                            checked={visibility.markers}
-                            disabled={running}
-                            label="markers"
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        gap: 8,
+                        alignItems: 'flex-start',
+                        width: '100%',
+                        minWidth: 0,
+                        overflowX: 'auto',
+                        overflowY: 'visible',
+                        scrollbarWidth: 'thin',
+                        padding: '12px 28px 20px 28px',
+                        marginTop: '-12px',
+                        boxSizing: 'border-box',
+                    }}>
+                        <ExpandableControlBar
+                            expandButtonStyle={buttonStyle(theme)}
                             backgroundColor={theme.backgroundColor}
-                            borderColor={theme.color}
-                            labelColor={theme.color}
-                            onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
-                        />
-                        <select
-                            name="interpolations"
-                            style={{
-                                backgroundColor: theme.backgroundColor,
-                                color: theme.color,
-                                borderColor: theme.color,
-                                padding: 5,
-                                borderRadius: 3,
-                                outlineStyle: 'none'
-                            }}
-                            onChange={event => handleInterpolationChange(event.currentTarget.value)}
-                            value={selectedInterpolationName}
+                            borderColor={theme.disabledBackgroundColor}
+                            borderRadius={10}
                         >
-                            {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
-                                <option key={value} value={value}>{name}</option>
-                            ))}
-                        </select>
-                        <Checkbox
-                            key={3}
-                            checked={visibility.legend}
-                            label="legend"
+                            <ExecutionControls
+                                theme={theme}
+                                type="header"
+                                running={running}
+                                onRunPauseClick={handleRunPauseClick}
+                                onClearClick={handleClearClick}
+                            />
+                            <CommonControls
+                                theme={theme}
+                                type="controls"
+                                filterValue={filterValue}
+                                handleFilterUpdate={handleUpdateRegex}
+                                running={running}
+                                isTooltipSelected={visibility.tooltip}
+                                onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                                isTrackerSelected={visibility.tracker}
+                                onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                                lag={elapsed - chartTime}
+                            />
+                        </ExpandableControlBar>
+                        <ExpandableControlBar
+                            expandButtonStyle={buttonStyle(theme)}
                             backgroundColor={theme.backgroundColor}
                             borderColor={theme.color}
-                            labelColor={theme.color}
-                            onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
-                        />
-                        {visibility.legend &&
-                            <select
-                                name="legend-location"
-                                style={{
-                                    backgroundColor: theme.backgroundColor,
-                                    color: theme.color,
-                                    borderColor: theme.color,
-                                    padding: 5,
-                                    borderRadius: 3,
-                                    outlineStyle: 'none'
-                                }}
-                                onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
-                                value={legendLocation}
-                            >
-                                {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
-                                    <option key={name} value={value}>{name}</option>
-                                ))}
-                            </select>
-                        }
-                    </>
-                </ExpandableControlBar>
+                            borderRadius={10}
+                        >
+                            <>
+                                <Checkbox
+                                    key={5}
+                                    checked={visibility.markers}
+                                    disabled={running}
+                                    label="markers"
+                                    backgroundColor={theme.backgroundColor}
+                                    borderColor={theme.color}
+                                    labelColor={theme.color}
+                                    onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
+                                />
+                                <select
+                                    name="interpolations"
+                                    style={{
+                                        backgroundColor: theme.backgroundColor,
+                                        color: theme.color,
+                                        borderColor: theme.color,
+                                        padding: 5,
+                                        borderRadius: 3,
+                                        outlineStyle: 'none'
+                                    }}
+                                    onChange={event => handleInterpolationChange(event.currentTarget.value)}
+                                    value={selectedInterpolationName}
+                                >
+                                    {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
+                                        <option key={value} value={value}>{name}</option>
+                                    ))}
+                                </select>
+                                <Checkbox
+                                    key={3}
+                                    checked={visibility.legend}
+                                    label="legend"
+                                    backgroundColor={theme.backgroundColor}
+                                    borderColor={theme.color}
+                                    labelColor={theme.color}
+                                    onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
+                                />
+                                {visibility.legend &&
+                                    <select
+                                        name="legend-location"
+                                        style={{
+                                            backgroundColor: theme.backgroundColor,
+                                            color: theme.color,
+                                            borderColor: theme.color,
+                                            padding: 5,
+                                            borderRadius: 3,
+                                            outlineStyle: 'none'
+                                        }}
+                                        onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
+                                        value={legendLocation}
+                                    >
+                                        {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
+                                            <option key={name} value={value}>{name}</option>
+                                        ))}
+                                    </select>
+                                }
+                            </>
+                        </ExpandableControlBar>
+                    </div>
                 </div>
                 {/*<div style={{*/}
                 {/*    display: 'flex',*/}

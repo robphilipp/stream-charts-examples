@@ -70,12 +70,13 @@ export function CommonControls(props: Props): JSX.Element {
         {/*</div>*/}
         <label
             style={{color: theme.color}}
-        >regex filter
+        >
             <input
                 type="text"
                 value={filterValue}
                 onChange={event => handleFilterUpdate(event.currentTarget.value)}
                 style={inputStyle(theme)}
+                placeholder="RegEx filter"
             />
         </label>
         <Checkbox
