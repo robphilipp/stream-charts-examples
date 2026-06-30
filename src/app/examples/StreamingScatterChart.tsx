@@ -1,4 +1,4 @@
-import {type JSX, useRef, useState} from "react";
+import {type JSX, useLayoutEffect, useRef, useState} from "react";
 import {randomWeightDataObservable} from "./randomWeightData";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -77,6 +77,9 @@ const randomData = (delta: number, updatePeriod: number, min: number, max: numbe
     return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
 }
 
+const EXTERNAL_LEGEND_WIDTH = 100
+const LEGEND_ANIMATION_DURATION_MS = 220
+
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 
@@ -138,6 +141,40 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // legend
     const legendContainerRef = useRef<HTMLDivElement>(null)
+    const [externalLegendWidth, setExternalLegendWidth] = useState<number>(0)
+    const externalLegendWidthRef = useRef<number>(0)
+
+    const shouldShowExternalLegend = visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER
+    const shouldRenderExternalLegend = legendLocation === LegendLocation.EXTERNAL_CONTAINER &&
+        (shouldShowExternalLegend || externalLegendWidth > 0)
+
+    useLayoutEffect(() => {
+        const targetWidth = shouldShowExternalLegend ? EXTERNAL_LEGEND_WIDTH : 0
+        if (externalLegendWidthRef.current === targetWidth) return
+
+        const startWidth = externalLegendWidthRef.current
+        const startedAt = performance.now()
+        let animationFrameId = 0
+
+        const easeInOutQuad = (progress: number): number =>
+            progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2
+
+        const animate = (now: number): void => {
+            const progress = Math.min(1, (now - startedAt) / LEGEND_ANIMATION_DURATION_MS)
+            const easedProgress = easeInOutQuad(progress)
+            const nextWidth = startWidth + (targetWidth - startWidth) * easedProgress
+
+            externalLegendWidthRef.current = nextWidth
+            setExternalLegendWidth(nextWidth)
+
+            if (progress < 1) {
+                animationFrameId = requestAnimationFrame(animate)
+            }
+        }
+
+        animationFrameId = requestAnimationFrame(animate)
+        return () => cancelAnimationFrame(animationFrameId)
+    }, [shouldShowExternalLegend])
 
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom<Datum>(series.name, series.data.slice()))
@@ -194,7 +231,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
             dimensionsSupplier={useGridCell}
             gridTemplateColumns={gridTrackTemplateBuilder()
                 .addTrack(withFraction(1))
-                .addTrack(withPixels(visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER ? 100 : 0))
+                .addTrack(withPixels(Math.round(externalLegendWidth)))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
                 .addTrack(withPixels(70))
@@ -365,7 +402,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         />
                     </Tooltip>
                     <Legend
-                        visible={visibility.legend}
+                        visible={legendLocation === LegendLocation.EXTERNAL_CONTAINER ? shouldRenderExternalLegend : visibility.legend}
                         // choose either the external legend (using react createPortal) or the internal legend
                         container={legendLocation === LegendLocation.EXTERNAL_CONTAINER ? legendContainerRef : undefined}
                         location={legendLocation !== LegendLocation.EXTERNAL_CONTAINER ? legendLocation : undefined}
@@ -393,8 +430,16 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     />
                 </Chart>
             </GridItem>
-            <GridItem gridAreaName="chart-legend" isVisible={visibility.legend}>
-                <div ref={legendContainerRef} style={{marginTop: 30, padding: 8}}/>
+            <GridItem gridAreaName="chart-legend" isVisible={shouldRenderExternalLegend}>
+                <div
+                    ref={legendContainerRef}
+                    style={{
+                        marginTop: 30,
+                        padding: 8,
+                        opacity: externalLegendWidth / EXTERNAL_LEGEND_WIDTH,
+                        overflow: 'hidden',
+                    }}
+                />
             </GridItem>
         </Grid>
     );
