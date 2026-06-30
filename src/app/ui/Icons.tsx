@@ -142,7 +142,7 @@ export function resetIcon(color: string): JSX.Element {
 }
 
 
-export function collapseIcon(color: string): JSX.Element {
+export function expandedIcon(color: string): JSX.Element {
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -167,7 +167,7 @@ export function collapseIcon(color: string): JSX.Element {
     )
 }
 
-export function expandIcon(color: string): JSX.Element {
+export function collapsedIcon(color: string): JSX.Element {
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -192,3 +192,90 @@ export function expandIcon(color: string): JSX.Element {
     )
 }
 
+export function lagIcon(color: string, fill: string = "none"): JSX.Element {
+    return (
+        <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
+            <circle cx="7.5" cy="7.5" r="6" fill={fill} stroke={color} strokeWidth={2}/>
+            <line x1={7.5} y1={7.5} x2={14} y2={7.5} stroke={color} strokeWidth={1}/>
+            <line x1={7.5} y1={7.5} x2={7.5} y2={3} stroke={color} strokeWidth={1}/>
+        </svg>
+    )
+}
+
+export function filterIcon(color: string): JSX.Element {
+    return (
+        <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
+            <path
+                d="M0 0 L14 0 L8 8 L8 15 L6 15 L6 8 L0 0"
+                stroke={color}
+                fill={color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+            />
+        </svg>
+    )
+}
+
+export function tooltipIcon(color: string): JSX.Element {
+    return (
+        <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
+            <rect width="15" height="10" rx={3} ry={3} strokeWidth={1} stroke={color} fill="none"/>
+            <path
+                d="M0 6 L4 0 L8 6 L5 5 L5 12 L3 12 L3 5 L0 6"
+                stroke={color}
+                fill={color}
+                strokeWidth={1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                transform={`translate(5, 3) rotate(-30, 7.5 7.5)`}
+            />
+            <line
+                x1={3}
+                y1={3}
+                x2={12}
+                y2={3}
+                stroke={color}
+                strokeWidth={1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+            />
+            <line
+                x1={3}
+                y1={6}
+                x2={12}
+                y2={6}
+                stroke={color}
+                strokeWidth={1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+            />
+        </svg>
+    )
+}
+
+export function trackerIcon(color: string): JSX.Element {
+    return (
+        <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
+            <path
+                d="M0 6 L4 0 L8 6 L5 5 L5 12 L3 12 L3 5 L0 6"
+                stroke={color}
+                fill={color}
+                strokeWidth={1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                transform={`translate(5, 2) rotate(-30, 7.5 7.5)`}
+            />
+            <line
+                x1={5}
+                y1={0}
+                x2={5}
+                y2={15}
+                stroke={color}
+                strokeWidth={1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+            />
+        </svg>
+    )
+}

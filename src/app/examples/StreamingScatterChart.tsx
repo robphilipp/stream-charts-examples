@@ -34,7 +34,7 @@ import {AxisInterval} from "stream-charts";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {LegendLocation} from "../charts/legends/constants";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
-import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
+import {type ControlBarType, ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonControls} from "./CommonControls.tsx";
 import {buttonStyle} from "../ui/utils.ts";
 import {ExecutionControls} from "./ExecutionControls.tsx";
@@ -236,11 +236,19 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             backgroundColor={theme.backgroundColor}
                             borderColor={theme.disabledBackgroundColor}
                             borderRadius={10}
+                            width={300}
+                            minHeight={55}
                         >
                             <ExecutionControls
                                 theme={theme}
                                 type="header"
-                                running={running}
+                                status={{
+                                    isRunning: running,
+                                    isFiltering: filterValue.length > 0,
+                                    isShowTooltip: visibility.tooltip,
+                                    isShowTracker: visibility.tracker,
+                                    lag: elapsed - chartTime
+                                }}
                                 onRunPauseClick={handleRunPauseClick}
                                 onClearClick={handleClearClick}
                             />
@@ -260,194 +268,26 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         <ExpandableControlBar
                             expandButtonStyle={buttonStyle(theme)}
                             backgroundColor={theme.backgroundColor}
-                            borderColor={theme.color}
+                            borderColor={theme.disabledBackgroundColor}
                             borderRadius={10}
+                            width={300}
+                            minHeight={55}
                         >
-                            <>
-                                <Checkbox
-                                    key={5}
-                                    checked={visibility.markers}
-                                    disabled={running}
-                                    label="markers"
-                                    backgroundColor={theme.backgroundColor}
-                                    borderColor={theme.color}
-                                    labelColor={theme.color}
-                                    onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
-                                />
-                                <select
-                                    name="interpolations"
-                                    style={{
-                                        backgroundColor: theme.backgroundColor,
-                                        color: theme.color,
-                                        borderColor: theme.color,
-                                        padding: 5,
-                                        borderRadius: 3,
-                                        outlineStyle: 'none'
-                                    }}
-                                    onChange={event => handleInterpolationChange(event.currentTarget.value)}
-                                    value={selectedInterpolationName}
-                                >
-                                    {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
-                                        <option key={value} value={value}>{name}</option>
-                                    ))}
-                                </select>
-                                <Checkbox
-                                    key={3}
-                                    checked={visibility.legend}
-                                    label="legend"
-                                    backgroundColor={theme.backgroundColor}
-                                    borderColor={theme.color}
-                                    labelColor={theme.color}
-                                    onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
-                                />
-                                {visibility.legend &&
-                                    <select
-                                        name="legend-location"
-                                        style={{
-                                            backgroundColor: theme.backgroundColor,
-                                            color: theme.color,
-                                            borderColor: theme.color,
-                                            padding: 5,
-                                            borderRadius: 3,
-                                            outlineStyle: 'none'
-                                        }}
-                                        onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
-                                        value={legendLocation}
-                                    >
-                                        {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
-                                            <option key={name} value={value}>{name}</option>
-                                        ))}
-                                    </select>
-                                }
-                            </>
+                            <ControlsHeader type="header" theme={theme}/>
+                            <Controls
+                                type="controls"
+                                theme={theme}
+                                running={running}
+                                visibility={visibility}
+                                setVisibility={setVisibility}
+                                selectedInterpolationName={selectedInterpolationName}
+                                handleInterpolationChange={handleInterpolationChange}
+                                legendLocation={legendLocation}
+                                setLegendLocation={setLegendLocation}
+                            />
                         </ExpandableControlBar>
                     </div>
                 </div>
-                {/*<div style={{*/}
-                {/*    display: 'flex',*/}
-                {/*    flexDirection: 'row',*/}
-                {/*    flexWrap: 'nowrap',*/}
-                {/*    alignItems: 'center',*/}
-                {/*    overflowY: 'hidden',*/}
-                {/*    overflowX: 'auto',*/}
-                {/*    scrollbarWidth: "thin",*/}
-                {/*    whiteSpace: 'nowrap',*/}
-                {/*    width: '100%',*/}
-                {/*    minWidth: 0,*/}
-                {/*}}>*/}
-                {/*    <label style={{color: theme.color}}>regex filter <input*/}
-                {/*        type="text"*/}
-                {/*        value={filterValue}*/}
-                {/*        onChange={event => handleUpdateRegex(event.currentTarget.value)}*/}
-                {/*        style={inputStyle}*/}
-                {/*    /></label>*/}
-                {/*    <Button*/}
-                {/*        style={buttonStyle(theme)}*/}
-                {/*        onClick={() => {*/}
-                {/*            if (!running) {*/}
-                {/*                setObservable(randomDataObservable(initialData))*/}
-                {/*                startTimeRef.current = new Date().valueOf()*/}
-                {/*                setElapsed(0)*/}
-                {/*                intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)*/}
-                {/*            } else {*/}
-                {/*                if (intervalRef.current) clearInterval(intervalRef.current)*/}
-                {/*                intervalRef.current = undefined*/}
-                {/*            }*/}
-                {/*            setRunning(!running)*/}
-                {/*        }}*/}
-                {/*    >*/}
-                {/*        {running ? "Pause" : "Run"}*/}
-                {/*    </Button>*/}
-                {/*    <Button*/}
-                {/*        style={buttonStyle(theme)}*/}
-                {/*        onClick={() => {*/}
-                {/*            setInitialData(initialDataFrom(originalInitialData))*/}
-                {/*            setElapsed(0)*/}
-                {/*        }}*/}
-                {/*        disabled={running}*/}
-                {/*    >*/}
-                {/*        Clear*/}
-                {/*    </Button>*/}
-                {/*    <Checkbox*/}
-                {/*        key={1}*/}
-                {/*        checked={visibility.tooltip && !running}*/}
-                {/*        disabled={running}*/}
-                {/*        label="tooltip"*/}
-                {/*        backgroundColor={theme.backgroundColor}*/}
-                {/*        borderColor={theme.color}*/}
-                {/*        labelColor={theme.color}*/}
-                {/*        onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}*/}
-                {/*    />*/}
-                {/*    <Checkbox*/}
-                {/*        key={2}*/}
-                {/*        checked={visibility.tracker && !running}*/}
-                {/*        disabled={running}*/}
-                {/*        label="tracker"*/}
-                {/*        backgroundColor={theme.backgroundColor}*/}
-                {/*        borderColor={theme.color}*/}
-                {/*        labelColor={theme.color}*/}
-                {/*        onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}*/}
-                {/*    />*/}
-                {/*    <Checkbox*/}
-                {/*        key={5}*/}
-                {/*        checked={visibility.markers}*/}
-                {/*        disabled={running}*/}
-                {/*        label="markers"*/}
-                {/*        backgroundColor={theme.backgroundColor}*/}
-                {/*        borderColor={theme.color}*/}
-                {/*        labelColor={theme.color}*/}
-                {/*        onChange={() => setVisibility({...visibility, markers: !visibility.markers})}*/}
-                {/*    />*/}
-                {/*    <select*/}
-                {/*        name="interpolations"*/}
-                {/*        style={{*/}
-                {/*            backgroundColor: theme.backgroundColor,*/}
-                {/*            color: theme.color,*/}
-                {/*            borderColor: theme.color,*/}
-                {/*            padding: 5,*/}
-                {/*            borderRadius: 3,*/}
-                {/*            outlineStyle: 'none'*/}
-                {/*        }}*/}
-                {/*        onChange={event => handleInterpolationChange(event.currentTarget.value)}*/}
-                {/*        value={selectedInterpolationName}*/}
-                {/*    >*/}
-                {/*        {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (*/}
-                {/*            <option key={value} value={value}>{name}</option>*/}
-                {/*        ))}*/}
-                {/*    </select>*/}
-                {/*    <Checkbox*/}
-                {/*        key={3}*/}
-                {/*        checked={visibility.legend}*/}
-                {/*        label="legend"*/}
-                {/*        backgroundColor={theme.backgroundColor}*/}
-                {/*        borderColor={theme.color}*/}
-                {/*        labelColor={theme.color}*/}
-                {/*        onChange={() => setVisibility({...visibility, legend: !visibility.legend})}*/}
-                {/*    />*/}
-                {/*    {visibility.legend &&*/}
-                {/*        <select*/}
-                {/*            name="legend-location"*/}
-                {/*            style={{*/}
-                {/*                backgroundColor: theme.backgroundColor,*/}
-                {/*                color: theme.color,*/}
-                {/*                borderColor: theme.color,*/}
-                {/*                padding: 5,*/}
-                {/*                borderRadius: 3,*/}
-                {/*                outlineStyle: 'none'*/}
-                {/*            }}*/}
-                {/*            onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}*/}
-                {/*            value={legendLocation}*/}
-                {/*        >*/}
-                {/*            {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (*/}
-                {/*                <option key={name} value={value}>{name}</option>*/}
-                {/*            ))}*/}
-                {/*        </select>*/}
-                {/*    }*/}
-                {/*    <span style={{*/}
-                {/*        color: theme.color,*/}
-                {/*        marginLeft: 25*/}
-                {/*    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>*/}
-                {/*</div>*/}
             </GridItem>
             <GridItem gridAreaName="chart">
                 <Chart
@@ -554,7 +394,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 </Chart>
             </GridItem>
             <GridItem gridAreaName="chart-legend" isVisible={visibility.legend}>
-                <div ref={legendContainerRef} style={{marginTop: 30, padding: 8 }} />
+                <div ref={legendContainerRef} style={{marginTop: 30, padding: 8}}/>
             </GridItem>
         </Grid>
     );
@@ -583,4 +423,123 @@ function highlightLinewidthFor(name: string): number {
     if (name === 'Series 2' || name === 'Series 3') return 5
 
     return 3
+}
+
+type ControlsHeaderProps = {
+    type: ControlBarType
+    theme: Theme
+}
+
+function ControlsHeader(props: ControlsHeaderProps): JSX.Element {
+    return (
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                height: 40,
+                color: props.theme.color,
+                paddingLeft: 10
+            }}
+        >
+            View Controls
+        </div>
+    )
+}
+
+type ControlProps = {
+    type: ControlBarType
+    theme: Theme
+    running: boolean
+    visibility: Visibility
+    setVisibility: (visibility: Visibility) => void
+
+    selectedInterpolationName: string
+    handleInterpolationChange: (selected: string) => void
+
+    legendLocation: LegendLocation
+    setLegendLocation: (location: LegendLocation) => void
+}
+
+function Controls(props: ControlProps): JSX.Element {
+    const {
+        theme,
+        running,
+        visibility,
+        setVisibility,
+        selectedInterpolationName,
+        handleInterpolationChange,
+        legendLocation,
+        setLegendLocation
+    } = props
+
+    return (
+        <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            flexDirection: 'column',
+            gap: 10,
+            paddingTop: 10
+        }}>
+            <Checkbox
+                key={5}
+                checked={visibility.markers}
+                disabled={running}
+                label="markers"
+                backgroundColor={theme.backgroundColor}
+                borderColor={theme.color}
+                labelColor={theme.color}
+                onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
+            />
+            <label style={{color: theme.color}}><span style={{marginLeft: 10, paddingRight: 10}}>Interpolation</span>
+                <select
+                    name="interpolations"
+                    style={{
+                        backgroundColor: theme.backgroundColor,
+                        color: theme.color,
+                        borderColor: theme.color,
+                        padding: 5,
+                        borderRadius: 3,
+                        outlineStyle: 'none'
+                    }}
+                    // onChange={handleInterpolationChange}
+                    onChange={event => handleInterpolationChange(event.currentTarget.value)}
+                    value={selectedInterpolationName}
+                >
+                    {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
+                        <option key={value} value={value}>{name}</option>
+                    ))}
+                </select>
+            </label>
+            <Checkbox
+                key={3}
+                checked={visibility.legend}
+                label="legend"
+                backgroundColor={theme.backgroundColor}
+                borderColor={theme.color}
+                labelColor={theme.color}
+                onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
+            />
+            {visibility.legend &&
+                <label style={{color: theme.color}}><span style={{marginLeft: 10, paddingRight: 10}}>Legend Location</span>
+                <select
+                    name="legend-location"
+                    style={{
+                        backgroundColor: theme.backgroundColor,
+                        color: theme.color,
+                        borderColor: theme.color,
+                        padding: 5,
+                        borderRadius: 3,
+                        outlineStyle: 'none'
+                    }}
+                    onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
+                    value={legendLocation}
+                >
+                    {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
+                        <option key={name} value={value}>{name}</option>
+                    ))}
+                </select>
+                </label>
+            }
+        </div>
+    )
 }

@@ -1,4 +1,5 @@
 import {type CSSProperties, type JSX, useState} from "react";
+import {expandedIcon, collapsedIcon} from "./Icons.tsx";
 
 export type ControlBarType = 'header' | 'controls'
 
@@ -8,25 +9,23 @@ type Props = {
     borderColor: string
     borderRadius: number
     width?: CSSProperties["width"]
-    // summary: ReactNode
+    minHeight?: CSSProperties["minHeight"]
     defaultExpanded?: boolean
     children: JSX.Element | Array<JSX.Element>
 }
 
 export function ExpandableControlBar(props: Props): JSX.Element {
     const {
-        // expandButtonStyle,
         backgroundColor,
         borderColor,
         borderRadius,
+        minHeight = 'max-content',
         width = 'max-content',
-        // summary,
         defaultExpanded = false,
         children
     } = props
 
     const [expanded, setExpanded] = useState<boolean>(defaultExpanded)
-    // const [mouseInBounds, setMouseInBounds] = useState<boolean>(false)
 
     const sortedChildren = categorizeChildren(children)
 
@@ -38,20 +37,16 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                 flexWrap: 'nowrap',
                 alignItems: 'stretch',
                 flex: '0 0 auto',
+                minHeight,
                 width,
                 minWidth: 0,
                 zIndex: 1000,
-                // backgroundColor: backgroundColor,
-                // border: `1px solid ${borderColor}`,
                 borderRadius: borderRadius,
 
-                // padding: "7px 20px 7px 15px",
-                // opacity: expanded ? 0.8 : 1,
-                backgroundColor: expanded ? `rgb(from ${backgroundColor}, r g b / 0.5)` : backgroundColor,
-                // opacity: 1,
+                backgroundColor: expanded ? `rgba(from ${backgroundColor}, r g b / 0.5)` : backgroundColor,
                 backdropFilter: expanded ? "blur(10px)" : "blur(2px)",
-                boxShadow: expanded ? `0 10px 25px ${borderColor}` : "none",
-                border: expanded ? "none" : `1px solid ${borderColor}`,
+                WebkitBackdropFilter: expanded ? "blur(10px)" : "blur(2px)",
+                boxShadow: expanded ? `0 0px 25px ${borderColor}` : `0 0 10px ${borderColor}`,
             }}
             onMouseOver={() => setExpanded(true)}
             onMouseLeave={() => setExpanded(false)}
@@ -65,30 +60,8 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                 padding: 6,
                 minWidth: 0,
             }}>
-                {/*<Button*/}
-                {/*    aria-expanded={expanded}*/}
-                {/*    onClick={() => setExpanded(!expanded)}*/}
-                {/*    style={{...expandButtonStyle, backgroundColor, border: `0px solid ${borderColor}`}}*/}
-                {/*    icon={color => expanded ? collapseIcon(color) : expandIcon(color)}*/}
-                {/*>*/}
-                {/*    <></>*/}
-                {/*</Button>*/}
+                <div>{expanded ? expandedIcon(borderColor) : collapsedIcon(borderColor)}</div>
                 {sortedChildren.header}
-                {/*{!expanded &&*/}
-                {/*    <div style={{*/}
-                {/*        display: 'flex',*/}
-                {/*        flex: '1 1 auto',*/}
-                {/*        alignItems: 'center',*/}
-                {/*        minWidth: 0,*/}
-                {/*        overflowX: 'auto',*/}
-                {/*        overflowY: 'hidden',*/}
-                {/*        scrollbarWidth: 'thin',*/}
-                {/*        whiteSpace: 'nowrap',*/}
-                {/*        color: borderColor,*/}
-                {/*    }}>*/}
-                {/*        {summary}*/}
-                {/*    </div>*/}
-                {/*}*/}
             </div>
             {expanded &&
                 <div style={{
@@ -103,8 +76,6 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                     overflowY: 'hidden',
                     scrollbarWidth: 'thin',
                     borderTop: `1px solid ${borderColor}`,
-                    // opacity: expanded ? 0.8 : 1,
-                    // backdropFilter: expanded ? "blur(10px)" : "blur(2px)",
                 }}>
                     {sortedChildren.content}
                 </div>

@@ -26,8 +26,6 @@ type Props = {
     handleFilterUpdate: (updatedFilter: string) => void
     // run/pause and clear buttons
     running: boolean,
-    // onRunPauseClick: () => void
-    // onClearClick: () => void
     // visibility controls
     isTooltipSelected: boolean
     onTooltipClick: () => void
@@ -43,8 +41,6 @@ export function CommonControls(props: Props): JSX.Element {
         filterValue,
         handleFilterUpdate,
         running,
-        // onRunPauseClick,
-        // onClearClick,
         isTooltipSelected,
         onTooltipClick,
         isTrackerSelected,
@@ -52,25 +48,8 @@ export function CommonControls(props: Props): JSX.Element {
         lag,
     } = props
 
-    return (<>
-        {/*<div>*/}
-        {/*    <Button*/}
-        {/*        style={buttonStyle(theme)}*/}
-        {/*        onClick={onRunPauseClick}*/}
-        {/*    >*/}
-        {/*        {running ? "Pause" : "Run"}*/}
-        {/*    </Button>*/}
-        {/*    <Button*/}
-        {/*        style={buttonStyle(theme)}*/}
-        {/*        onClick={onClearClick}*/}
-        {/*        disabled={running}*/}
-        {/*    >*/}
-        {/*        Clear*/}
-        {/*    </Button>*/}
-        {/*</div>*/}
-        <label
-            style={{color: theme.color}}
-        >
+    return (<div style={{display: 'flex', alignItems: 'flex-start', flexDirection: 'column', gap: 5}}>
+        <label style={{color: theme.color}}>
             <input
                 type="text"
                 value={filterValue}
@@ -99,9 +78,8 @@ export function CommonControls(props: Props): JSX.Element {
             labelColor={theme.color}
             onChange={onTrackerClick}
         />
-        <span style={{
-            color: theme.color,
-            marginLeft: 25
-        }}>lag: {formatTime(Math.max(0, lag))} ms</span>
-    </>)
+        <div style={{color: theme.color, marginLeft: 10}}>
+            Display Lag: {formatTime(Math.max(0, lag))} ms
+        </div>
+    </div>)
 }
