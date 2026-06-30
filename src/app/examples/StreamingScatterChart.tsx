@@ -519,27 +519,26 @@ function Controls(props: ControlProps): JSX.Element {
                 labelColor={theme.color}
                 onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
             />
-            {visibility.legend &&
-                <label style={{color: theme.color}}><span style={{marginLeft: 10, paddingRight: 10}}>Legend Location</span>
+            <label style={{color: theme.color}}><span style={{marginLeft: 10, paddingRight: 10}}>Legend Location</span>
                 <select
                     name="legend-location"
                     style={{
-                        backgroundColor: theme.backgroundColor,
-                        color: theme.color,
-                        borderColor: theme.color,
+                        backgroundColor: visibility.legend ? theme.backgroundColor : theme.disabledBackgroundColor,
+                        color: visibility.legend ? theme.color : theme.disabledColor,
+                        borderColor: visibility.legend ? theme.color : theme.disabledColor,
                         padding: 5,
                         borderRadius: 3,
-                        outlineStyle: 'none'
+                        outlineStyle: 'none',
                     }}
                     onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
                     value={legendLocation}
+                    disabled={!visibility.legend}
                 >
                     {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
                         <option key={name} value={value}>{name}</option>
                     ))}
                 </select>
-                </label>
-            }
+            </label>
         </div>
     )
 }

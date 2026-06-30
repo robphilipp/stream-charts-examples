@@ -1,4 +1,4 @@
-import {type CSSProperties, type JSX, useState} from "react";
+import {type CSSProperties, type JSX, useLayoutEffect, useRef, useState} from "react";
 import {expandedIcon, collapsedIcon} from "./Icons.tsx";
 
 export type ControlBarType = 'header' | 'controls'
@@ -26,8 +26,24 @@ export function ExpandableControlBar(props: Props): JSX.Element {
     } = props
 
     const [expanded, setExpanded] = useState<boolean>(defaultExpanded)
+    const contentRef = useRef<HTMLDivElement>(null)
+    const [contentHeight, setContentHeight] = useState<number>(0)
 
     const sortedChildren = categorizeChildren(children)
+
+    useLayoutEffect(() => {
+        if (!contentRef.current) return
+
+        const element = contentRef.current
+        const updateHeight = () => setContentHeight(element.scrollHeight)
+
+        updateHeight()
+
+        const observer = new ResizeObserver(() => updateHeight())
+        observer.observe(element)
+
+        return () => observer.disconnect()
+    }, [children])
 
     return (
         <div
@@ -47,6 +63,7 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                 backdropFilter: expanded ? "blur(10px)" : "blur(2px)",
                 WebkitBackdropFilter: expanded ? "blur(10px)" : "blur(2px)",
                 boxShadow: expanded ? `0 0px 25px ${borderColor}` : `0 0 10px ${borderColor}`,
+                transition: "background-color 240ms ease, box-shadow 240ms ease, backdrop-filter 240ms ease, -webkit-backdrop-filter 240ms ease",
             }}
             onMouseOver={() => setExpanded(true)}
             onMouseLeave={() => setExpanded(false)}
@@ -63,8 +80,16 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                 <div>{expanded ? expandedIcon(borderColor) : collapsedIcon(borderColor)}</div>
                 {sortedChildren.header}
             </div>
-            {expanded &&
-                <div style={{
+            <div style={{
+                maxHeight: expanded ? `${contentHeight}px` : "0px",
+                opacity: expanded ? 1 : 0,
+                overflow: 'hidden',
+                borderTop: `1px solid ${expanded ? borderColor : 'transparent'}`,
+                transition: "max-height 260ms ease, opacity 180ms ease, border-top-color 180ms ease",
+            }}>
+                <div
+                    ref={contentRef}
+                    style={{
                     display: 'flex',
                     flexDirection: 'column',
                     flexWrap: 'nowrap',
@@ -75,11 +100,10 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                     overflowX: 'auto',
                     overflowY: 'hidden',
                     scrollbarWidth: 'thin',
-                    borderTop: `1px solid ${borderColor}`,
                 }}>
                     {sortedChildren.content}
                 </div>
-            }
+            </div>
         </div>
     )
 }
@@ -102,4 +126,3 @@ function categorizeChildren(children: JSX.Element | Array<JSX.Element>): Categor
     )
 
 }
-
