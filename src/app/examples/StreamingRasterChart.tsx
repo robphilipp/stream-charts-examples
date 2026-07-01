@@ -1,4 +1,4 @@
-import {type CSSProperties, type JSX, useLayoutEffect, useRef, useState} from 'react';
+import {type JSX, useLayoutEffect, useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {randomSpikeDataObservable} from "./randomSpikeData";
@@ -16,7 +16,7 @@ import {
 } from 'react-resizable-grid-layout';
 import {lightTheme, type Theme} from "../ui/Themes";
 
-import type {Datum, TimeSeries} from "../charts/series/timeSeries";
+import type {TimeSeries} from "../charts/series/timeSeries";
 import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
@@ -27,10 +27,9 @@ import {EmptyAxis} from "../charts/axes/EmptyAxis";
 import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {RasterPlotTooltipContent} from "../charts/tooltips/RasterPlotTooltipContent";
-import {formatNumber, formatTime} from '../charts/utils';
+import {formatNumber} from '../charts/utils';
 import {RasterPlot} from "../charts/plots/RasterPlot";
 import {Legend} from "../charts/legends/Legend";
-import {Button} from "../ui/Button";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {AxisInterval} from "../charts/axes/AxisInterval";
 import * as d3 from "d3";
@@ -38,6 +37,12 @@ import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {LegendLocation} from "../charts/legends/constants";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
+import {type ControlBarType, ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
+import {ExecutionControls} from "./controls/ExecutionControls.tsx";
+import {CommonControls} from "./controls/CommonControls.tsx";
+import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
+import {createInitialVisibility, type Visibility} from "./visibility.ts";
+import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -59,30 +64,7 @@ import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 //     TrackerLabelLocation
 // } from "stream-charts"
 
-interface Visibility {
-    tooltip: boolean;
-    tracker: boolean;
-    magnifier: boolean;
-    legend: boolean;
-}
-
-const initialVisibility: Visibility = {
-    tooltip: false,
-    tracker: false,
-    magnifier: false,
-    legend: false,
-}
-
-const LEGEND_LOCATIONS = new Map<string, LegendLocation>([
-    ['Top-Left', LegendLocation.TOP_LEFT],
-    ['Top-Right', LegendLocation.TOP_RIGHT],
-    ['Bottom-Left', LegendLocation.BOTTOM_LEFT],
-    ['Bottom-Right', LegendLocation.BOTTOM_RIGHT],
-    ['External', LegendLocation.EXTERNAL_CONTAINER]
-])
-
-const EXTERNAL_LEGEND_WIDTH = 100
-const LEGEND_ANIMATION_DURATION_MS = 220
+const initialVisibility = createInitialVisibility()
 
 /**
  * The properties
@@ -93,14 +75,6 @@ interface Props {
     initialData: Array<TimeSeries>;
     seriesHeight?: number;
     plotWidth?: number;
-}
-
-/**
- * The spike-chart data produced by the rxjs observable that is pushed to the `RasterChart`
- */
-export interface SpikesChartData {
-    maxTime: number;
-    spikes: Array<{ index: number; spike: Datum }>
 }
 
 // calculates a unique chart ID when the module is loaded
@@ -197,29 +171,24 @@ export function StreamingRasterChart(props: Props): JSX.Element {
      */
     function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
-        // chartTimeRef.current = Math.max(...Array.from(times.values()).map(range => range.end))
     }
 
-    // the input style for the regex filter to select which series to display
-    const inputStyle: CSSProperties = {
-        backgroundColor: theme.backgroundColor,
-        outlineStyle: 'none',
-        borderColor: theme.color,
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: theme.color,
-        fontSize: 12,
-        padding: 4,
-        margin: 6,
-        marginRight: 20
-    }
-
-    function handleInterpolationChange(selectedLegendLocation: string): void {
-        const location = LEGEND_LOCATIONS.get(selectedLegendLocation)
-        if (location) {
-            setLegendLocation(location)
+    function handleRunPauseClick(): void {
+        if (!running) {
+            setObservable(randomSpikeDataObservable(initialData, 50, 0.1))
+            startTimeRef.current = new Date().valueOf()
+            setElapsed(0)
+            intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
+        } else {
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            intervalRef.current = undefined
         }
+        setRunning(!running)
+    }
+
+    function handleClearClick(): void {
+        setInitialData(initialDataFrom(originalInitialData))
+        setElapsed(0)
     }
 
     return (
@@ -241,101 +210,78 @@ export function StreamingRasterChart(props: Props): JSX.Element {
             styles={{color: '#d2933f'}}
         >
             <GridItem gridAreaName="chart-controls">
-                <div>
-                    <label style={{color: theme.color}}>regex filter <input
-                        type="text"
-                        value={filterValue}
-                        onChange={event => handleUpdateRegex(event.currentTarget.value)}
-                        style={inputStyle}
-                    /></label>
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={() => {
-                            if (!running) {
-                                setObservable(randomSpikeDataObservable(initialData, 50, 0.1))
-                                // observableRef.current = randomSpikeDataObservable(initialData, 50, 0.1)
-                                startTimeRef.current = new Date().valueOf()
-                                setElapsed(0)
-                                intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
-                            } else {
-                                if (intervalRef.current) clearInterval(intervalRef.current)
-                                intervalRef.current = undefined
-                            }
-                            setRunning(!running)
-                        }}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: 8,
+                    alignItems: 'flex-start',
+                    width: '100%',
+                    minWidth: 0,
+                    overflowX: 'auto',
+                    overflowY: 'visible',
+                    scrollbarWidth: 'thin',
+                    padding: '12px 28px 20px 28px',
+                    marginTop: '-12px',
+                    boxSizing: 'border-box',
+                }}>
+                    <ExpandableControlBar
+                        expandButtonStyle={buttonStyle(theme)}
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.disabledBackgroundColor}
+                        borderRadius={10}
+                        width={300}
+                        minHeight={55}
                     >
-                        {running ? "Pause" : "Run"}
-                    </Button>
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={() => {
-                            setInitialData(initialDataFrom(originalInitialData))
-                            // initialDataRef.current = initialDataFrom(initialData)
-                            setElapsed(0)
-                        }}
-                        disabled={running}
-                    >
-                        Clear
-                    </Button>
-                    <Checkbox
-                        key={1}
-                        checked={visibility.tooltip && !running}
-                        disabled={running}
-                        label="tooltip"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
-                    />
-                    <Checkbox
-                        key={2}
-                        checked={visibility.tracker && !running}
-                        disabled={running}
-                        label="tracker"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
-                    />
-                    <Checkbox
-                        key={3}
-                        checked={visibility.legend}
-                        label="legend"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
-                    />
-                    {visibility.legend &&
-                        <select
-                            name="legendLocations"
-                            style={{
-                                backgroundColor: theme.backgroundColor,
-                                color: theme.color,
-                                borderColor: theme.color,
-                                padding: 5,
-                                borderRadius: 3,
-                                outlineStyle: 'none'
+                        <ExecutionControls
+                            theme={theme}
+                            type="header"
+                            status={{
+                                isRunning: running,
+                                isFiltering: filterValue.length > 0,
+                                isShowTooltip: visibility.tooltip,
+                                isShowTracker: visibility.tracker,
+                                lag: elapsed - chartTime
                             }}
-                            onChange={event => handleInterpolationChange(event.currentTarget.value)}
-                            value={Array.from(LEGEND_LOCATIONS.entries()).find(([, v]) => v === legendLocation)?.[0]}
-                        >
-                            {Array.from(LEGEND_LOCATIONS.entries()).map(([name,]) => (
-                                <option key={name} value={name}>{name}</option>
-                            ))}
-                        </select>
-                    }
-                    <span style={{
-                        color: theme.color,
-                        marginLeft: 25
-                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
-                    {/*}}>lag: {formatTime(Math.max(0, elapsed - chartTimeRef.current))} ms</span>*/}
+                            onRunPauseClick={handleRunPauseClick}
+                            onClearClick={handleClearClick}
+                        />
+                        <CommonControls
+                            theme={theme}
+                            type="controls"
+                            filterValue={filterValue}
+                            handleFilterUpdate={handleUpdateRegex}
+                            running={running}
+                            isTooltipSelected={visibility.tooltip}
+                            onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                            isTrackerSelected={visibility.tracker}
+                            onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                            lag={elapsed - chartTime}
+                        />
+                    </ExpandableControlBar>
+                    <ExpandableControlBar
+                        expandButtonStyle={buttonStyle(theme)}
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.disabledBackgroundColor}
+                        borderRadius={10}
+                        width={300}
+                        minHeight={55}
+                    >
+                        <ViewControlsHeader type="header" theme={theme}/>
+                        <ViewControls
+                            type="controls"
+                            theme={theme}
+                            visibility={visibility}
+                            setVisibility={setVisibility}
+                            legendLocation={legendLocation}
+                            setLegendLocation={setLegendLocation}
+                        />
+                    </ExpandableControlBar>
+
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
                 <Chart
                     chartId={CHART_ID}
-                    // chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
                     margin={{...defaultMargin, top: 40, right: 35, left: 90, bottom: 50}}
@@ -392,14 +338,11 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     //     // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                     // ])}
                     initialData={initialData}
-                    // initialData={initialDataRef.current}
                     seriesFilter={filter}
                     seriesObservable={observable}
-                    // seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={25}
-                    // onSubscribe={subscription => console.log("subscribed raster")}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
@@ -408,13 +351,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         label="t (ms)"
                         // font={{color: theme.color}}
                     />
-                    {/*<ContinuousAxis*/}
-                    {/*    axisId="x-axis-2"*/}
-                    {/*    location={AxisLocation.Top}*/}
-                    {/*    domain={[0, 10000]}*/}
-                    {/*    label="t (ms)"*/}
-                    {/*    // font={{color: theme.color}}*/}
-                    {/*/>*/}
                     <EmptyAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
@@ -423,9 +359,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         axisId="y-axis-1"
                         location={AxisLocation.Left}
                         categories={initialData.map(series => series.name)}
-                        // categories={initialDataRef.current.map(series => series.name)}
                         label="Neuron ID"
-                        // axisTickStyle={{rotation: 25}}
                     />
                    <EmptyAxis
                         axisId="y-axis-2"
@@ -437,7 +371,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         labelFormatter={x => `${d3.format(",.0f")(x)} ms`}
                         style={{color: theme.color}}
                         font={{color: theme.color}}
-                        // onTrackerUpdate={update => console.dir(update)}
                     />
                     <Tooltip
                         visible={visibility.tooltip}
@@ -523,4 +456,50 @@ function highlightLinewidthFor(name: string): number {
     if (name === 'test2' || name === 'test3') return 5
 
     return 3
+}
+
+type ControlProps = {
+    type: ControlBarType
+    theme: Theme
+    visibility: Visibility
+    setVisibility: (visibility: Visibility) => void
+    legendLocation: LegendLocation
+    setLegendLocation: (location: LegendLocation) => void
+}
+
+function ViewControls(props: ControlProps): JSX.Element {
+    const {
+        theme,
+        visibility,
+        setVisibility,
+        legendLocation,
+        setLegendLocation
+    } = props
+
+    return (
+        <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            flexDirection: 'column',
+            gap: 10,
+            paddingTop: 10
+        }}>
+            <Checkbox
+                key={3}
+                checked={visibility.legend}
+                label="legend"
+                backgroundColor={theme.backgroundColor}
+                borderColor={theme.color}
+                labelColor={theme.color}
+                onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
+            />
+            <LegendControl
+                theme={theme}
+                visibility={visibility}
+                legendLocation={legendLocation}
+                setLegendLocation={setLegendLocation}
+            />
+
+        </div>
+    )
 }

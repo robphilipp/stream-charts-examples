@@ -1,9 +1,9 @@
 import {type JSX} from "react";
-import type {Theme} from "../ui/Themes.ts";
-import {Button} from "../ui/Button.tsx";
-import {buttonStyle} from "../ui/utils.ts";
-import type {ControlBarType} from "../ui/ExpandableControlBar.tsx";
-import {filterIcon, lagIcon, pauseIcon, playIcon, resetIcon, tooltipIcon, trackerIcon} from "../ui/Icons.tsx";
+import type {Theme} from "../../ui/Themes.ts";
+import {Button} from "../../ui/Button.tsx";
+import {buttonStyle} from "../../ui/utils.ts";
+import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";
+import {filterIcon, lagIcon, pauseIcon, playIcon, resetIcon, tooltipIcon, trackerIcon} from "../../ui/Icons.tsx";
 
 type Status = {
     isRunning: boolean

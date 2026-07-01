@@ -1,8 +1,8 @@
 import {type CSSProperties, type JSX} from "react";
-import type {Theme} from "../ui/Themes.ts";
-import Checkbox from "../ui/Checkbox.tsx";
+import type {Theme} from "../../ui/Themes.ts";
+import Checkbox from "../../ui/Checkbox.tsx";
 import {formatTime} from "stream-charts";
-import type {ControlBarType} from "../ui/ExpandableControlBar.tsx";
+import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";
 
 const inputStyle = (theme: Theme): CSSProperties => ({
     backgroundColor: theme.backgroundColor,

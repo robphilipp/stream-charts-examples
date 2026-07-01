@@ -35,50 +35,19 @@ import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {LegendLocation} from "../charts/legends/constants";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 import {type ControlBarType, ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
-import {CommonControls} from "./CommonControls.tsx";
+import {CommonControls} from "./controls/CommonControls.tsx";
 import {buttonStyle} from "../ui/utils.ts";
-import {ExecutionControls} from "./ExecutionControls.tsx";
+import {ExecutionControls} from "./controls/ExecutionControls.tsx";
+import {INTERPOLATIONS} from "./interpolations.ts";
+import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
+import {createInitialVisibility, type Visibility} from "./visibility.ts";
+import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 
-const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
-    ['curveLinear', ['Linear', d3.curveLinear]],
-    ['curveNatural', ['Natural', d3.curveNatural]],
-    ['curveMonotoneX', ['Monotone', d3.curveMonotoneX]],
-    ['curveStep', ['Step', d3.curveStep]],
-    ['curveStepAfter', ['Step After', d3.curveStepAfter]],
-    ['curveStepBefore', ['Step Before', d3.curveStepBefore]],
-    ['curveBumpX', ['Bump', d3.curveBumpX]],
-])
-
-interface Visibility {
-    tooltip: boolean;
-    tracker: boolean;
-    magnifier: boolean;
-    legend: boolean;
-    markers: boolean;
-}
-
-const initialVisibility: Visibility = {
-    tooltip: false,
-    tracker: false,
-    magnifier: false,
-    legend: false,
-    markers: false,
-}
-
-const LEGEND_LOCATIONS = new Map<string, LegendLocation>([
-    ['Top-Left', LegendLocation.TOP_LEFT],
-    ['Top-Right', LegendLocation.TOP_RIGHT],
-    ['Bottom-Left', LegendLocation.BOTTOM_LEFT],
-    ['Bottom-Right', LegendLocation.BOTTOM_RIGHT],
-    ['External', LegendLocation.EXTERNAL_CONTAINER]
-])
+const initialVisibility = createInitialVisibility()
 
 const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
     return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
 }
-
-const EXTERNAL_LEGEND_WIDTH = 100
-const LEGEND_ANIMATION_DURATION_MS = 220
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
@@ -285,8 +254,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         width={300}
                         minHeight={55}
                     >
-                        <ControlsHeader type="header" theme={theme}/>
-                        <Controls
+                        <ViewControlsHeader type="header" theme={theme}/>
+                        <ViewControls
                             type="controls"
                             theme={theme}
                             running={running}
@@ -444,27 +413,6 @@ function highlightLinewidthFor(name: string): number {
     return 3
 }
 
-type ControlsHeaderProps = {
-    type: ControlBarType
-    theme: Theme
-}
-
-function ControlsHeader(props: ControlsHeaderProps): JSX.Element {
-    return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: 40,
-                color: props.theme.color,
-                paddingLeft: 10
-            }}
-        >
-            View Controls
-        </div>
-    )
-}
-
 type ControlProps = {
     type: ControlBarType
     theme: Theme
@@ -479,7 +427,7 @@ type ControlProps = {
     setLegendLocation: (location: LegendLocation) => void
 }
 
-function Controls(props: ControlProps): JSX.Element {
+function ViewControls(props: ControlProps): JSX.Element {
     const {
         theme,
         running,
@@ -537,26 +485,12 @@ function Controls(props: ControlProps): JSX.Element {
                 labelColor={theme.color}
                 onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
             />
-            <label style={{color: theme.color}}><span style={{marginLeft: 10, paddingRight: 10}}>Legend Location</span>
-                <select
-                    name="legend-location"
-                    style={{
-                        backgroundColor: visibility.legend ? theme.backgroundColor : theme.disabledBackgroundColor,
-                        color: visibility.legend ? theme.color : theme.disabledColor,
-                        borderColor: visibility.legend ? theme.color : theme.disabledColor,
-                        padding: 5,
-                        borderRadius: 3,
-                        outlineStyle: 'none',
-                    }}
-                    onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
-                    value={legendLocation}
-                    disabled={!visibility.legend}
-                >
-                    {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
-                        <option key={name} value={value}>{name}</option>
-                    ))}
-                </select>
-            </label>
+            <LegendControl
+                theme={theme}
+                visibility={visibility}
+                legendLocation={legendLocation}
+                setLegendLocation={setLegendLocation}
+            />
         </div>
     )
 }

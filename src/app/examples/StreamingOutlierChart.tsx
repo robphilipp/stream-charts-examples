@@ -33,6 +33,7 @@ import {AxisInterval} from "../charts/axes/AxisInterval"
 import {regexFilter} from "../charts/filters/regexFilter"
 import {OutlierPlotHtmlTooltipContent} from "../charts/tooltips/OutlierPlotHtmlTooltipContent.tsx";
 import {Toggle, ToggleStatus} from "../ui/Toggle.tsx";
+import {INTERPOLATIONS} from "./interpolations.ts";
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
 const MEASURES = [0.68, 0.95, 0.997] as const
@@ -82,16 +83,6 @@ function lastTimeIn(seriesList: Array<OutlierSeries<Measures>>): number {
 function freshCopyOf(template: Array<OutlierSeries<Measures>>): Array<OutlierSeries<Measures>> {
     return template.map(series => outlierSeriesFrom(series.name, series.data.slice(), series.measures, series.measureDescriptions))
 }
-
-const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
-    ['curveLinear', ['Linear', d3.curveLinear]],
-    ['curveNatural', ['Natural', d3.curveNatural]],
-    ['curveMonotoneX', ['Monotone', d3.curveMonotoneX]],
-    ['curveStep', ['Step', d3.curveStep]],
-    ['curveStepAfter', ['Step After', d3.curveStepAfter]],
-    ['curveStepBefore', ['Step Before', d3.curveStepBefore]],
-    ['curveBumpX', ['Bump', d3.curveBumpX]],
-])
 
 interface Props {
     theme?: Theme
