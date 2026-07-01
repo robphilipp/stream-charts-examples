@@ -42,6 +42,7 @@ import {INTERPOLATIONS} from "./interpolations.ts";
 import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
+import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 
 const initialVisibility = createInitialVisibility()
 
@@ -457,25 +458,11 @@ function ViewControls(props: ControlProps): JSX.Element {
                 labelColor={theme.color}
                 onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
             />
-            <label style={{color: theme.color}}><span style={{marginLeft: 10, paddingRight: 10}}>Interpolation</span>
-                <select
-                    name="interpolations"
-                    style={{
-                        backgroundColor: theme.backgroundColor,
-                        color: theme.color,
-                        borderColor: theme.color,
-                        padding: 5,
-                        borderRadius: 3,
-                        outlineStyle: 'none'
-                    }}
-                    onChange={event => handleInterpolationChange(event.currentTarget.value)}
-                    value={selectedInterpolationName}
-                >
-                    {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
-                        <option key={value} value={value}>{name}</option>
-                    ))}
-                </select>
-            </label>
+            <InterpolationControl
+                theme={theme}
+                selectedInterpolationName={selectedInterpolationName}
+                handleInterpolationChange={handleInterpolationChange}
+            />
             <Checkbox
                 key={3}
                 checked={visibility.legend}

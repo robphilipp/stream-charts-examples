@@ -34,6 +34,7 @@ import {regexFilter} from "../charts/filters/regexFilter"
 import {OutlierPlotHtmlTooltipContent} from "../charts/tooltips/OutlierPlotHtmlTooltipContent.tsx";
 import {Toggle, ToggleStatus} from "../ui/Toggle.tsx";
 import {INTERPOLATIONS} from "./interpolations.ts";
+import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
 const MEASURES = [0.68, 0.95, 0.997] as const
@@ -225,23 +226,11 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                     >
                         Clear
                     </Button>
-                    <select
-                        name="interpolations"
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            color: theme.color,
-                            borderColor: theme.color,
-                            padding: 5,
-                            borderRadius: 3,
-                            outlineStyle: 'none'
-                        }}
-                        onChange={event => handleInterpolationChange(event.currentTarget.value)}
-                        value={selectedInterpolationName}
-                    >
-                        {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
-                            <option key={value} value={value}>{name}</option>
-                        ))}
-                    </select>
+                    <InterpolationControl
+                        theme={theme}
+                        selectedInterpolationName={selectedInterpolationName}
+                        handleInterpolationChange={handleInterpolationChange}
+                    />
                     <Checkbox
                         checked={showMarkers}
                         label="markers"
