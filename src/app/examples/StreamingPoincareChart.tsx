@@ -30,11 +30,13 @@ import * as d3 from "d3";
 import {lightTheme, type Theme} from "../ui/Themes";
 import {Button} from "../ui/Button";
 import {buttonStyle} from "../ui/utils";
-import {NoCurveFactory} from "../charts/plots/constants";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 import {DEFAULT_DROP_AFTER, DROP_DATA_AFTER_SECONDS} from "./dropDataAfter.ts";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
+import {InterpolationControl} from "./controls/InterpolationControl.tsx";
+import {interpolationFactoryFor} from "./interpolations.ts";
+import {createInitialVisibility, type Visibility} from "./visibility.ts";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -53,41 +55,6 @@ import {DropDataControl} from "./controls/DropDataControl.tsx";
 //     Tracker,
 //     TrackerLabelLocation
 // } from "stream-charts";
-
-//
-// the interpolations for the lines drawn between each iterate point.
-// the "step-after" interpolations show a "cobweb" plot. the others
-// are there for fun
-//
-const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
-    ['curveLinear', ['Linear', d3.curveLinear]],
-    ['curveNatural', ['Natural', d3.curveNatural]],
-    ['curveMonotoneX', ['Monotone', d3.curveMonotoneX]],
-    ['curveStep', ['Step', d3.curveStep]],
-    ['curveStepAfter', ['Step After', d3.curveStepAfter]],
-    ['curveStepBefore', ['Step Before', d3.curveStepBefore]],
-    ['curveBumpX', ['Bump', d3.curveBumpX]],
-    ['curveNoLine', ['No Line', NoCurveFactory]],
-])
-
-/**
- * Returns a d3 curve-factory for generating the interpolations
- * @param name The name of the interpolation
- * @param [defaultFactory=d3.curveLinear] The default curve factory
- * @return A d3 curve-factory for generating the interpolations
- */
-function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory = d3.curveLinear): d3.CurveFactory {
-    return (INTERPOLATIONS.get(name) || [undefined, defaultFactory])[1]
-}
-
-// //
-// // policy for when to drop old data from long-running charts. recall that the data is
-// // streamed in at a specified interval, and so the data builds up over time.
-// //
-// const DROP_DATA_AFTER_SECONDS: Map<string, number> = new Map<string, number>([
-//     ['Drop after 10 s', 10000], ['Drop after 20 s', 20000], ['Drop after 50 s', 50000], ['Drop after 100 s', 100000], ['Keep All', Infinity]
-// ])
-// const DEFAULT_DROP_AFTER: [name: string, value: number] = Array.from(DROP_DATA_AFTER_SECONDS.entries())[1]
 
 //
 // By default, the iterates plot shows f[n](x) versus f[n+1](x). Generally, given a lag "m",
@@ -149,20 +116,7 @@ const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
 
 const DEFAULT_ITER_FUNC = Array.from(ITERATE_FUNCTIONS.entries())[0]
 
-//
-// styling information
-//
-interface Visibility {
-    tooltip: boolean;
-    tracker: boolean;
-    magnifier: boolean;
-}
-
-const initialVisibility: Visibility = {
-    tooltip: false,
-    tracker: false,
-    magnifier: false
-}
+const initialVisibility = createInitialVisibility()
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
@@ -204,7 +158,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveStepAfter')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => interpolationFactoryFor(selectedInterpolationName))
 
-    const [selectedDropAfterName, setSelectedDropAfterName] = useState<string>(DEFAULT_DROP_AFTER[0])
     const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER[1])
 
     const [selectedLagN, setSelectedLagN] = useState<string>(DEFAULT_LAG_N[0])
@@ -217,10 +170,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     // holds the iterate function input component as state, updating it when the iterate function
     // input generator changes (e.g. when the user selects a new iterate function
-    // const [iterFuncInput, setIterFuncInput] = useState<JSX.Element>(() => iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
-    // useEffect(() => {
-    //     setIterFuncInput(iterateFunctionInputGen((iterFn: IterateFunction) => setIterateFunction(() => iterFn), theme))
-    // }, [iterateFunctionInputGen, theme]);
     const iterFuncInput = useMemo(
         () => iterateFunctionInputGen(
             (iterFn: IterateFunction) => setIterateFunction(() => iterFn),
@@ -270,7 +219,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     function handleDropAfterChange(selectedDropAfterName: string): void {
         const dropAfter = DROP_DATA_AFTER_SECONDS.get(selectedDropAfterName) || Infinity
         setDropAfterMs(dropAfter)
-        setSelectedDropAfterName(selectedDropAfterName)
+        // setSelectedDropAfterName(selectedDropAfterName)
     }
 
     /**
@@ -401,26 +350,13 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <option key={name} value={name}>{name}</option>
                         ))}
                     </select>
-                    <select
-                        name="interpolations"
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            color: theme.color,
-                            borderColor: theme.color,
-                            padding: 5,
-                            borderRadius: 3,
-                            outlineStyle: 'none'
-                        }}
-                        onChange={event => handleInterpolationChange(event.currentTarget.value)}
-                        value={selectedInterpolationName}
-                    >
-                        {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
-                            <option key={value} value={value}>{name}</option>
-                        ))}
-                    </select>
+                    <InterpolationControl
+                        theme={theme}
+                        selectedInterpolationName={selectedInterpolationName}
+                        handleInterpolationChange={handleInterpolationChange}
+                    />
                     <DropDataControl
                         theme={theme}
-                        selectedDropAfterName={selectedDropAfterName}
                         handleDropAfterChange={handleDropAfterChange}
                         disabled={running}
                     />

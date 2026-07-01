@@ -9,3 +9,13 @@ export const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveStepBefore', ['Step Before', d3.curveStepBefore]],
     ['curveBumpX', ['Bump', d3.curveBumpX]],
 ])
+
+/**
+ * Returns a d3 curve-factory for generating the interpolations
+ * @param name The name of the interpolation
+ * @param [defaultFactory=d3.curveLinear] The default curve factory
+ * @return A d3 curve-factory for generating the interpolations
+ */
+export function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory = d3.curveLinear): d3.CurveFactory {
+    return (INTERPOLATIONS.get(name) || [undefined, defaultFactory])[1]
+}
