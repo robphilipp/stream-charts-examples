@@ -43,6 +43,7 @@ import {CommonControls} from "./controls/CommonControls.tsx";
 import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
+import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -116,9 +117,10 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
+    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER[1])
+
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
-    // const chartTimeRef = useRef<number>(0)
 
     const shouldShowExternalLegend = visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER
     const shouldRenderExternalLegend = legendLocation === LegendLocation.EXTERNAL_CONTAINER &&
@@ -255,6 +257,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                             isTrackerSelected={visibility.tracker}
                             onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                            handleDropAfterChange={setDropAfterMs}
                             lag={elapsed - chartTime}
                         />
                     </ExpandableControlBar>
@@ -410,7 +413,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         //     // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         // ])}
                         spikeMargin={1}
-                        dropDataAfter={50000}
+                        dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

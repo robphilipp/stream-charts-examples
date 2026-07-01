@@ -32,7 +32,7 @@ import {Button} from "../ui/Button";
 import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
-import {DEFAULT_DROP_AFTER, DROP_DATA_AFTER_SECONDS} from "./dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {interpolationFactoryFor} from "./interpolations.ts";
@@ -212,15 +212,15 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         setSelectedInterpolationName(selectedInterpolation)
     }
 
-    /**
-     * When the user changes the time after which to drop points that are older than that time
-     * @param selectedDropAfterName The name (in the select dropdown) representing the drop-after time
-     */
-    function handleDropAfterChange(selectedDropAfterName: string): void {
-        const dropAfter = DROP_DATA_AFTER_SECONDS.get(selectedDropAfterName) || Infinity
-        setDropAfterMs(dropAfter)
-        // setSelectedDropAfterName(selectedDropAfterName)
-    }
+    // /**
+    //  * When the user changes the time after which to drop points that are older than that time
+    //  * @param selectedDropAfterName The name (in the select dropdown) representing the drop-after time
+    //  */
+    // function handleDropAfterChange(selectedDropAfterName: string): void {
+    //     const dropAfter = DROP_DATA_AFTER_SECONDS.get(selectedDropAfterName) || Infinity
+    //     setDropAfterMs(dropAfter)
+    //     // setSelectedDropAfterName(selectedDropAfterName)
+    // }
 
     /**
      * The lag of the iterates plot (e.g. f[n](x) vs f[n+N](x), where N is the lag)
@@ -357,7 +357,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     />
                     <DropDataControl
                         theme={theme}
-                        handleDropAfterChange={handleDropAfterChange}
+                        handleDropAfterChange={setDropAfterMs}
                         disabled={running}
                     />
                     <span style={spanStyleFor(theme)}>

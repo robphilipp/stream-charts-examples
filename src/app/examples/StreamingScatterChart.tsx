@@ -43,6 +43,7 @@ import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
+import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
 
 const initialVisibility = createInitialVisibility()
 
@@ -91,6 +92,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
+
+    // drop data after
+    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER[1])
 
     // legend
     const legendContainerRef = useRef<HTMLDivElement>(null)
@@ -244,6 +248,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                             isTrackerSelected={visibility.tracker}
                             onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                            handleDropAfterChange={setDropAfterMs}
                             lag={elapsed - chartTime}
                         />
                     </ExpandableControlBar>
@@ -363,7 +368,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             ['Series 2', assignAxes("x-axis-2", "y-axis-2")],
                             ['Series 3', assignAxes("x-axis-2", "y-axis-1")],
                         ])}
-                        dropDataAfter={50000}
+                        dropDataAfter={dropAfterMs}
                         // dropDataAfter={3000000}
                         panEnabled={true}
                         zoomEnabled={true}

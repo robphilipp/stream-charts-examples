@@ -3,6 +3,7 @@ import type {Theme} from "../../ui/Themes.ts";
 import Checkbox from "../../ui/Checkbox.tsx";
 import {formatTime} from "stream-charts";
 import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";
+import {DropDataControl} from "./DropDataControl.tsx";
 
 const inputStyle = (theme: Theme): CSSProperties => ({
     backgroundColor: theme.backgroundColor,
@@ -31,6 +32,8 @@ type Props = {
     onTooltipClick: () => void
     isTrackerSelected: boolean
     onTrackerClick: () => void
+    //
+    handleDropAfterChange: (millis: number) => void
     // chart display lag
     lag: number
 }
@@ -45,6 +48,7 @@ export function CommonControls(props: Props): JSX.Element {
         onTooltipClick,
         isTrackerSelected,
         onTrackerClick,
+        handleDropAfterChange,
         lag,
     } = props
 
@@ -77,6 +81,11 @@ export function CommonControls(props: Props): JSX.Element {
             borderColor={theme.color}
             labelColor={theme.color}
             onChange={onTrackerClick}
+        />
+        <DropDataControl
+            theme={theme}
+            handleDropAfterChange={handleDropAfterChange}
+            disabled={running}
         />
         <div style={{color: theme.color, marginLeft: 10}}>
             Display Lag: {formatTime(Math.max(0, lag))} ms
