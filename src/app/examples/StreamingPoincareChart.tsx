@@ -33,6 +33,8 @@ import {buttonStyle} from "../ui/utils";
 import {NoCurveFactory} from "../charts/plots/constants";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
+import {DEFAULT_DROP_AFTER, DROP_DATA_AFTER_SECONDS} from "./dropDataAfter.ts";
+import {DropDataControl} from "./controls/DropDataControl.tsx";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -78,14 +80,14 @@ function interpolationFactoryFor(name: string, defaultFactory: d3.CurveFactory =
     return (INTERPOLATIONS.get(name) || [undefined, defaultFactory])[1]
 }
 
-//
-// policy for when to drop old data from long-running charts. recall that the data is
-// streamed in at a specified interval, and so the data builds up over time.
-//
-const DROP_DATA_AFTER_SECONDS: Map<string, number> = new Map<string, number>([
-    ['Drop after 10 s', 10000], ['Drop after 20 s', 20000], ['Drop after 50 s', 50000], ['Drop after 100 s', 100000], ['Keep All', Infinity]
-])
-const DEFAULT_DROP_AFTER: [name: string, value: number] = Array.from(DROP_DATA_AFTER_SECONDS.entries())[1]
+// //
+// // policy for when to drop old data from long-running charts. recall that the data is
+// // streamed in at a specified interval, and so the data builds up over time.
+// //
+// const DROP_DATA_AFTER_SECONDS: Map<string, number> = new Map<string, number>([
+//     ['Drop after 10 s', 10000], ['Drop after 20 s', 20000], ['Drop after 50 s', 50000], ['Drop after 100 s', 100000], ['Keep All', Infinity]
+// ])
+// const DEFAULT_DROP_AFTER: [name: string, value: number] = Array.from(DROP_DATA_AFTER_SECONDS.entries())[1]
 
 //
 // By default, the iterates plot shows f[n](x) versus f[n+1](x). Generally, given a lag "m",
@@ -416,24 +418,12 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <option key={value} value={value}>{name}</option>
                         ))}
                     </select>
-                    <select
-                        name="drop_after"
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            color: theme.color,
-                            borderColor: theme.color,
-                            padding: 5,
-                            borderRadius: 3,
-                            outlineStyle: 'none'
-                        }}
-                        onChange={event => handleDropAfterChange(event.currentTarget.value)}
-                        value={selectedDropAfterName}
+                    <DropDataControl
+                        theme={theme}
+                        selectedDropAfterName={selectedDropAfterName}
+                        handleDropAfterChange={handleDropAfterChange}
                         disabled={running}
-                    >
-                        {Array.from(DROP_DATA_AFTER_SECONDS.entries()).map(([name, ]) => (
-                            <option key={name} value={name}>{name}</option>
-                        ))}
-                    </select>
+                    />
                     <span style={spanStyleFor(theme)}>
                     <select
                         name="iterate_function"
