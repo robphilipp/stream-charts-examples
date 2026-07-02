@@ -1,23 +1,24 @@
-import {type CSSProperties, type JSX} from "react";
+import {type JSX} from "react";
 import type {Theme} from "../../ui/Themes.ts";
 import Checkbox from "../../ui/Checkbox.tsx";
-import {formatTime} from "stream-charts";
 import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";
 import {DropDataControl} from "./DropDataControl.tsx";
+import {SeriesFilter} from "./SeriesFilter.tsx";
+import {LagDisplay} from "./LagDisplay.tsx";
 
-const inputStyle = (theme: Theme): CSSProperties => ({
-    backgroundColor: theme.backgroundColor,
-    outlineStyle: 'none',
-    borderColor: theme.color,
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRadius: 3,
-    color: theme.color,
-    fontSize: 12,
-    padding: 4,
-    margin: 6,
-    marginRight: 20
-})
+// const inputStyle = (theme: Theme): CSSProperties => ({
+//     backgroundColor: theme.backgroundColor,
+//     outlineStyle: 'none',
+//     borderColor: theme.color,
+//     borderStyle: 'solid',
+//     borderWidth: 1,
+//     borderRadius: 3,
+//     color: theme.color,
+//     fontSize: 12,
+//     padding: 4,
+//     margin: 6,
+//     marginRight: 20
+// })
 
 type Props = {
     theme: Theme
@@ -53,15 +54,11 @@ export function CommonControls(props: Props): JSX.Element {
     } = props
 
     return (<div style={{display: 'flex', alignItems: 'flex-start', flexDirection: 'column', gap: 5}}>
-        <label style={{color: theme.color}}>
-            <input
-                type="text"
-                value={filterValue}
-                onChange={event => handleFilterUpdate(event.currentTarget.value)}
-                style={inputStyle(theme)}
-                placeholder="RegEx filter"
-            />
-        </label>
+        <SeriesFilter
+            theme={theme}
+            filterValue={filterValue}
+            handleFilterUpdate={handleFilterUpdate}
+        />
         <Checkbox
             key={1}
             checked={isTooltipSelected && !running}
@@ -87,8 +84,9 @@ export function CommonControls(props: Props): JSX.Element {
             handleDropAfterChange={handleDropAfterChange}
             disabled={running}
         />
-        <div style={{color: theme.color, marginLeft: 10}}>
-            Display Lag: {formatTime(Math.max(0, lag))} ms
-        </div>
+        <LagDisplay
+            theme={theme}
+            lag={lag}
+        />
     </div>)
 }

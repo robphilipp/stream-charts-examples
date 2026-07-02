@@ -253,9 +253,9 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         <CommonControls
                             theme={theme}
                             type="controls"
+                            running={running}
                             filterValue={filterValue}
                             handleFilterUpdate={handleUpdateRegex}
-                            running={running}
                             isTooltipSelected={visibility.tooltip}
                             onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                             isTrackerSelected={visibility.tracker}

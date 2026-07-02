@@ -1,0 +1,17 @@
+import {type JSX} from "react";
+import {formatTime} from "stream-charts";
+import type {Theme} from "../../ui/Themes.ts";
+
+type Props = {
+    theme: Theme
+    lag: number
+}
+
+export function LagDisplay(props: Props): JSX.Element {
+    const {theme, lag} = props;
+    return (
+        <div style={{color: theme.color, marginLeft: 10}}>
+            Update Lag: {formatTime(Math.max(0, lag))} ms
+        </div>
+    )
+}
