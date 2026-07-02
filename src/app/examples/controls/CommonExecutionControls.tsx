@@ -3,43 +3,24 @@ import type {Theme} from "../../ui/Themes.ts";
 import {Button} from "../../ui/Button.tsx";
 import {buttonStyle} from "../../ui/utils.ts";
 import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";
-import {
-    FilterIcon,
-    LagIcon, PauseIcon, PlayIcon, ResetIcon,
-    TooltipIcon,
-    TrackerIcon,
-} from "../../ui/Icons.tsx";
-
-type Status = {
-    isRunning: boolean
-    isFiltering?: boolean
-    isShowTooltip: boolean
-    isShowTracker: boolean
-    lag: number
-}
+import {PauseIcon, PlayIcon, ResetIcon,} from "../../ui/Icons.tsx";
 
 type Props = {
     theme: Theme
     type: ControlBarType
-    status: Status
+    isRunning: boolean
     onRunPauseClick: () => void
     onClearClick: () => void
+    children: JSX.Element | Array<JSX.Element>
 }
 
 export function CommonExecutionControls(props: Props): JSX.Element {
     const {
         theme,
+        isRunning,
         onRunPauseClick,
         onClearClick,
     } = props
-
-    const {
-        isRunning,
-        isFiltering,
-        isShowTooltip,
-        isShowTracker,
-        lag,
-    } = props.status
 
     return (<>
         <div style={{display: 'flex', alignItems: 'center', gap: 5}}>
@@ -58,10 +39,7 @@ export function CommonExecutionControls(props: Props): JSX.Element {
             >
                 Reset
             </Button>
-            <LagIcon color={lag > 0 ? theme.color : theme.disabledBackgroundColor} fill={lag > 0 ? "#c64646" : "none"}/>
-            <FilterIcon color={isFiltering ? theme.color : theme.disabledBackgroundColor}/>
-            <TooltipIcon color={isShowTooltip ? theme.color : theme.disabledBackgroundColor}/>
-            <TrackerIcon color={isShowTracker ? theme.color : theme.disabledBackgroundColor}/>
+            {props.children}
         </div>
     </>)
 }

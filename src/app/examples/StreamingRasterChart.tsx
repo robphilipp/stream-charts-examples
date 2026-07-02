@@ -44,6 +44,7 @@ import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
+import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -237,16 +238,18 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         <CommonExecutionControls
                             theme={theme}
                             type="header"
-                            status={{
-                                isRunning: running,
-                                isFiltering: filterValue.length > 0,
-                                isShowTooltip: visibility.tooltip,
-                                isShowTracker: visibility.tracker,
-                                lag: elapsed - chartTime
-                            }}
+                            isRunning={running}
                             onRunPauseClick={handleRunPauseClick}
                             onClearClick={handleClearClick}
-                        />
+                        >
+                            <LagIcon
+                                color={elapsed - chartTime > 0 ? theme.color : theme.disabledBackgroundColor}
+                                fill={elapsed - chartTime > 0 ? "#c64646" : "none"}
+                            />
+                            <FilterIcon color={filterValue.length > 0 ? theme.color : theme.disabledBackgroundColor}/>
+                            <TooltipIcon color={visibility.tooltip ? theme.color : theme.disabledBackgroundColor}/>
+                            <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
+                        </CommonExecutionControls>
                         <CommonControls
                             theme={theme}
                             type="controls"
