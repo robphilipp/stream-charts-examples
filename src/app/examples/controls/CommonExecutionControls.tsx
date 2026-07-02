@@ -3,11 +3,16 @@ import type {Theme} from "../../ui/Themes.ts";
 import {Button} from "../../ui/Button.tsx";
 import {buttonStyle} from "../../ui/utils.ts";
 import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";
-import {filterIcon, lagIcon, pauseIcon, playIcon, resetIcon, tooltipIcon, trackerIcon} from "../../ui/Icons.tsx";
+import {
+    FilterIcon,
+    LagIcon, PauseIcon, PlayIcon, ResetIcon,
+    TooltipIcon,
+    TrackerIcon,
+} from "../../ui/Icons.tsx";
 
 type Status = {
     isRunning: boolean
-    isFiltering: boolean
+    isFiltering?: boolean
     isShowTooltip: boolean
     isShowTracker: boolean
     lag: number
@@ -16,13 +21,12 @@ type Status = {
 type Props = {
     theme: Theme
     type: ControlBarType
-    // isRunning: boolean
     status: Status
     onRunPauseClick: () => void
     onClearClick: () => void
 }
 
-export function ExecutionControls(props: Props): JSX.Element {
+export function CommonExecutionControls(props: Props): JSX.Element {
     const {
         theme,
         onRunPauseClick,
@@ -42,22 +46,22 @@ export function ExecutionControls(props: Props): JSX.Element {
             <Button
                 style={{...buttonStyle(theme), width: 70}}
                 onClick={onRunPauseClick}
-                icon={color => isRunning ? pauseIcon(color) : playIcon(color)}
+                icon={color => isRunning ? <PauseIcon color={color}/> : <PlayIcon color={color}/>}
             >
                 {isRunning ? "Pause" : "Run"}
             </Button>
             <Button
                 style={{...buttonStyle(theme), width: 70}}
                 onClick={onClearClick}
-                icon={color => resetIcon(color)}
+                icon={color => <ResetIcon color={color}/>}
                 disabled={isRunning}
             >
                 Reset
             </Button>
-            {lag > 0 ? lagIcon(theme.color, "#c64646") : lagIcon(theme.disabledBackgroundColor)}
-            {isFiltering ? filterIcon(theme.color) : filterIcon(theme.disabledBackgroundColor)}
-            {isShowTooltip ? tooltipIcon(theme.color) : tooltipIcon(theme.disabledBackgroundColor)}
-            {isShowTracker ? trackerIcon(theme.color) : trackerIcon(theme.disabledBackgroundColor)}
+            <LagIcon color={lag > 0 ? theme.color : theme.disabledBackgroundColor} fill={lag > 0 ? "#c64646" : "none"}/>
+            <FilterIcon color={isFiltering ? theme.color : theme.disabledBackgroundColor}/>
+            <TooltipIcon color={isShowTooltip ? theme.color : theme.disabledBackgroundColor}/>
+            <TrackerIcon color={isShowTracker ? theme.color : theme.disabledBackgroundColor}/>
         </div>
     </>)
 }

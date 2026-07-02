@@ -37,7 +37,7 @@ import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 import {type ControlBarType, ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
 import {buttonStyle} from "../ui/utils.ts";
-import {ExecutionControls} from "./controls/ExecutionControls.tsx";
+import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {INTERPOLATIONS} from "./interpolations.ts";
 import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
@@ -225,7 +225,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         width={300}
                         minHeight={55}
                     >
-                        <ExecutionControls
+                        <CommonExecutionControls
                             theme={theme}
                             type="header"
                             status={{

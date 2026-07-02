@@ -1,5 +1,5 @@
 import {type CSSProperties, type JSX, useLayoutEffect, useRef, useState} from "react";
-import {expandedIcon, collapsedIcon} from "./Icons.tsx";
+import {CollapsedIcon, ExpandedIcon} from "./Icons.tsx";
 
 export type ControlBarType = 'header' | 'controls'
 
@@ -77,7 +77,10 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                 padding: 6,
                 minWidth: 0,
             }}>
-                <div>{expanded ? expandedIcon(borderColor) : collapsedIcon(borderColor)}</div>
+                <div>{expanded ?
+                    <ExpandedIcon color={borderColor}/> :
+                    <CollapsedIcon color={borderColor}/>
+                }</div>
                 {sortedChildren.header}
             </div>
             <div style={{

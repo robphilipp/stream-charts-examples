@@ -38,7 +38,7 @@ import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {LegendLocation} from "../charts/legends/constants";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 import {type ControlBarType, ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
-import {ExecutionControls} from "./controls/ExecutionControls.tsx";
+import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
 import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
@@ -234,7 +234,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         width={300}
                         minHeight={55}
                     >
-                        <ExecutionControls
+                        <CommonExecutionControls
                             theme={theme}
                             type="header"
                             status={{

@@ -268,6 +268,19 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         setChartTime(time)
     }
 
+    // function handleRunPauseClick(): void {
+    //     if (!running) {
+    //         observableRef.current = randomDataObservable(initialData)
+    //         startTimeRef.current = new Date().valueOf()
+    //         setElapsed(0)
+    //         intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
+    //     } else {
+    //         if (intervalRef.current) clearInterval(intervalRef.current)
+    //         intervalRef.current = undefined
+    //     }
+    //     setRunning(!running)
+    // }
+
     return (
         <Grid
             dimensionsSupplier={useGridCell}
@@ -287,7 +300,56 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
             styles={{color: '#d2933f'}}
         >
             <GridItem gridAreaName="chart-controls">
-                <div>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: 8,
+                    alignItems: 'flex-start',
+                    width: '100%',
+                    minWidth: 0,
+                    overflowX: 'auto',
+                    overflowY: 'visible',
+                    scrollbarWidth: 'thin',
+                    padding: '12px 28px 20px 28px',
+                    marginTop: '-12px',
+                    boxSizing: 'border-box',
+                }}>
+                    {/*<ExpandableControlBar*/}
+                    {/*    expandButtonStyle={buttonStyle(theme)}*/}
+                    {/*    backgroundColor={theme.backgroundColor}*/}
+                    {/*    borderColor={theme.disabledBackgroundColor}*/}
+                    {/*    borderRadius={10}*/}
+                    {/*    width={300}*/}
+                    {/*    minHeight={55}*/}
+                    {/*>*/}
+                    {/*    <ExecutionControls*/}
+                    {/*        theme={theme}*/}
+                    {/*        type="header"*/}
+                    {/*        status={{*/}
+                    {/*            isRunning: running,*/}
+                    {/*            isFiltering: filterValue.length > 0,*/}
+                    {/*            isShowTooltip: visibility.tooltip,*/}
+                    {/*            isShowTracker: visibility.tracker,*/}
+                    {/*            lag: elapsed - chartTime*/}
+                    {/*        }}*/}
+                    {/*        onRunPauseClick={handleRunPauseClick}*/}
+                    {/*        onClearClick={handleClearChart}*/}
+                    {/*    />*/}
+                    {/*    <CommonControls*/}
+                    {/*        theme={theme}*/}
+                    {/*        type="controls"*/}
+                    {/*        filterValue={filterValue}*/}
+                    {/*        handleFilterUpdate={handleUpdateRegex}*/}
+                    {/*        running={running}*/}
+                    {/*        isTooltipSelected={visibility.tooltip}*/}
+                    {/*        onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}*/}
+                    {/*        isTrackerSelected={visibility.tracker}*/}
+                    {/*        onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}*/}
+                    {/*        handleDropAfterChange={setDropAfterMs}*/}
+                    {/*        lag={elapsed - chartTime}*/}
+                    {/*    />*/}
+                    {/*</ExpandableControlBar>*/}
+
                     <Button
                         style={buttonStyle(theme)}
                         onClick={() => {

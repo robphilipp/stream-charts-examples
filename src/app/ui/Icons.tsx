@@ -1,6 +1,7 @@
 import {type JSX} from "react";
 
-export function forwardIcon(color: string): JSX.Element {
+export function ForwardIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -15,7 +16,8 @@ export function forwardIcon(color: string): JSX.Element {
     )
 }
 
-export function lastIcon(color: string): JSX.Element {
+export function LastIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -40,7 +42,8 @@ export function lastIcon(color: string): JSX.Element {
     )
 }
 
-export function backIcon(color: string): JSX.Element {
+export function BackIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -55,7 +58,8 @@ export function backIcon(color: string): JSX.Element {
     )
 }
 
-export function firstIcon(color: string): JSX.Element {
+export function FirstIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -80,7 +84,8 @@ export function firstIcon(color: string): JSX.Element {
     )
 }
 
-export function playIcon(color: string): JSX.Element {
+export function PlayIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="16" height="16" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -95,7 +100,8 @@ export function playIcon(color: string): JSX.Element {
     )
 }
 
-export function pauseIcon(color: string): JSX.Element {
+export function PauseIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="16" height="16" style={{display: 'block', flexShrink: 0}}>
             <line
@@ -122,7 +128,8 @@ export function pauseIcon(color: string): JSX.Element {
     )
 }
 
-export function resetIcon(color: string): JSX.Element {
+export function ResetIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="16" height="16" style={{display: 'block', flexShrink: 0}}>
             <defs>
@@ -142,7 +149,8 @@ export function resetIcon(color: string): JSX.Element {
 }
 
 
-export function expandedIcon(color: string): JSX.Element {
+export function ExpandedIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -167,7 +175,8 @@ export function expandedIcon(color: string): JSX.Element {
     )
 }
 
-export function collapsedIcon(color: string): JSX.Element {
+export function CollapsedIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -192,7 +201,8 @@ export function collapsedIcon(color: string): JSX.Element {
     )
 }
 
-export function lagIcon(color: string, fill: string = "none"): JSX.Element {
+export function LagIcon(props: { color: string, fill: string }): JSX.Element {
+    const {color, fill = "none"} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <circle cx="7.5" cy="7.5" r="6" fill={fill} stroke={color} strokeWidth={2}/>
@@ -202,7 +212,8 @@ export function lagIcon(color: string, fill: string = "none"): JSX.Element {
     )
 }
 
-export function filterIcon(color: string): JSX.Element {
+export function FilterIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
@@ -217,7 +228,8 @@ export function filterIcon(color: string): JSX.Element {
     )
 }
 
-export function tooltipIcon(color: string): JSX.Element {
+export function TooltipIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <rect width="15" height="10" rx={3} ry={3} strokeWidth={1} stroke={color} fill="none"/>
@@ -254,7 +266,8 @@ export function tooltipIcon(color: string): JSX.Element {
     )
 }
 
-export function trackerIcon(color: string): JSX.Element {
+export function TrackerIcon(props: { color: string }): JSX.Element {
+    const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <path
