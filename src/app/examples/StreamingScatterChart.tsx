@@ -43,7 +43,7 @@ import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
-import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
+import {FilterIcon, InterpolationIcon, LagIcon, MarkersIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
@@ -225,7 +225,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.disabledBackgroundColor}
                         borderRadius={10}
-                        width={300}
+                        width={350}
                         minHeight={55}
                     >
                         <CommonExecutionControls
@@ -242,6 +242,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             <FilterIcon color={filterValue.length > 0 ? theme.color : theme.disabledBackgroundColor}/>
                             <TooltipIcon color={visibility.tooltip ? theme.color : theme.disabledBackgroundColor}/>
                             <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
+                            <MarkersIcon color={visibility.markers ? theme.color : theme.disabledBackgroundColor}/>
+                            <InterpolationIcon color={selectedInterpolationName === "curveLinear" ? theme.disabledBackgroundColor : theme.color}/>
                         </CommonExecutionControls>
                         <CommonControls>
                             <DropDataControl

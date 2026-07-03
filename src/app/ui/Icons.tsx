@@ -292,3 +292,24 @@ export function TrackerIcon(props: { color: string }): JSX.Element {
         </svg>
     )
 }
+
+export function MarkersIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
+            <polyline points="0,15 1,12 3,10 12,4 14,2 15,0" fill="none" stroke={color} strokeWidth={2}/>
+            <circle cx={7.5} cy={7} r={3} fill={color} stroke={color}/>
+        </svg>
+    )
+}
+
+export function InterpolationIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <svg width="16" height="16" style={{display: 'block', flexShrink: 0}}>
+            <polyline points="4,12 12,4" fill="none" stroke={color} strokeWidth={2}/>
+            <circle cx={4} cy={12} r={3} stroke={color} fill={color}/>
+            <circle cx={12} cy={4} r={3} stroke={color} fill={color}/>
+        </svg>
+    )
+}
