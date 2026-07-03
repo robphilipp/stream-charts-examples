@@ -95,7 +95,7 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                 minWidth: 0,
             }}>
                 <Button
-                    style={{border: 'none'}}
+                    style={{border: 'none', backgroundColor}}
                     onClick={() => expanded ? setExpanded(false) : setExpanded(true)}
                     icon={() => expanded ?
                         <ExpandedIcon color={expandButtonColor}/> :
