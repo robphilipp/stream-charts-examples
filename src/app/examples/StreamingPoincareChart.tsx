@@ -331,7 +331,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.disabledBackgroundColor}
                         borderRadius={10}
-                        width={300}
                         minHeight={55}
                     >
                         <CommonExecutionControls

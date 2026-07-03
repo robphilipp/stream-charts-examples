@@ -225,7 +225,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         backgroundColor={theme.backgroundColor}
                         borderColor={theme.disabledBackgroundColor}
                         borderRadius={10}
-                        width={350}
                         minHeight={55}
                     >
                         <CommonExecutionControls

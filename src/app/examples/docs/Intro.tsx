@@ -18,7 +18,7 @@ import rehypeRaw from 'rehype-raw';
 import {buttonStyle, interpolateColor} from "../../ui/utils.ts";
 import {useGridCell} from "react-resizable-grid-layout";
 import {FloatingBar} from "../../ui/FloatingBar.tsx";
-import {BackIcon, ForwardIcon, LastIcon} from "../../ui/Icons.tsx";
+import {BackIcon, FirstIcon, ForwardIcon, LastIcon} from "../../ui/Icons.tsx";
 
 const pages = [intro_page, contents, anatomy_of_example_page]
 
@@ -108,7 +108,7 @@ function Navigation(props: NavigationProps): JSX.Element {
             <Button
                 style={style}
                 onClick={() => updatePageNum(0)} disabled={pageNum === 0 || numPages <= 1}
-                icon={color => <LastIcon color={color}/>}
+                icon={color => <FirstIcon color={color}/>}
             >
                 First
             </Button>

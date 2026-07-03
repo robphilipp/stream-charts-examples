@@ -91,7 +91,7 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                 flexWrap: 'nowrap',
                 alignItems: 'center',
                 gap: 8,
-                padding: 6,
+                padding: '6px 16px 6px 6px',
                 minWidth: 0,
             }}>
                 <Button
