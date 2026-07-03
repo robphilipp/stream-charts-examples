@@ -388,9 +388,9 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <select
                                 name="lagN"
                                 style={{
-                                    backgroundColor: theme.backgroundColor,
-                                    color: theme.color,
-                                    borderColor: theme.color,
+                                    backgroundColor: running ? theme.disabledBackgroundColor : theme.backgroundColor,
+                                    color: running ? theme.disabledColor : theme.color,
+                                    borderColor: running ? theme.disabledColor : theme.color,
                                     padding: 5,
                                     borderRadius: 3,
                                     outlineStyle: 'none'
@@ -407,9 +407,9 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <select
                                 name="iterate_function"
                                 style={{
-                                    backgroundColor: theme.backgroundColor,
-                                    color: theme.color,
-                                    borderColor: theme.color,
+                                    backgroundColor: running ? theme.disabledBackgroundColor : theme.backgroundColor,
+                                    color: running ? theme.disabledColor : theme.color,
+                                    borderColor: running ? theme.disabledColor : theme.color,
                                     padding: 5,
                                     borderRadius: 3,
                                     outlineStyle: 'none'
@@ -459,7 +459,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         }],
                     ])}
                     initialData={initialDataRef.current}
-                    // seriesFilter={filter}
                     seriesObservable={observableRef.current}
                     shouldSubscribe={running}
                     onUpdateChartTime={handleChartTimeUpdate}
