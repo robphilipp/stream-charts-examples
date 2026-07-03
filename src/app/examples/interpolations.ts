@@ -1,4 +1,5 @@
 import * as d3 from "d3";
+import {NoCurveFactory} from "stream-charts";
 
 export const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveLinear', ['Linear', d3.curveLinear]],
@@ -8,6 +9,7 @@ export const INTERPOLATIONS = new Map<string, [string, d3.CurveFactory]>([
     ['curveStepAfter', ['Step After', d3.curveStepAfter]],
     ['curveStepBefore', ['Step Before', d3.curveStepBefore]],
     ['curveBumpX', ['Bump', d3.curveBumpX]],
+    ['curveNoLine', ['No Line', NoCurveFactory]],
 ])
 
 /**
