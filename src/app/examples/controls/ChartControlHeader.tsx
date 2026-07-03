@@ -7,7 +7,7 @@ type Props = {
     theme: Theme
 }
 
-export function ViewControlsHeader(props: Props): JSX.Element {
+export function ChartControlsHeader(props: Props): JSX.Element {
     return (
         <div
             style={{

@@ -37,14 +37,18 @@ import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {LegendLocation} from "../charts/legends/constants";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
-import {type ControlBarType, ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
+import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
-import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
+import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
 import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
+import {SeriesFilter} from "./controls/SeriesFilter.tsx";
+import {DropDataControl} from "./controls/DropDataControl.tsx";
+import {LagDisplay} from "./controls/LagDisplay.tsx";
+import {ChartControls} from "./controls/ChartControls.tsx";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -250,19 +254,42 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             <TooltipIcon color={visibility.tooltip ? theme.color : theme.disabledBackgroundColor}/>
                             <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
                         </CommonExecutionControls>
-                        <CommonControls
-                            theme={theme}
-                            type="controls"
-                            running={running}
-                            filterValue={filterValue}
-                            handleFilterUpdate={handleUpdateRegex}
-                            isTooltipSelected={visibility.tooltip}
-                            onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
-                            isTrackerSelected={visibility.tracker}
-                            onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}
-                            handleDropAfterChange={setDropAfterMs}
-                            lag={elapsed - chartTime}
-                        />
+                        <CommonControls>
+                            <SeriesFilter
+                                theme={theme}
+                                filterValue={filterValue}
+                                handleFilterUpdate={handleUpdateRegex}
+                            />
+                            <Checkbox
+                                key={1}
+                                checked={visibility.tooltip && !running}
+                                disabled={running}
+                                label="tooltip"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                            />
+                            <Checkbox
+                                key={2}
+                                checked={visibility.tracker && !running}
+                                disabled={running}
+                                label="tracker"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                            />
+                            <DropDataControl
+                                theme={theme}
+                                handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <LagDisplay
+                                theme={theme}
+                                lag={elapsed - chartTime}
+                            />
+                        </CommonControls>
                     </ExpandableControlBar>
                     <ExpandableControlBar
                         expandButtonStyle={buttonStyle(theme)}
@@ -272,15 +299,16 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         width={300}
                         minHeight={55}
                     >
-                        <ViewControlsHeader type="header" theme={theme}/>
-                        <ViewControls
-                            type="controls"
-                            theme={theme}
-                            visibility={visibility}
-                            setVisibility={setVisibility}
-                            legendLocation={legendLocation}
-                            setLegendLocation={setLegendLocation}
-                        />
+                        <ChartControlsHeader type="header" theme={theme}/>
+                        <ChartControls type="controls">
+                            <LegendControl
+                                theme={theme}
+                                visibility={visibility.legend}
+                                setVisibility={visible => setVisibility({...visibility, legend: visible})}
+                                legendLocation={legendLocation}
+                                setLegendLocation={setLegendLocation}
+                            />
+                        </ChartControls>
                     </ExpandableControlBar>
 
                 </div>
@@ -464,48 +492,47 @@ function highlightLinewidthFor(name: string): number {
     return 3
 }
 
-type ControlProps = {
-    type: ControlBarType
-    theme: Theme
-    visibility: Visibility
-    setVisibility: (visibility: Visibility) => void
-    legendLocation: LegendLocation
-    setLegendLocation: (location: LegendLocation) => void
-}
-
-function ViewControls(props: ControlProps): JSX.Element {
-    const {
-        theme,
-        visibility,
-        setVisibility,
-        legendLocation,
-        setLegendLocation
-    } = props
-
-    return (
-        <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            flexDirection: 'column',
-            gap: 10,
-            paddingTop: 10
-        }}>
-            <Checkbox
-                key={3}
-                checked={visibility.legend}
-                label="legend"
-                backgroundColor={theme.backgroundColor}
-                borderColor={theme.color}
-                labelColor={theme.color}
-                onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
-            />
-            <LegendControl
-                theme={theme}
-                visibility={visibility}
-                legendLocation={legendLocation}
-                setLegendLocation={setLegendLocation}
-            />
-
-        </div>
-    )
-}
+// type ControlProps = {
+//     type: ControlBarType
+//     theme: Theme
+//     visibility: Visibility
+//     setVisibility: (visibility: Visibility) => void
+//     legendLocation: LegendLocation
+//     setLegendLocation: (location: LegendLocation) => void
+// }
+//
+// function ChartControls(props: ControlProps): JSX.Element {
+//     const {
+//         theme,
+//         visibility,
+//         setVisibility,
+//         legendLocation,
+//         setLegendLocation
+//     } = props
+//
+//     return (
+//         <div style={{
+//             display: 'flex',
+//             alignItems: 'flex-start',
+//             flexDirection: 'column',
+//             gap: 10,
+//             paddingTop: 10
+//         }}>
+//             <Checkbox
+//                 key={3}
+//                 checked={visibility.legend}
+//                 label="legend"
+//                 backgroundColor={theme.backgroundColor}
+//                 borderColor={theme.color}
+//                 labelColor={theme.color}
+//                 onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
+//             />
+//             <LegendControl
+//                 theme={theme}
+//                 visibility={visibility}
+//                 legendLocation={legendLocation}
+//                 setLegendLocation={setLegendLocation}
+//             />
+//         </div>
+//     )
+// }

@@ -42,8 +42,8 @@ export default function Checkbox(props: Props): JSX.Element {
         textSpacing = 6,
         marginTop = 0,
         marginBottom = 0,
-        marginLeft = 10,
-        marginRight = 10,
+        marginLeft = 0,
+        marginRight = 0,
         disabled = false,
     } = props;
 

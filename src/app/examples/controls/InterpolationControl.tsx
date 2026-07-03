@@ -16,7 +16,7 @@ export function InterpolationControl(props: Props): JSX.Element {
     } = props
 
     return (
-        <label style={{color: theme.color}}><span style={{marginLeft: 10, paddingRight: 10}}>Interpolation</span>
+        <label style={{color: theme.color}}><span style={{paddingRight: 10}}>Interpolation</span>
             <select
                 name="interpolations"
                 style={{

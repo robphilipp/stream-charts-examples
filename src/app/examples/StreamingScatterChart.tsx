@@ -34,17 +34,21 @@ import {AxisInterval} from "stream-charts";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {LegendLocation} from "../charts/legends/constants";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
-import {type ControlBarType, ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
+import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
 import {buttonStyle} from "../ui/utils.ts";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {INTERPOLATIONS} from "./interpolations.ts";
-import {ViewControlsHeader} from "./controls/ViewControlHeader.tsx";
+import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
 import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
+import {SeriesFilter} from "./controls/SeriesFilter.tsx";
+import {DropDataControl} from "./controls/DropDataControl.tsx";
+import {LagDisplay} from "./controls/LagDisplay.tsx";
+import {ChartControls} from "./controls/ChartControls.tsx";
 
 const initialVisibility = createInitialVisibility()
 
@@ -240,19 +244,42 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             <TooltipIcon color={visibility.tooltip ? theme.color : theme.disabledBackgroundColor}/>
                             <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
                         </CommonExecutionControls>
-                        <CommonControls
-                            theme={theme}
-                            type="controls"
-                            filterValue={filterValue}
-                            handleFilterUpdate={handleUpdateRegex}
-                            running={running}
-                            isTooltipSelected={visibility.tooltip}
-                            onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
-                            isTrackerSelected={visibility.tracker}
-                            onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}
-                            handleDropAfterChange={setDropAfterMs}
-                            lag={elapsed - chartTime}
-                        />
+                        <CommonControls>
+                            <DropDataControl
+                                theme={theme}
+                                handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <LagDisplay
+                                theme={theme}
+                                lag={elapsed - chartTime}
+                            />
+                            <SeriesFilter
+                                theme={theme}
+                                filterValue={filterValue}
+                                handleFilterUpdate={handleUpdateRegex}
+                            />
+                            <Checkbox
+                                key={1}
+                                checked={visibility.tooltip && !running}
+                                disabled={running}
+                                label="tooltip"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                            />
+                            <Checkbox
+                                key={2}
+                                checked={visibility.tracker && !running}
+                                disabled={running}
+                                label="tracker"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                            />
+                        </CommonControls>
                     </ExpandableControlBar>
                     <ExpandableControlBar
                         expandButtonStyle={buttonStyle(theme)}
@@ -262,18 +289,31 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         width={300}
                         minHeight={55}
                     >
-                        <ViewControlsHeader type="header" theme={theme}/>
-                        <ViewControls
-                            type="controls"
-                            theme={theme}
-                            running={running}
-                            visibility={visibility}
-                            setVisibility={setVisibility}
-                            selectedInterpolationName={selectedInterpolationName}
-                            handleInterpolationChange={handleInterpolationChange}
-                            legendLocation={legendLocation}
-                            setLegendLocation={setLegendLocation}
-                        />
+                        <ChartControlsHeader type="header" theme={theme}/>
+                        <ChartControls type="controls">
+                            <Checkbox
+                                key={5}
+                                checked={visibility.markers}
+                                disabled={running}
+                                label="markers"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
+                            />
+                            <InterpolationControl
+                                theme={theme}
+                                selectedInterpolationName={selectedInterpolationName}
+                                handleInterpolationChange={handleInterpolationChange}
+                            />
+                            <LegendControl
+                                theme={theme}
+                                visibility={visibility.legend}
+                                setVisibility={visible => setVisibility({...visibility, legend: visible})}
+                                legendLocation={legendLocation}
+                                setLegendLocation={setLegendLocation}
+                            />
+                        </ChartControls>
                     </ExpandableControlBar>
                 </div>
             </GridItem>
@@ -419,72 +459,4 @@ function highlightLinewidthFor(name: string): number {
     if (name === 'Series 2' || name === 'Series 3') return 5
 
     return 3
-}
-
-type ControlProps = {
-    type: ControlBarType
-    theme: Theme
-    running: boolean
-    visibility: Visibility
-    setVisibility: (visibility: Visibility) => void
-
-    selectedInterpolationName: string
-    handleInterpolationChange: (selected: string) => void
-
-    legendLocation: LegendLocation
-    setLegendLocation: (location: LegendLocation) => void
-}
-
-function ViewControls(props: ControlProps): JSX.Element {
-    const {
-        theme,
-        running,
-        visibility,
-        setVisibility,
-        selectedInterpolationName,
-        handleInterpolationChange,
-        legendLocation,
-        setLegendLocation
-    } = props
-
-    return (
-        <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            flexDirection: 'column',
-            gap: 10,
-            paddingTop: 10
-        }}>
-            <Checkbox
-                key={5}
-                checked={visibility.markers}
-                disabled={running}
-                label="markers"
-                backgroundColor={theme.backgroundColor}
-                borderColor={theme.color}
-                labelColor={theme.color}
-                onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
-            />
-            <InterpolationControl
-                theme={theme}
-                selectedInterpolationName={selectedInterpolationName}
-                handleInterpolationChange={handleInterpolationChange}
-            />
-            <Checkbox
-                key={3}
-                checked={visibility.legend}
-                label="legend"
-                backgroundColor={theme.backgroundColor}
-                borderColor={theme.color}
-                labelColor={theme.color}
-                onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
-            />
-            <LegendControl
-                theme={theme}
-                visibility={visibility}
-                legendLocation={legendLocation}
-                setLegendLocation={setLegendLocation}
-            />
-        </div>
-    )
 }

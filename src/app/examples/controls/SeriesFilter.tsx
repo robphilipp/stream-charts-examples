@@ -11,8 +11,7 @@ const inputStyle = (theme: Theme): CSSProperties => ({
     color: theme.color,
     fontSize: 12,
     padding: 4,
-    margin: 6,
-    marginRight: 20
+    height: 20,
 })
 
 type Props = {

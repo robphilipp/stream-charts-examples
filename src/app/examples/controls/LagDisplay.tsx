@@ -10,7 +10,7 @@ type Props = {
 export function LagDisplay(props: Props): JSX.Element {
     const {theme, lag} = props;
     return (
-        <div style={{color: theme.color, marginLeft: 10}}>
+        <div style={{color: theme.color}}>
             Update Lag: {formatTime(Math.max(0, lag))} ms
         </div>
     )

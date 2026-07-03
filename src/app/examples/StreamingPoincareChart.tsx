@@ -28,7 +28,6 @@ import {PoincarePlot} from "../charts/plots/PoincarePlot";
 import {type IterateChartData, iteratesObservable} from "../charts/observables/iterates";
 import * as d3 from "d3";
 import {lightTheme, type Theme} from "../ui/Themes";
-import {Button} from "../ui/Button";
 import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
@@ -37,6 +36,11 @@ import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {interpolationFactoryFor} from "./interpolations.ts";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
+import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
+import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
+import {LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
+import {CommonControls} from "./controls/CommonControls.tsx";
+import {LagDisplay} from "./controls/LagDisplay.tsx";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -268,18 +272,18 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         setChartTime(time)
     }
 
-    // function handleRunPauseClick(): void {
-    //     if (!running) {
-    //         observableRef.current = randomDataObservable(initialData)
-    //         startTimeRef.current = new Date().valueOf()
-    //         setElapsed(0)
-    //         intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
-    //     } else {
-    //         if (intervalRef.current) clearInterval(intervalRef.current)
-    //         intervalRef.current = undefined
-    //     }
-    //     setRunning(!running)
-    // }
+    function handleRunPauseClick(): void {
+        if (!running) {
+            observableRef.current = randomDataObservable(initialData)
+            startTimeRef.current = new Date().valueOf()
+            setElapsed(0)
+            intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
+        } else {
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            intervalRef.current = undefined
+        }
+        setRunning(!running)
+    }
 
     return (
         <Grid
@@ -314,86 +318,60 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     marginTop: '-12px',
                     boxSizing: 'border-box',
                 }}>
-                    {/*<ExpandableControlBar*/}
-                    {/*    expandButtonStyle={buttonStyle(theme)}*/}
-                    {/*    backgroundColor={theme.backgroundColor}*/}
-                    {/*    borderColor={theme.disabledBackgroundColor}*/}
-                    {/*    borderRadius={10}*/}
-                    {/*    width={300}*/}
-                    {/*    minHeight={55}*/}
-                    {/*>*/}
-                    {/*    <ExecutionControls*/}
-                    {/*        theme={theme}*/}
-                    {/*        type="header"*/}
-                    {/*        status={{*/}
-                    {/*            isRunning: running,*/}
-                    {/*            isFiltering: filterValue.length > 0,*/}
-                    {/*            isShowTooltip: visibility.tooltip,*/}
-                    {/*            isShowTracker: visibility.tracker,*/}
-                    {/*            lag: elapsed - chartTime*/}
-                    {/*        }}*/}
-                    {/*        onRunPauseClick={handleRunPauseClick}*/}
-                    {/*        onClearClick={handleClearChart}*/}
-                    {/*    />*/}
-                    {/*    <CommonControls*/}
-                    {/*        theme={theme}*/}
-                    {/*        type="controls"*/}
-                    {/*        filterValue={filterValue}*/}
-                    {/*        handleFilterUpdate={handleUpdateRegex}*/}
-                    {/*        running={running}*/}
-                    {/*        isTooltipSelected={visibility.tooltip}*/}
-                    {/*        onTooltipClick={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}*/}
-                    {/*        isTrackerSelected={visibility.tracker}*/}
-                    {/*        onTrackerClick={() => setVisibility({...visibility, tracker: !visibility.tracker})}*/}
-                    {/*        handleDropAfterChange={setDropAfterMs}*/}
-                    {/*        lag={elapsed - chartTime}*/}
-                    {/*    />*/}
-                    {/*</ExpandableControlBar>*/}
-
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={() => {
-                            if (!running) {
-                                observableRef.current = randomDataObservable(initialData)
-                                startTimeRef.current = new Date().valueOf()
-                                setElapsed(0)
-                                intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
-                            } else {
-                                if (intervalRef.current) clearInterval(intervalRef.current)
-                                intervalRef.current = undefined
-                            }
-                            setRunning(!running)
-                        }}
-                    >
-                        {running ? "Pause" : "Run"}
-                    </Button>
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={handleClearChart}
-                        disabled={running}
-                    >
-                        Clear
-                    </Button>
-                    <Checkbox
-                        key={1}
-                        checked={visibility.tooltip && !running}
-                        disabled={running}
-                        label="tooltip"
+                    <ExpandableControlBar
+                        expandButtonStyle={buttonStyle(theme)}
                         backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
-                    />
-                    <Checkbox
-                        key={2}
-                        checked={visibility.tracker && !running}
-                        disabled={running}
-                        label="tracker"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
-                    />
+                        borderColor={theme.disabledBackgroundColor}
+                        borderRadius={10}
+                        width={300}
+                        minHeight={55}
+                    >
+                        <CommonExecutionControls
+                            theme={theme}
+                            type="header"
+                            isRunning={running}
+                            onRunPauseClick={handleRunPauseClick}
+                            onClearClick={handleClearChart}
+                        >
+                            <LagIcon
+                                color={elapsed - chartTime > 0 ? theme.color : theme.disabledBackgroundColor}
+                                fill={elapsed - chartTime > 0 ? "#c64646" : "none"}
+                            />
+                            <TooltipIcon color={visibility.tooltip ? theme.color : theme.disabledBackgroundColor}/>
+                            <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
+                        </CommonExecutionControls>
+                        <CommonControls>
+                            <Checkbox
+                                key={1}
+                                checked={visibility.tooltip && !running}
+                                disabled={running}
+                                label="tooltip"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                            />
+                            <Checkbox
+                                key={2}
+                                checked={visibility.tracker && !running}
+                                disabled={running}
+                                label="tracker"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                            />
+                            <DropDataControl
+                                theme={theme}
+                                handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <LagDisplay
+                                theme={theme}
+                                lag={elapsed - chartTime}
+                            />
+                        </CommonControls>
+                    </ExpandableControlBar>
                     <select
                         name="lagN"
                         style={{
@@ -416,11 +394,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         theme={theme}
                         selectedInterpolationName={selectedInterpolationName}
                         handleInterpolationChange={handleInterpolationChange}
-                    />
-                    <DropDataControl
-                        theme={theme}
-                        handleDropAfterChange={setDropAfterMs}
-                        disabled={running}
                     />
                     <span style={spanStyleFor(theme)}>
                     <select
