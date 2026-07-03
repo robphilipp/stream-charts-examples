@@ -40,7 +40,6 @@ import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
-import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
@@ -48,7 +47,7 @@ import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
-import {ChartControls} from "./controls/ChartControls.tsx";
+import {Divider} from "../ui/Divider.tsx";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -255,6 +254,16 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
                         </CommonExecutionControls>
                         <CommonControls>
+                            <DropDataControl
+                                theme={theme}
+                                handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <LagDisplay
+                                theme={theme}
+                                lag={elapsed - chartTime}
+                            />
+                            <Divider theme={theme}/>
                             <SeriesFilter
                                 theme={theme}
                                 filterValue={filterValue}
@@ -280,27 +289,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                                 labelColor={theme.color}
                                 onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                             />
-                            <DropDataControl
-                                theme={theme}
-                                handleDropAfterChange={setDropAfterMs}
-                                disabled={running}
-                            />
-                            <LagDisplay
-                                theme={theme}
-                                lag={elapsed - chartTime}
-                            />
-                        </CommonControls>
-                    </ExpandableControlBar>
-                    <ExpandableControlBar
-                        expandButtonStyle={buttonStyle(theme)}
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.disabledBackgroundColor}
-                        borderRadius={10}
-                        width={300}
-                        minHeight={55}
-                    >
-                        <ChartControlsHeader type="header" theme={theme}/>
-                        <ChartControls type="controls">
+                            <Divider theme={theme}/>
                             <LegendControl
                                 theme={theme}
                                 visibility={visibility.legend}
@@ -308,9 +297,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                                 legendLocation={legendLocation}
                                 setLegendLocation={setLegendLocation}
                             />
-                        </ChartControls>
+                        </CommonControls>
                     </ExpandableControlBar>
-
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">

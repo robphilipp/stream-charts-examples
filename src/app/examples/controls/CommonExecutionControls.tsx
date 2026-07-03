@@ -6,8 +6,8 @@ import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";
 import {PauseIcon, PlayIcon, ResetIcon,} from "../../ui/Icons.tsx";
 
 type Props = {
-    theme: Theme
     type: ControlBarType
+    theme: Theme
     isRunning: boolean
     onRunPauseClick: () => void
     onClearClick: () => void

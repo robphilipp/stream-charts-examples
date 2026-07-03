@@ -39,7 +39,6 @@ import {CommonControls} from "./controls/CommonControls.tsx";
 import {buttonStyle} from "../ui/utils.ts";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {INTERPOLATIONS} from "./interpolations.ts";
-import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
@@ -48,7 +47,7 @@ import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
-import {ChartControls} from "./controls/ChartControls.tsx";
+import {Divider} from "../ui/Divider.tsx";
 
 const initialVisibility = createInitialVisibility()
 
@@ -254,6 +253,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 theme={theme}
                                 lag={elapsed - chartTime}
                             />
+                            <Divider theme={theme}/>
                             <SeriesFilter
                                 theme={theme}
                                 filterValue={filterValue}
@@ -279,18 +279,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 labelColor={theme.color}
                                 onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                             />
-                        </CommonControls>
-                    </ExpandableControlBar>
-                    <ExpandableControlBar
-                        expandButtonStyle={buttonStyle(theme)}
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.disabledBackgroundColor}
-                        borderRadius={10}
-                        width={300}
-                        minHeight={55}
-                    >
-                        <ChartControlsHeader type="header" theme={theme}/>
-                        <ChartControls type="controls">
                             <Checkbox
                                 key={5}
                                 checked={visibility.markers}
@@ -306,6 +294,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 selectedInterpolationName={selectedInterpolationName}
                                 handleInterpolationChange={handleInterpolationChange}
                             />
+                            <Divider theme={theme}/>
                             <LegendControl
                                 theme={theme}
                                 visibility={visibility.legend}
@@ -313,7 +302,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 legendLocation={legendLocation}
                                 setLegendLocation={setLegendLocation}
                             />
-                        </ChartControls>
+                        </CommonControls>
                     </ExpandableControlBar>
                 </div>
             </GridItem>

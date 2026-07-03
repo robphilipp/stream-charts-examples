@@ -23,7 +23,7 @@ import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {defaultTooltipStyle} from "../charts/tooltips/tooltipUtils";
 import {PoincarePlotTooltipContent} from "../charts/tooltips/PoincarePlotTooltipContent";
-import {formatNumber, formatTime} from '../charts/utils';
+import {formatNumber} from '../charts/utils';
 import {PoincarePlot} from "../charts/plots/PoincarePlot";
 import {type IterateChartData, iteratesObservable} from "../charts/observables/iterates";
 import * as d3 from "d3";
@@ -41,6 +41,7 @@ import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
+import {Divider} from "../ui/Divider.tsx";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -74,7 +75,10 @@ const DEFAULT_LAG_N: [name: string, value: number] = Array.from(LAG_N.entries())
 //
 type IterateFunction = (time: number, xn: number) => Datum
 type IterateFunctionCallback = (fn: IterateFunction) => void
-type IterateFunctionInfo = {inputFn: (callback: IterateFunctionCallback, theme: Theme) => JSX.Element, range: [start: number, end: number]}
+type IterateFunctionInfo = {
+    inputFn: (callback: IterateFunctionCallback, theme: Theme) => JSX.Element,
+    range: [start: number, end: number]
+}
 
 const inputStyleFor = (theme: Theme): CSSProperties => ({
     backgroundColor: theme.backgroundColor,
@@ -91,29 +95,33 @@ const inputStyleFor = (theme: Theme): CSSProperties => ({
     marginRight: 20,
 })
 
-const spanStyleFor = (theme: Theme) => ({
-    padding: 4,
-    backgroundColor: theme.disabledBackgroundColor,
-})
+// const spanStyleFor = (theme: Theme) => ({
+//     // padding: 4,
+//     // backgroundColor: theme.disabledBackgroundColor,
+//     width: '100%',
+// })
 
-const labelStyleFor = (theme: Theme) => ({
-    color: theme.color,
-    paddingLeft: 6,
-    paddingRight: 0,
-})
+// const labelStyleFor = (theme: Theme) => ({
+//     color: theme.color,
+//     // paddingLeft: 6,
+//     // paddingRight: 0,
+// })
 
 // input components are at the end of the file
 const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
     ['Tent Map', {
-        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (<TentMapGenerator onFunctionChange={callback} theme={theme}/>),
+        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (
+            <TentMapGenerator onFunctionChange={callback} theme={theme}/>),
         range: [0, 1]
     }],
     ['Logistic Map', {
-        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (<LogisticMapGenerator onFunctionChange={callback} theme={theme}/>),
+        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (
+            <LogisticMapGenerator onFunctionChange={callback} theme={theme}/>),
         range: [0, 1]
     }],
     ['Gauss Map', {
-        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (<GaussMapGenerator onFunctionChange={callback} theme={theme}/>),
+        inputFn: (callback: IterateFunctionCallback, theme: Theme) => (
+            <GaussMapGenerator onFunctionChange={callback} theme={theme}/>),
         range: [-1, 1]
     }],
 ])
@@ -341,6 +349,16 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
                         </CommonExecutionControls>
                         <CommonControls>
+                            <DropDataControl
+                                theme={theme}
+                                handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <LagDisplay
+                                theme={theme}
+                                lag={elapsed - chartTime}
+                            />
+                            <Divider theme={theme}/>
                             <Checkbox
                                 key={1}
                                 checked={visibility.tooltip && !running}
@@ -361,65 +379,52 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                                 labelColor={theme.color}
                                 onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                             />
-                            <DropDataControl
+                            <InterpolationControl
                                 theme={theme}
-                                handleDropAfterChange={setDropAfterMs}
+                                selectedInterpolationName={selectedInterpolationName}
+                                handleInterpolationChange={handleInterpolationChange}
+                            />
+                            <Divider theme={theme}/>
+                            <select
+                                name="lagN"
+                                style={{
+                                    backgroundColor: theme.backgroundColor,
+                                    color: theme.color,
+                                    borderColor: theme.color,
+                                    padding: 5,
+                                    borderRadius: 3,
+                                    outlineStyle: 'none'
+                                }}
+                                onChange={event => handleUpdateLag(event.currentTarget.value)}
+                                value={selectedLagN}
                                 disabled={running}
-                            />
-                            <LagDisplay
-                                theme={theme}
-                                lag={elapsed - chartTime}
-                            />
+                            >
+                                {Array.from(LAG_N.entries()).map(([name,]) => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
+                            <Divider theme={theme}/>
+                            <select
+                                name="iterate_function"
+                                style={{
+                                    backgroundColor: theme.backgroundColor,
+                                    color: theme.color,
+                                    borderColor: theme.color,
+                                    padding: 5,
+                                    borderRadius: 3,
+                                    outlineStyle: 'none'
+                                }}
+                                onChange={event => handleIterateFunctionChange(event.currentTarget.value)}
+                                value={selectedIterateFunction}
+                                disabled={running}
+                            >
+                                {Array.from(ITERATE_FUNCTIONS.entries()).map(([name,]) => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
+                            <div>{iterFuncInput}</div>
                         </CommonControls>
                     </ExpandableControlBar>
-                    <select
-                        name="lagN"
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            color: theme.color,
-                            borderColor: theme.color,
-                            padding: 5,
-                            borderRadius: 3,
-                            outlineStyle: 'none'
-                        }}
-                        onChange={event => handleUpdateLag(event.currentTarget.value)}
-                        value={selectedLagN}
-                        disabled={running}
-                    >
-                        {Array.from(LAG_N.entries()).map(([name, ]) => (
-                            <option key={name} value={name}>{name}</option>
-                        ))}
-                    </select>
-                    <InterpolationControl
-                        theme={theme}
-                        selectedInterpolationName={selectedInterpolationName}
-                        handleInterpolationChange={handleInterpolationChange}
-                    />
-                    <span style={spanStyleFor(theme)}>
-                    <select
-                        name="iterate_function"
-                        style={{
-                            backgroundColor: theme.backgroundColor,
-                            color: theme.color,
-                            borderColor: theme.color,
-                            padding: 5,
-                            borderRadius: 3,
-                            outlineStyle: 'none'
-                        }}
-                        onChange={event => handleIterateFunctionChange(event.currentTarget.value)}
-                        value={selectedIterateFunction}
-                        disabled={running}
-                    >
-                        {Array.from(ITERATE_FUNCTIONS.entries()).map(([name, ]) => (
-                            <option key={name} value={name}>{name}</option>
-                        ))}
-                    </select>
-                    {iterFuncInput}
-                        </span>
-                    <span style={{
-                        color: theme.color,
-                        marginLeft: 25
-                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -545,7 +550,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 }
 
 
-function TentMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+function TentMapGenerator(props: { onFunctionChange: (fn: IterateFunction) => void, theme?: Theme }): JSX.Element {
     const {theme = lightTheme, onFunctionChange} = props
 
     const [mu, setMu] = useState<string>('1.8')
@@ -556,17 +561,17 @@ function TentMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => voi
         onFunctionChange(tentMapFn(parseFloat(mu)))
     }, [mu, onFunctionChange]);
 
-    return <>
-        <label style={labelStyleFor(theme)}>µ <input
+    return (
+        <label style={{color: theme.color}}>µ = <input
             type="text"
             value={mu}
             onChange={event => setMu(event.currentTarget.value)}
             style={inputStyleFor(theme)}
         /></label>
-    </>
+    )
 }
 
-function LogisticMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+function LogisticMapGenerator(props: { onFunctionChange: (fn: IterateFunction) => void, theme?: Theme }): JSX.Element {
     const {theme = lightTheme, onFunctionChange} = props
 
     const [r, setR] = useState<string>('4.0')
@@ -577,17 +582,17 @@ function LogisticMapGenerator(props: {onFunctionChange: (fn: IterateFunction) =>
         onFunctionChange(logisticMapFn(parseFloat(r)))
     }, [r, onFunctionChange]);
 
-    return <>
-        <label style={labelStyleFor(theme)}>r <input
+    return (
+        <label style={{color: theme.color}}>r = <input
             type="text"
             value={r}
             onChange={event => setR(event.currentTarget.value)}
             style={inputStyleFor(theme)}
         /></label>
-    </>
+    )
 }
 
-function GaussMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => void, theme?: Theme}): JSX.Element {
+function GaussMapGenerator(props: { onFunctionChange: (fn: IterateFunction) => void, theme?: Theme }): JSX.Element {
     const {theme = lightTheme, onFunctionChange} = props
 
     const [alpha, setAlpha] = useState<string>('4.90')
@@ -599,18 +604,22 @@ function GaussMapGenerator(props: {onFunctionChange: (fn: IterateFunction) => vo
         onFunctionChange(gaussMapFn(parseFloat(alpha), parseFloat(beta)))
     }, [alpha, beta, onFunctionChange]);
 
-    return <span style={spanStyleFor(theme)}>
-        <label style={labelStyleFor(theme)}>α <input
-            type="text"
-            value={alpha}
-            onChange={event => setAlpha(event.currentTarget.value)}
-            style={{...inputStyleFor(theme), marginRight: 6}}
-        /></label>
-        <label style={labelStyleFor(theme)}>β <input
-            type="text"
-            value={beta}
-            onChange={event => setBeta(event.currentTarget.value)}
-            style={inputStyleFor(theme)}
-        /></label>
-    </span>
+    return <div>
+        <div>
+            <label style={{color: theme.color}}>α = <input
+                type="text"
+                value={alpha}
+                onChange={event => setAlpha(event.currentTarget.value)}
+                style={{...inputStyleFor(theme)}}
+            /></label>
+        </div>
+        <div>
+            <label style={{color: theme.color}}>β = <input
+                type="text"
+                value={beta}
+                onChange={event => setBeta(event.currentTarget.value)}
+                style={inputStyleFor(theme)}
+            /></label>
+        </div>
+    </div>
 }
