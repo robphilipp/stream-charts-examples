@@ -42,7 +42,7 @@ import {INTERPOLATIONS} from "./interpolations.ts";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
-import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_20} from "./dropDataAfter.ts";
 import {FilterIcon, InterpolationIcon, LagIcon, MarkersIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
@@ -98,7 +98,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const [chartTime, setChartTime] = useState<number>(0)
 
     // drop data after
-    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER[1])
+    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
 
     // legend
     const legendContainerRef = useRef<HTMLDivElement>(null)

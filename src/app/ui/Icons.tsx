@@ -318,7 +318,6 @@ export function InterpolationIcon(props: { color: string }): JSX.Element {
 export function TentMapIcon(props: { color: string }): JSX.Element {
     const {color} = props
     return (
-        // <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" fill={color}>
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
             <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
             <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
@@ -341,7 +340,7 @@ export function GaussMapIcon(props: { color: string }): JSX.Element {
                 stroke={color}
                 fill="none"
             />
-            <line x1={0} y1={15} x2={250} y2={15} stroke={color} strokeWidth={1} />
+            <line x1={0} y1={15} x2={250} y2={15} stroke={color} strokeWidth={1}/>
         </svg>
     )
 }
@@ -351,14 +350,86 @@ export function LogisticMapIcon(props: { color: string }): JSX.Element {
     return (
         <svg width="16" height="16" style={{display: 'block', flexShrink: 0}}>
             <g transform=" rotate(180, 8 8)">
-            <path
-                d="M 3 3 A 4 8 0 0 0 13 3 "
-                stroke={color}
-                fill="none"
-                strokeWidth={1}
-            />
+                <path
+                    d="M 3 3 A 4 8 0 0 0 13 3 "
+                    stroke={color}
+                    fill="none"
+                    strokeWidth={1}
+                />
             </g>
-            <line x1={0} y1={15} x2={250} y2={15} stroke={color} strokeWidth={1} />
+            <line x1={0} y1={15} x2={250} y2={15} stroke={color} strokeWidth={1}/>
         </svg>
+    )
+}
+
+export function ValueIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <div color={color}>
+            <math>
+                <mover>
+                    <mi style={{color}}>x</mi>
+                </mover>
+            </math>
+        </div>
+    )
+}
+
+export function MinValueIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <div color={color}>
+            <math>
+                <msub>
+                    <mi style={{color}}>x</mi>
+                    <mtext style={{color}}>min</mtext>
+                </msub>
+            </math>
+        </div>
+    )
+}
+
+export function MeanIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <div color={color}>
+            <math>
+                <mover>
+                    <mi style={{color}}>x</mi>
+                    <mo style={{color}}>&#x00AF;</mo>
+                </mover>
+            </math>
+        </div>
+    )
+}
+
+export function WindowedMinValueIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <div color={color}>
+            <math>
+                <msub>
+                    <mi style={{color}}>x</mi>
+                    <mtext style={{color}}>win, min</mtext>
+                </msub>
+            </math>
+        </div>
+    )
+}
+
+export function WindowedMeanIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <div color={color}>
+            <math>
+                <msub>
+                    <mover>
+                        <mi style={{color}}>x</mi>
+                        <mo style={{color}}>&#x00AF;</mo>
+                    </mover>
+                    <mtext style={{color}}>win</mtext>
+                </msub>
+            </math>
+        </div>
     )
 }

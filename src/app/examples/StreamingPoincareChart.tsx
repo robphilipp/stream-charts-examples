@@ -31,7 +31,7 @@ import {lightTheme, type Theme} from "../ui/Themes";
 import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
-import {DEFAULT_DROP_AFTER} from "./dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_20} from "./dropDataAfter.ts";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {interpolationFactoryFor} from "./interpolations.ts";
@@ -170,7 +170,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveStepAfter')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => interpolationFactoryFor(selectedInterpolationName))
 
-    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER[1])
+    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
 
     const [selectedLagN, setSelectedLagN] = useState<string>(DEFAULT_LAG_N[0])
     const [lagN, setLagN] = useState<number>(DEFAULT_LAG_N[1])

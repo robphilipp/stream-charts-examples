@@ -18,6 +18,6 @@ export const lightTheme: Theme = {
     name: 'light',
     color: '#100f0c',
     backgroundColor: '#efefea',
-    disabledColor: '#575656',
+    disabledColor: '#989797',
     disabledBackgroundColor: '#cccaca'
 }

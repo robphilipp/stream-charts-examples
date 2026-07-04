@@ -1,4 +1,4 @@
-import {type CSSProperties, type JSX, useRef, useState} from 'react';
+import {type JSX, useRef, useState} from 'react';
 import * as d3 from "d3";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
@@ -25,8 +25,6 @@ import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {OrdinalAxis} from "../charts/axes/OrdinalAxis";
 import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
-import {formatTime} from '../charts/utils';
-import {Button} from "../ui/Button";
 import {type BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {BarPlot} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
@@ -40,6 +38,25 @@ import {buttonStyle} from "../ui/utils";
 import type {OrdinalAxisRange} from "../charts/axes/OrdinalAxisRange.ts";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
+import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
+import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
+import {
+    MeanIcon,
+    LagIcon,
+    MinValueIcon,
+    TooltipIcon,
+    TrackerIcon,
+    ValueIcon,
+    WindowedMinValueIcon, WindowedMeanIcon
+} from "../ui/Icons.tsx";
+import {CommonControls} from "./controls/CommonControls.tsx";
+import {DropDataControl} from "./controls/DropDataControl.tsx";
+import {LagDisplay} from "./controls/LagDisplay.tsx";
+import {Divider} from "../ui/Divider.tsx";
+import {DEFAULT_DROP_AFTER_10, DROP_AFTER_10_SEC} from "./dropDataAfter.ts";
+import {SeriesFilter} from "./controls/SeriesFilter.tsx";
+import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
+import {ChartControls} from "./controls/ChartControls.tsx";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -111,6 +128,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const [observable, setObservable] = useState<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialData, UPDATE_PERIOD)));
     const [running, setRunning] = useState<boolean>(false)
 
+    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_10[1])
+
     // holds the state of the series filter input field
     const [filterValue, setFilterValue] = useState<string>('');
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
@@ -173,19 +192,40 @@ export function StreamingBarChart(props: Props): JSX.Element {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
-    const inputStyle: CSSProperties = {
-        backgroundColor: theme.backgroundColor,
-        outlineStyle: 'none',
-        borderColor: theme.color,
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: theme.color,
-        fontSize: 12,
-        padding: 4,
-        margin: 6,
-        marginRight: 20
+    function handleRunPauseClick(): void {
+        if (!running) {
+            setObservable(ordinalsObservable(barDanceDataObservable(initialData, UPDATE_PERIOD)))
+            startTimeRef.current = new Date().valueOf()
+            setElapsed(0)
+            intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
+        } else {
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            intervalRef.current = undefined
+        }
+        setRunning(!running)
     }
+
+    /**
+     * Clears the chart and initializes the zoom
+     */
+    function handleClearChart(): void {
+        setInitialData(initialDataFrom(originalInitialData))
+        setElapsed(0)
+    }
+
+    // const inputStyle: CSSProperties = {
+    //     backgroundColor: theme.backgroundColor,
+    //     outlineStyle: 'none',
+    //     borderColor: theme.color,
+    //     borderStyle: 'solid',
+    //     borderWidth: 1,
+    //     borderRadius: 3,
+    //     color: theme.color,
+    //     fontSize: 12,
+    //     padding: 4,
+    //     margin: 6,
+    //     marginRight: 20
+    // }
 
     return (
         <Grid
@@ -194,7 +234,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                 .addTrack(withFraction(1))
                 .build()}
             gridTemplateRows={gridTrackTemplateBuilder()
-                .addTrack(withPixels(50))
+                .addTrack(withPixels(70))
                 .addTrack(withFraction(1))
                 .build()}
             gridTemplateAreas={gridTemplateAreasBuilder()
@@ -204,125 +244,154 @@ export function StreamingBarChart(props: Props): JSX.Element {
             styles={{color: '#d2933f'}}
         >
             <GridItem gridAreaName="chart-controls">
-                <div>
-                    <label style={{color: theme.color}}>regex filter <input
-                        type="text"
-                        value={filterValue}
-                        onChange={event => handleUpdateRegex(event.currentTarget.value)}
-                        style={{...inputStyle,  marginRight: 10}}
-                    /></label>
-                    <Button
-                        style={{
-                            ...buttonStyle(theme),
-                            marginRight: 0,
-                        }}
-                        onClick={() => {
-                            if (!running) {
-                                setObservable(ordinalsObservable(barDanceDataObservable(initialData, UPDATE_PERIOD)))
-                                startTimeRef.current = new Date().valueOf()
-                                setElapsed(0)
-                                intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
-                            } else {
-                                if (intervalRef.current) clearInterval(intervalRef.current)
-                                intervalRef.current = undefined
-                            }
-                            setRunning(!running)
-                        }}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: 8,
+                    alignItems: 'flex-start',
+                    width: '100%',
+                    minWidth: 0,
+                    overflowX: 'auto',
+                    overflowY: 'visible',
+                    scrollbarWidth: 'thin',
+                    padding: '12px 28px 20px 28px',
+                    marginTop: '-12px',
+                    boxSizing: 'border-box',
+                }}>
+                    <ExpandableControlBar
+                        expandButtonStyle={buttonStyle(theme)}
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.disabledBackgroundColor}
+                        borderRadius={10}
+                        minHeight={55}
                     >
-                        {running ? "Pause" : "Run"}
-                    </Button>
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={() => {
-                            setInitialData(initialDataFrom(originalInitialData))
-                            setElapsed(0)
-                        }}
-                        disabled={running}
+                        <CommonExecutionControls
+                            theme={theme}
+                            type="header"
+                            isRunning={running}
+                            onRunPauseClick={handleRunPauseClick}
+                            onClearClick={handleClearChart}
+                        >
+                            <LagIcon
+                                color={elapsed - chartTime > 0 ? theme.color : theme.disabledBackgroundColor}
+                                fill={elapsed - chartTime > 0 ? "#c64646" : "none"}
+                            />
+                            <TooltipIcon color={visibility.tooltip ? theme.color : theme.disabledBackgroundColor}/>
+                            <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
+                        </CommonExecutionControls>
+                        <CommonControls>
+                            <DropDataControl
+                                theme={theme}
+                                initialValue={DROP_AFTER_10_SEC}
+                                handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <LagDisplay
+                                theme={theme}
+                                lag={elapsed - chartTime}
+                            />
+                            <Divider theme={theme}/>
+                            <SeriesFilter
+                                theme={theme}
+                                filterValue={filterValue}
+                                handleFilterUpdate={handleUpdateRegex}
+                            />
+                            <Checkbox
+                                key={1}
+                                checked={visibility.tooltip && !running}
+                                disabled={running}
+                                label="tooltip"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
+                            />
+                            <Checkbox
+                                key={2}
+                                checked={visibility.tracker && !running}
+                                disabled={running}
+                                label="tracker"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                            />
+                        </CommonControls>
+                    </ExpandableControlBar>
+                    <ExpandableControlBar
+                        expandButtonStyle={buttonStyle(theme)}
+                        backgroundColor={theme.backgroundColor}
+                        borderColor={theme.disabledBackgroundColor}
+                        borderRadius={10}
+                        minHeight={55}
                     >
-                        Clear
-                    </Button>
-                    <Checkbox
-                        key={7}
-                        checked={showValue}
-                        label="value"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setShowValue(!showValue)}
-                        marginLeft={0}
-                    />
-                    <Checkbox
-                        key={3}
-                        checked={showMinMax}
-                        label="min/max"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setShowMinMax(!showMinMax)}
-                        marginLeft={0}
-                    />
-                    <Checkbox
-                        key={4}
-                        checked={showMean}
-                        label="mean"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setShowMean(!showMean)}
-                        marginLeft={0}
-                    />
-                    <Checkbox
-                        key={5}
-                        checked={showWinMinMax}
-                        label="win min/max"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setShowWinMinMax(!showWinMinMax)}
-                        marginLeft={0}
-                    />
-                    <Checkbox
-                        key={6}
-                        checked={showWinMean}
-                        label="win mean"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setShowWinMean(!showWinMean)}
-                        marginLeft={0}
-                    />
-                    <Checkbox
-                        key={1}
-                        checked={visibility.tooltip && !running}
-                        disabled={running}
-                        label="tooltip"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
-                        marginLeft={0}
-                    />
-                    <Checkbox
-                        key={2}
-                        checked={visibility.tracker && !running}
-                        disabled={running}
-                        label="tracker"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
-                        marginLeft={0}
-                    />
-                    <span style={{
-                        color: theme.color,
-                        marginLeft: 25
-                    }}>lag: {formatTime(Math.max(0, elapsed - chartTime))} ms</span>
+                        <ChartControlsHeader type={"header"} theme={theme}>
+                            <div style={{paddingRight: 10}} >Stats Controls</div>
+                            <ValueIcon color={showValue ? theme.color : theme.disabledColor}/>
+                            <MinValueIcon color={showMinMax ? theme.color : theme.disabledColor}/>
+                            <MeanIcon color={showMean ? theme.color : theme.disabledColor}/>
+                            <WindowedMinValueIcon color={showWinMinMax ? theme.color : theme.disabledColor}/>
+                            <WindowedMeanIcon color={showWinMean ? theme.color : theme.disabledColor}/>
+                        </ChartControlsHeader>
+                        <ChartControls type={"controls"}>
+                            <Checkbox
+                                key={7}
+                                checked={showValue}
+                                label="value"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setShowValue(!showValue)}
+                                marginLeft={0}
+                            />
+                            <Checkbox
+                                key={3}
+                                checked={showMinMax}
+                                label="min/max"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setShowMinMax(!showMinMax)}
+                                marginLeft={0}
+                            />
+                            <Checkbox
+                                key={4}
+                                checked={showMean}
+                                label="mean"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setShowMean(!showMean)}
+                                marginLeft={0}
+                            />
+                            <Checkbox
+                                key={5}
+                                checked={showWinMinMax}
+                                label="win min/max"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setShowWinMinMax(!showWinMinMax)}
+                                marginLeft={0}
+                            />
+                            <Checkbox
+                                key={6}
+                                checked={showWinMean}
+                                label="win mean"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setShowWinMean(!showWinMean)}
+                                marginLeft={0}
+                            />
+
+                        </ChartControls>
+                    </ExpandableControlBar>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
                 <Chart<OrdinalChartData, OrdinalDatum, BarSeriesStyle, WindowedOrdinalStats, OrdinalAxisRange, OrdinalStringAxis>
                     chartId={CHART_ID}
-                    // chartId={chartId.current}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
                     margin={{...defaultMargin, top: 60, bottom: 80, right: 75, left: 70}}
@@ -413,7 +482,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     </Tooltip>
                     <BarPlot
                         barMargin={1}
-                        dropDataAfter={5000}
+                        dropDataAfter={dropAfterMs}
                         // dropDataAfter={5000000}
                         panEnabled={true}
                         zoomEnabled={true}
