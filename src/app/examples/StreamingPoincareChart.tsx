@@ -38,7 +38,7 @@ import {interpolationFactoryFor} from "./interpolations.ts";
 import {createInitialVisibility, type Visibility} from "./visibility.ts";
 import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
-import {LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
+import {GaussMapIcon, LagIcon, LogisticMapIcon, TentMapIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
@@ -293,6 +293,18 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         setRunning(!running)
     }
 
+    function selectedIterateIcon(): JSX.Element {
+        switch (selectedIterateFunction) {
+            case 'Gauss Map':
+                return <GaussMapIcon color={theme.color}/>
+            case 'Logistic Map':
+                return <LogisticMapIcon color={theme.color}/>
+            case 'Tent Map':
+            default:
+                return <TentMapIcon color={theme.color}/>
+        }
+    }
+
     return (
         <Grid
             dimensionsSupplier={useGridCell}
@@ -346,6 +358,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             />
                             <TooltipIcon color={visibility.tooltip ? theme.color : theme.disabledBackgroundColor}/>
                             <TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>
+                            {selectedIterateIcon()}
                         </CommonExecutionControls>
                         <CommonControls>
                             <DropDataControl
