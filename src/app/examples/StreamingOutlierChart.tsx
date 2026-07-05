@@ -42,6 +42,7 @@ import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DEFAULT_DROP_AFTER_20} from "./dropDataAfter.ts";
+import {VerticalDivider} from "../ui/VerticalDivider.tsx";
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
 const MEASURES = [0.68, 0.95, 0.997] as const
@@ -284,24 +285,25 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                                     labelColor={theme.color}
                                     onChange={() => setShowTooltip(!showTooltip)}
                                 />
-                                <div style={{paddingLeft: 20}}>
-                                    <Toggle
-                                        leftLabel="html"
-                                        rightLabel="svg"
-                                        onToggle={handleToggleTooltipType}
-                                        toggleOffColor={theme.color}
-                                        toggleOffBackgroundColor={theme.backgroundColor}
-                                        toggleOnColor={theme.color}
-                                        toggleOnBackgroundColor={theme.backgroundColor}
-                                        toggleBorderColor={theme.color}
-                                        labelFontColor={theme.color}
-                                        toggleHeight={15}
-                                        disabled={!showTooltip || running}
-                                        disabledColor={theme.disabledColor}
-                                        disabledBackgroundColor={theme.disabledBackgroundColor}
-                                        disabledBorderColor={theme.disabledColor}
-                                    />
-                                </div>
+                                <span style={{paddingLeft: 10}}/>
+                                <VerticalDivider color={theme.disabledColor} height={20}/>
+                                <span style={{paddingLeft: 10}}/>
+                                <Toggle
+                                    leftLabel="html"
+                                    rightLabel="svg"
+                                    onToggle={handleToggleTooltipType}
+                                    toggleOffColor={theme.color}
+                                    toggleOffBackgroundColor={theme.backgroundColor}
+                                    toggleOnColor={theme.color}
+                                    toggleOnBackgroundColor={theme.backgroundColor}
+                                    toggleBorderColor={theme.color}
+                                    labelFontColor={theme.color}
+                                    toggleHeight={15}
+                                    disabled={!showTooltip || running}
+                                    disabledColor={theme.disabledColor}
+                                    disabledBackgroundColor={theme.disabledBackgroundColor}
+                                    disabledBorderColor={theme.disabledColor}
+                                />
                             </div>
                             {/*<Checkbox*/}
                             {/*    key={2}*/}

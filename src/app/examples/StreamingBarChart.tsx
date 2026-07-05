@@ -57,6 +57,7 @@ import {DEFAULT_DROP_AFTER_10, DROP_AFTER_10_SEC} from "./dropDataAfter.ts";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {ChartControls} from "./controls/ChartControls.tsx";
+import {VerticalDivider} from "../ui/VerticalDivider.tsx";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -327,10 +328,15 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     >
                         <ChartControlsHeader type={"header"} theme={theme}>
                             <div style={{paddingRight: 10}} >Stats Controls</div>
+                            <VerticalDivider color={theme.disabledBackgroundColor} height="25%"/>
                             <ValueIcon color={showValue ? theme.color : theme.disabledColor}/>
+                            <VerticalDivider color={theme.disabledBackgroundColor} height="25%"/>
                             <MinValueIcon color={showMinMax ? theme.color : theme.disabledColor}/>
+                            <VerticalDivider color={theme.disabledBackgroundColor} height="25%"/>
                             <MeanIcon color={showMean ? theme.color : theme.disabledColor}/>
+                            <VerticalDivider color={theme.disabledBackgroundColor} height="25%"/>
                             <WindowedMinValueIcon color={showWinMinMax ? theme.color : theme.disabledColor}/>
+                            <VerticalDivider color={theme.disabledBackgroundColor} height="25%"/>
                             <WindowedMeanIcon color={showWinMean ? theme.color : theme.disabledColor}/>
                         </ChartControlsHeader>
                         <ChartControls type={"controls"}>
