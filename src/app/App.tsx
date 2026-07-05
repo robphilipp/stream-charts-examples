@@ -85,6 +85,8 @@ const App: React.FC = () => {
                     <GridItem row={1} column={2}>
                         <div style={{marginTop: 3}}>
                             <Toggle
+                                leftLabel="light"
+                                rightLabel="dark"
                                 onToggle={handleThemeChange}
                                 toggleOffColor={lightTheme.color}
                                 toggleOffBackgroundColor={lightTheme.backgroundColor}

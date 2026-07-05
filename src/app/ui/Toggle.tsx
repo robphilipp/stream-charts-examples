@@ -18,12 +18,17 @@ interface Props {
     toggleHeight?: number
     toggleOffset?: number
     onToggle?: (status: ToggleStatus) => void
+
+    disabled?: boolean
+    disabledBackgroundColor?: string
+    disabledColor?: string
+    disabledBorderColor?: string
 }
 
 export function Toggle(props: Props): JSX.Element {
     const {
-        leftLabel = "light",
-        rightLabel = "dark",
+        leftLabel = "On",
+        rightLabel = "Off",
         labelFontColor = "#202020",
         toggleOffColor = "#202020",
         toggleOffBackgroundColor = "#d2933f",
@@ -35,76 +40,102 @@ export function Toggle(props: Props): JSX.Element {
         toggleHeight = 20,
         toggleOffset = 1,
         onToggle = noop,
+
+        disabled = false,
+        disabledBackgroundColor = "#d2933f",
+        disabledColor = "#202020",
+        disabledBorderColor = "#d2933f"
     } = props
 
     const [toggleStatus, setToggleStatus] = useState<ToggleStatus>(ToggleStatus.OFF)
 
     const toggleLocation = (status: ToggleStatus): number => status === ToggleStatus.OFF ?
-            toggleOffset :
-            toggleWidth - Math.min(toggleWidth, toggleHeight) + toggleOffset
+        toggleOffset :
+        toggleWidth - Math.min(toggleWidth, toggleHeight) + toggleOffset
 
     const toggle = (status: ToggleStatus): ToggleStatus => status === ToggleStatus.OFF ?
         ToggleStatus.ON :
         ToggleStatus.OFF
 
-    const toggleColor = (status: ToggleStatus): string => status === ToggleStatus.OFF ?
-        toggleOffColor :
-        toggleOnColor
+    function toggleColor(status: ToggleStatus): string {
+        if (disabled) {
+            return disabledColor
+        }
+        if (status === ToggleStatus.ON) {
+            return toggleOnColor
+        }
+        return toggleOffColor
+    }
 
-    const toggleBackgroundColor = (status: ToggleStatus): string => status === ToggleStatus.OFF ?
-        toggleOffBackgroundColor :
-        toggleOnBackgroundColor
+    function toggleBackgroundColor(status: ToggleStatus): string {
+        if (disabled) {
+            return disabledBackgroundColor
+        }
+        if (status === ToggleStatus.OFF) {
+            return toggleOffBackgroundColor
+        }
+        return toggleOnBackgroundColor
+    }
 
-    return <>
-        <span style={{
-            marginRight: labelSpacing,
-            position: "relative",
-            top: toggleOffset,
-            color: labelFontColor,
+    return (
+        <div style={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: labelSpacing,
+            color: disabled ? labelFontColor : disabledColor,
             transition: "0.4s",
-        }}>{leftLabel}</span>
-        <label
-            style={{
-                position: "relative",
-                display: "inline-block",
-                width: toggleWidth,
-                height: toggleHeight,
-                backgroundColor: toggleBackgroundColor(toggleStatus),
-                borderRadius: Math.min(toggleHeight, toggleWidth),
-                border: "solid",
-                borderWidth: 1,
-                borderColor: toggleBorderColor,
-                transition: "0.4s",
-            }}>
-            <input
-                type="checkbox"
-                style={{opacity: 0, width: 0, height: 0}}
-                onClick={() => {
-                    const status = toggle(toggleStatus)
-                    setToggleStatus(status)
-                    onToggle(status)
-                }}
-            />
+        }}>
             <span style={{
-                position: "absolute",
-                cursor: "pointer",
-                height: Math.min(toggleWidth, toggleHeight) - 2 * toggleOffset,
-                width: Math.min(toggleWidth, toggleHeight) - 2 * toggleOffset,
+                marginLeft: labelSpacing,
+                position: "relative",
                 top: toggleOffset,
-                left: toggleLocation(toggleStatus),
-                right: toggleOffset,
-                bottom: toggleOffset,
-                backgroundColor: toggleColor(toggleStatus),
-                transition: "0.4s",
-                borderRadius: Math.min(toggleHeight, toggleWidth)
-            }}/>
-        </label>
-        <span style={{
-            marginLeft: labelSpacing,
-            position: "relative",
-            top: toggleOffset,
-            color: labelFontColor,
-            transition: "0.4s",
-        }}>{rightLabel}</span>
-    </>
+                color: disabled ? disabledColor : labelFontColor,
+                transition: "0.3s",
+            }}>{leftLabel}</span>
+            <label
+                style={{
+                    position: "relative",
+                    display: "inline-block",
+                    width: toggleWidth,
+                    height: toggleHeight,
+                    backgroundColor: toggleBackgroundColor(toggleStatus),
+                    borderRadius: Math.min(toggleHeight, toggleWidth),
+                    border: "solid",
+                    borderWidth: 1,
+                    borderColor: disabled ? disabledBorderColor : toggleBorderColor,
+                    transition: "0.3s",
+                }}>
+                <input
+                    type="checkbox"
+                    style={{opacity: 0, width: 0, height: 0}}
+                    onClick={() => {
+                        const status = toggle(toggleStatus)
+                        setToggleStatus(status)
+                        onToggle(status)
+                    }}
+                />
+                <span style={{
+                    position: "absolute",
+                    cursor: "pointer",
+                    height: Math.min(toggleWidth, toggleHeight) - 2 * toggleOffset,
+                    width: Math.min(toggleWidth, toggleHeight) - 2 * toggleOffset,
+                    top: toggleOffset,
+                    left: toggleLocation(toggleStatus),
+                    right: toggleOffset,
+                    bottom: toggleOffset,
+                    backgroundColor: toggleColor(toggleStatus),
+                    transition: "0.3s",
+                    borderRadius: Math.min(toggleHeight, toggleWidth)
+                }}/>
+            </label>
+            <span style={{
+                marginLeft: labelSpacing,
+                position: "relative",
+                top: toggleOffset,
+                color: disabled ? disabledColor : labelFontColor,
+                transition: "0.3s",
+            }}>{rightLabel}</span>
+        </div>
+    )
 }

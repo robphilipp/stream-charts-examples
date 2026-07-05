@@ -12,7 +12,7 @@ export function CommonControls(props: Props): JSX.Element {
             display: 'flex',
             alignItems: 'flex-start',
             flexDirection: 'column',
-            gap: 5,
+            gap: 10,
             padding: 10
         }}>
             {children}

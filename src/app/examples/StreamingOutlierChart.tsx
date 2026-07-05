@@ -1,4 +1,4 @@
-import {type CSSProperties, type JSX, useRef, useState} from "react"
+import {type JSX, useRef, useState} from "react"
 import {Observable} from "rxjs"
 import {
     Grid,
@@ -24,17 +24,24 @@ import {OutlierPlotTooltipContent} from "../charts/tooltips/OutlierPlotTooltipCo
 import type {OutlierChartData} from "../charts/observables/outliers"
 import {type OutlierSeries, outlierSeriesFrom} from "../charts/series/outlierSeries"
 import {lightTheme, type Theme} from "../ui/Themes"
-import {Button} from "../ui/Button"
 import Checkbox from "../ui/Checkbox"
 import {buttonStyle} from "../ui/utils"
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions"
-import {formatTime} from "../charts/utils"
 import {AxisInterval} from "../charts/axes/AxisInterval"
 import {regexFilter} from "../charts/filters/regexFilter"
 import {OutlierPlotHtmlTooltipContent} from "../charts/tooltips/OutlierPlotHtmlTooltipContent.tsx";
 import {Toggle, ToggleStatus} from "../ui/Toggle.tsx";
 import {INTERPOLATIONS} from "./interpolations.ts";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
+import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
+import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
+import {FilterIcon, InterpolationIcon, LagIcon, MarkersIcon, TooltipIcon} from "../ui/Icons.tsx";
+import {CommonControls} from "./controls/CommonControls.tsx";
+import {DropDataControl} from "./controls/DropDataControl.tsx";
+import {LagDisplay} from "./controls/LagDisplay.tsx";
+import {Divider} from "../ui/Divider.tsx";
+import {SeriesFilter} from "./controls/SeriesFilter.tsx";
+import {DEFAULT_DROP_AFTER_20} from "./dropDataAfter.ts";
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
 const MEASURES = [0.68, 0.95, 0.997] as const
@@ -106,19 +113,19 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
             : defaultInitialOutlierData()
     )
 
-    const inputStyle: CSSProperties = {
-        backgroundColor: theme.backgroundColor,
-        outlineStyle: 'none',
-        borderColor: theme.color,
-        borderStyle: 'solid',
-        borderWidth: 1,
-        borderRadius: 3,
-        color: theme.color,
-        fontSize: 12,
-        padding: 4,
-        margin: 6,
-        marginRight: 20
-    }
+    // const inputStyle: CSSProperties = {
+    //     backgroundColor: theme.backgroundColor,
+    //     outlineStyle: 'none',
+    //     borderColor: theme.color,
+    //     borderStyle: 'solid',
+    //     borderWidth: 1,
+    //     borderRadius: 3,
+    //     color: theme.color,
+    //     fontSize: 12,
+    //     padding: 4,
+    //     margin: 6,
+    //     marginRight: 20
+    // }
 
     const buildObservable = (initData: Array<OutlierSeries<Measures>>): Observable<OutlierChartData<Measures>> =>
         randomOutlierDataObservable<Measures>(
@@ -136,6 +143,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
 
     const [filterValue, setFilterValue] = useState<string>('')
     const [filter, setFilter] = useState<RegExp>(new RegExp(''))
+    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
 
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
@@ -171,6 +179,28 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
+    function handleRunPauseClick(): void {
+        if (!running) {
+            setObservable(buildObservable(initialData))
+            startTimeRef.current = new Date().valueOf()
+            setElapsed(0)
+            intervalRef.current = setInterval(
+                () => setElapsed(new Date().valueOf() - startTimeRef.current),
+                1000
+            )
+        } else {
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            intervalRef.current = undefined
+        }
+        setRunning(!running)
+    }
+
+    function handleClearClick(): void {
+        setInitialData(freshCopyOf(seededInitialData))
+        setElapsed(0)
+        setChartTime(0)
+    }
+
     return (
         <Grid
             dimensionsSupplier={useGridCell}
@@ -188,80 +218,119 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
             styles={{color: '#d2933f'}}
         >
             <GridItem gridAreaName="chart-controls">
-                <div>
-                    <label style={{color: theme.color}}>regex filter <input
-                        type="text"
-                        value={filterValue}
-                        onChange={event => handleUpdateRegex(event.currentTarget.value)}
-                        style={inputStyle}
-                    /></label>
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={() => {
-                            if (!running) {
-                                setObservable(buildObservable(initialData))
-                                startTimeRef.current = new Date().valueOf()
-                                setElapsed(0)
-                                intervalRef.current = setInterval(
-                                    () => setElapsed(new Date().valueOf() - startTimeRef.current),
-                                    1000
-                                )
-                            } else {
-                                if (intervalRef.current) clearInterval(intervalRef.current)
-                                intervalRef.current = undefined
-                            }
-                            setRunning(!running)
-                        }}
-                    >
-                        {running ? "Pause" : "Run"}
-                    </Button>
-                    <Button
-                        style={buttonStyle(theme)}
-                        onClick={() => {
-                            setInitialData(freshCopyOf(seededInitialData))
-                            setElapsed(0)
-                            setChartTime(0)
-                        }}
-                        disabled={running}
-                    >
-                        Clear
-                    </Button>
-                    <InterpolationControl
-                        theme={theme}
-                        selectedInterpolationName={selectedInterpolationName}
-                        handleInterpolationChange={handleInterpolationChange}
-                    />
-                    <Checkbox
-                        checked={showMarkers}
-                        label="markers"
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: 8,
+                    alignItems: 'flex-start',
+                    width: '100%',
+                    minWidth: 0,
+                    overflowX: 'auto',
+                    overflowY: 'visible',
+                    scrollbarWidth: 'thin',
+                    padding: '12px 28px 20px 28px',
+                    marginTop: '-12px',
+                    boxSizing: 'border-box',
+                }}>
+                    <ExpandableControlBar
+                        expandButtonStyle={buttonStyle(theme)}
                         backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setShowMarkers(!showMarkers)}
-                    />
-                    <Checkbox
-                        checked={showTooltip}
-                        label="tooltip"
-                        backgroundColor={theme.backgroundColor}
-                        borderColor={theme.color}
-                        labelColor={theme.color}
-                        onChange={() => setShowTooltip(!showTooltip)}
-                    />
-                    {showTooltip &&
-                        <Toggle
-                            leftLabel="HTML"
-                            rightLabel="SVG"
-                            onToggle={handleToggleTooltipType}
-                            toggleOffColor={theme.color}
-                            toggleOffBackgroundColor={theme.backgroundColor}
-                            toggleOnColor={theme.color}
-                            toggleOnBackgroundColor={theme.backgroundColor}
-                            toggleBorderColor={theme.color}
-                            labelFontColor={theme.color}
-                        />}
-                    <span style={{color: theme.color, marginLeft: 25}}>
-                        lag: {formatTime(Math.max(0, elapsed - chartTime))} ms
-                    </span>
+                        borderColor={theme.disabledBackgroundColor}
+                        borderRadius={10}
+                        minHeight={55}
+                    >
+                        <CommonExecutionControls
+                            theme={theme}
+                            type="header"
+                            isRunning={running}
+                            onRunPauseClick={handleRunPauseClick}
+                            onClearClick={handleClearClick}
+                        >
+                            <LagIcon
+                                color={elapsed - chartTime > 0 ? theme.color : theme.disabledBackgroundColor}
+                                fill={elapsed - chartTime > 0 ? "#c64646" : "none"}
+                            />
+                            <FilterIcon color={filterValue.length > 0 ? theme.color : theme.disabledBackgroundColor}/>
+                            <TooltipIcon color={showTooltip ? theme.color : theme.disabledBackgroundColor}/>
+                            {/*<TrackerIcon color={visibility.tracker ? theme.color : theme.disabledBackgroundColor}/>*/}
+                            <MarkersIcon color={showMarkers ? theme.color : theme.disabledBackgroundColor}/>
+                            <InterpolationIcon
+                                color={selectedInterpolationName === "curveLinear" ? theme.disabledBackgroundColor : theme.color}/>
+                        </CommonExecutionControls>
+                        <CommonControls>
+                            <DropDataControl
+                                theme={theme}
+                                handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <LagDisplay
+                                theme={theme}
+                                lag={elapsed - chartTime}
+                            />
+                            <Divider theme={theme}/>
+                            <SeriesFilter
+                                theme={theme}
+                                filterValue={filterValue}
+                                handleFilterUpdate={handleUpdateRegex}
+                            />
+                            <div style={{display: 'flex', flexDirection: 'row', gap: '5'}}>
+                                <Checkbox
+                                    key={1}
+                                    checked={showTooltip && !running}
+                                    disabled={running}
+                                    label="tooltip"
+                                    backgroundColor={theme.backgroundColor}
+                                    borderColor={theme.color}
+                                    labelColor={theme.color}
+                                    onChange={() => setShowTooltip(!showTooltip)}
+                                />
+                                <div style={{paddingLeft: 20}}>
+                                    <Toggle
+                                        leftLabel="html"
+                                        rightLabel="svg"
+                                        onToggle={handleToggleTooltipType}
+                                        toggleOffColor={theme.color}
+                                        toggleOffBackgroundColor={theme.backgroundColor}
+                                        toggleOnColor={theme.color}
+                                        toggleOnBackgroundColor={theme.backgroundColor}
+                                        toggleBorderColor={theme.color}
+                                        labelFontColor={theme.color}
+                                        toggleHeight={15}
+                                        disabled={!showTooltip || running}
+                                        disabledColor={theme.disabledColor}
+                                        disabledBackgroundColor={theme.disabledBackgroundColor}
+                                        disabledBorderColor={theme.disabledColor}
+                                    />
+                                </div>
+                            </div>
+                            {/*<Checkbox*/}
+                            {/*    key={2}*/}
+                            {/*    checked={visibility.tracker && !running}*/}
+                            {/*    disabled={running}*/}
+                            {/*    label="tracker"*/}
+                            {/*    backgroundColor={theme.backgroundColor}*/}
+                            {/*    borderColor={theme.color}*/}
+                            {/*    labelColor={theme.color}*/}
+                            {/*    onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}*/}
+                            {/*/>*/}
+                            <Checkbox
+                                key={5}
+                                checked={showMarkers}
+                                disabled={running}
+                                label="markers"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setShowMarkers(!showMarkers)}
+                            />
+                            <Divider theme={theme}/>
+                            <InterpolationControl
+                                theme={theme}
+                                selectedInterpolationName={selectedInterpolationName}
+                                handleInterpolationChange={handleInterpolationChange}
+                            />
+                        </CommonControls>
+                    </ExpandableControlBar>
                 </div>
             </GridItem>
             <GridItem gridAreaName="chart">
@@ -302,7 +371,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                     />
                     <OutlierPlot<Measures>
                         interpolation={interpolation}
-                        dropDataAfter={2000000}
+                        dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
@@ -328,7 +397,8 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                                 measureFormatter={svgMeasureDescription}
                             /> :
                             <OutlierPlotHtmlTooltipContent
-                                datumFormatter={(x, y) => <div>Index: <b>{y.toFixed(2)} USD</b> (<em>@ {x.toFixed(0)} ms</em>)</div>}
+                                datumFormatter={(x, y) =>
+                                    <div>Index: <b>{y.toFixed(2)} USD</b> (<em>@ {x.toFixed(0)} ms</em>)</div>}
                                 bandFormatter={(lower, upper) => <div>Band: [{lower}, {upper})</div>}
                                 measureFormatter={htmlMeasureDescription}
                             >
