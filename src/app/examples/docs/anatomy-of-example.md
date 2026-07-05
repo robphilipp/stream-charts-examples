@@ -3,7 +3,7 @@
 Before we dive into the details of the each example chart, let's take a look at one of the tabs in the example application. In this particular example, we're looking at the "Scatter" chart. And figure 3 breaks down what you see.
 
 <figure>
-    <img src="./public/images/intro-example-parts.png" alt="Anatomy of an Example Chart">
+    <img src="./images/intro-example-parts.png" alt="Anatomy of an Example Chart">
     <figcaption>
         <b>Figure 3</b> The anatomy of an example chart. The "Tabs" provide this page and a page that holds an example for each chart type available in the library. The "Control bar" has controls that provide common features of each chart type and features that are specific to each chart type. The "Tabs" and "Control bar" are part of the example application and are not distributed in the library. The "Chart" holds an example chart – in this case a "Scatter" chart. The "Chart" is an example of a chart type that is provided in the [stream-charts](https://www.npmjs.com/package/stream-charts) library.
     </figcaption>

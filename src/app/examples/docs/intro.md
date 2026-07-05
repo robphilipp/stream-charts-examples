@@ -1,15 +1,19 @@
 ### what do we have here?
 
-[stream-charts](https://www.npmjs.com/package/stream-charts) is a react-based library for building real-time time-series charts for viewing high-frequency data. Ingesting and plotting new data for about 100 time-series every 25 ms isn't generally a problem.
+[stream-charts](https://www.npmjs.com/package/stream-charts) is a react-based library for building real-time time-series charts for viewing high-frequency data. The [stream-charts](https://www.npmjs.com/package/stream-charts) library is designed to ingest data from an [RxJs](https://rxjs.dev) [Observable](https://rxjs.dev/api/index/class/Observable) and plot the data as it arrives. It can generally handle plotting new data for about 100 time-series with a 25 ms buffer.
 
-This application contains example uses of the [stream-charts](https://www.npmjs.com/package/stream-charts) library.
+This application contains example uses of the [stream-charts](https://www.npmjs.com/package/stream-charts) library. In particular, the source code for these examples is intended to serve as a reference for how to use the library and its available options. This application allows you to explore [stream-charts'](https://www.npmjs.com/package/stream-charts) many features and get a sense of its performance and limitations so that you can use the [stream-charts](https://www.npmjs.com/package/stream-charts) library effectively.
 
-For reference, you're in the "**Intro**" tab, which provides a series of pages describing the examples presented in this application. 
+This application is not a complete implementation of all the ways to create stream-charts. Rather, it provides an implementation for each of the available chart types. Each implementation is an example. Each implementation is intended to show off all the features of the chart type so that you can select the features you like and have a reference implementation of them.
+
+### how to use the intro
+
+For reference, you're in the **Intro** tab, which provides a series of pages describing the examples presented in this application. 
 
 You use the navigation bar to navigate between these pages. Yeah, the navigation looks like this, and you can see it up there **&#x2197;**.
 
 <figure>
-    <img src="./public/images/navigation-bar.png" alt="Navigation Bar" width="350px">
+    <img src="./images/navigation-bar.png" alt="Navigation Bar" width="350px">
     <figcaption>
         <b>Figure 1</b> The navigation bar. If it gets in the way, you can move it.
     </figcaption>

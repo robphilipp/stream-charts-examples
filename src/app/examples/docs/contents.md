@@ -3,7 +3,7 @@
 Each of the tabs in the tabs presents an example of a particular chart type.
 
 <figure>
-    <img src="./public/images/tabs.png" alt="Navigation Bar" width="550px">
+    <img src="./images/tabs.png" alt="Navigation Bar" width="550px">
     <figcaption>
         <b>Figure 2</b> The "tabs" holding the example charts (and this introduction). The underlined table is the currently active tab.
     </figcaption>

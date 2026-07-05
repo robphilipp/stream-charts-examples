@@ -9,9 +9,10 @@ import {
     useState,
     type VideoHTMLAttributes
 } from "react";
-import {Button} from "../../ui/Button.tsx";
-import intro_page from "./intro.md?raw";
-import contents from "./contents.md?raw";
+import {Button} from "../../ui/Button.tsx"
+import intro_page from "./intro.md?raw"
+import some_context_page from "./some-context.md?raw"
+import contents_page from "./contents.md?raw";
 import anatomy_of_example_page from "./anatomy-of-example.md?raw";
 import ReactMarkdown, {type ExtraProps} from "react-markdown";
 import rehypeRaw from 'rehype-raw';
@@ -19,8 +20,14 @@ import {buttonStyle, interpolateColor} from "../../ui/utils.ts";
 import {useGridCell} from "react-resizable-grid-layout";
 import {FloatingBar} from "../../ui/FloatingBar.tsx";
 import {BackIcon, FirstIcon, ForwardIcon, LastIcon} from "../../ui/Icons.tsx";
+import remarkGfm from "remark-gfm";
 
-const pages = [intro_page, contents, anatomy_of_example_page]
+const pages = [
+    intro_page,
+    some_context_page,
+    contents_page,
+    anatomy_of_example_page
+]
 
 function style(theme: Theme, height: number): CSSProperties {
     return {
@@ -74,6 +81,7 @@ export default function Intro(props: Props) {
                 rehypePlugins={[
                     rehypeRaw,
                 ]}
+                remarkPlugins={[remarkGfm]}
             >
                 {pages[pageNum]}
             </ReactMarkdown>
