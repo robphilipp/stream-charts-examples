@@ -12,5 +12,5 @@ functionality for them if you choose not to use them.
 #### charts need to know their size
 
 The application's entry point is the [main.tsx]() file. It wraps the [App.tsx]() component with
-a [WindowDimensionsProvider]() from
+a [WindowDimensionsProvider](https://github.com/robphilipp/react-grid-layout/blob/main/src/WindowDimensionsProvider.tsx) from
 the [react-resizable-grid-layout](https://www.npmjs.com/package/react-resizable-grid-layout) library. 

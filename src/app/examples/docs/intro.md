@@ -1,10 +1,20 @@
-### what do we have here?
+### what are stream-charts?
 
-[stream-charts](https://www.npmjs.com/package/stream-charts) is a react-based library for building real-time time-series charts for viewing high-frequency data. The [stream-charts](https://www.npmjs.com/package/stream-charts) library is designed to ingest data from an [RxJs](https://rxjs.dev) [Observable](https://rxjs.dev/api/index/class/Observable) and plot the data as it arrives. It can generally handle plotting new data for about 100 time-series with a 25 ms buffer.
+[stream-charts](https://www.npmjs.com/package/stream-charts) is a react-based library for building real-time time-series charts to view high-frequency data. The [stream-charts](https://www.npmjs.com/package/stream-charts) library is designed to ingest data from an [RxJs](https://rxjs.dev) [Observable](https://rxjs.dev/api/index/class/Observable) and plot the data as it arrives. Buffering is recommended and available. It can generally handle plotting new data for about 100 time-series with data arriving every few milliseconds using a 25 ms buffer.
+
+For managing a chart's memory usage, the data have a configurable time-to-live, after which the data is dropped. And because the ingestion is from an RxJs stream, if you are so inclined, you can build the ingestion stream to offload data to a desired location. 
+
+As the time-series data fills up the chart's time window, the [stream-charts](https://www.npmjs.com/package/stream-charts) axes can be set to scroll in time or compress in time. This feature allows you to select a time-window appropriate for your data. Data older than the time-window will drop off the left-hand side of the plot. 
+
+[stream-charts](https://www.npmjs.com/package/stream-charts) support standard charting capabilities such as themes, zoom, pan, legends, tooltips, and trackers. Themes and tooltips can be customized and replaced with custom implementations. Legends can be configured to reside inside the chart as SVG components, or externally as a React portal.
+
+See the [stream-charts](https://www.npmjs.com/package/stream-charts) documentation for more information.
+
+### what is this application?
 
 This application contains example uses of the [stream-charts](https://www.npmjs.com/package/stream-charts) library. In particular, the source code for these examples is intended to serve as a reference for how to use the library and its available options. This application allows you to explore [stream-charts'](https://www.npmjs.com/package/stream-charts) many features and get a sense of its performance and limitations so that you can use the [stream-charts](https://www.npmjs.com/package/stream-charts) library effectively.
 
-This application is not a complete implementation of all the ways to create stream-charts. Rather, it provides an implementation for each of the available chart types. Each implementation is an example. Each implementation is intended to show off all the features of the chart type so that you can select the features you like and have a reference implementation of them.
+This application is not a complete implementation of all the ways to create stream-charts. Rather, it provides an example implementation for each of the available chart types. Each implementation is merely an example, intended to show off all the features of the chart type so that you can select the features you like and have a reference implementation of them.
 
 ### how to use the intro
 
@@ -19,7 +29,7 @@ You use the navigation bar to navigate between these pages. Yeah, the navigation
     </figcaption>
 </figure>
 
-If the navigation bar gets in the way, you can move it by clicking and dragging it. The buttons on the navigation bar allow you to navigation to the next page, previous page, and to the first and last pages – should be pretty obvious &#x1F60A;. 
+If the navigation bar gets in the way, you can move it by dragging it. The buttons on the navigation bar allow you to navigation to the next page, previous page, and to the first and last pages – should be pretty obvious &#x1F60A;. 
 
 When the `First` or `Previous` buttons are disabled, that means you're on the first page. And similarly, when the `Next` and `Last` buttons are disabled, that means you're on the last page.
 

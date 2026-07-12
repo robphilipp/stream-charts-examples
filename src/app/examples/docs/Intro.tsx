@@ -1,4 +1,4 @@
-import type {Theme} from "../../ui/Themes.ts";
+import {lightTheme, type Theme} from "../../ui/Themes.ts";
 import {
     type AnchorHTMLAttributes,
     type ClassAttributes,
@@ -61,9 +61,7 @@ export default function Intro(props: Props) {
     const cssStyle = style(theme, height)
     
     return (
-        <div
-            style={cssStyle}
-        >
+        <div style={cssStyle}>
             <ReactMarkdown
                 components={{
                     a: anchor => CustomLink(anchor, {
@@ -75,7 +73,7 @@ export default function Intro(props: Props) {
                         color: theme.color,
                         fontSize: adjustFontSize(cssStyle.fontSize, -2)
                     }),
-                    img: image => CustomImage(image, {maxWidth: "100%", height: "auto", borderRadius: 10}),
+                    img: image => CustomImage(image, {maxWidth: "100%", height: "auto", borderRadius: 10}, theme),
                     video: video => CustomVideo(video, {width: "100%"}),
                 }}
                 rehypePlugins={[
@@ -192,11 +190,44 @@ function CustomFigureCaption(
     </figcaption>
 }
 
+/**
+ * Updates the base (fallback) image name with the theme name. For example, if
+ * the base image name is "navigation-bar.png" and the theme is set to "dark", then will
+ * attempt to find an image named "navigation-bar-dark.png". Similarly, if the theme
+ * is set to "light" then it will attempt to find an image named "navigation-bar-light.png".
+ * If not found, will revert to the fallback image. Note that the base image need not
+ * actually exist. But if it doesn't, the fallback will fail.
+ * @param image The image element
+ * @param css The styles for the image
+ * @param [theme=lightTheme]
+ * @return A an image element
+ */
 function CustomImage(
     image: ClassAttributes<HTMLImageElement> & ImgHTMLAttributes<HTMLImageElement> & ExtraProps,
-    css: CSSProperties
+    css: CSSProperties,
+    theme: Theme = lightTheme
 ): JSX.Element {
-    return <img src={image.src} alt={image.alt} width={image.width} height={image.height} style={{...image.style, ...css}}/>
+    const [error, setError] = useState(false)
+
+    const extensionIndex = image.src?.lastIndexOf(".") || -1
+    if (extensionIndex >= 0 && !error) {
+        const imageSrc = `${image.src?.slice(0, extensionIndex)}-${theme.name}${image.src?.slice(extensionIndex)}`
+        return <img
+            src={imageSrc}
+            alt={image.alt}
+            onError={() => setError(true)}
+            width={image.width}
+            height={image.height}
+            style={{...image.style, ...css}}
+        />
+    }
+    return <img
+        src={image.src}
+        alt={image.alt}
+        width={image.width}
+        height={image.height}
+        style={{...image.style, ...css}}
+    />
 }
 
 function CustomVideo(
