@@ -22,32 +22,36 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
     } = props
 
     const [dimensions, setDimensions] = useState<Dimensions>(defaultPlotDimensions().plotDimensions)
+    // holds the latest committed dimensions so the change handlers can be fired from the effect
+    // body (a pure location) rather than from inside the setDimensions updater. Firing them from
+    // the updater is unsafe: StrictMode double-invokes state updater functions, which would run
+    // the handlers twice per change (e.g. applying the resize zoom-rescale twice).
+    const dimensionsRef = useRef<Dimensions>(dimensions)
     const plotDimensionChangeHandersRef = useRef<Map<string, PlotDimensionChangeHandler>>(new Map())
 
     // update the plot dimensions when the container size or margin change
     useEffect(
         () => {
             const newDimensions = plotDimensionsFrom(containerDimensions.width, containerDimensions.height, margin)
-            setDimensions(prevDimensions => {
-                if (dimensionsNotEqual(prevDimensions, newDimensions)) {
-                    for (const handler of plotDimensionChangeHandersRef.current.values()) {
-                        handler(prevDimensions, newDimensions)
-                    }
-                    return newDimensions
+            if (dimensionsNotEqual(dimensionsRef.current, newDimensions)) {
+                for (const handler of plotDimensionChangeHandersRef.current.values()) {
+                    handler(dimensionsRef.current, newDimensions)
                 }
-                return prevDimensions
-            })
+                dimensionsRef.current = newDimensions
+                setDimensions(newDimensions)
+            }
         },
         [containerDimensions, margin]
     )
 
     function updateDimensions(newDimensions: Dimensions) {
-        setDimensions(prevState => {
+        if (dimensionsNotEqual(dimensionsRef.current, newDimensions)) {
             for (const handler of plotDimensionChangeHandersRef.current.values()) {
-                handler(prevState, newDimensions)
+                handler(dimensionsRef.current, newDimensions)
             }
-            return newDimensions
-        })
+            dimensionsRef.current = newDimensions
+            setDimensions(newDimensions)
+        }
     }
 
     function registerPlotDimensionChangeHandler(handler: PlotDimensionChangeHandler) {
