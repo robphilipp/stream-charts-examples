@@ -24,14 +24,14 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
     const [dimensions, setDimensions] = useState<Dimensions>(defaultPlotDimensions().plotDimensions)
     // holds the latest committed dimensions so the change handlers can be fired from the effect body
     const dimensionsRef = useRef<Dimensions>(dimensions)
-    const plotDimensionChangeHandersRef = useRef<Map<string, PlotDimensionChangeHandler>>(new Map())
+    const plotDimensionChangeHandlersRef = useRef<Map<string, PlotDimensionChangeHandler>>(new Map())
 
     // update the plot dimensions when the container size or margin change
     useEffect(
         () => {
             const newDimensions = plotDimensionsFrom(containerDimensions.width, containerDimensions.height, margin)
             if (dimensionsNotEqual(dimensionsRef.current, newDimensions)) {
-                for (const handler of plotDimensionChangeHandersRef.current.values()) {
+                for (const handler of plotDimensionChangeHandlersRef.current.values()) {
                     handler(dimensionsRef.current, newDimensions)
                 }
                 dimensionsRef.current = newDimensions
@@ -47,7 +47,7 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
      */
     function updateDimensions(newDimensions: Dimensions) {
         if (dimensionsNotEqual(dimensionsRef.current, newDimensions)) {
-            for (const handler of plotDimensionChangeHandersRef.current.values()) {
+            for (const handler of plotDimensionChangeHandlersRef.current.values()) {
                 handler(dimensionsRef.current, newDimensions)
             }
             dimensionsRef.current = newDimensions
@@ -62,7 +62,7 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
      */
     function registerPlotDimensionChangeHandler(handler: PlotDimensionChangeHandler) {
         const handlerId = crypto.randomUUID()
-        plotDimensionChangeHandersRef.current.set(handlerId, handler)
+        plotDimensionChangeHandlersRef.current.set(handlerId, handler)
         return handlerId
     }
 
@@ -72,7 +72,7 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
      * @returns True if the handler was unregistered, false if it was not found.
      */
     function unregisterPlotDimensionChangeHandler(handlerId: string): boolean {
-        return plotDimensionChangeHandersRef.current.delete(handlerId)
+        return plotDimensionChangeHandlersRef.current.delete(handlerId)
     }
 
     return <PlotDimensionsContext.Provider
