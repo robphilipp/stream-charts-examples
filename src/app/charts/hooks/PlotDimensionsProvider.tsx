@@ -22,10 +22,7 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
     } = props
 
     const [dimensions, setDimensions] = useState<Dimensions>(defaultPlotDimensions().plotDimensions)
-    // holds the latest committed dimensions so the change handlers can be fired from the effect
-    // body (a pure location) rather than from inside the setDimensions updater. Firing them from
-    // the updater is unsafe: StrictMode double-invokes state updater functions, which would run
-    // the handlers twice per change (e.g. applying the resize zoom-rescale twice).
+    // holds the latest committed dimensions so the change handlers can be fired from the effect body
     const dimensionsRef = useRef<Dimensions>(dimensions)
     const plotDimensionChangeHandersRef = useRef<Map<string, PlotDimensionChangeHandler>>(new Map())
 
@@ -44,6 +41,10 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
         [containerDimensions, margin]
     )
 
+    /**
+     * Updates the plot dimensions and fires any registered change handlers.
+     * @param newDimensions The new plot dimensions.
+     */
     function updateDimensions(newDimensions: Dimensions) {
         if (dimensionsNotEqual(dimensionsRef.current, newDimensions)) {
             for (const handler of plotDimensionChangeHandersRef.current.values()) {
@@ -54,12 +55,22 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
         }
     }
 
+    /**
+     * Registers a plot dimension change handler.
+     * @param handler The handler to register.
+     * @returns The handler ID.
+     */
     function registerPlotDimensionChangeHandler(handler: PlotDimensionChangeHandler) {
         const handlerId = crypto.randomUUID()
         plotDimensionChangeHandersRef.current.set(handlerId, handler)
         return handlerId
     }
 
+    /**
+     * Unregisters a plot dimension change handler.
+     * @param handlerId The handler ID.
+     * @returns True if the handler was unregistered, false if it was not found.
+     */
     function unregisterPlotDimensionChangeHandler(handlerId: string): boolean {
         return plotDimensionChangeHandersRef.current.delete(handlerId)
     }
