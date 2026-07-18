@@ -1,4 +1,3 @@
-// import React from 'react';
 import App from './app/App'
 import './styles/index.css'
 import {WindowDimensionsProvider} from "react-resizable-grid-layout"

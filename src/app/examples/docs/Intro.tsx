@@ -66,7 +66,7 @@ export default function Intro(props: Props) {
                 components={{
                     a: anchor => CustomLink(anchor, {
                         color: theme.color,
-                        fontWeight: adjustFontWeight(cssStyle.fontWeight, 50)
+                        // fontWeight: adjustFontWeight(cssStyle.fontWeight, 25)
                     }),
                     figure: figure => CustomFigure(figure, {paddingLeft: 0, marginLeft: 0, width: "100%"}),
                     figcaption: figureCaption => CustomFigureCaption(figureCaption, {
@@ -143,15 +143,15 @@ function Navigation(props: NavigationProps): JSX.Element {
     )
 }
 
-type FontWeight = number
-    | "normal" | "bold" | "bolder" | "lighter"
-    | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900
-    | "initial" | "inherit" | "unset" | "revert"
-    | (string & {})
-
-function adjustFontWeight(weight: FontWeight | undefined, adjustment: number, defaultWeight: number = 500): number {
-    return parseInt(`${weight?.valueOf() || defaultWeight}`) + adjustment;
-}
+// type FontWeight = number
+//     | "normal" | "bold" | "bolder" | "lighter"
+//     | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900
+//     | "initial" | "inherit" | "unset" | "revert"
+//     | (string & {})
+//
+// function adjustFontWeight(weight: FontWeight | undefined, adjustment: number, defaultWeight: number = 500): number {
+//     return parseInt(`${weight?.valueOf() || defaultWeight}`) + adjustment;
+// }
 
 type FontSize = string | number | (string & {})
 
@@ -159,14 +159,20 @@ function adjustFontSize(size: FontSize | undefined, adjustment: number, defaultS
     return parseInt(`${size?.valueOf() || defaultSize}`) + adjustment;
 }
 
+const hoverLinkStyle: CSSProperties = {textDecoration: 'underline', textDecorationStyle: 'solid'}
+const linkStyle: CSSProperties = {textDecoration: 'underline',  textDecorationStyle: 'dashed'}
+
 function CustomLink(
     anchor: ClassAttributes<HTMLAnchorElement> & AnchorHTMLAttributes<HTMLAnchorElement>,
     css: CSSProperties
 ): JSX.Element {
+    const [hoverStyle, setHoverStyle] = useState<CSSProperties>(linkStyle)
     return <a
         href={anchor.href}
         target="_blank" rel="noopener noreferrer"
-        style={{...anchor.style, ...css}}
+        onMouseOver={() => setHoverStyle(hoverLinkStyle)}
+        onMouseLeave={() => setHoverStyle(linkStyle)}
+        style={{...anchor.style, ...css, ...hoverStyle}}
     >
         {anchor.children}
     </a>
