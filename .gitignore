@@ -44,5 +44,6 @@ dist-ssr
 
 .idea/
 .history/
+.ai/
 
 src/app/*.tar.gz
