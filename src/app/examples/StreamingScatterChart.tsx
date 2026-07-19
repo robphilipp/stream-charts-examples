@@ -28,7 +28,7 @@ import {ScatterPlot} from "../charts/plots/ScatterPlot";
 import {Legend} from "../charts/legends/Legend";
 import {assignAxes} from "../charts/plots/plot";
 import * as d3 from "d3";
-import {lightTheme, type Theme} from "../ui/Themes";
+import {lightTheme, type Theme} from "./theme/Themes.ts";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {AxisInterval} from "stream-charts";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
@@ -320,9 +320,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         (data, index) => [data.name, {
                             ...defaultLineStyle(),
                             lineWidth: linewidthFor(data.name),
-                            color: colorFor(data.name, index, initialData.length, theme.name),
+                            color: colorFor(index, initialData.length, theme.name),
                             highlightWidth: highlightLinewidthFor(data.name),
-                            highlightColor: colorFor(data.name, index, initialData.length, theme.name)
+                            highlightColor: colorFor(index, initialData.length, theme.name)
                         }])
                     )}
                     initialData={initialData}
@@ -426,11 +426,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     );
 }
 
-function colorFor(name: string, index: number, numSeries: number, themeName: string): string {
-    if (name === 'Series 1') return 'orange'
-    if (name === 'Series 2') return themeName === 'light' ? 'blue' : 'gray'
-    if (name === 'Series 3') return themeName === 'light' ? 'dodgerblue' : 'gray'
-
+function colorFor(index: number, numSeries: number, themeName: string): string {
     const ratio = index / numSeries / 2
     return themeName === 'light' ?
         d3.interpolateRdBu(ratio > 0.25 ? ratio + 0.5 : ratio) :

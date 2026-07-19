@@ -23,7 +23,7 @@ import {Tooltip} from "../charts/tooltips/Tooltip"
 import {OutlierPlotTooltipContent} from "../charts/tooltips/OutlierPlotTooltipContent"
 import type {OutlierChartData} from "../charts/observables/outliers"
 import {type OutlierSeries, outlierSeriesFrom} from "../charts/series/outlierSeries"
-import {lightTheme, type Theme} from "../ui/Themes"
+import {lightTheme, type Theme} from "./theme/Themes.ts"
 import Checkbox from "../ui/Checkbox"
 import {buttonStyle} from "../ui/utils"
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions"
@@ -113,20 +113,6 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
             ? originalInitialData
             : defaultInitialOutlierData()
     )
-
-    // const inputStyle: CSSProperties = {
-    //     backgroundColor: theme.backgroundColor,
-    //     outlineStyle: 'none',
-    //     borderColor: theme.color,
-    //     borderStyle: 'solid',
-    //     borderWidth: 1,
-    //     borderRadius: 3,
-    //     color: theme.color,
-    //     fontSize: 12,
-    //     padding: 4,
-    //     margin: 6,
-    //     marginRight: 20
-    // }
 
     const buildObservable = (initData: Array<OutlierSeries<Measures>>): Observable<OutlierChartData<Measures>> =>
         randomOutlierDataObservable<Measures>(

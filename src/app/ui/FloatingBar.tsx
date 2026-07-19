@@ -1,4 +1,4 @@
-import type {Theme} from "./Themes.ts";
+import type {Theme} from "../examples/theme/Themes.ts";
 import React, {type CSSProperties, type JSX, useRef, useState} from "react";
 
 type Location = {

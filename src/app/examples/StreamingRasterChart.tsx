@@ -14,7 +14,7 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, type Theme} from "../ui/Themes";
+import {lightTheme, type Theme} from "./theme/Themes.ts";
 
 import type {TimeSeries} from "../charts/series/timeSeries";
 import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
@@ -100,7 +100,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     const {
         theme = lightTheme,
         initialData: originalInitialData = [],
-    } = props;
+    } = props
 
     const [initialData, setInitialData] = useState<Array<TimeSeries>>(() => initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
     const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialData, 50));
@@ -313,9 +313,9 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         (data, index) => [data.name, {
                             ...defaultLineStyle(),
                             lineWidth: linewidthFor(data.name),
-                            color: colorFor(data.name, index, initialData.length, theme.name),
+                            color: colorFor(index, initialData.length, theme.name),
                             highlightWidth: highlightLinewidthFor(data.name),
-                            highlightColor: colorFor(data.name, index, initialData.length, theme.name),
+                            highlightColor: colorFor(index, initialData.length, theme.name),
                         }])
                     )}
                     // seriesStyles={new Map([
@@ -454,11 +454,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     );
 }
 
-function colorFor(name: string, index: number, numSeries: number, themeName: string): string {
-    if (name === 'test1') return 'orange'
-    if (name === 'test2') return themeName === 'light' ? 'blue' : 'gray'
-    if (name === 'test3') return themeName === 'light' ? 'dodgerblue' : 'gray'
-
+function colorFor(index: number, numSeries: number, themeName: string): string {
     const ratio = index / numSeries / 2
     return themeName === 'light' ?
         d3.interpolateRdBu(ratio > 0.25 ? ratio + 0.5 : ratio) :
@@ -478,48 +474,3 @@ function highlightLinewidthFor(name: string): number {
 
     return 3
 }
-
-// type ControlProps = {
-//     type: ControlBarType
-//     theme: Theme
-//     visibility: Visibility
-//     setVisibility: (visibility: Visibility) => void
-//     legendLocation: LegendLocation
-//     setLegendLocation: (location: LegendLocation) => void
-// }
-//
-// function ChartControls(props: ControlProps): JSX.Element {
-//     const {
-//         theme,
-//         visibility,
-//         setVisibility,
-//         legendLocation,
-//         setLegendLocation
-//     } = props
-//
-//     return (
-//         <div style={{
-//             display: 'flex',
-//             alignItems: 'flex-start',
-//             flexDirection: 'column',
-//             gap: 10,
-//             paddingTop: 10
-//         }}>
-//             <Checkbox
-//                 key={3}
-//                 checked={visibility.legend}
-//                 label="legend"
-//                 backgroundColor={theme.backgroundColor}
-//                 borderColor={theme.color}
-//                 labelColor={theme.color}
-//                 onChange={() => setVisibility({...visibility, legend: !visibility.legend})}
-//             />
-//             <LegendControl
-//                 theme={theme}
-//                 visibility={visibility}
-//                 legendLocation={legendLocation}
-//                 setLegendLocation={setLegendLocation}
-//             />
-//         </div>
-//     )
-// }

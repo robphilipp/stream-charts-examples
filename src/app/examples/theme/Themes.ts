@@ -10,7 +10,7 @@ export const darkTheme: Theme = {
     name: 'dark',
     color: '#bcbcb7',
     backgroundColor: '#100f0c',
-    disabledColor: '#b2b0b0',
+    disabledColor: '#777676',
     disabledBackgroundColor: '#3e3d3d'
 }
 

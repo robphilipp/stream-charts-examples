@@ -4,7 +4,7 @@ import {
     DROP_DATA_AFTER_MS,
     type DropAfterOptions
 } from "../dropDataAfter.ts";
-import type {Theme} from "../../ui/Themes.ts";
+import type {Theme} from "../theme/Themes.ts";
 
 type Props = {
     theme: Theme

@@ -1,4 +1,4 @@
-import {lightTheme, type Theme} from "../../ui/Themes.ts";
+import {lightTheme, type Theme} from "../theme/Themes.ts";
 import {
     type AnchorHTMLAttributes,
     type ClassAttributes,
@@ -6,9 +6,13 @@ import {
     type HTMLAttributes,
     type ImgHTMLAttributes,
     type JSX,
+    useLayoutEffect,
+    useRef,
     useState,
     type VideoHTMLAttributes
 } from "react";
+import {getRouteApi, useElementScrollRestoration, useNavigate} from "@tanstack/react-router";
+import {useTheme} from "../theme/ThemeContext.tsx";
 import {Button} from "../../ui/Button.tsx"
 import intro_page from "./intro.md?raw"
 import some_context_page from "./some-context.md?raw"
@@ -48,20 +52,44 @@ function style(theme: Theme, height: number): CSSProperties {
     }
 }
 
-type Props = {
-    theme: Theme
-}
+// id used by the router's scroll-restoration watcher to save/restore the scroll position of
+// the (inner) scrollable intro content div
+const SCROLL_RESTORATION_ID = "intro-content"
 
-export default function Intro(props: Props) {
-    const {theme} = props
+const introRouteApi = getRouteApi("/intro")
+
+export default function Intro() {
+    const {theme} = useTheme()
     const numPages = pages.length
-    const [pageNum, setPageNum] = useState<number>(0)
+
+    // the current intro page comes from the ?page=N search param, so browser back/forward
+    // moves between intro pages; clamp to a valid page in case of a hand-edited URL
+    const {page} = introRouteApi.useSearch()
+    const pageNum = Math.min(Math.max(0, page), numPages - 1)
+    const navigate = useNavigate()
 
     const {height} = useGridCell()
     const cssStyle = style(theme, height)
-    
+
+    // restore the scroll position within the content div when returning to this page/URL. The
+    // router caches scroll per key (path + search), so each intro page keeps its own position.
+    const scrollRef = useRef<HTMLDivElement>(null)
+    const scrollEntry = useElementScrollRestoration({id: SCROLL_RESTORATION_ID})
+    useLayoutEffect(
+        () => {
+            if (scrollRef.current) {
+                scrollRef.current.scrollTop = scrollEntry?.scrollY ?? 0
+            }
+        },
+        [pageNum, scrollEntry]
+    )
+
+    function updatePageNum(nextPage: number): void {
+        navigate({to: "/intro", search: {page: Math.min(Math.max(0, nextPage), numPages - 1)}})
+    }
+
     return (
-        <div style={cssStyle}>
+        <div ref={scrollRef} data-scroll-restoration-id={SCROLL_RESTORATION_ID} style={cssStyle}>
             <ReactMarkdown
                 components={{
                     a: anchor => CustomLink(anchor, {
@@ -89,7 +117,7 @@ export default function Intro(props: Props) {
                     theme={theme}
                     pageNum={pageNum}
                     numPages={numPages}
-                    updatePageNum={setPageNum}
+                    updatePageNum={updatePageNum}
                 />
             </FloatingBar>
         </div>

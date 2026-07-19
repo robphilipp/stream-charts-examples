@@ -1,5 +1,5 @@
 import {type HTMLAttributes, type JSX} from 'react';
-import type {Theme} from "./Themes.ts";
+import type {Theme} from "../examples/theme/Themes.ts";
 
 // Extend the native hr attributes to support all standard HTML props
 interface Props extends HTMLAttributes<HTMLHRElement> {

@@ -1,5 +1,6 @@
 import React, {cloneElement, type CSSProperties, type JSX, useState} from "react"
 import {Button} from "./Button";
+import {defaultActiveTabStyle, defaultTabStyle} from "./tabStyles";
 import {noop} from "stream-charts";
 import {
     Grid,
@@ -103,24 +104,6 @@ type HeaderProps = {
     names: Array<string>
     activeTab: number
     setActiveTab: (index: number) => void
-}
-
-const defaultTabStyle: CSSProperties = {
-    backgroundColor: '#fff',
-    borderLeft: 'unset',
-    borderRight: 'unset',
-    borderTop: 'unset',
-    borderBottom: 'unset',
-    borderRadius: 7,
-    fontSize: 'inherit',
-    fontFamily: 'inherit',
-    width: 50,
-    padding: 4,
-    cursor: 'pointer',
-}
-
-const defaultActiveTabStyle = {
-    fontWeight: 700,
 }
 
 function TabHeader(props: HeaderProps): JSX.Element {

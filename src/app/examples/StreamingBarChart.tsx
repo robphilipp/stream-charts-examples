@@ -15,7 +15,7 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, type Theme} from "../ui/Themes";
+import {lightTheme, type Theme} from "./theme/Themes.ts";
 
 import type {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {regexFilter} from "../charts/filters/regexFilter";

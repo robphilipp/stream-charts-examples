@@ -27,7 +27,7 @@ import {formatNumber} from '../charts/utils';
 import {PoincarePlot} from "../charts/plots/PoincarePlot";
 import {type IterateChartData, iteratesObservable} from "../charts/observables/iterates";
 import * as d3 from "d3";
-import {lightTheme, type Theme} from "../ui/Themes";
+import {lightTheme, type Theme} from "./theme/Themes.ts";
 import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";

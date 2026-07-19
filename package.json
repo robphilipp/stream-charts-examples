@@ -30,6 +30,7 @@
     ]
   },
   "dependencies": {
+    "@tanstack/react-router": "^1.170.18",
     "d3": "^7.9.0",
     "data-frame-ts": "^1.1.0",
     "fast-shift-array": "^0.1.4",
