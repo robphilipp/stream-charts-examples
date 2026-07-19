@@ -432,6 +432,8 @@ export function RasterPlot(props: Props): null {
                                 .attr('x2', datum => xAxis.scale(datum.x))
                                 .attr('y1', () => y1)
                                 .attr('y2', () => y2)
+                                .attr('stroke', strokeColor)
+                                .attr('stroke-width', strokeWidth)
                             ,
                             exit => exit.remove()
                         )

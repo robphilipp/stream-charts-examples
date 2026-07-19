@@ -455,8 +455,6 @@ export function PoincarePlot(props: Props): null {
                 const [yStart, yEnd] = yAxesState.axisDefaultId()
                     .map(id => yAxisRangesRef.current.get(id)?.original.asTuple() || [0, 0])
                     .getOrElse([0, 0])
-                // const [xStart, xEnd] = xAxisRangesRef.current.get(xAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
-                // const [yStart, yEnd] = yAxisRangesRef.current.get(yAxesState.axisDefaultId())?.original.asTuple() || [0, 0]
 
                 mainGElem
                     .selectAll(`#fn-equals-fn1-${chartId}-poincare`)
@@ -524,7 +522,10 @@ export function PoincarePlot(props: Props): null {
                                     .attr('transform', `translate(${margin.left}, ${margin.top})`)
                                     .attr("clip-path", `url(#${clipPathId})`)
                                 ,
-                                update => update,
+                                update => update
+                                    .style("stroke", seriesLineStyle.color)
+                                    .style("stroke-width", seriesLineStyle.lineWidth)
+                                ,
                                 exit => exit.remove()
                             )
                     }
