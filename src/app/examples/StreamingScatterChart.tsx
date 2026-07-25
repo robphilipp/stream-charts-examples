@@ -1,5 +1,5 @@
 import {type JSX, useLayoutEffect, useRef, useState} from "react";
-import {randomWeightDataObservable} from "./randomWeightData";
+import {randomWeightDataObservable} from "./dataproviders/randomWeightData.ts";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {
@@ -28,7 +28,7 @@ import {ScatterPlot} from "../charts/plots/ScatterPlot";
 import {Legend} from "../charts/legends/Legend";
 import {assignAxes} from "../charts/plots/plot";
 import * as d3 from "d3";
-import {lightTheme, type Theme} from "./theme/Themes.ts";
+import {lightTheme, type Theme} from "./Themes.ts";
 import {seriesFrom} from "../charts/series/baseSeries";
 import {AxisInterval} from "stream-charts";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";

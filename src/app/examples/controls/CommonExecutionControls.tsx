@@ -1,5 +1,5 @@
 import {type JSX} from "react";
-import type {Theme} from "../theme/Themes.ts";
+import type {Theme} from "../Themes.ts";
 import {Button} from "../../ui/Button.tsx";
 import {buttonStyle} from "../../ui/utils.ts";
 import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";

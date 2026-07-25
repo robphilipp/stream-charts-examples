@@ -23,17 +23,17 @@ import {
 } from "react-resizable-grid-layout";
 import {Toggle, ToggleStatus} from "./ui/Toggle";
 import {defaultActiveTabStyle, defaultTabStyle} from "./ui/tabStyles";
-import {darkTheme, lightTheme} from "./examples/theme/Themes.ts";
-import {useTheme} from "./examples/theme/ThemeContext.tsx";
+import {darkTheme, lightTheme} from "./examples/Themes.ts";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {StreamingPoincareChart} from "./examples/StreamingPoincareChart";
 import {StreamingBarChart} from "./examples/StreamingBarChart";
 import {StreamingOutlierChart} from "./examples/StreamingOutlierChart";
 import Intro from "./examples/docs/Intro";
-import {initialRandomWeightData} from "./examples/randomWeightData";
-import {initialTentMapData} from "./examples/randomIterateData";
-import {initialSineFnData} from "./examples/randomOrdinalData";
+import {initialRandomWeightData} from "./examples/dataproviders/randomWeightData.ts";
+import {initialTentMapData} from "./examples/dataproviders/randomIterateData.ts";
+import {initialSineFnData} from "./examples/dataproviders/randomOrdinalData.ts";
+import {useThemeStore} from "./examples/appstate/themeStore.ts";
 
 /*
     Example data is generated once at module load so navigating between routes doesn't
@@ -74,7 +74,7 @@ const TABS: Array<TabDef> = [
  * @return The tab navigation bar
  */
 function TabNav(): JSX.Element {
-    const {theme} = useTheme()
+    const {theme} = useThemeStore()
     const styleOverride: CSSProperties = {
         backgroundColor: theme.backgroundColor,
         color: theme.color,
@@ -129,10 +129,10 @@ function TabNav(): JSX.Element {
  * @return The application shell
  */
 function RootLayout(): JSX.Element {
-    const {theme, setTheme} = useTheme()
+    const {theme, updateTheme} = useThemeStore()
 
     function handleThemeChange(status: ToggleStatus): void {
-        setTheme(status === ToggleStatus.OFF ? lightTheme : darkTheme)
+        updateTheme(status === ToggleStatus.OFF ? lightTheme : darkTheme)
     }
 
     return (
@@ -277,27 +277,27 @@ const outlierRoute = createRoute({
     props the charts received previously in App.tsx.
  */
 function ScatterRoute(): JSX.Element {
-    const {theme} = useTheme()
+    const {theme} = useThemeStore()
     return <StreamingScatterChart theme={theme} timeWindow={1000} initialData={initialScatterData}/>
 }
 
 function RasterRoute(): JSX.Element {
-    const {theme} = useTheme()
+    const {theme} = useThemeStore()
     return <StreamingRasterChart theme={theme} timeWindow={1000} initialData={initialSpikeData} seriesHeight={20} plotWidth={900}/>
 }
 
 function PoincareRoute(): JSX.Element {
-    const {theme} = useTheme()
+    const {theme} = useThemeStore()
     return <StreamingPoincareChart theme={theme} timeWindow={1000} initialData={initialIterateData}/>
 }
 
 function BarRoute(): JSX.Element {
-    const {theme} = useTheme()
+    const {theme} = useThemeStore()
     return <StreamingBarChart theme={theme} timeWindow={100} initialData={initialBarData} seriesHeight={20} plotWidth={900}/>
 }
 
 function OutlierRoute(): JSX.Element {
-    const {theme} = useTheme()
+    const {theme} = useThemeStore()
     return <StreamingOutlierChart theme={theme} timeWindow={2500}/>
 }
 

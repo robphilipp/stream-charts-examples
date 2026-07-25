@@ -2,6 +2,9 @@ import {type JSX} from "react"
 import {useOutlierTooltip} from "../charts/tooltips/useOutlierTooltip.tsx"
 
 /**
+ * Note: this is unused but serves as an additional example of a custom tooltip. To use
+ * this tooltip, uncomment its usage in the {@link StreamingOutlierChart}.
+ * <br/>
  * Default tooltip content for {@link OutlierPlotHtmlTooltipContent}. Reads tooltip data and
  * formatters from context via {@link useOutlierTooltip}. Used automatically when no custom
  * children are provided to {@link OutlierPlotHtmlTooltipContent}.

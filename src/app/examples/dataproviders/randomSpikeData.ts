@@ -1,5 +1,5 @@
-import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
-import {type TimeSeries} from "../charts/series/timeSeries";
+import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
+import {type TimeSeries} from "../../charts/series/timeSeries.ts";
 import {interval, Observable} from "rxjs";
 import {map} from "rxjs/operators";
 import {FastShiftArray} from "fast-shift-array";

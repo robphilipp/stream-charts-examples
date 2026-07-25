@@ -1,5 +1,5 @@
 import {type CSSProperties, type JSX} from "react";
-import type {Theme} from "../theme/Themes.ts";
+import type {Theme} from "../Themes.ts";
 
 const inputStyle = (theme: Theme): CSSProperties => ({
     backgroundColor: theme.backgroundColor,

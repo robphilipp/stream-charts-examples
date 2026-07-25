@@ -1,4 +1,4 @@
-import {lightTheme, type Theme} from "../theme/Themes.ts";
+import {lightTheme, type Theme} from "../Themes.ts";
 import {
     type AnchorHTMLAttributes,
     type ClassAttributes,
@@ -12,7 +12,6 @@ import {
     type VideoHTMLAttributes
 } from "react";
 import {getRouteApi, useElementScrollRestoration, useNavigate} from "@tanstack/react-router";
-import {useTheme} from "../theme/ThemeContext.tsx";
 import {Button} from "../../ui/Button.tsx"
 import intro_page from "./intro.md?raw"
 import some_context_page from "./some-context.md?raw"
@@ -25,6 +24,7 @@ import {useGridCell} from "react-resizable-grid-layout";
 import {FloatingBar} from "../../ui/FloatingBar.tsx";
 import {BackIcon, FirstIcon, ForwardIcon, LastIcon} from "../../ui/Icons.tsx";
 import remarkGfm from "remark-gfm";
+import {useThemeStore} from "../appstate/themeStore.ts";
 
 const pages = [
     intro_page,
@@ -59,7 +59,7 @@ const SCROLL_RESTORATION_ID = "intro-content"
 const introRouteApi = getRouteApi("/intro")
 
 export default function Intro() {
-    const {theme} = useTheme()
+    const {theme} = useThemeStore()
     const numPages = pages.length
 
     // the current intro page comes from the ?page=N search param, so browser back/forward

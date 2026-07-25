@@ -1,7 +1,7 @@
 import {type JSX, useLayoutEffect, useRef, useState} from 'react';
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {randomSpikeDataObservable} from "./randomSpikeData";
+import {randomSpikeDataObservable} from "./dataproviders/randomSpikeData.ts";
 import {
     Grid,
     gridArea,
@@ -14,7 +14,7 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, type Theme} from "./theme/Themes.ts";
+import {lightTheme, type Theme} from "./Themes.ts";
 
 import type {TimeSeries} from "../charts/series/timeSeries";
 import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";

@@ -1,5 +1,5 @@
 import {type CSSProperties, type JSX, useEffect, useMemo, useRef, useState} from "react";
-import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./randomIterateData";
+import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./dataproviders/randomIterateData.ts";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {
@@ -27,7 +27,7 @@ import {formatNumber} from '../charts/utils';
 import {PoincarePlot} from "../charts/plots/PoincarePlot";
 import {type IterateChartData, iteratesObservable} from "../charts/observables/iterates";
 import * as d3 from "d3";
-import {lightTheme, type Theme} from "./theme/Themes.ts";
+import {lightTheme, type Theme} from "./Themes.ts";
 import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";

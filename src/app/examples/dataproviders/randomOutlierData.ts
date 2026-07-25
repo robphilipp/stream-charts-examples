@@ -1,5 +1,5 @@
 import {interval, type Observable} from "rxjs";
-import type {OutlierChartData} from "../charts/observables/outliers.ts";
+import type {OutlierChartData} from "../../charts/observables/outliers.ts";
 import {
     type OutlierBounds,
     outlierBoundsFor,
@@ -7,9 +7,9 @@ import {
     outlierDatumFor,
     type OutlierSeries,
     outlierSeriesFrom
-} from "../charts/series/outlierSeries.ts";
+} from "../../charts/series/outlierSeries.ts";
 import {map} from "rxjs/operators";
-import {datumOf} from "../charts/series/timeSeries.ts";
+import {datumOf} from "../../charts/series/timeSeries.ts";
 
 export function randomOutlierDataObservable<M extends readonly number[]>(
     seriesName: string,

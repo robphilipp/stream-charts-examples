@@ -1,6 +1,6 @@
 import {type JSX} from "react";
 import {INTERPOLATIONS} from "../interpolations.ts";
-import type {Theme} from "../theme/Themes.ts";
+import type {Theme} from "../Themes.ts";
 
 type Props = {
     theme: Theme

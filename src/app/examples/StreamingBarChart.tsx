@@ -2,7 +2,7 @@ import {type JSX, useRef, useState} from 'react';
 import * as d3 from "d3";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {barDanceDataObservable} from "./randomOrdinalData";
+import {barDanceDataObservable} from "./dataproviders/randomOrdinalData.ts";
 import {
     Grid,
     gridArea,
@@ -15,7 +15,7 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, type Theme} from "./theme/Themes.ts";
+import {lightTheme, type Theme} from "./Themes.ts";
 
 import type {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {regexFilter} from "../charts/filters/regexFilter";

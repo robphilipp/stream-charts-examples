@@ -1,7 +1,7 @@
 // import {initialChartData, seriesFromTuples} from "stream-charts";
 
-import {timeSeriesFromTuples} from "../charts/series/timeSeries";
-import {initialTimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {timeSeriesFromTuples} from "../../charts/series/timeSeries.ts";
+import {initialTimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
 
 describe('when creating random data from an initial series', () => {
     const initialData = [

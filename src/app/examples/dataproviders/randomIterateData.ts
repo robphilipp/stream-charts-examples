@@ -1,7 +1,7 @@
-import {type Datum, datumOf, type TimeSeries} from "../charts/series/timeSeries";
-import {seriesFrom} from "../charts/series/baseSeries";
+import {type Datum, datumOf, type TimeSeries} from "../../charts/series/timeSeries.ts";
+import {seriesFrom} from "../../charts/series/baseSeries.ts";
 import {interval, Observable} from "rxjs";
-import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
+import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
 import {scan} from "rxjs/operators";
 
 export type IterateFunction = (time: number, xn: number) => Datum
