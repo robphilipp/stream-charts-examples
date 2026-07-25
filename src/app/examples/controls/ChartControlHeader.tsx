@@ -1,5 +1,5 @@
 import type {ControlBarType} from "../../ui/ExpandableControlBar.tsx";
-import type {Theme} from "../Themes.ts";
+import type {Theme} from "../../ui/Themes.ts";
 import type {JSX} from "react";
 
 type Props = {

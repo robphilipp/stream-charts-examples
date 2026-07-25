@@ -23,7 +23,7 @@ import {Tooltip} from "../charts/tooltips/Tooltip"
 import {OutlierPlotTooltipContent} from "../charts/tooltips/OutlierPlotTooltipContent"
 import type {OutlierChartData} from "../charts/observables/outliers"
 import {type OutlierSeries, outlierSeriesFrom} from "../charts/series/outlierSeries"
-import {lightTheme, type Theme} from "./Themes.ts"
+import {lightTheme, type Theme} from "../ui/Themes.ts"
 import Checkbox from "../ui/Checkbox"
 import {buttonStyle} from "../ui/utils"
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions"
@@ -31,7 +31,7 @@ import {AxisInterval} from "../charts/axes/AxisInterval"
 import {regexFilter} from "../charts/filters/regexFilter"
 import {OutlierPlotHtmlTooltipContent} from "../charts/tooltips/OutlierPlotHtmlTooltipContent.tsx";
 import {Toggle, ToggleStatus} from "../ui/Toggle.tsx";
-import {INTERPOLATIONS} from "./interpolations.ts";
+import {INTERPOLATIONS} from "./options/interpolations.ts";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
@@ -41,7 +41,7 @@ import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
-import {DEFAULT_DROP_AFTER_20} from "./dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_20} from "./options/dropDataAfter.ts";
 import {VerticalDivider} from "../ui/VerticalDivider.tsx";
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)

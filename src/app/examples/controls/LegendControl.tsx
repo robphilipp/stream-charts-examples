@@ -1,7 +1,7 @@
 import {type JSX} from "react";
 import {LegendLocation} from "../../charts/legends/constants.ts";
-import type {Theme} from "../Themes.ts";
-import {LEGEND_LOCATIONS} from "../legendLocations.ts";
+import type {Theme} from "../../ui/Themes.ts";
+import {LEGEND_LOCATIONS} from "../options/legendLocations.ts";
 import Checkbox from "../../ui/Checkbox.tsx";
 
 export const EXTERNAL_LEGEND_WIDTH = 100

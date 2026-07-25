@@ -1,4 +1,4 @@
-import {lightTheme, type Theme} from "../Themes.ts";
+import {lightTheme, type Theme} from "../../ui/Themes.ts";
 import {
     type AnchorHTMLAttributes,
     type ClassAttributes,

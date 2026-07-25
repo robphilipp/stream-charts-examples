@@ -23,7 +23,7 @@ import {
 } from "react-resizable-grid-layout";
 import {Toggle, ToggleStatus} from "./ui/Toggle";
 import {defaultActiveTabStyle, defaultTabStyle} from "./ui/tabStyles";
-import {darkTheme, lightTheme} from "./examples/Themes.ts";
+import {darkTheme, lightTheme} from "./ui/Themes.ts";
 import {StreamingRasterChart} from "./examples/StreamingRasterChart";
 import {StreamingScatterChart} from "./examples/StreamingScatterChart";
 import {StreamingPoincareChart} from "./examples/StreamingPoincareChart";

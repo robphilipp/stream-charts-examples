@@ -14,7 +14,7 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, type Theme} from "./Themes.ts";
+import {lightTheme, type Theme} from "../ui/Themes.ts";
 
 import type {TimeSeries} from "../charts/series/timeSeries";
 import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
@@ -40,9 +40,9 @@ import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
-import {createInitialVisibility, type Visibility} from "./visibility.ts";
+import {createInitialVisibility, type Visibility} from "./options/visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
-import {DEFAULT_DROP_AFTER_20} from "./dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_20} from "./options/dropDataAfter.ts";
 import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";

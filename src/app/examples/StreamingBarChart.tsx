@@ -15,7 +15,7 @@ import {
     withFraction,
     withPixels
 } from 'react-resizable-grid-layout';
-import {lightTheme, type Theme} from "./Themes.ts";
+import {lightTheme, type Theme} from "../ui/Themes.ts";
 
 import type {Datum, TimeSeries} from "../charts/series/timeSeries";
 import {regexFilter} from "../charts/filters/regexFilter";
@@ -53,7 +53,7 @@ import {CommonControls} from "./controls/CommonControls.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
-import {DEFAULT_DROP_AFTER_10, DROP_AFTER_10_SEC} from "./dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_10, DROP_AFTER_10_SEC} from "./options/dropDataAfter.ts";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {ChartControls} from "./controls/ChartControls.tsx";

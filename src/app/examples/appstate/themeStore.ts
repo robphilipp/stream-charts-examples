@@ -1,5 +1,5 @@
 import {create} from 'zustand'
-import {lightTheme, type Theme} from "../Themes.ts";
+import {lightTheme, type Theme} from "../../ui/Themes.ts";
 
 interface ThemeStore {
     theme: Theme,

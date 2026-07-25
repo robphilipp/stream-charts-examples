@@ -3,8 +3,8 @@ import {
     DROP_AFTER_20_SEC,
     DROP_DATA_AFTER_MS,
     type DropAfterOptions
-} from "../dropDataAfter.ts";
-import type {Theme} from "../Themes.ts";
+} from "../options/dropDataAfter.ts";
+import type {Theme} from "../../ui/Themes.ts";
 
 type Props = {
     theme: Theme
