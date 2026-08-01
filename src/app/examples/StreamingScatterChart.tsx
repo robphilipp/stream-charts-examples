@@ -366,8 +366,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[Math.max(0, chartTime - 10000), Math.max(10000, chartTime)]}
-                        // domain={[0, 10000]}
+                        domain={[x1axisRange[0], x1axisRange[1]]}
                         label="Time (ms)"
                     />
                     <ContinuousAxis
@@ -379,8 +378,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        // domain={[0, 5000]}
-                        domain={[Math.max(0, x2axisRange[1] - 5000), Math.max(5000, x2axisRange[1])]}
+                        domain={[x2axisRange[0], x2axisRange[1]]}
                         label="Expanded Time (ms)"
                     />
                     <ContinuousAxis
