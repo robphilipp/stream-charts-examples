@@ -79,7 +79,15 @@ export interface Props {
      * no markers are rendered.
      */
     markerRadius?: number
-    // initialTimes?: Map<string, number>
+
+    /**
+     * Commonly used when the subscription is held by the parent. A common use-case for this
+     * is when the application would like to keep a chart running even when a user navigates
+     * away from the page. In this use case, the subscription is stored at the application
+     * level (see also the {@link Chart} prop `onSubscribe`), and handed back to the page
+     * containing this chart when the user navigates back.
+     */
+    subscription?: Subscription
 }
 
 /**
@@ -183,7 +191,7 @@ export function ScatterPlot(props: Props): null {
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
-    const subscriptionRef = useRef<Subscription>(undefined)
+    const subscriptionRef = useRef<Subscription>(props.subscription)
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     // eslint-disable-next-line react-hooks/refs
@@ -530,6 +538,7 @@ export function ScatterPlot(props: Props): null {
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
+            if (subscriptionRef.current) return subscriptionRef.current
             if (seriesObservable === undefined || mainG === null) return undefined
             if (withCadenceOf !== undefined) {
                 return subscriptionTimeSeriesWithCadenceFor(

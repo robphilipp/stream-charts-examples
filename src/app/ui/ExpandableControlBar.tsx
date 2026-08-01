@@ -12,6 +12,7 @@ type Props = {
     width?: CSSProperties["width"]
     minHeight?: CSSProperties["minHeight"]
     defaultExpanded?: boolean
+    autoExpandOnMouseEnter?: boolean
     children: JSX.Element | Array<JSX.Element>
 }
 
@@ -23,6 +24,7 @@ export function ExpandableControlBar(props: Props): JSX.Element {
         minHeight = 'max-content',
         width = 'max-content',
         defaultExpanded = false,
+        autoExpandOnMouseEnter = true,
         expandButtonStyle,
         children
     } = props
@@ -75,7 +77,8 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                     clearTimeout(collapseTimeoutRef.current)
                     collapseTimeoutRef.current = null
                 }
-                setExpanded(true)
+                setExpanded(autoExpandOnMouseEnter)
+                // setExpanded(true)
                 setExpandButtonColor(expandButtonStyle.color || borderColor)
             }}
             onMouseLeave={() => {

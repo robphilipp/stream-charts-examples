@@ -1,6 +1,4 @@
 import {type JSX, useLayoutEffect, useRef, useState} from "react";
-import {randomWeightDataObservable} from "./dataproviders/randomWeightData.ts";
-import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
 import {
     Grid,
@@ -15,7 +13,6 @@ import {
     withPixels
 } from "react-resizable-grid-layout";
 import type {Datum, TimeSeries} from "../charts/series/timeSeries";
-import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
@@ -48,15 +45,19 @@ import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
+import {useScatterChartStore} from "./appstate/scatterChartStore.ts";
 
 const initialVisibility = createInitialVisibility()
 
-const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
-    return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
-}
+// const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
+//     return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
+// }
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
+
+const X1_AXIS_ID = 'x-axis-1'
+const X2_AXIS_ID = 'x-axis-2'
 
 /**
  * The properties
@@ -75,10 +76,26 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         initialData: originalInitialData = [],
     } = props
 
-    const randomDataObservable = randomData(25, 50, 10, 1000)
-    const [initialData, setInitialData] = useState<Array<TimeSeries>>(originalInitialData.map(series => seriesFrom(series.name, series.data.slice())))
-    const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomDataObservable(initialData))
-    const [running, setRunning] = useState<boolean>(false)
+    const {
+        initialData,
+        setInitialData,
+        observable,
+        subscription,
+        setSubscription,
+        running,
+        setRunning,
+        // chartTime,
+        // setChartTime,
+        x1axisRange,
+        setX1axisRange,
+        x2axisRange,
+        setX2axisRange,
+    } = useScatterChartStore()
+
+    // const randomDataObservable = randomData(25, 50, 10, 1000)
+    // const [initialData, setInitialData] = useState<Array<TimeSeries>>(originalInitialData.map(series => seriesFrom(series.name, series.data.slice())))
+    // const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomDataObservable(initialData))
+    // const [running, setRunning] = useState<boolean>(false)
 
     const [filterValue, setFilterValue] = useState<string>('');
     const [filter, setFilter] = useState<RegExp>(new RegExp(''));
@@ -95,7 +112,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const [elapsed, setElapsed] = useState<number>(0)
 
     // chart time
-    const [chartTime, setChartTime] = useState<number>(0)
+    // const [chartTime, setChartTime] = useState<number>(0)
 
     // drop data after
     const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
@@ -166,12 +183,23 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      * @param times A map associating the axis with its time range
      */
     function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
-        setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
+        const x1AxisInterval = times.get(X1_AXIS_ID)
+        if (x1AxisInterval) {
+            setX1axisRange(x1AxisInterval.asTuple())
+        }
+        const x2AxisInterval = times.get(X2_AXIS_ID)
+        if (x2AxisInterval) {
+            setX2axisRange(x2AxisInterval.asTuple())
+        }
+    }
+
+    if (initialData == null || initialData.length === 0) {
+        setInitialData(initialDataFrom(originalInitialData))
     }
 
     function handleRunPauseClick(): void {
         if (!running) {
-            setObservable(randomDataObservable(initialData))
+            setInitialData(initialData)
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -187,6 +215,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         setElapsed(0)
     }
 
+    // the chart time is the end of the x2 axis range
+    const chartTime = x1axisRange[1]
     return (
         <Grid
             dimensionsSupplier={useGridCell}
@@ -203,7 +233,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 .addArea("chart", gridArea(2, 1))
                 .addArea("chart-legend", gridArea(2, 2))
                 .build()}
-            styles={{color: '#d2933f'}}
         >
             <GridItem gridAreaName="chart-controls">
                 <div style={{
@@ -226,6 +255,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         borderColor={theme.disabledBackgroundColor}
                         borderRadius={10}
                         minHeight={55}
+                        autoExpandOnMouseEnter={false}
                     >
                         <CommonExecutionControls
                             theme={theme}
@@ -316,7 +346,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={new Map(initialData.map(
+                    seriesStyles={new Map(originalInitialData.map(
                         (data, index) => [data.name, {
                             ...defaultLineStyle(),
                             lineWidth: linewidthFor(data.name),
@@ -329,13 +359,15 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observable}
                     shouldSubscribe={running}
+                    onSubscribe={setSubscription}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={25}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[10, 10000]}
+                        domain={[Math.max(0, chartTime - 10000), Math.max(10000, chartTime)]}
+                        // domain={[0, 10000]}
                         label="Time (ms)"
                     />
                     <ContinuousAxis
@@ -347,7 +379,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-2"
                         location={AxisLocation.Top}
-                        domain={[100, 5000]}
+                        // domain={[0, 5000]}
+                        domain={[Math.max(0, x2axisRange[1] - 5000), Math.max(5000, x2axisRange[1])]}
                         label="Expanded Time (ms)"
                     />
                     <ContinuousAxis
@@ -408,6 +441,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         markerRadius={visibility.markers ? 2 : undefined}
                         // withCadenceOf={30}
                         // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
+                        subscription={subscription}
                     />
                 </Chart>
             </GridItem>

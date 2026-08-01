@@ -6,7 +6,12 @@ interface ThemeStore {
     updateTheme: (theme: Theme) => void
 }
 
-export const useThemeStore = create<ThemeStore>()(set => ({
-    theme: lightTheme,
-    updateTheme: (theme: Theme) => set({theme})
-}))
+/**
+ * Store for managing the theme of the application.
+ */
+export const useThemeStore = create<ThemeStore>()(
+    set => ({
+        theme: lightTheme,
+        updateTheme: (theme: Theme) => set({theme})
+    })
+)
