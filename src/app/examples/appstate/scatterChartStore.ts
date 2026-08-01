@@ -3,6 +3,7 @@ import type {TimeSeries} from "../../charts/series/timeSeries.ts";
 import {Observable, type Subscription} from "rxjs";
 import type {TimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
 import {randomWeightDataObservable} from "../dataproviders/randomWeightData.ts";
+import {createInitialVisibility, type Visibility} from "../options/visibility.ts";
 
 type Range = [start: number, end: number]
 
@@ -24,6 +25,15 @@ interface ScatterChartStore {
     setX1axisRange: (range: Range) => void
     x2axisRange: Range
     setX2axisRange: (range: Range) => void
+
+    filterValue: string
+    setFilterValue: (filterValue: string) => void
+
+    visibility: Visibility
+    setVisibility: (visibility: Visibility) => void
+
+    selectedInterpolationName: string,
+    setSelectedInterpolationName: (name: string) => void
 }
 
 const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
@@ -51,5 +61,14 @@ export const useScatterChartStore = create<ScatterChartStore>((set) => ({
     x1axisRange: [0, 10000],
     setX1axisRange: (range: Range) => set({x1axisRange: range}),
     x2axisRange: [0, 5000],
-    setX2axisRange: (range: Range) => set({x2axisRange: range})
+    setX2axisRange: (range: Range) => set({x2axisRange: range}),
+
+    filterValue: '',
+    setFilterValue: filterValue => set({filterValue}),
+
+    visibility: createInitialVisibility(),
+    setVisibility: visibility => set({visibility}),
+
+    selectedInterpolationName: 'curveLinear',
+    setSelectedInterpolationName: name => set({selectedInterpolationName: name}),
 }));

@@ -46,12 +46,9 @@ import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {useScatterChartStore} from "./appstate/scatterChartStore.ts";
+import {Optional} from "result-fn";
 
-const initialVisibility = createInitialVisibility()
-
-// const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
-//     return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
-// }
+// const initialVisibility = createInitialVisibility()
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
@@ -77,32 +74,37 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     } = props
 
     const {
+        // initial data and observable
         initialData,
         setInitialData,
         observable,
+        // subscription for page remounts
         subscription,
         setSubscription,
+        // subscription active and data is streaming
         running,
         setRunning,
-        // chartTime,
-        // setChartTime,
+        // range for the x1 and x2 axes
         x1axisRange,
         setX1axisRange,
         x2axisRange,
         setX2axisRange,
+        // filters for series displayed in chart
+        filterValue,
+        setFilterValue,
+        // visibility of tooltip, tracker, margin, legend
+        visibility,
+        setVisibility,
+        // interpolation
+        selectedInterpolationName,
+        setSelectedInterpolationName,
     } = useScatterChartStore()
 
-    // const randomDataObservable = randomData(25, 50, 10, 1000)
-    // const [initialData, setInitialData] = useState<Array<TimeSeries>>(originalInitialData.map(series => seriesFrom(series.name, series.data.slice())))
-    // const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomDataObservable(initialData))
-    // const [running, setRunning] = useState<boolean>(false)
+    const [filter, setFilter] = useState<RegExp>(new RegExp(filterValue));
 
-    const [filterValue, setFilterValue] = useState<string>('');
-    const [filter, setFilter] = useState<RegExp>(new RegExp(''));
-
-    const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
-    const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
-    const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
+    const [interpolation, setInterpolation] = useState<d3.CurveFactory>(
+        () => interpolationFactoryFor(selectedInterpolationName).getOrElse(d3.curveLinear)
+    )
 
     const [legendLocation, setLegendLocation] = useState<LegendLocation>(LegendLocation.EXTERNAL_CONTAINER)
 
@@ -110,9 +112,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const startTimeRef = useRef<number>(new Date().valueOf())
     const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
-
-    // chart time
-    // const [chartTime, setChartTime] = useState<number>(0)
 
     // drop data after
     const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
@@ -167,13 +166,22 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         regexFilter(updatedFilter).onSuccess((regex: RegExp) => setFilter(regex));
     }
 
+    function interpolationFactoryFor(interpolationName: string): Optional<d3.CurveFactory> {
+        const interpolation = INTERPOLATIONS.get(interpolationName)
+        if (interpolation) {
+            const [, factory] = interpolation
+            return Optional.of(factory)
+        }
+        return Optional.empty()
+    }
     /**
      * Called when the interpolation is change for the chart. Converts the selected
      * interpolation name into the d3 curve-factory.
      * @param selectedInterpolation The name of the selected interpolation
      */
     function handleInterpolationChange(selectedInterpolation: string): void {
-        const [, factory] = INTERPOLATIONS.get(selectedInterpolation) || ['Linear', d3.curveLinear]
+        // const [, factory] = INTERPOLATIONS.get(selectedInterpolation) || ['Linear', d3.curveLinear]
+        const factory = interpolationFactoryFor(selectedInterpolation).getOrElse(d3.curveLinear)
         setInterpolation(() => factory)
         setSelectedInterpolationName(selectedInterpolation)
     }
