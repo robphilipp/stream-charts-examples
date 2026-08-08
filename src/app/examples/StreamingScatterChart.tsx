@@ -36,10 +36,8 @@ import {CommonControls} from "./controls/CommonControls.tsx";
 import {buttonStyle} from "../ui/utils.ts";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {INTERPOLATIONS} from "./options/interpolations.ts";
-import {createInitialVisibility, type Visibility} from "./options/visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
-import {DEFAULT_DROP_AFTER_20} from "./options/dropDataAfter.ts";
 import {FilterIcon, InterpolationIcon, LagIcon, MarkersIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
@@ -47,6 +45,7 @@ import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {useScatterChartStore} from "./appstate/scatterChartStore.ts";
 import {Optional} from "result-fn";
+import {DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 
 // const initialVisibility = createInitialVisibility()
 
@@ -98,6 +97,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         // interpolation
         selectedInterpolationName,
         setSelectedInterpolationName,
+        // drop data
+        dropAfterMs,
+        setDropAfterMs,
     } = useScatterChartStore()
 
     const [filter, setFilter] = useState<RegExp>(new RegExp(filterValue));
@@ -106,17 +108,13 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         () => interpolationFactoryFor(selectedInterpolationName).getOrElse(d3.curveLinear)
     )
 
-    const [legendLocation, setLegendLocation] = useState<LegendLocation>(LegendLocation.EXTERNAL_CONTAINER)
-
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
     const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
-    // drop data after
-    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
-
     // legend
+    const [legendLocation, setLegendLocation] = useState<LegendLocation>(LegendLocation.EXTERNAL_CONTAINER)
     const legendContainerRef = useRef<HTMLDivElement>(null)
     const [externalLegendWidth, setExternalLegendWidth] = useState<number>(0)
     const externalLegendWidthRef = useRef<number>(0)
@@ -153,6 +151,11 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         return () => cancelAnimationFrame(animationFrameId)
     }, [shouldShowExternalLegend])
 
+    /**
+     * Processes an array of time series data and returns a new array with modified series.
+     * @param data - The input array of time series objects to process.
+     * @return A new array of time series objects with modifications applied.
+     */
     function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
         return data.map(series => seriesFrom<Datum>(series.name, series.data.slice()))
     }
@@ -285,6 +288,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         <CommonControls>
                             <DropDataControl
                                 theme={theme}
+                                initialValue={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_20_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />

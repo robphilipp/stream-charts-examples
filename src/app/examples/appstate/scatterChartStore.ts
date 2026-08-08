@@ -32,8 +32,11 @@ interface ScatterChartStore {
     visibility: Visibility
     setVisibility: (visibility: Visibility) => void
 
-    selectedInterpolationName: string,
+    selectedInterpolationName: string
     setSelectedInterpolationName: (name: string) => void
+
+    dropAfterMs: number
+    setDropAfterMs: (dropAfterMs: number) => void
 }
 
 const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
@@ -66,9 +69,13 @@ export const useScatterChartStore = create<ScatterChartStore>((set) => ({
     filterValue: '',
     setFilterValue: filterValue => set({filterValue}),
 
+    // holds status of the visibility for tooltip, tracker, markers, legend
     visibility: createInitialVisibility(),
     setVisibility: visibility => set({visibility}),
 
     selectedInterpolationName: 'curveLinear',
     setSelectedInterpolationName: name => set({selectedInterpolationName: name}),
+
+    dropAfterMs: 0,
+    setDropAfterMs: (dropAfterMs: number) => set({dropAfterMs}),
 }));
