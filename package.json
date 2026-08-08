@@ -30,6 +30,7 @@
     ]
   },
   "dependencies": {
+    "@redux-devtools/extension": "^4.0.0",
     "@tanstack/react-router": "^1.170.18",
     "d3": "^7.9.0",
     "data-frame-ts": "^1.1.0",

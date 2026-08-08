@@ -46,8 +46,7 @@ import {Divider} from "../ui/Divider.tsx";
 import {useScatterChartStore} from "./appstate/scatterChartStore.ts";
 import {Optional} from "result-fn";
 import {DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
-
-// const initialVisibility = createInitialVisibility()
+import {useShallow} from "zustand/react/shallow";
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
@@ -102,7 +101,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         setDropAfterMs,
         // reset the state
         reset,
-    } = useScatterChartStore()
+    } = useScatterChartStore(useShallow(state => ({...state})))
 
     const [filter, setFilter] = useState<RegExp>(new RegExp(filterValue));
 
@@ -185,7 +184,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      * @param selectedInterpolation The name of the selected interpolation
      */
     function handleInterpolationChange(selectedInterpolation: string): void {
-        // const [, factory] = INTERPOLATIONS.get(selectedInterpolation) || ['Linear', d3.curveLinear]
         const factory = interpolationFactoryFor(selectedInterpolation).getOrElse(d3.curveLinear)
         setInterpolation(() => factory)
         setSelectedInterpolationName(selectedInterpolation)
@@ -226,6 +224,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     function handleClearClick(): void {
         setInitialData(initialDataFrom(originalInitialData))
         setElapsed(0)
+        setFilter(new RegExp(''))
+        setInterpolation(() => d3.curveLinear)
         reset()
     }
 

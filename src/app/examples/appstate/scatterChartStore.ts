@@ -4,7 +4,8 @@ import {Observable, type Subscription} from "rxjs";
 import type {TimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
 import {randomWeightDataObservable} from "../dataproviders/randomWeightData.ts";
 import {createInitialVisibility, type Visibility} from "../options/visibility.ts";
-import type {UseBoundStore} from "zustand/react";
+import type {UseBoundStore} from "zustand";
+import {devtools} from "zustand/middleware";
 
 type Range = [start: number, end: number]
 
@@ -56,8 +57,8 @@ type ScatterChartActions = {
 
 type ScatterChartStore = ScatterChartState & ScatterChartActions
 
-export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> =
-    create<ScatterChartStore>((set) => ({
+export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> = create<ScatterChartStore>()(
+    devtools<ScatterChartStore>((set) => ({
         ...initialState,
         setInitialData: (initialData: Array<TimeSeries>) => set({
             initialData,
@@ -83,4 +84,4 @@ export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> =
         setDropAfterMs: (dropAfterMs: number) => set({dropAfterMs}),
 
         reset: () => set(initialState)
-    }));
+    })));
