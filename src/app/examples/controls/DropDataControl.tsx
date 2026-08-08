@@ -1,14 +1,10 @@
-import {type JSX, useState} from "react";
-import {
-    DROP_AFTER_20_SEC,
-    DROP_DATA_AFTER_MS,
-    type DropAfterOptions
-} from "../options/dropDataAfter.ts";
+import {type JSX} from "react";
+import {DROP_DATA_AFTER_MS, type DropAfterOptions} from "../options/dropDataAfter.ts";
 import type {Theme} from "../../ui/Themes.ts";
 
 type Props = {
     theme: Theme
-    initialValue?: DropAfterOptions
+    value: DropAfterOptions
     handleDropAfterChange: (millis: number) => void
     disabled: boolean
 }
@@ -16,12 +12,10 @@ type Props = {
 export function DropDataControl(props: Props): JSX.Element {
     const {
         theme,
-        initialValue = DROP_AFTER_20_SEC,
+        value,
         handleDropAfterChange,
         disabled
     } = props
-
-    const [selectedDropAfterName, setSelectedDropAfterName] = useState<string>(initialValue.description!)
 
     return (
         <select
@@ -36,10 +30,9 @@ export function DropDataControl(props: Props): JSX.Element {
             }}
             onChange={event => {
                 const dropAfter = DROP_DATA_AFTER_MS.get(event.currentTarget.value) || Infinity
-                setSelectedDropAfterName(event.currentTarget.value)
                 handleDropAfterChange(dropAfter)
             }}
-            value={selectedDropAfterName}
+            value={value.description}
             disabled={disabled}
         >
             {Array.from(DROP_DATA_AFTER_MS.entries()).map(([name, ]) => (

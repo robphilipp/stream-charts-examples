@@ -42,7 +42,7 @@ import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
 import {createInitialVisibility, type Visibility} from "./options/visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
-import {DEFAULT_DROP_AFTER_20} from "./options/dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_20, DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
@@ -255,6 +255,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         <CommonControls>
                             <DropDataControl
                                 theme={theme}
+                                value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_20_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />

@@ -41,19 +41,20 @@ import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {
-    MeanIcon,
     LagIcon,
+    MeanIcon,
     MinValueIcon,
     TooltipIcon,
     TrackerIcon,
     ValueIcon,
-    WindowedMinValueIcon, WindowedMeanIcon
+    WindowedMeanIcon,
+    WindowedMinValueIcon
 } from "../ui/Icons.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
-import {DEFAULT_DROP_AFTER_10, DROP_AFTER_10_SEC} from "./options/dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_10, DROP_AFTER_10_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {ChartControls} from "./controls/ChartControls.tsx";
@@ -283,7 +284,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         <CommonControls>
                             <DropDataControl
                                 theme={theme}
-                                initialValue={DROP_AFTER_10_SEC}
+                                value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_10_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />

@@ -100,6 +100,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         // drop data
         dropAfterMs,
         setDropAfterMs,
+        // reset the state
+        reset,
     } = useScatterChartStore()
 
     const [filter, setFilter] = useState<RegExp>(new RegExp(filterValue));
@@ -224,6 +226,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     function handleClearClick(): void {
         setInitialData(initialDataFrom(originalInitialData))
         setElapsed(0)
+        reset()
     }
 
     // the chart time is the end of the x2 axis range
@@ -288,7 +291,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         <CommonControls>
                             <DropDataControl
                                 theme={theme}
-                                initialValue={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_20_SEC)}
+                                value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_20_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />

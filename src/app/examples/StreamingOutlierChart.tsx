@@ -41,7 +41,7 @@ import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
-import {DEFAULT_DROP_AFTER_20} from "./options/dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_20, DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {VerticalDivider} from "../ui/VerticalDivider.tsx";
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
@@ -247,6 +247,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                         <CommonControls>
                             <DropDataControl
                                 theme={theme}
+                                value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_20_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />

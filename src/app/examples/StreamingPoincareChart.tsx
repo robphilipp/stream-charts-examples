@@ -31,7 +31,7 @@ import {lightTheme, type Theme} from "../ui/Themes.ts";
 import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
-import {DEFAULT_DROP_AFTER_20} from "./options/dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_20, DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {interpolationFactoryFor} from "./options/interpolations.ts";
@@ -363,6 +363,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         <CommonControls>
                             <DropDataControl
                                 theme={theme}
+                                value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_20_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />
