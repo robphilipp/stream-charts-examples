@@ -39,7 +39,7 @@ const initialState: ScatterChartState = {
     dropAfterMs: 20_000,
 }
 
-type ScatterChartStore = ScatterChartState & {
+type ScatterChartActions = {
     setInitialData: (initialData: Array<TimeSeries>) => void
     setSubscription: (subscription: Subscription) => void
     setRunning: (running: boolean) => void
@@ -53,6 +53,8 @@ type ScatterChartStore = ScatterChartState & {
     setDropAfterMs: (dropAfterMs: number) => void
     reset: () => void
 }
+
+type ScatterChartStore = ScatterChartState & ScatterChartActions
 
 export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> =
     create<ScatterChartStore>((set) => ({
