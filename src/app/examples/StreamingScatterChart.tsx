@@ -13,7 +13,6 @@ import {
     withPixels
 } from "react-resizable-grid-layout";
 import type {Datum, TimeSeries} from "../charts/series/timeSeries";
-import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
@@ -90,6 +89,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         // filters for series displayed in chart
         filterValue,
         setFilterValue,
+        filter,
         // visibility of tooltip, tracker, margin, legend
         visibility,
         setVisibility,
@@ -103,11 +103,12 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         reset,
     } = useScatterChartStore(useShallow(state => ({...state})))
 
-    const [filter, setFilter] = useState<RegExp>(new RegExp(filterValue));
-
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(
         () => interpolationFactoryFor(selectedInterpolationName).getOrElse(d3.curveLinear)
     )
+
+    // whether the store has already been seeded with the initial data from the props
+    const seededInitialDataRef = useRef<boolean>(false)
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
@@ -166,8 +167,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      * @param updatedFilter The updated the filter
      */
     function handleUpdateRegex(updatedFilter: string): void {
+        // the store compiles the regex from the filter value
         setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).onSuccess((regex: RegExp) => setFilter(regex));
     }
 
     function interpolationFactoryFor(interpolationName: string): Optional<d3.CurveFactory> {
@@ -204,7 +205,11 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         }
     }
 
-    if (initialData == null || initialData.length === 0) {
+    // seeds the store with the initial data handed in through the props (the store survives
+    // remounts, so this only needs to happen when the store hasn't been seeded yet). The ref
+    // guard keeps this from looping when the supplied initial data is itself empty.
+    if (!seededInitialDataRef.current && (initialData == null || initialData.length === 0)) {
+        seededInitialDataRef.current = true
         setInitialData(initialDataFrom(originalInitialData))
     }
 
@@ -222,11 +227,14 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     }
 
     function handleClearClick(): void {
-        setInitialData(initialDataFrom(originalInitialData))
-        setElapsed(0)
-        setFilter(new RegExp(''))
-        setInterpolation(() => d3.curveLinear)
+        // set the state back to the initial state of the store, and then re-seed the
+        // initial data because the reset clears it (the filter is reset along with it)
         reset()
+        setInitialData(initialDataFrom(originalInitialData))
+
+        // reset local state to its original state
+        setElapsed(0)
+        setInterpolation(() => d3.curveLinear)
     }
 
     // the chart time is the end of the x2 axis range
