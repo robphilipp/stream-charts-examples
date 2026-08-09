@@ -95,18 +95,6 @@ const inputStyleFor = (theme: Theme): CSSProperties => ({
     marginRight: 20,
 })
 
-// const spanStyleFor = (theme: Theme) => ({
-//     // padding: 4,
-//     // backgroundColor: theme.disabledBackgroundColor,
-//     width: '100%',
-// })
-
-// const labelStyleFor = (theme: Theme) => ({
-//     color: theme.color,
-//     // paddingLeft: 6,
-//     // paddingRight: 0,
-// })
-
 // input components are at the end of the file
 const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
     ['Tent Map', {

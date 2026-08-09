@@ -1,4 +1,4 @@
-import {type JSX, useLayoutEffect, useRef, useState} from "react";
+import {type JSX, useLayoutEffect, useMemo, useRef, useState} from "react";
 import Checkbox from "../ui/Checkbox";
 import {
     Grid,
@@ -26,7 +26,7 @@ import {assignAxes} from "../charts/plots/plot";
 import * as d3 from "d3";
 import {lightTheme, type Theme} from "../ui/Themes.ts";
 import {seriesFrom} from "../charts/series/baseSeries";
-import {AxisInterval} from "stream-charts";
+import {AxisInterval, regexFilter} from "stream-charts";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {LegendLocation} from "../charts/legends/constants";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
@@ -45,13 +45,23 @@ import {Divider} from "../ui/Divider.tsx";
 import {useScatterChartStore} from "./appstate/scatterChartStore.ts";
 import {Optional} from "result-fn";
 import {DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
-import {useShallow} from "zustand/react/shallow";
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 
 const X1_AXIS_ID = 'x-axis-1'
 const X2_AXIS_ID = 'x-axis-2'
+
+/**
+ * Compiles the filter's regex string into a `RegExp`, falling back to a match-everything
+ * regex when the string isn't a valid regular expression. The compiled regex is held in the
+ * store (rather than derived in a selector) so that its reference remains stable across
+ * renders. A selector that compiled the regex would hand `useSyncExternalStore` a new object
+ * on every call, and React would re-render forever.
+ * @param filterValue The string representation of the regex
+ * @return The compiled regex, or a match-everything regex when the string is invalid
+ */
+const filterFrom = (filterValue: string): RegExp => regexFilter(filterValue).getOrElse(new RegExp(''))
 
 /**
  * The properties
@@ -70,38 +80,41 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         initialData: originalInitialData = [],
     } = props
 
-    const {
-        // initial data and observable
-        initialData,
-        setInitialData,
-        observable,
-        // subscription for page remounts
-        subscription,
-        setSubscription,
-        // subscription active and data is streaming
-        running,
-        setRunning,
-        // range for the x1 and x2 axes
-        x1axisRange,
-        setX1axisRange,
-        x2axisRange,
-        setX2axisRange,
-        // filters for series displayed in chart
-        filterValue,
-        setFilterValue,
-        filter,
-        // visibility of tooltip, tracker, margin, legend
-        visibility,
-        setVisibility,
-        // interpolation
-        selectedInterpolationName,
-        setSelectedInterpolationName,
-        // drop data
-        dropAfterMs,
-        setDropAfterMs,
-        // reset the state
-        reset,
-    } = useScatterChartStore(useShallow(state => ({...state})))
+    // ----------------------------------------------------------------
+    // GRAB STATE FROM STORE (zustand)
+    //
+    const initialData = useScatterChartStore( state => state.initialData)
+    const setInitialData = useScatterChartStore( state => state.setInitialData)
+    const observable = useScatterChartStore( state => state.observable)
+
+    const subscription = useScatterChartStore(state => state.subscription)
+    const setSubscription = useScatterChartStore(state => state.setSubscription)
+
+    const running = useScatterChartStore(state => state.running)
+    const setRunning = useScatterChartStore(state => state.setRunning)
+
+    const x1axisRange = useScatterChartStore(state => state.x1axisRange)
+    const setX1axisRange = useScatterChartStore(state => state.setX1axisRange)
+    const x2axisRange = useScatterChartStore(state => state.x2axisRange)
+    const setX2axisRange = useScatterChartStore(state => state.setX2axisRange)
+
+    const filterValue = useScatterChartStore(state => state.filterValue)
+    const setFilterValue = useScatterChartStore(state => state.setFilterValue)
+
+    const visibility = useScatterChartStore(state => state.visibility)
+    const setVisibility = useScatterChartStore(state => state.setVisibility)
+
+    const selectedInterpolationName = useScatterChartStore(state => state.selectedInterpolationName)
+    const setSelectedInterpolationName = useScatterChartStore(state => state.setSelectedInterpolationName)
+
+    const dropAfterMs = useScatterChartStore(state => state.dropAfterMs)
+    const setDropAfterMs = useScatterChartStore(state => state.setDropAfterMs)
+
+    const reset = useScatterChartStore(state => state.reset)
+    //
+    // ----------------------------------------------------------------
+
+    const filter = useMemo(() => filterFrom(filterValue), [filterValue])
 
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(
         () => interpolationFactoryFor(selectedInterpolationName).getOrElse(d3.curveLinear)
@@ -166,9 +179,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      * Called when the user changes the regular expression filter
      * @param updatedFilter The updated the filter
      */
-    function handleUpdateRegex(updatedFilter: string): void {
+    function handleUpdateFilterValue(updatedFilter: string): void {
         // the store compiles the regex from the filter value
-        setFilterValue(updatedFilter);
+        setFilterValue(updatedFilter)
     }
 
     function interpolationFactoryFor(interpolationName: string): Optional<d3.CurveFactory> {
@@ -311,7 +324,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                             <SeriesFilter
                                 theme={theme}
                                 filterValue={filterValue}
-                                handleFilterUpdate={handleUpdateRegex}
+                                handleFilterUpdate={handleUpdateFilterValue}
                             />
                             <Checkbox
                                 key={1}
@@ -379,6 +392,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         }])
                     )}
                     initialData={initialData}
+                    // seriesFilter={filterFrom(filterValue)}
                     seriesFilter={filter}
                     seriesObservable={observable}
                     shouldSubscribe={running}
