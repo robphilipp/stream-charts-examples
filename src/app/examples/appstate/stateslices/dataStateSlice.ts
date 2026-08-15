@@ -4,6 +4,13 @@ import type {ChartData} from "../../../charts/observables/ChartData.ts";
 import type {Datum} from "../../../charts/series/timeSeries.ts";
 import type {BaseSeries} from "../../../charts/series/baseSeries.ts";
 
+/**
+ * Represents a slice of data state used for managing chart data and its updates.
+ *
+ * @template O - The type of chart data.
+ * @template D - The type of datum.
+ * @template S - The type of series, extending from BaseSeries.
+ */
 export type DataStateSlice<O extends ChartData, D extends Datum, S extends BaseSeries<D>> = {
     /**
      * The initial data for the slice. This is an array of data {@link BaseSeries}
@@ -20,11 +27,28 @@ export type DataStateSlice<O extends ChartData, D extends Datum, S extends BaseS
 }
 
 export type DataActionSlice<D extends Datum, S extends BaseSeries<D>> = {
+    /**
+     * Sets the initial data for the slice and also creates an observable based on
+     * the initial data and a specified observable generator.
+     * @param initialData - The initial data to be set.
+     */
     setInitialData: (initialData: Array<S>) => void
+    /**
+     * Sets the subscription for the observable.
+     * @param subscription - The subscription to be set.
+     */
     setSubscription: (subscription: Subscription) => void
 }
 
-export type DataSlice<O extends ChartData, D extends Datum, S extends BaseSeries<D>> = DataStateSlice<O, D, S> & DataActionSlice<D, S>
+/**
+ * Represents a data slice, combining state and action slices for managing chart data and its updates.
+ *
+ * @template O - The type of chart data.
+ * @template D - The type of datum.
+ * @template S - The type of series, extending from BaseSeries.
+ */
+export type DataSlice<O extends ChartData, D extends Datum, S extends BaseSeries<D>> =
+    DataStateSlice<O, D, S> & DataActionSlice<D, S>
 
 /**
  * A higher-order function that creates a generator function for producing a data slice {@link StateCreator}.

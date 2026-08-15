@@ -1,4 +1,4 @@
-import {type AxesAssignment, setClipPathG} from "./plot";
+import {type AxesAssignment, currentIntervalsFrom, setClipPathG} from "./plot";
 import * as d3 from "d3";
 import {type D3DragEvent, type D3ZoomEvent, ZoomTransform} from "d3";
 import {makeIdSafeForCss, noop} from "../utils";
@@ -26,7 +26,6 @@ import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import type {TooltipData} from "../hooks/useTooltip";
-import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {FastShiftArray} from "fast-shift-array";
@@ -200,16 +199,13 @@ export function RasterPlot(props: Props): null {
             if (mainG !== null) {
                 onUpdateTimeRef.current(ranges)
                 updatePlotRef.current(ranges, mainG)
-                if (onUpdateAxesInterval) {
-                    setTimeout(() => {
-                        const times = new Map<string, AxisInterval>()
-                        ranges.forEach((range, name) => times.set(name, range.current))
-                        onUpdateAxesInterval(times)
-                    }, 0)
-                }
+                // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
+                // so that this doesn't update the application state synchronously from within the
+                // subscription's update
+                notifyIntervalsRef.current(ranges)
             }
         },
-        [mainG, onUpdateAxesInterval]
+        [mainG]
     )
 
     // todo find better way
@@ -322,6 +318,8 @@ export function RasterPlot(props: Props): null {
                             onPan(event.dx, plotDimensions, timeRanges)
                             // need to update the plot with the new time-ranges
                             updatePlotRef.current(timeRanges, mainGElem)
+                            // the pan updated the axes' ranges in place, so report the new intervals
+                            notifyIntervalsRef.current(timeRanges)
                         })
                         .on("end", () => {
                             d3.select(container).style("cursor", "auto")
@@ -345,6 +343,8 @@ export function RasterPlot(props: Props): null {
                                     timeRanges,
                                 )
                                 updatePlotRef.current(timeRanges, mainGElem)
+                                // the zoom updated the axes' ranges in place, so report the new intervals
+                                notifyIntervalsRef.current(timeRanges)
                             }
                         )
 
@@ -494,6 +494,45 @@ export function RasterPlot(props: Props): null {
             onUpdateTimeRef.current = updateAxisRanges
         },
         [updateAxisRanges]
+    )
+
+    // reports the axes' intervals to the code using the chart. this is held in a reference for the
+    // same reason as the functions above -- the zoom and pan handlers are created inside the memoized
+    // `updatePlot` and would otherwise close over a stale callback.
+    //
+    // the notifications are coalesced into (at most) one per animation frame because zoom and pan
+    // fire many events per gesture, and the callback generally updates the application state, which
+    // in turn causes a render. note that coalescing loses nothing: the zoom and pan handlers mutate
+    // the ranges map in place, so the deferred notification reads the map when the frame runs and
+    // always reports the most recent intervals, rather than those of the event that scheduled it.
+    const notifyIntervalsRef = useRef<(ranges: Map<string, ContinuousAxisRange>) => void>(noop)
+    const notifyFrameRef = useRef<number>(0)
+    useEffect(
+        () => {
+            // eslint-disable-next-line react-hooks/immutability
+            notifyIntervalsRef.current = onUpdateAxesInterval === undefined ?
+                noop :
+                ranges => {
+                    // a notification is already scheduled for the next frame, and it will pick up
+                    // these intervals when it runs
+                    if (notifyFrameRef.current !== 0) return
+                    notifyFrameRef.current = requestAnimationFrame(() => {
+                        notifyFrameRef.current = 0
+                        onUpdateAxesInterval(currentIntervalsFrom(ranges))
+                    })
+                }
+        },
+        [onUpdateAxesInterval]
+    )
+    // don't leave a scheduled notification pointing at an unmounted plot
+    useEffect(
+        () => () => {
+            if (notifyFrameRef.current !== 0) {
+                cancelAnimationFrame(notifyFrameRef.current)
+                notifyFrameRef.current = 0
+            }
+        },
+        []
     )
 
     // memoized function for subscribing to the chart-data observable

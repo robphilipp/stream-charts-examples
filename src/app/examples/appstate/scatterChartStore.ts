@@ -14,7 +14,7 @@ import {
     type VisibilityStateSlice
 } from "./stateslices/visibilityStateSlice.ts";
 
-type Range = [start: number, end: number]
+export type Range = [start: number, end: number]
 
 /*
     set up the data state

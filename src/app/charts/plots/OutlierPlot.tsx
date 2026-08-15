@@ -8,12 +8,11 @@ import {useChart} from "../hooks/useChart"
 import {useDataObservable} from "../hooks/useDataObservable"
 import {useInitialData} from "../hooks/useInitialData"
 import {usePlotDimensions} from "../hooks/usePlotDimensions"
-import {type AxesAssignment, setClipPathG} from "./plot"
+import {type AxesAssignment, currentIntervalsFrom, setClipPathG} from "./plot"
 import type {GSelection} from "../d3types"
 import {makeIdSafeForCss, noop} from "../utils"
 import type {Dimensions} from "../styling/margins"
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange"
-import {AxisInterval} from "../axes/AxisInterval"
 import {
     axesForSeriesGen,
     type BaseAxis,
@@ -205,15 +204,12 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         if (mainG !== null) {
             onUpdateTimeRef.current(ranges)
             updatePlotRef.current(ranges, mainG)
-            if (onUpdateAxesInterval) {
-                setTimeout(() => {
-                    const times = new Map<string, AxisInterval>()
-                    ranges.forEach((range, name) => times.set(name, range.current))
-                    onUpdateAxesInterval(times)
-                }, 0)
-            }
+            // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
+            // so that this doesn't update the application state synchronously from within the
+            // subscription's update
+            notifyIntervalsRef.current(ranges)
         }
-    }, [mainG, onUpdateAxesInterval])
+    }, [mainG])
 
     useEffect(
         () => {
@@ -265,6 +261,8 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                     .on("drag", event => {
                         onPan(event.dx, plotDimensions, timeRanges)
                         updatePlotRef.current(timeRanges, mainGElem)
+                        // the pan updated the axes' ranges in place, so report the new intervals
+                        notifyIntervalsRef.current(timeRanges)
                     })
                     .on("end", () => d3.select(container).style("cursor", "auto"))
                 svg.call(drag)
@@ -283,6 +281,8 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                             timeRanges,
                         )
                         updatePlotRef.current(timeRanges, mainGElem)
+                        // the zoom updated the axes' ranges in place, so report the new intervals
+                        notifyIntervalsRef.current(timeRanges)
                     })
                 svg.call(zoom)
             }
@@ -531,6 +531,45 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         onUpdateTimeRef.current = updateAxisRanges
     }, [updateAxisRanges])
 
+    // reports the axes' intervals to the code using the chart. this is held in a reference for the
+    // same reason as the functions above -- the zoom and pan handlers are created inside the memoized
+    // `updatePlot` and would otherwise close over a stale callback.
+    //
+    // the notifications are coalesced into (at most) one per animation frame because zoom and pan
+    // fire many events per gesture, and the callback generally updates the application state, which
+    // in turn causes a render. note that coalescing loses nothing: the zoom and pan handlers mutate
+    // the ranges map in place, so the deferred notification reads the map when the frame runs and
+    // always reports the most recent intervals, rather than those of the event that scheduled it.
+    const notifyIntervalsRef = useRef<(ranges: Map<string, ContinuousAxisRange>) => void>(noop)
+    const notifyFrameRef = useRef<number>(0)
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/immutability
+        notifyIntervalsRef.current = onUpdateAxesInterval === undefined ?
+            noop :
+            ranges => {
+                // a notification is already scheduled for the next frame, and it will pick up
+                // these intervals when it runs
+                if (notifyFrameRef.current !== 0) return
+                notifyFrameRef.current = requestAnimationFrame(() => {
+                    notifyFrameRef.current = 0
+                    onUpdateAxesInterval(currentIntervalsFrom(ranges))
+                })
+            }
+    }, [onUpdateAxesInterval])
+
+    // don't leave a scheduled notification pointing at an unmounted plot
+    useEffect(() => () => {
+        if (notifyFrameRef.current !== 0) {
+            cancelAnimationFrame(notifyFrameRef.current)
+            notifyFrameRef.current = 0
+        }
+    }, [])
+
+    // the single source of truth for the axes' ranges. the zoom and pan handlers, the subscription,
+    // and the effect below all read and update this same map (in place), so that each range's
+    // original (un-zoomed) interval survives the window scrolling as data streams in
+    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
+
     const subscribe = useCallback(() => {
         if (seriesObservable === undefined || mainG === null) return undefined
         return subscriptionOutlierFor<M>(
@@ -538,6 +577,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
             onSubscribe,
             windowingTime,
             axisAssignments, xAxesState,
+            timeRangesRef.current,
             onUpdateData,
             dropDataAfter,
             updateTimingAndPlot,
@@ -553,11 +593,13 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         initialTimes, timeWindowBehavior
     ])
 
-    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
     useEffect(() => {
         if (container && mainG) {
             if (timeRangesRef.current.size === 0) {
-                timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                // populate the map in place -- replacing it would orphan the copy already held by
+                // the subscription and by the zoom and pan handlers
+                continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    .forEach((range, id) => timeRangesRef.current.set(id, range))
             } else {
                 const intervals = continuousAxisIntervals(xAxesState.axes)
                 timeRangesRef.current.forEach((range, id, m) => {

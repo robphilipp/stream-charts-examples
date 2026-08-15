@@ -2,6 +2,8 @@ import type {Dimensions} from "../styling/margins";
 import * as d3 from "d3";
 import type {GSelection} from "../d3types";
 import type {FastShiftArray} from "fast-shift-array";
+import type {BaseAxisRange} from "../axes/BaseAxisRange";
+import type {AxisInterval} from "../axes/AxisInterval";
 
 export type Series<D> = Array<D> | FastShiftArray<D>
 
@@ -73,5 +75,17 @@ export interface AxesAssignment {
  * @return An {@link AxesAssignment}
  */
 export const assignAxes = (xAxis: string, yAxis: string): AxesAssignment => ({xAxis, yAxis})
+
+/**
+ * Converts a map holding the axes' ranges into a map holding the axes' current intervals. Used
+ * when reporting the axes' bounds to the code using the chart (see the plots' `onUpdateAxesInterval`).
+ * @param ranges A map associating an axis ID with that axis' range
+ * @return A map associating an axis ID with that axis' current interval
+ */
+export function currentIntervalsFrom(ranges: Map<string, BaseAxisRange>): Map<string, AxisInterval> {
+    const intervals = new Map<string, AxisInterval>()
+    ranges.forEach((range, axisId) => intervals.set(axisId, range.current))
+    return intervals
+}
 
 
