@@ -52,6 +52,10 @@ const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 const X1_AXIS_ID = 'x-axis-1'
 const X2_AXIS_ID = 'x-axis-2'
 
+const AXIS_ASSIGNMENTS = new Map([
+    ['Series 2', assignAxes("x-axis-2", "y-axis-2")],
+    ['Series 3', assignAxes("x-axis-2", "y-axis-1")],
+])
 /**
  * Compiles the filter's regex string into a `RegExp`, falling back to a match-everything
  * regex when the string isn't a valid regular expression. The compiled regex is held in the
@@ -464,10 +468,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     />
                     <ScatterPlot
                         interpolation={interpolation}
-                        axisAssignments={new Map([
-                            ['Series 2', assignAxes("x-axis-2", "y-axis-2")],
-                            ['Series 3', assignAxes("x-axis-2", "y-axis-1")],
-                        ])}
+                        axisAssignments={AXIS_ASSIGNMENTS}
                         dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}

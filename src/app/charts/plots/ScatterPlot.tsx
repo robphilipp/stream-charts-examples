@@ -231,7 +231,7 @@ export function ScatterPlot(props: Props): null {
     useEffect(
         () => {
             dataRef.current = initialData.slice()
-            seriesRef.current = new Map(initialData.map(series => [series.name, series as TimeSeries]))
+            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
             currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
             updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
                     .map(([id, range]) => {
@@ -397,6 +397,16 @@ export function ScatterPlot(props: Props): null {
                     // only show the data for which the filter matches
                     const plotData = (name.match(seriesFilter)) ? data : []
 
+                    // drop data in the x-axis that is out of the chart bounds
+                    const lineGenerator = d3.line<Datum>()
+                        .defined((d: Datum) => {
+                            const x = xAxisLinear.scale(d.x)
+                            return x >= 0 && x <= plotDimensions.width
+                        })
+                        .x((d: Datum) => xAxisLinear.scale(d.x))
+                        .y((d: Datum) => yAxisLinear.scale(d.y))
+                        .curve(interpolation)
+
                     // create the time-series paths
                     mainGElem
                         .selectAll(`#${seriesId}-${chartId}-scatter`)
@@ -407,13 +417,7 @@ export function ScatterPlot(props: Props): null {
                                 .attr("class", 'time-series-lines')
                                 .attr("id", `${seriesId}-${chartId}-scatter`)
                                 .attr("data-series-name", name)
-                                .attr(
-                                    "d",
-                                    d3.line<Datum>()
-                                        .x((d: Datum) => xAxisLinear.scale(d.x) || 0)
-                                        .y((d: Datum) => yAxisLinear.scale(d.y) || 0)
-                                        .curve(interpolation)
-                                )
+                                .attr("d", lineGenerator)
                                 .attr("fill", "none")
                                 .attr("stroke", hoveredSeriesName === name ? highlightColor : color)
                                 .attr("stroke-width", hoveredSeriesName === name ? highlightWidth : lineWidth)
