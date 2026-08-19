@@ -1,17 +1,55 @@
-// the axis-element type return when calling the ".call(axis)" function
-// the axis-element type return when calling the ".call(axis)" function
-import  {type Selection} from "d3";
-import type {Datum} from "./series/timeSeries";
+// Canvas replacement for the old SVG-selection type aliases. There's no DOM element tree to hold
+// a d3 `Selection` over anymore, so instead every axis/plot/tracker draws directly into a shared
+// `CanvasRenderingContext2D`, coordinated through the `CanvasContext` below.
 
-export type AxisElementSelection = Selection<SVGGElement, Datum, null, undefined>
-export type SvgSelection = Selection<SVGSVGElement, Datum, null, undefined>
-export type GSelection = Selection<SVGGElement, Datum, null, undefined>
-export type LineSelection = Selection<SVGLineElement, Datum, SVGGElement, undefined>
-export type TextSelection = Selection<SVGTextElement, Datum, null, undefined>
+/**
+ * Everything a draw-function needs to paint onto the chart's canvas, plus the API for registering
+ * and scheduling redraws. This is what gets threaded through `useChart()` in place of the old
+ * `mainG` (root SVG `<g>` selection) and `container` (root `<svg>` element).
+ */
+export interface CanvasContext {
+    /** unique id for the chart; mirrors the old `chartId` used to namespace SVG element ids */
+    chartId: number
+    /** the backing `<canvas>` DOM element */
+    canvas: HTMLCanvasElement
+    /** the 2D drawing context for the canvas (already scaled for devicePixelRatio) */
+    ctx: CanvasRenderingContext2D
+    /** the current device-pixel-ratio scaling applied to the context */
+    dpr: number
+    /**
+     * Registers a draw function to be invoked on every redraw. Registering under an `id` that's
+     * already in use replaces the previous draw function for that id (so components can safely
+     * re-register on every render without leaking duplicate draws).
+     * @param id A unique handle for this draw function (e.g. `axis-${chartId}-${axisId}`)
+     * @param draw The function to call, every redraw, to paint this element
+     * @param zIndex Controls draw order (lower first); defaults to 0. Use this to keep, e.g.,
+     * the tracker drawing on top of the series, which draw on top of the axes.
+     */
+    register: (id: DrawHandle, draw: DrawFn, zIndex?: number) => void
+    /** Removes a previously registered draw function so it no longer participates in redraws. */
+    unregister: (id: DrawHandle) => void
+    /**
+     * Schedules a redraw on the next animation frame. Safe to call many times within the same
+     * frame/tick -- calls are coalesced into a single `requestAnimationFrame`.
+     */
+    requestRedraw: () => void
+}
 
-export type RadialMagnifierSelection = Selection<SVGCircleElement, Datum, null, undefined>
-export type BarMagnifierSelection = Selection<SVGRectElement, Datum, null, undefined>;
-export type MagnifierTextSelection = Selection<SVGTextElement, Datum, SVGGElement, undefined>
+/** A function that paints something onto the shared canvas context. */
+export type DrawFn = (cc: CanvasContext) => void
 
-export type TrackerSelection = Selection<SVGLineElement, Datum, null, undefined>
+/** The id used to register/unregister a draw function with a {@link CanvasContext}. */
+export type DrawHandle = string
 
+/**
+ * Analogous to the old SVG `getBBox()` result, but derived from `CanvasRenderingContext2D`'s
+ * `measureText`. `width`/`height` describe the tight bounding box of the rendered text;
+ * `ascent`/`descent` are provided for baseline-aware positioning (e.g. rotated tick labels),
+ * since canvas text metrics -- unlike SVG's `getBBox()` -- have no `x`/`y` offset of their own.
+ */
+export type TextMetricsBox = {
+    width: number
+    height: number
+    ascent: number
+    descent: number
+}

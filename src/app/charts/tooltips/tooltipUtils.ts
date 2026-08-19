@@ -1,5 +1,4 @@
 import type {Series} from "../plots/plot";
-import * as d3 from "d3";
 import type {Dimensions, Margin} from "../styling/margins";
 import type {OrdinalStringAxis} from "../axes/axes";
 
@@ -79,17 +78,12 @@ export interface TooltipDimensions {
 }
 
 /**
- * Removes the tooltip when the mouse has moved away from the spike. SVG tooltip elements
- * are removed via D3; HTML tooltip elements are removed via the native DOM API.
+ * Removes the tooltip when the mouse has moved away from the spike. Tooltips are now always
+ * plain HTML overlay elements (see `Tooltip.tsx`) rather than SVG elements appended to the chart's
+ * SVG root, so this no longer needs to special-case SVG vs. HTML removal the way the old version did.
  */
 export function removeTooltip() {
-    document.querySelectorAll('.tooltip').forEach(element => {
-        if (element instanceof SVGElement) {
-            d3.select(element).remove()
-        } else {
-            element.remove()
-        }
-    })
+    document.querySelectorAll('.tooltip').forEach(element => element.remove())
 }
 
 /**
@@ -222,32 +216,32 @@ export function findPointAndNeighbors<D>(
 }
 
 /**
- * Calculates the width and height of the tooltip content.
- * @param textSelection The SVG text selection
+ * Calculates the width and height of the tooltip content. Canvas replacement for the old SVG
+ * `getBBox()`-based version: tooltip content is now plain HTML, so the browser lays it out and
+ * we just read the resulting box back via `getBoundingClientRect()`.
+ * @param element The HTML element holding the tooltip content (must already be attached to the
+ * DOM -- an unattached/`display: none` element measures as 0x0)
  * @returns The width and height of the tooltip content
  */
-export function textDimensionsFor(textSelection: d3.Selection<SVGTextElement, unknown, null, undefined>): {width: number, height: number} {
-    const boundingRect = textSelection.node()?.getBBox()
-    return {
-        width: boundingRect?.width ?? 0,
-        height: boundingRect?.height ?? 0
-    }
+export function textDimensionsFor(element: HTMLElement): {width: number, height: number} {
+    const rect = element.getBoundingClientRect()
+    return {width: rect.width, height: rect.height}
 }
 
 /**
- * Calculates the width and height of the tooltip content.
- * @param textSelection The SVG text selection
- * @returns The width and height of the tooltip content
+ * Calculates the width of the tooltip content. See {@link textDimensionsFor}.
+ * @param element The HTML element holding the tooltip content
+ * @returns The width of the tooltip content
  */
-export function textWidthFor(textSelection: d3.Selection<SVGTextElement, unknown, null, undefined>): number {
-    return textDimensionsFor(textSelection).width
+export function textWidthFor(element: HTMLElement): number {
+    return textDimensionsFor(element).width
 }
 
 /**
- * Calculates the width and height of the tooltip content.
- * @param textSelection The SVG text selection
- * @returns The width and height of the tooltip content
+ * Calculates the height of the tooltip content. See {@link textDimensionsFor}.
+ * @param element The HTML element holding the tooltip content
+ * @returns The height of the tooltip content
  */
-export function textHeightFor(textSelection: d3.Selection<SVGTextElement, unknown, null, undefined>): number {
-    return textDimensionsFor(textSelection).height
+export function textHeightFor(element: HTMLElement): number {
+    return textDimensionsFor(element).height
 }

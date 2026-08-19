@@ -1,6 +1,5 @@
 import type {Dimensions, Margin} from "./styling/margins"
 import * as d3 from "d3";
-import type {Selection} from "d3";
 
 /**
  * No operation function for use when a default function is needed
@@ -25,18 +24,9 @@ export function mouseInPlotAreaFor(x: number, y: number, margin: Margin, dimensi
 }
 
 /**
- * Calculates the width of an SVG text element, based on its bounding box
- * @param elem The SVG text element
- * @return The width in pixels, or 0 if SVG text element has not children
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function textWidthOf(elem: Selection<SVGTextElement, any, any, any>): number {
-    return elem.node()?.getBBox()?.width || 0
-}
-
-/**
- * Type for representing the dimensions and location of the bounding box for an
- * SVG text element.
+ * Type for representing the dimensions and location of a text element's bounding box. Kept for
+ * shape-compatibility with the old SVG version; `x`/`y` are always `0` for canvas text (canvas
+ * `measureText` has no bbox offset the way an SVG `<text>` element's `getBBox()` does).
  */
 export type BoundingBox = { x: number, y: number, width: number, height: number }
 
@@ -48,19 +38,60 @@ export function emptyBoundingBox(): BoundingBox {
 }
 
 /**
- * Calculates the width and height of the text element
- * @param elem The SVG text element
- * @return The width and height of the bounding box
+ * Canvas replacement for the old SVG `getBBox()`-based `textWidthOf`. Measures the rendered width
+ * of `text` in whatever font is currently set on `ctx`.
+ * @param ctx The canvas 2D context; its `.font` must already be set to the font to measure with
+ * @param text The text to measure
+ * @return The width, in pixels, that `text` would occupy when drawn with `ctx.fillText`
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function textDimensions(elem: Selection<SVGTextElement, any, any, any>): BoundingBox {
-    const boundingBox = elem.node()?.getBBox()
+export function textWidthOf(ctx: CanvasRenderingContext2D, text: string): number {
+    return ctx.measureText(text).width || 0
+}
+
+/**
+ * Canvas replacement for the old SVG `getBBox()`-based `textDimensions`. Measures the width and
+ * height of `text` as it would be rendered with the font currently set on `ctx`.
+ * @param ctx The canvas 2D context; its `.font` must already be set to the font to measure with
+ * @param text The text to measure
+ * @return The bounding box for the text. `x`/`y` are always `0`; use `ascent`/`descent` (see
+ * {@link textMetricsOf}) instead when you need baseline-aware placement.
+ */
+export function textDimensions(ctx: CanvasRenderingContext2D, text: string): BoundingBox {
+    const metrics = ctx.measureText(text)
+    const ascent = metrics.actualBoundingBoxAscent ?? metrics.fontBoundingBoxAscent ?? 0
+    const descent = metrics.actualBoundingBoxDescent ?? metrics.fontBoundingBoxDescent ?? 0
     return {
-        width: boundingBox?.width || 0,
-        height: boundingBox?.height || 0,
-        x: boundingBox?.x || 0,
-        y: boundingBox?.y || 0
+        x: 0,
+        y: 0,
+        width: metrics.width || 0,
+        height: ascent + descent
     }
+}
+
+/**
+ * Measures `text` as rendered by `ctx`, returning both dimensions and ascent/descent -- useful
+ * when you need to position text relative to its own baseline (e.g. vertically centering a tick
+ * label, or rotating it about its visual center) rather than just knowing its box size.
+ * @param ctx The canvas 2D context; its `.font` must already be set to the font to measure with
+ * @param text The text to measure
+ */
+export function textMetricsOf(ctx: CanvasRenderingContext2D, text: string): {width: number, ascent: number, descent: number} {
+    const metrics = ctx.measureText(text)
+    return {
+        width: metrics.width || 0,
+        ascent: metrics.actualBoundingBoxAscent ?? metrics.fontBoundingBoxAscent ?? 0,
+        descent: metrics.actualBoundingBoxDescent ?? metrics.fontBoundingBoxDescent ?? 0
+    }
+}
+
+/**
+ * Builds a CSS font shorthand string suitable for assigning to `ctx.font`.
+ * @param size The font size, in pixels
+ * @param family The font family (e.g. `'sans-serif'`)
+ * @param weight The font weight (e.g. `300`)
+ */
+export function fontStringFor(size: number, family: string, weight: number): string {
+    return `${weight} ${size}px ${family}`
 }
 
 export function formatNumber(value: number, format: string): string {
@@ -112,12 +143,12 @@ export const minMaxOf = <T>(accessor: (v: T) => number) =>
 
 /**
  * User specified series name may have spaces, and these may not be valid CSS ids. This
- * function replaces spaces with underscores.
+ * function replaces spaces with underscores. Kept for use in `Map`/draw-handle keys even though
+ * canvas has no DOM ids to collide with.
  * @param name The name to be made safe for CSS
  * @return The name with spaces replaced with underscores
  */
 export function makeIdSafeForCss(name: string): string {
     // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
     return name.replace(/\s+/g, '_')
-
 }

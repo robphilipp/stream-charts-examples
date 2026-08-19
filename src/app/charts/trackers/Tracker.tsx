@@ -1,10 +1,8 @@
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
-import type {SvgSelection, TrackerSelection} from "../d3types";
 import {
     defaultTrackerLabelFont,
     defaultTrackerStyle,
-    removeTrackerControl,
     trackerControlInstance,
     type TrackerLabelFont,
     TrackerLabelLocation,
@@ -35,7 +33,8 @@ export interface Props {
 
 /**
  * A tracker line that displays or reports the x or y coordinates at the mouse location. The tracker
- * handles single axes and dual axes.
+ * handles single axes and dual axes. Internally, this registers a draw function with the chart's
+ * canvas context (see `trackerUtils.ts`) rather than creating/updating SVG elements.
  * @param props The tracker control properties
  * @return null component
  */
@@ -51,7 +50,7 @@ export function Tracker(props: Props): null {
     } = props
     const {
         chartId,
-        container,
+        canvasContext,
         axes,
         backgroundColor
     } = useChart()
@@ -65,7 +64,9 @@ export function Tracker(props: Props): null {
 
     const trackerStyle = useMemo(() => ({...defaultTrackerStyle, ...style}), [style])
     const trackerFont = useMemo(() => ({...defaultTrackerLabelFont, ...font}), [font])
-    const trackerRef = useRef<TrackerSelection>(undefined)
+    // holds the cleanup function returned by `trackerControlInstance`, replacing the old
+    // `TrackerSelection` ref
+    const trackerCleanupRef = useRef<(() => void) | undefined>(undefined)
 
     const axisRef = useRef<Map<string, ContinuousNumericAxis>>(new Map())
     useEffect(
@@ -77,14 +78,19 @@ export function Tracker(props: Props): null {
         [axisState]
     )
 
-    // when the container, tracker-control function, or visibility change, then we need to update the
-    // tracker control
+    // when the canvas context, tracker-control function, or visibility change, then we need to
+    // update the tracker control
     useEffect(
         () => {
-            if (container) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const svg: SvgSelection = d3.select<SVGSVGElement, any>(container)
-                if (visible && container) {
+            if (canvasContext) {
+                if (visible) {
+                    // if a tracker was already registered (e.g. from a prior render with
+                    // different props), tear it down before registering the new one
+                    if (trackerCleanupRef.current !== undefined) {
+                        trackerCleanupRef.current()
+                        trackerCleanupRef.current = undefined
+                    }
+
                     const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
                         Array.from(axisRef.current.values()).map(axis => {
                             const formatter = labelFormatter ??
@@ -96,10 +102,9 @@ export function Tracker(props: Props): null {
                         })
                     )
 
-                    trackerRef.current = trackerControlInstance(
+                    trackerCleanupRef.current = trackerControlInstance(
+                        canvasContext,
                         chartId,
-                        container,
-                        svg,
                         plotDimensions,
                         margin,
                         trackerStyle,
@@ -112,13 +117,26 @@ export function Tracker(props: Props): null {
                     )
                 }
                 // if the tracker was defined and is now no longer defined (i.e., props changed, then remove the tracker)
-                else if (!visible && trackerRef.current !== undefined) {
-                    removeTrackerControl(svg, trackerAxis)
-                    trackerRef.current = undefined
+                else if (!visible && trackerCleanupRef.current !== undefined) {
+                    trackerCleanupRef.current()
+                    trackerCleanupRef.current = undefined
                 }
             }
         },
-        [backgroundColor, chartId, container, labelFormatter, labelLocation, margin, onTrackerUpdate, plotDimensions, trackerAxis, trackerFont, trackerStyle, visible]
+        [backgroundColor, chartId, canvasContext, labelFormatter, labelLocation, margin, onTrackerUpdate, plotDimensions, trackerAxis, trackerFont, trackerStyle, visible]
+    )
+
+    // unregister the tracker when this component unmounts
+    useEffect(
+        () => {
+            return () => {
+                if (trackerCleanupRef.current !== undefined) {
+                    trackerCleanupRef.current()
+                    trackerCleanupRef.current = undefined
+                }
+            }
+        },
+        []
     )
 
     return null

@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef} from 'react'
 import * as d3 from "d3"
-import {type D3ZoomEvent, ZoomTransform} from "d3"
+import {ZoomTransform} from "d3"
 import {Observable, Subscription} from "rxjs"
 import {Optional} from "result-fn"
 
@@ -8,9 +8,10 @@ import {useChart} from "../hooks/useChart"
 import {useDataObservable} from "../hooks/useDataObservable"
 import {useInitialData} from "../hooks/useInitialData"
 import {usePlotDimensions} from "../hooks/usePlotDimensions"
-import {type AxesAssignment, currentIntervalsFrom, setClipPathG} from "./plot"
-import type {GSelection} from "../d3types"
-import {makeIdSafeForCss, noop} from "../utils"
+import {type AxesAssignment, clipToArea, currentIntervalsFrom} from "./plot"
+import type {CanvasContext} from "../d3types"
+import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting"
+import {noop} from "../utils"
 import type {Dimensions} from "../styling/margins"
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange"
 import {
@@ -113,17 +114,37 @@ export interface OutlierBandTooltipMetadata<M extends readonly number[] = readon
 }
 
 /**
+ * A band's fill region, captured at draw time for `isPointInPath`-based hover hit-testing.
+ * Canvas has no per-shape events, and a filled, possibly-curved area isn't well modeled by
+ * `hitTesting.ts`'s line/segment/rect primitives, so bands use `ctx.isPointInPath` directly
+ * instead -- this is what canvas is built for.
+ */
+interface BandHitRegion<M extends readonly number[]> {
+    path: Path2D
+    seriesName: string
+    bandIndex: number
+    upperMeasure: number | undefined
+    lowerMeasure: number | undefined
+    plotData: FastShiftArray<OutlierDatum<M>>
+}
+
+/**
  * Renders a streaming outlier plot. Each series consists of {@link OutlierDatum} points, where every
  * datum carries an (x, y) value plus a set of (lower, upper) bounds — one per measure. The plot
  * draws the central y-line for the series and a translucent band per measure, filled between
  * the corresponding lower and upper bounds. The x-axis scrolls as new points arrive past the
  * end of the visible window, in the same fashion as {@link ScatterPlot}.
+ *
+ * Internally, this no longer creates/updates SVG `<path>`/`<circle>` elements. Instead, it
+ * registers a single draw function with the chart's {@link CanvasContext} that redraws every
+ * series' bands, line, and markers from scratch each time the canvas repaints. Band hover uses
+ * `ctx.isPointInPath` against the band's actual filled path (captured each draw); outlier-marker
+ * hover uses the shared point-hit-testing in `hitTesting.ts`, same as {@link ScatterPlot}'s markers.
  */
 export function OutlierPlot<M extends readonly number[] = readonly number[]>(props: Props): null {
     const {
         chartId,
-        container,
-        mainG,
+        canvasContext,
         axes,
         seriesStyles,
         seriesFilter,
@@ -177,14 +198,23 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     )
 
     // seriesRef is the single source of truth for what to render. It starts from the initial
-    // data and grows as the subscription emits new series. updatePlot iterates this directly
-    // (rather than a parallel dataRef array) so dynamically-arriving series get rendered.
+    // data and grows as the subscription emits new series. the draw function iterates this
+    // directly (rather than a parallel dataRef array) so dynamically-arriving series get rendered.
     const seriesRef = useRef<Map<string, OutlierSeries<M>>>(
         new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
     )
     const currentTimeRef = useRef<Map<string, number>>(new Map())
 
     const subscriptionRef = useRef<Subscription>(undefined)
+
+    // captured band fill-regions and outlier-marker geometry, in canvas coordinates, used for
+    // hit-testing mouse hover on `mousemove` (see the effect below that wires up the listener)
+    const bandsRef = useRef<Array<BandHitRegion<M>>>([])
+    const outlierGeometryRef = useRef<Map<string, SeriesGeometry>>(new Map())
+    const outlierDatumsRef = useRef<Map<string, Array<OutlierDatumColor<M>>>>(new Map())
+    // what's currently hovered: a band (series + band index) or an outlier point (series + point
+    // index) -- mutually exclusive, so we know when to fire a "leave" before an "over"
+    const lastHoveredRef = useRef<{kind: 'band', seriesName: string, bandIndex: number} | {kind: 'outlier', seriesName: string, index: number} | undefined>(undefined)
 
     useEffect(
         () => {
@@ -201,15 +231,15 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     )
 
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
-        if (mainG !== null) {
+        if (canvasContext !== null) {
             onUpdateTimeRef.current(ranges)
-            updatePlotRef.current(ranges, mainG)
+            updatePlotRef.current(ranges, canvasContext)
             // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
             // so that this doesn't update the application state synchronously from within the
             // subscription's update
             notifyIntervalsRef.current(ranges)
         }
-    }, [mainG])
+    }, [canvasContext])
 
     useEffect(
         () => {
@@ -249,277 +279,162 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
+    /**
+     * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
+     * Replaces the old version, which directly mutated SVG `<path>`/`<circle>` elements bound via
+     * d3's enter/update/exit join. Canvas has no persistent elements to join against, so the draw
+     * function just redraws every band/line/marker from current data/scale state each time it's
+     * invoked.
+     */
     const updatePlot = useCallback(
-        (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
-            if (!container) return
-
-            const svg = d3.select<SVGSVGElement, OutlierDatum<M>>(container)
-
+        (timeRanges: Map<string, ContinuousAxisRange>, cc: CanvasContext) => {
             if (panEnabled) {
-                const drag = d3.drag<SVGSVGElement, OutlierDatum<M>>()
-                    .on("start", () => d3.select(container).style("cursor", "move"))
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => canvasSelection.style("cursor", "move"))
                     .on("drag", event => {
                         onPan(event.dx, plotDimensions, timeRanges)
-                        updatePlotRef.current(timeRanges, mainGElem)
-                        // the pan updated the axes' ranges in place, so report the new intervals
+                        updatePlotRef.current(timeRanges, cc)
                         notifyIntervalsRef.current(timeRanges)
                     })
-                    .on("end", () => d3.select(container).style("cursor", "auto"))
-                svg.call(drag)
+                    .on("end", () => canvasSelection.style("cursor", "auto"))
+                canvasSelection.call(drag)
             }
 
             if (zoomEnabled) {
-                const zoom = d3.zoom<SVGSVGElement, OutlierDatum<M>>()
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
                     .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
                     .scaleExtent([0, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", (event: D3ZoomEvent<SVGSVGElement, OutlierDatum<M>>) => {
+                    .on("zoom", event => {
                         onZoom(
                             event.transform,
                             event.sourceEvent.offsetX - margin.left,
                             plotDimensions,
                             timeRanges,
                         )
-                        updatePlotRef.current(timeRanges, mainGElem)
-                        // the zoom updated the axes' ranges in place, so report the new intervals
+                        updatePlotRef.current(timeRanges, cc)
                         notifyIntervalsRef.current(timeRanges)
                     })
-                svg.call(zoom)
+                canvasSelection.call(zoom)
             }
 
-            const clipPathId = setClipPathG(chartId, mainGElem, plotDimensions)
+            const draw = (context: CanvasContext) => {
+                const {ctx} = context
 
-            seriesRef.current.forEach(series => {
-                const [xAxis, yAxis] = axesFor(
-                    series.name,
-                    axisAssignments,
-                    id => xAxesState.axisFor(id).getOrUndefined(),
-                    id => yAxesState.axisFor(id).getOrUndefined()
-                )
-                if (xAxis === undefined || yAxis === undefined) return
+                ctx.save()
+                clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
+                ctx.translate(margin.left, margin.top)
 
-                const style = seriesStyles.get(series.name) ?? defaultLineStyle()
-                const plotData = series.name.match(seriesFilter) ? series.data : FastShiftArray.empty<OutlierDatum<M>>()
-                const numBands = plotData.length > 0 ? plotData[0].bounds.length : 0
-                // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
-                const seriesId = makeIdSafeForCss(series.name)
+                const newBands: Array<BandHitRegion<M>> = []
+                const newOutlierGeometry = new Map<string, SeriesGeometry>()
+                const newOutlierDatums = new Map<string, Array<OutlierDatumColor<M>>>()
 
-                // render the widest (highest-index) band first so the narrower, more-confident
-                // bands stack on top with darker opacity
-                for (let bandIndex = numBands - 1; bandIndex >= 0; bandIndex--) {
-                    const opacity = Math.min(1, bandOpacity + (numBands - 1 - bandIndex) * bandOpacityStep)
-                    const areaId = `${seriesId}-${chartId}-outlier-band-${bandIndex}`
-                    const areaGen = d3.area<OutlierDatum<M>>()
+                seriesRef.current.forEach(series => {
+                    const [xAxis, yAxis] = axesFor(
+                        series.name,
+                        axisAssignments,
+                        id => xAxesState.axisFor(id).getOrUndefined(),
+                        id => yAxesState.axisFor(id).getOrUndefined()
+                    )
+                    if (xAxis === undefined || yAxis === undefined) return
+
+                    const style = seriesStyles.get(series.name) ?? defaultLineStyle()
+                    const plotData = series.name.match(seriesFilter) ? series.data : FastShiftArray.empty<OutlierDatum<M>>()
+                    const numBands = plotData.length > 0 ? plotData[0].bounds.length : 0
+
+                    // render the widest (highest-index) band first so the narrower, more-confident
+                    // bands stack on top with darker opacity
+                    for (let bandIndex = numBands - 1; bandIndex >= 0; bandIndex--) {
+                        const opacity = Math.min(1, bandOpacity + (numBands - 1 - bandIndex) * bandOpacityStep)
+                        const areaGen = d3.area<OutlierDatum<M>>()
+                            .x(d => xAxis.scale(d.datum.x) || 0)
+                            .y0(d => yAxis.scale(d.bounds[bandIndex].lower) || 0)
+                            .y1(d => yAxis.scale(d.bounds[bandIndex].upper) || 0)
+                            .curve(interpolation)
+                        const upperMeasure = series.measures[bandIndex]
+                        const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex - 1] : undefined
+
+                        const path = new Path2D(areaGen(Array.from(plotData)) ?? "")
+                        ctx.fillStyle = style.color
+                        ctx.globalAlpha = opacity
+                        ctx.fill(path)
+                        ctx.globalAlpha = 1
+
+                        // pushed in draw order (widest first, narrowest/topmost last); hit-testing
+                        // iterates this backwards so the topmost band wins, matching visual stacking
+                        newBands.push({path, seriesName: series.name, bandIndex, upperMeasure, lowerMeasure, plotData})
+                    }
+
+                    // central line for the series y-value
+                    const isHovered = hoveredSeriesName === series.name
+                    const stroke = isHovered ? style.highlightColor : style.color
+                    const strokeWidth = isHovered ? style.highlightWidth : style.lineWidth
+                    const lineGen = d3.line<OutlierDatum<M>>()
                         .x(d => xAxis.scale(d.datum.x) || 0)
-                        .y0(d => yAxis.scale(d.bounds[bandIndex].lower) || 0)
-                        .y1(d => yAxis.scale(d.bounds[bandIndex].upper) || 0)
+                        .y(d => yAxis.scale(d.datum.y) || 0)
                         .curve(interpolation)
-                    const upperMeasure = series.measures[bandIndex]
-                    const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex - 1] : undefined
-                    // const measureDescription = series.measureDescriptions?.[bandIndex]
 
-                    mainGElem
-                        .selectAll<SVGPathElement, Array<OutlierDatum<M>>>(`#${areaId}`)
-                        .data([plotData], () => `${series.name}-${bandIndex}`)
-                        .join(
-                            enter => enter
-                                .append("path")
-                                .attr("class", "outlier-band")
-                                .attr("id", areaId)
-                                .attr("data-series-name", series.name)
-                                .attr("fill", style.color)
-                                .attr("fill-opacity", opacity)
-                                .attr("stroke", "none")
-                                .attr("transform", `translate(${margin.left}, ${margin.top})`)
-                                .attr("clip-path", `url(#${clipPathId})`)
-                                .attr("d", areaGen)
-                                .on("mouseover", (event: MouseEvent) => {
-                                    if (upperMeasure == null || !container) return
-                                    const [x, y] = d3.pointer(event, container)
-                                    const pointsInBand = calcPointsInBand(plotData, bandIndex)
-                                    const handleMouseOver = mouseOverHandlerFor(`tooltip-${chartId}`)
-                                    if (handleMouseOver) {
-                                        handleMouseOver(
-                                            series.name,
-                                            bandIndex,
-                                            {
-                                                series: series.data,
-                                                metadata: {
-                                                    upperMeasure,
-                                                    lowerMeasure,
-                                                    bandIndex,
-                                                    pointsInBand,
-                                                }
-                                            },
-                                            [x, y]
-                                        )
-                                    }
-                                })
-                                .on("mouseleave", () => {
-                                    const handleMouseLeave = mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                                    if (handleMouseLeave) {
-                                        handleMouseLeave(series.name)
-                                    }
-                                }),
-                            update => update
-                                .attr("fill", style.color)
-                                .attr("fill-opacity", opacity)
-                                .attr("d", areaGen),
-                            exit => exit.remove()
-                        )
-                }
+                    ctx.strokeStyle = stroke
+                    ctx.lineWidth = strokeWidth
+                    ctx.stroke(new Path2D(lineGen(Array.from(plotData)) ?? ""))
 
-                // central line for the series y-value
-                const lineId = `${seriesId}-${chartId}-outlier-line`
-                const isHovered = hoveredSeriesName === series.name
-                const stroke = isHovered ? style.highlightColor : style.color
-                const strokeWidth = isHovered ? style.highlightWidth : style.lineWidth
-                const lineGen = d3.line<OutlierDatum<M>>()
-                    .x(d => xAxis.scale(d.datum.x) || 0)
-                    .y(d => yAxis.scale(d.datum.y) || 0)
-                    .curve(interpolation)
+                    // for the markers, we split the data into two categories: regular and outlier
+                    const {regular, outlier} = categorizePoints(plotData, outlierMarkerColors)
 
-                mainGElem
-                    .selectAll<SVGPathElement, Array<OutlierDatum<M>>>(`#${lineId}`)
-                    .data([plotData], () => series.name)
-                    .join(
-                        enter => enter
-                            .append("path")
-                            .attr("class", "outlier-line")
-                            .attr("id", lineId)
-                            .attr("data-series-name", series.name)
-                            .attr("fill", "none")
-                            .attr("stroke", stroke)
-                            .attr("stroke-width", strokeWidth)
-                            .attr("transform", `translate(${margin.left}, ${margin.top})`)
-                            .attr("clip-path", `url(#${clipPathId})`)
-                            .attr("d", lineGen),
-                        update => update
-                            .attr("stroke", stroke)
-                            .attr("stroke-width", strokeWidth)
-                            .attr("d", lineGen),
-                        exit => exit.remove()
-                    )
+                    // point markers (one circle per datum) -- decorative only, no hover/tooltip
+                    if (markerRadius != null && markerRadius >= 0 && !shouldSubscribe) {
+                        ctx.fillStyle = stroke
+                        regular.forEach(d => {
+                            const x = xAxis.scale(d.datum.x) || 0
+                            const y = yAxis.scale(d.datum.y) || 0
+                            ctx.beginPath()
+                            ctx.arc(x, y, markerRadius, 0, 2 * Math.PI)
+                            ctx.fill()
+                        })
+                    }
 
-                // for the markers, we split the data into two categories: regular and outlier
-                const {regular, outlier} = categorizePoints(plotData, outlierMarkerColors)
+                    // outlier markers -- these DO get hover/tooltip, so we record their screen
+                    // positions (and the underlying datum, for the tooltip) for hit-testing
+                    const outlierPoints: Array<[number, number]> = []
+                    outlier.forEach(o => {
+                        const x = xAxis.scale(o.datum.datum.x) || 0
+                        const y = yAxis.scale(o.datum.datum.y) || 0
+                        ctx.fillStyle = o.color
+                        ctx.beginPath()
+                        ctx.arc(x, y, 4, 0, 2 * Math.PI)
+                        ctx.fill()
+                        outlierPoints.push([x + margin.left, y + margin.top])
+                    })
+                    newOutlierGeometry.set(`${series.name}::outlier`, {
+                        points: outlierPoints,
+                        hitRadius: 6
+                    })
+                    newOutlierDatums.set(series.name, outlier)
+                })
 
-                // point markers (one circle per datum)
-                if (markerRadius != null && markerRadius >= 0 && !shouldSubscribe) {
-                    const radius = markerRadius
-                    const markerGroupId = `${seriesId}-${chartId}-outlier-markers`
-                    const markerGroup = mainGElem
-                        .selectAll<SVGGElement, Array<OutlierDatum<M>>>(`#${markerGroupId}`)
-                        .data([regular], () => `${series.name}-markers`)
-                        .join(
-                            enter => enter
-                                .append("g")
-                                .attr("id", markerGroupId)
-                                .attr("class", "outlier-markers")
-                                .attr("data-series-name", series.name)
-                                .attr("transform", `translate(${margin.left}, ${margin.top})`)
-                                .attr("clip-path", `url(#${clipPathId})`),
-                            update => update,
-                            exit => exit.remove()
-                        )
+                bandsRef.current = newBands
+                outlierGeometryRef.current = newOutlierGeometry
+                outlierDatumsRef.current = newOutlierDatums
 
-                    markerGroup
-                        .selectAll<SVGCircleElement, OutlierDatum<M>>("circle")
-                        .data(regular)
-                        .join(
-                            enter => enter
-                                .append("circle")
-                                .attr("r", radius)
-                                .attr("fill", stroke)
-                                .attr("stroke", "none")
-                                .attr("cx", d => xAxis.scale(d.datum.x) || 0)
-                                .attr("cy", d => yAxis.scale(d.datum.y) || 0),
-                            update => update
-                                .attr("r", radius)
-                                .attr("fill", stroke)
-                                .attr("cx", d => xAxis.scale(d.datum.x) || 0)
-                                .attr("cy", d => yAxis.scale(d.datum.y) || 0),
-                            exit => exit.remove()
-                        )
-                } else {
-                    mainGElem.selectAll(`#${seriesId}-${chartId}-outlier-markers`).remove()
-                }
+                ctx.restore()
+            }
 
-                const outlierGroupId = `${seriesId}-${chartId}-outlier-points`
-                const outlierGroup = mainGElem
-                    .selectAll<SVGGElement, Array<OutlierDatumColor<M>>>(`#${outlierGroupId}`)
-                    .data([outlier], () => `${series.name}-outlier-points`)
-                    .join(
-                        enter => enter
-                            .append("g")
-                            .attr("id", outlierGroupId)
-                            .attr("class", "outlier-points")
-                            .attr("data-series-name", series.name)
-                            .attr("transform", `translate(${margin.left}, ${margin.top})`)
-                            .attr("clip-path", `url(#${clipPathId})`),
-                        update => update,
-                        exit => exit.remove()
-                    )
-
-                outlierGroup
-                    .selectAll<SVGCircleElement, OutlierDatumColor<M>>("circle")
-                    .data(outlier)
-                    .join(
-                        enter => enter
-                            .append("circle")
-                            .attr("r", 4)
-                            .attr("fill", outlier => outlier.color)
-                            .attr("stroke", "none")
-                            .attr("cx", outlier => xAxis.scale(outlier.datum.datum.x) || 0)
-                            .attr("cy", o => yAxis.scale(o.datum.datum.y) || 0)
-                            .on("mouseover", (event: MouseEvent, datum) => {
-                                const [x, y] = d3.pointer(event, container)
-                                // grab the x-value (chart) associate with the x-value (screen)
-                                const outlierDatum = datum.datum
-                                const bandIndex = largestExceededBoundIndex(outlierDatum) + 1
-                                const upperMeasure = bandIndex < series.measures.length ? series.measures[bandIndex] : undefined
-                                const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex - 1] : undefined
-                                const pointsInBand = calcPointsInBand(plotData, bandIndex)
-                                mouseOverHandlerFor(`tooltip-${chartId}`)?.(
-                                    series.name,
-                                    outlierDatum.datum.x,
-                                    {
-                                        series: series.data,
-                                        metadata: {
-                                            datum: outlierDatum,
-                                            upperMeasure,
-                                            lowerMeasure,
-                                            bandIndex,
-                                            pointsInBand,
-                                        }
-                                    },
-                                    [x, y]
-                                )
-                            })
-                            .on("mouseleave", () => {
-                                mouseLeaveHandlerFor(`tooltip-${chartId}`)?.(series.name)
-                            })
-                        ,
-                        update => update
-                            .attr("r", 4)
-                            .attr("fill", outlier => outlier.color)
-                            .attr("cx", outlier => xAxis.scale(outlier.datum.datum.x) || 0)
-                            .attr("cy", outlier => yAxis.scale(outlier.datum.datum.y) || 0),
-                        exit => exit.remove()
-                    )
-            })
+            cc.register(`outlier-plot-${chartId}`, draw, 10)
+            cc.requestRedraw()
         },
         [
-            container, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
+            canvasContext, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
             zoomKeyModifiersRequired, onZoom, axisAssignments,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
             bandOpacity, bandOpacityStep, markerRadius, outlierMarkerColors, hoveredSeriesName,
-            mouseOverHandlerFor, mouseLeaveHandlerFor, shouldSubscribe
+            shouldSubscribe
         ]
     )
 
-    const updatePlotRef = useRef<(ranges: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
+    const updatePlotRef = useRef<(ranges: Map<string, ContinuousAxisRange>, cc: CanvasContext) => void>(noop)
     useEffect(() => {
         // eslint-disable-next-line react-hooks/immutability
         updatePlotRef.current = updatePlot
@@ -571,13 +486,12 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
 
     const subscribe = useCallback(() => {
-        if (seriesObservable === undefined || mainG === null) return undefined
+        if (seriesObservable === undefined || canvasContext === null) return undefined
         return subscriptionOutlierFor<M>(
             seriesObservable as Observable<OutlierChartData<M>>,
             onSubscribe,
             windowingTime,
             axisAssignments, xAxesState,
-            // timeRangesRef.current,
             onUpdateData,
             dropDataAfter,
             updateTimingAndPlot,
@@ -587,14 +501,14 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
             initialTimes,
         )
     }, [
-        axisAssignments, dropDataAfter, mainG,
+        axisAssignments, dropDataAfter, canvasContext,
         onSubscribe, onUpdateData,
         seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
         initialTimes, timeWindowBehavior
     ])
 
     useEffect(() => {
-        if (container && mainG) {
+        if (canvasContext) {
             if (timeRangesRef.current.size === 0) {
                 // populate the map in place -- replacing it would orphan the copy already held by
                 // the subscription and by the zoom and pan handlers
@@ -611,9 +525,111 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                     }
                 })
             }
-            updatePlot(timeRangesRef.current, mainG)
+            updatePlot(timeRangesRef.current, canvasContext)
         }
-    }, [chartId, container, mainG, plotDimensions, updatePlot, xAxesState])
+    }, [chartId, canvasContext, plotDimensions, updatePlot, xAxesState])
+
+    // wires up a single mousemove/mouseleave listener on the shared canvas to replace the old
+    // per-element SVG mouseover/mouseleave handlers on the band paths and outlier-marker circles.
+    // Bands are hit-tested via `ctx.isPointInPath` against their captured fill path (checked
+    // topmost/narrowest-first, matching visual stacking); outlier markers use the shared
+    // point-hit-testing in `hitTesting.ts`. Outlier markers are checked first since they're drawn
+    // on top of the bands.
+    useEffect(
+        () => {
+            if (!canvasContext) return
+
+            const canvas = canvasContext.canvas
+            const {ctx} = canvasContext
+
+            const handleMove = (event: MouseEvent) => {
+                const [x, y] = canvasLocalPoint(event, canvas)
+                // hit-test coordinates need to be in the same (margin-translated) space the
+                // geometry/paths were captured in
+                const localX = x - margin.left
+                const localY = y - margin.top
+
+                // check outlier markers first (drawn on top of the bands)
+                const outlierHit = seriesAt(x, y, outlierGeometryRef.current)
+                const current = outlierHit !== undefined ?
+                    {kind: 'outlier' as const, seriesName: outlierHit.name.replace(/::outlier$/, ''), index: outlierHit.index} :
+                    findHoveredBand(bandsRef.current, ctx, localX, localY)
+
+                const previous = lastHoveredRef.current
+                const sameAsBefore = previous !== undefined && current !== undefined &&
+                    previous.kind === current.kind && previous.seriesName === current.seriesName &&
+                    ((previous.kind === 'band' && current.kind === 'band' && previous.bandIndex === current.bandIndex) ||
+                        (previous.kind === 'outlier' && current.kind === 'outlier' && previous.index === current.index))
+
+                if (sameAsBefore) return
+
+                if (previous !== undefined) {
+                    mouseLeaveHandlerFor(`tooltip-${chartId}`)?.(previous.seriesName)
+                }
+
+                if (current !== undefined) {
+                    if (current.kind === 'band') {
+                        const band = bandsRef.current.find(b => b.seriesName === current.seriesName && b.bandIndex === current.bandIndex)
+                        if (band !== undefined && band.upperMeasure != null) {
+                            const pointsInBand = calcPointsInBand(band.plotData, band.bandIndex)
+                            mouseOverHandlerFor(`tooltip-${chartId}`)?.(
+                                current.seriesName,
+                                current.bandIndex,
+                                {
+                                    series: band.plotData,
+                                    metadata: {
+                                        upperMeasure: band.upperMeasure,
+                                        lowerMeasure: band.lowerMeasure,
+                                        bandIndex: current.bandIndex,
+                                        pointsInBand,
+                                    }
+                                },
+                                [x, y]
+                            )
+                        }
+                    } else {
+                        const series = seriesRef.current.get(current.seriesName)
+                        const outlierDatum = outlierDatumsRef.current.get(current.seriesName)?.[current.index]
+                        if (series !== undefined && outlierDatum !== undefined) {
+                            const plotData = series.name.match(seriesFilter) ? series.data : FastShiftArray.empty<OutlierDatum<M>>()
+                            const datum = outlierDatum.datum
+                            const bandIndex = largestExceededBoundIndex(datum) + 1
+                            const upperMeasure = bandIndex < series.measures.length ? series.measures[bandIndex] : undefined
+                            const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex - 1] : undefined
+                            const pointsInBand = calcPointsInBand(plotData, bandIndex)
+                            mouseOverHandlerFor(`tooltip-${chartId}`)?.(
+                                current.seriesName,
+                                datum.datum.x,
+                                {
+                                    series: series.data,
+                                    metadata: {datum, upperMeasure, lowerMeasure, bandIndex, pointsInBand}
+                                },
+                                [x, y]
+                            )
+                        }
+                    }
+                }
+
+                lastHoveredRef.current = current
+            }
+
+            const handleLeaveCanvas = () => {
+                const previous = lastHoveredRef.current
+                if (previous !== undefined) {
+                    mouseLeaveHandlerFor(`tooltip-${chartId}`)?.(previous.seriesName)
+                    lastHoveredRef.current = undefined
+                }
+            }
+
+            canvas.addEventListener('mousemove', handleMove)
+            canvas.addEventListener('mouseleave', handleLeaveCanvas)
+            return () => {
+                canvas.removeEventListener('mousemove', handleMove)
+                canvas.removeEventListener('mouseleave', handleLeaveCanvas)
+            }
+        },
+        [canvasContext, chartId, margin, seriesFilter, mouseOverHandlerFor, mouseLeaveHandlerFor]
+    )
 
     useEffect(() => {
         if (shouldSubscribe && subscriptionRef.current === undefined) {
@@ -624,7 +640,39 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         }
     }, [shouldSubscribe, subscribe])
 
+    // unregister this plot's draw function on unmount
+    useEffect(
+        () => {
+            return () => {
+                if (canvasContext) {
+                    canvasContext.unregister(`outlier-plot-${chartId}`)
+                }
+            }
+        },
+        [canvasContext, chartId]
+    )
+
     return null
+}
+
+/**
+ * Finds the topmost (narrowest, most-confident) band whose fill path contains `(localX, localY)`.
+ * `bands` is in draw order (widest first, narrowest/topmost last), so this iterates backwards to
+ * check the topmost band first, matching visual stacking.
+ */
+function findHoveredBand<M extends readonly number[]>(
+    bands: Array<BandHitRegion<M>>,
+    ctx: CanvasRenderingContext2D,
+    localX: number,
+    localY: number
+): {kind: 'band', seriesName: string, bandIndex: number} | undefined {
+    for (let i = bands.length - 1; i >= 0; i--) {
+        const band = bands[i]
+        if (ctx.isPointInPath(band.path, localX, localY)) {
+            return {kind: 'band', seriesName: band.seriesName, bandIndex: band.bandIndex}
+        }
+    }
+    return undefined
 }
 
 /**

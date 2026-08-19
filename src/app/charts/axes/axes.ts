@@ -1,15 +1,21 @@
 import type {Dimensions, Margin} from "../styling/margins";
 import {ContinuousAxisRange} from "./ContinuousAxisRange";
 import * as d3 from "d3";
-import {type Axis, type ScaleBand, type ScaleContinuousNumeric, type ScaleLinear, ZoomTransform} from "d3";
-import type {AxisElementSelection, SvgSelection} from "../d3types";
+import {type ScaleBand, type ScaleContinuousNumeric, type ScaleLinear, ZoomTransform} from "d3";
+import type {CanvasContext, DrawHandle} from "../d3types";
 import {AxesState} from "./AxesState";
 import type {AxesAssignment} from "../plots/plot";
+import {clipToArea} from "../plots/plot";
 import type {BaseSeries} from "../series/baseSeries";
-import {noop} from "../utils";
+import {fontStringFor} from "../utils";
 import {OrdinalAxisRange} from "./OrdinalAxisRange";
 import {BaseAxisRange} from "./BaseAxisRange";
 import {AxisInterval} from "./AxisInterval";
+
+/** Default tick length, in pixels, matching d3-axis's default `tickSize`. */
+const TICK_SIZE = 6
+/** Default gap between the end of a tick and its label, matching d3-axis's default `tickPadding`. */
+const TICK_PADDING = 3
 
 /**
  * Holds the style for the axis tick labels
@@ -88,17 +94,19 @@ export function defaultLineStyle(): SeriesLineStyle {
 }
 
 /**
- * The base interface that all Axes must implement. Each axis must have a unique ID,
- * a location (top, bottom, left, right), and d3 SVG selection for the axis.
+ * The base interface that all Axes must implement. Each axis must have a unique ID and a location
+ * (top, bottom, left, right). Under the old SVG-backed implementation this also carried a
+ * `selection`; that's gone now that axes draw onto a shared canvas instead of owning their own DOM
+ * elements.
  */
 export interface BaseAxis {
     axisId: string
     location: AxisLocation
-    selection: AxisElementSelection
 }
 
 /**
- * Represents a continuous numeric axis.
+ * Represents a continuous numeric axis. Draws itself by registering a draw function with the
+ * chart's {@link CanvasContext} (see `create*`, below) rather than owning an SVG element.
  */
 export interface ContinuousNumericAxis extends BaseAxis {
     /**
@@ -106,20 +114,23 @@ export interface ContinuousNumericAxis extends BaseAxis {
      */
     scale: ScaleContinuousNumeric<number, number>
     /**
-     * A d3 axis generator for a continuous numeric axis.
-     */
-    generator: Axis<number | { valueOf(): number }>
-    /**
-     * Updates the axis based on the specified domain and plot dimensions.
+     * Updates the axis based on the specified domain and plot dimensions, and requests a redraw.
      * @param domain The interval representing the domain of the axis.
      * @param plotDimensions The dimensions of the plot (without the margins).
      * @param margin The margins for the plot
      */
     update: (domain: AxisInterval, plotDimensions: Dimensions, margin: Margin) => void
+    /**
+     * Updates the font (color, size, family, weight) used for ticks and the axis label, without
+     * recreating the axis or touching its domain. Used to keep the label color in sync with the
+     * chart's `color` prop (e.g. on a theme change) between full axis updates.
+     */
+    updateFont: (font: AxesFont) => void
 }
 
 /**
- * Represents an ordinal string axis.
+ * Represents an ordinal string axis. Draws itself by registering a draw function with the chart's
+ * {@link CanvasContext} rather than owning an SVG element.
  */
 export interface OrdinalStringAxis extends BaseAxis {
     /**
@@ -127,15 +138,11 @@ export interface OrdinalStringAxis extends BaseAxis {
      */
     scale: ScaleBand<string>
     /**
-     * A d3 axis generator for an ordinal string axis.
-     */
-    generator: Axis<string>
-    /**
      * The size of each category on the axis.
      */
     categorySize: number
     /**
-     * Updates the axis based on the specified domain and plot dimensions.
+     * Updates the axis based on the specified range and plot dimensions, and requests a redraw.
      * @param range An interval representing the range of the axis.
      * @param originalRange An interval representing the original range of the axis (before zooming or panning).
      * @param plotDimensions The dimensions of the plot (without the margins).
@@ -143,6 +150,12 @@ export interface OrdinalStringAxis extends BaseAxis {
      * @return The number of pixels for each category on the axis.
      */
     update: (range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => number
+    /**
+     * Updates the font used for the axis label, without recreating the axis. Tick label color is
+     * intentionally not touched by this -- it stays fixed at whatever the tick style's font was
+     * set to when the axis was created.
+     */
+    updateFont: (font: AxesFont) => void
 }
 
 /**
@@ -162,83 +175,30 @@ export const AxisLocation = {
 export type AxisLocation = (typeof AxisLocation)[keyof typeof AxisLocation];
 
 /*
-        axis clip path definition
+        category (ordinal) axes
  */
 
 /**
- * Adds a clip area for the chart to the specified SVG element. The clip-area is given
- * an `id` of `clip-series-<chart_id>`, which because the chart ID should be unique, makes
- * this unique as well
- * @param chartId The ID of the chart to which the clip area is to be added
- * @param axisId The ID of the axis to which the clip area is to be added
- * @param svg The SVG element to which the clip area is to be added
- * @param location The location of the axis
- * @param plotDimensions The dimensions of the plot
- * @param margin The margins around the plot
- * @return The ID of the clip-path
- */
-export function setClipPath(
-    chartId: number,
-    axisId: string,
-    svg: SvgSelection,
-    location: AxisLocation,
-    plotDimensions: Dimensions,
-    margin: Margin
-): string {
-    const clipPathId = `chart-clip-path-${chartId}-${axisId}`
-
-    // calculate the width and height of the clip-area for the axis
-    const width = location === AxisLocation.Left ? margin.right :
-        location === AxisLocation.Right ? margin.left :
-            plotDimensions.width
-
-    const height = location === AxisLocation.Top ? margin.top + 1 :
-        location === AxisLocation.Bottom ? margin.bottom - 1:
-            plotDimensions.height
-
-    // remove the old clipping region and add a new one with the updated plot dimensions
-    svg.select(`#${clipPathId}-defs`).remove();
-    svg
-        .append('defs')
-            .attr('id', `${clipPathId}-defs`)
-        .append("clipPath")
-            .attr("id", clipPathId)
-        .append("rect")
-            .attr("x", 0)
-            .attr("y", location === AxisLocation.Bottom ? -1 : -margin.top)
-            .attr("width", width)
-            .attr("height", height)
-
-    return clipPathId
-}
-
-
-/*
-        category axes
- */
-
-/**
- * Adds a category axis to the specified location. When the location is top or bottom,
- * the category axis represents the x-axis. When the location is left or right, then the
- * category axis represents the y-axis.
- * @param chartId The unique ID of the chart to which this axis belongs
+ * Adds a category axis to the specified location, registering its draw function with the canvas
+ * context. When the location is top or bottom, the category axis represents the x-axis; when the
+ * location is left or right, it represents the y-axis.
+ * @param cc The canvas context to register the axis' draw function with
  * @param axisId A unique ID for the axis
- * @param svg The SVG selection (d3)
  * @param location The location of the axis
- * @param categories An array holding the category names
+ * @param categories The category names (fixed for the lifetime of this axis -- changing categories
+ * requires recreating the axis)
  * @param axisLabel The axis label
  * @param axesLabelFont The font for the axis label
- * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
+ * @param axisTickStyle Styling information for the ticks (font, rotation, etc)
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
- * @param setAxisRangeFor Lambda that sets the axis range for the specified axis
- * @param setOriginalAxisRangeFor Lambda that sets the original axis range for the specified axis
- * @return A category axis
+ * @param setAxisRangeFor Callback that sets the axis range for the specified axis
+ * @param setOriginalAxisRangeFor Callback that sets the original axis range for the specified axis
+ * @return An {@link OrdinalStringAxis}
  */
 export function addOrdinalStringAxis(
-    chartId: number,
+    cc: CanvasContext,
     axisId: string,
-    svg: SvgSelection,
     location: AxisLocation,
     categories: Array<string>,
     axisLabel: string,
@@ -253,53 +213,29 @@ export function addOrdinalStringAxis(
         case AxisLocation.Top:
         case AxisLocation.Bottom:
             return addOrdinalStringXAxis(
-                chartId, axisId,
-                svg,
-                location,
-                categories,
-                axisLabel, axesLabelFont, axisTickStyle,
-                plotDimensions,
-                margin,
-                setAxisRangeFor,
-                setOriginalAxisRangeFor
+                cc, axisId, location, categories, axisLabel, axesLabelFont, axisTickStyle,
+                plotDimensions, margin, setAxisRangeFor, setOriginalAxisRangeFor
             )
         case AxisLocation.Left:
         case AxisLocation.Right:
             return addOrdinalStringYAxis(
-                chartId, axisId,
-                svg,
-                location,
-                categories,
-                axisLabel, axesLabelFont, axisTickStyle,
-                plotDimensions,
-                margin,
-                setAxisRangeFor,
-                setOriginalAxisRangeFor
+                cc, axisId, location, categories, axisLabel, axesLabelFont, axisTickStyle,
+                plotDimensions, margin, setAxisRangeFor, setOriginalAxisRangeFor
             )
-
     }
 }
 
 /**
- * Adds a category axis representing the x-axis.
- * @param chartId The unique ID of the chart to which this axis belongs
- * @param axisId A unique ID for the axis
- * @param svg The SVG selection (d3)
- * @param location The location of the axis
- * @param categories An array holding the category names
- * @param axisLabel The axis label
- * @param axesLabelFont The font for the axis label
- * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margin
- * @param setAxisRangeFor Lambda that sets the axis range for the specified axis
- * @param setOriginalAxisRangeFor Lambda that sets the original axis range for the specified axis
- * @return A category axis
+ * NOTE ON FIDELITY: the original SVG version rotated tick labels using each label's own
+ * `getBBox()` to compute a per-label rotation origin, which let long labels pivot around their own
+ * visual center/corner. Canvas `measureText` has no bbox-offset equivalent, so this version rotates
+ * every label about its anchor point at the tick instead. At `rotation: 0` (the common case) this
+ * produces the same centered layout as before; at non-zero rotations the labels will be close but
+ * not pixel-identical to the old SVG output -- worth a visual check if you use tick rotation.
  */
 function addOrdinalStringXAxis(
-    chartId: number,
+    cc: CanvasContext,
     axisId: string,
-    svg: SvgSelection,
     location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
     categories: Array<string>,
     axisLabel: string,
@@ -310,90 +246,103 @@ function addOrdinalStringXAxis(
     setAxisRangeFor: (axisId: string, range: AxisInterval) => void,
     setOriginalAxisRangeFor: (axisId: string, range: AxisInterval) => void,
 ): OrdinalStringAxis {
-    const scale = d3.scaleBand()
-        .domain(categories)
-        .range([0, plotDimensions.width])
-    const categorySize = scale.bandwidth()
+    const scale = d3.scaleBand<string>().domain(categories).range([0, plotDimensions.width])
 
-    // create and add the axes
-    const generator = location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale)
+    let currentDimensions = plotDimensions
+    let currentMargin = margin
+    let currentFont = axesLabelFont
+    const currentTickStyle = axisTickStyle
 
-    const clipPathId = setClipPath(chartId, axisId, svg, location, plotDimensions, margin)
-    const selection = svg
-        .append<SVGGElement>('g')
-            .attr('id', `x-axis-selection-${chartId}-${axisId}`)
-            .attr("clip-path", `url(#${clipPathId})`)
-        .classed('x-axis', true)
-            .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
-        .call(generator)
+    const drawHandle: DrawHandle = `x-axis-ordinal-${cc.chartId}-${axisId}`
 
-    // rotate the tick-labels by the specified amount (in degrees)
-    let maxTickLabelHeight = 0
-    const {font, rotation} = axisTickStyle
-    selection
-        .selectAll("text")
-        .style("text-anchor", "end")
-        .each(function () {
-            const degrees = location === AxisLocation.Bottom ? -rotation : rotation
-            const radians = degrees * Math.PI / 180
-            const {width, height, x, y} = (this as SVGTextElement).getBBox()
-            const xOrigin = x + width
-            const yOrigin = location === AxisLocation.Bottom ? y + height / 2 : y + height / 2
+    const draw = (context: CanvasContext) => {
+        const {ctx} = context
+        ctx.save()
+        ctx.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
 
-            d3.select(this)
-                .attr("transform", () => `translate(${width * Math.cos(radians) / 2}, 0) rotate(${degrees}, ${xOrigin}, ${yOrigin})`)
+        ctx.save()
+        clipToArea(context, {width: currentDimensions.width, height: currentMargin.bottom}, {x: 0, y: location === AxisLocation.Bottom ? -1 : -currentMargin.top})
 
-            const newHeight = Math.abs(width * Math.sin(radians))
-            if (newHeight > maxTickLabelHeight) {
-                maxTickLabelHeight = newHeight
-            }
+        ctx.strokeStyle = currentFont.color
+        ctx.fillStyle = currentFont.color
+        ctx.lineWidth = 1
+        ctx.font = fontStringFor(currentTickStyle.font.size, currentTickStyle.font.family, currentTickStyle.font.weight)
+        ctx.textBaseline = 'middle'
+
+        // domain line
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(currentDimensions.width, 0)
+        ctx.stroke()
+
+        const tickDirection = location === AxisLocation.Bottom ? 1 : -1
+        const degrees = location === AxisLocation.Bottom ? -currentTickStyle.rotation : currentTickStyle.rotation
+        const radians = degrees * Math.PI / 180
+
+        categories.forEach(category => {
+            const x = (scale(category) ?? 0) + scale.bandwidth() / 2
+            ctx.beginPath()
+            ctx.moveTo(x, 0)
+            ctx.lineTo(x, TICK_SIZE * tickDirection)
+            ctx.stroke()
+
+            ctx.save()
+            ctx.translate(x, (TICK_SIZE + TICK_PADDING) * tickDirection)
+            ctx.rotate(radians)
+            ctx.textAlign = radians === 0 ? 'center' : 'end'
+            ctx.fillText(category, 0, 0)
+            ctx.restore()
         })
 
-    svg
-        .append<SVGTextElement>('text')
-            .attr('id', labelIdFor(chartId, location))
-            .style('text-anchor', 'middle')
-            // when the axis is at the top, want the label to hang from the top (y=0) of the plot
-            .attr('dominant-baseline', location === AxisLocation.Top ? "hanging" : "baseline")
-            .attr('font-size', font.size)
-            .attr('fill', font.color)
-            .attr('font-family', font.family)
-            .attr('font-weight', font.weight)
-        .text(axisLabel)
+        ctx.restore() // pop the clip
 
-    const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
+        // axis label (absolute position, not clipped, matches the old behavior)
+        ctx.fillStyle = currentFont.color
+        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        ctx.textAlign = 'center'
+        ctx.textBaseline = location === AxisLocation.Top ? 'hanging' : 'alphabetic'
+        const labelX = ordinalLabelXTranslation(location, currentDimensions, currentMargin, currentFont) - currentMargin.left
+        const labelY = ordinalLabelYTranslation(location, currentDimensions, currentMargin) - yTranslation(location, currentDimensions, currentMargin)
+        ctx.fillText(axisLabel, labelX, labelY)
+
+        ctx.restore()
+    }
+
+    cc.register(drawHandle, draw, 0)
+
+    const categorySize = () => scale.bandwidth()
 
     return {
-        ...axis,
-        update: (range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => {
-            const categorySize = updateOrdinalStringXAxis(chartId, axis, svg, location, categories, range, axesLabelFont, plotDimensions, margin)
+        axisId,
+        location,
+        scale,
+        categorySize: categorySize(),
+        update: (range, originalRange, plotDimensions, margin) => {
+            const updatedRange = AxisInterval.from(
+                Math.min(range.start, 0),
+                Math.max(range.end, plotDimensions.width)
+            )
+            scale.domain(categories).range(updatedRange.asTuple())
+            currentDimensions = plotDimensions
+            currentMargin = margin
             setAxisRangeFor(axisId, range)
             setOriginalAxisRangeFor(axisId, originalRange)
-            return categorySize
+            cc.requestRedraw()
+            return categorySize()
+        },
+        updateFont: (font) => {
+            // matches the original SVG version: only the axis *label's* fill was ever updated
+            // dynamically (via svg.select('#label').attr('fill', color)); tick color stays fixed
+            // at whatever axisTickStyle.font was set to at creation
+            currentFont = font
+            cc.requestRedraw()
         }
     }
 }
 
-/**
- * Adds a category axis representing the y-axis.
- * @param chartId The unique ID of the chart to which this axis belongs
- * @param axisId A unique ID for the axis
- * @param svg The SVG selection (d3)
- * @param location The location of the axis
- * @param categories An array holding the category names
- * @param axisLabel The axis label
- * @param axesLabelFont The font for the axis label
- * @param axisTickStyle Styling information for the ticks (e.g. font, rotation, etc)
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margin
- * @param setAxisRangeFor Lambda that sets the axis range for the specified axis
- * @param setOriginalAxisRangeFor Lambda that sets the original axis range for the specified axis
- * @return A category axis
- */
 function addOrdinalStringYAxis(
-    chartId: number,
+    cc: CanvasContext,
     axisId: string,
-    svg: SvgSelection,
     location: typeof AxisLocation.Left | typeof AxisLocation.Right,
     categories: Array<string>,
     axisLabel: string,
@@ -404,174 +353,115 @@ function addOrdinalStringYAxis(
     setAxisRangeFor: (axisId: string, range: AxisInterval) => void,
     setOriginalAxisRangeFor: (axisId: string, range: AxisInterval) => void,
 ): OrdinalStringAxis {
-    const scale = d3.scaleBand()
-        .domain(categories)
-        .range([0, plotDimensions.height])
-    const categorySize = scale.bandwidth()
+    const scale = d3.scaleBand<string>().domain(categories).range([0, plotDimensions.height])
 
-    // create and add the axes
-    const generator = location === AxisLocation.Left ? d3.axisLeft(scale) : d3.axisRight(scale)
+    let currentDimensions = plotDimensions
+    let currentMargin = margin
+    let currentFont = axesLabelFont
+    const currentTickStyle = axisTickStyle
 
-    const selection = svg
-        .append<SVGGElement>('g')
-            .attr('id', `y-axis-selection-${chartId}`)
-            .attr('class', 'y-axis')
-            .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
-        .call(generator);
+    const drawHandle: DrawHandle = `y-axis-ordinal-${cc.chartId}-${axisId}`
 
-    // rotate the tick-labels by the specified amount (in degrees)
-    const {font, rotation} = axisTickStyle
-    selection
-        .selectAll("text")
-        .style("text-anchor", "end")
-        .each(function () {
-            const degrees = location === AxisLocation.Left ? -rotation : rotation
-            const {width, height, x, y} = (this as SVGTextElement).getBBox()
-            const xTranslation = location === AxisLocation.Left ? 0 : width
-            const xOrigin = x + width
-            const yOrigin = location === AxisLocation.Left ? y + height / 2 : y + height / 2
+    const draw = (context: CanvasContext) => {
+        const {ctx} = context
+        ctx.save()
+        ctx.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
 
-            d3.select(this)
-                .attr("transform", () => `translate(${xTranslation}, 0) rotate(${degrees}, ${xOrigin}, ${yOrigin})`)
+        ctx.save()
+        const clipWidth = location === AxisLocation.Left ? currentMargin.left : currentMargin.right
+        clipToArea(context, {width: clipWidth, height: currentDimensions.height}, {x: location === AxisLocation.Left ? -clipWidth : 0, y: 0})
+
+        ctx.strokeStyle = currentFont.color
+        ctx.fillStyle = currentFont.color
+        ctx.lineWidth = 1
+        ctx.font = fontStringFor(currentTickStyle.font.size, currentTickStyle.font.family, currentTickStyle.font.weight)
+        // matches the old SVG version, which forced text-anchor "end" for ordinal ticks
+        // regardless of Left/Right location
+        ctx.textAlign = 'end' as CanvasTextAlign
+        ctx.textBaseline = 'middle'
+
+        // domain line
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(0, currentDimensions.height)
+        ctx.stroke()
+
+        const degrees = location === AxisLocation.Left ? -currentTickStyle.rotation : currentTickStyle.rotation
+        const radians = degrees * Math.PI / 180
+        const xTick = location === AxisLocation.Left ? 0 : scale.bandwidth() // mirrors the old xTranslation offset
+
+        categories.forEach(category => {
+            const y = (scale(category) ?? 0) + scale.bandwidth() / 2
+            const tickDirection = location === AxisLocation.Left ? -1 : 1
+            ctx.beginPath()
+            ctx.moveTo(0, y)
+            ctx.lineTo(TICK_SIZE * tickDirection, y)
+            ctx.stroke()
+
+            ctx.save()
+            ctx.translate(xTick, y)
+            ctx.rotate(radians)
+            ctx.fillText(category, 0, 0)
+            ctx.restore()
         })
 
-    svg
-        .append<SVGTextElement>('text')
-            .attr('id', labelIdFor(chartId, location))
-            .attr('text-anchor', 'middle')
-            .attr('font-size', font.size)
-            .attr('fill', font.color)
-            .attr('font-family', font.family)
-            .attr('font-weight', font.weight)
-            .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
-        .text(axisLabel)
+        ctx.restore() // pop the clip
 
-    const axis = {axisId, selection, location, scale, generator, categorySize, update: () => categorySize}
+        // axis label, rotated -90deg, matching the old SVG version
+        ctx.save()
+        const labelX = ordinalLabelXTranslation(location, currentDimensions, currentMargin, currentFont) - xTranslation(location, currentDimensions, currentMargin)
+        const labelY = ordinalLabelYTranslation(location, currentDimensions, currentMargin) - currentMargin.top
+        ctx.translate(labelX, labelY)
+        ctx.rotate(-Math.PI / 2)
+        ctx.fillStyle = currentFont.color
+        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'alphabetic'
+        ctx.fillText(axisLabel, 0, 0)
+        ctx.restore()
+
+        ctx.restore()
+    }
+
+    cc.register(drawHandle, draw, 0)
+
+    const categorySize = () => scale.bandwidth()
 
     return {
-        ...axis,
-        update: (range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => {
-            const categorySize = updateOrdinalStringYAxis(chartId, axis, svg, location, categories, range, axesLabelFont, plotDimensions, margin)
+        axisId,
+        location,
+        scale,
+        categorySize: categorySize(),
+        update: (range, originalRange, plotDimensions, margin) => {
+            const updatedRange = AxisInterval.from(
+                Math.min(range.start, 0),
+                Math.max(range.end, plotDimensions.height)
+            )
+            scale.domain(categories).range(updatedRange.asTuple())
+            currentDimensions = plotDimensions
+            currentMargin = margin
             setAxisRangeFor(axisId, range)
             setOriginalAxisRangeFor(axisId, originalRange)
-            return categorySize
+            cc.requestRedraw()
+            return categorySize()
+        },
+        updateFont: (font) => {
+            // matches the original SVG version: only the axis *label's* fill was ever updated
+            // dynamically; tick color stays fixed at whatever axisTickStyle.font was at creation
+            currentFont = font
+            cc.requestRedraw()
         }
     }
 }
 
-/**
- * Updates the category axis representing the x-axis, calculates and returns the
- * number of pixels for each category on the x-axis.
- * @param chartId The unique ID of the chart to which this axis belongs
- * @param axis The category axis to be updated
- * @param svg The SVG selection (d3)
- * @param location The location of the axis
- * @param names An array holding the category names
- * @param axesLabelFont The font for the axis label
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margin
- * @param range The range of the axis (e.g., start and end) in pixels
- * @param axesLabelFont The font for the axis label
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margin
- * adjust the axis label location when needed
- * @return The number of pixels for each category
- */
-function updateOrdinalStringXAxis(
-    chartId: number,
-    axis: OrdinalStringAxis,
-    svg: SvgSelection,
-    location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
-    names: Array<string>,   // domain (categories)
-    range: AxisInterval,    // range (pixels)
-    axesLabelFont: AxesFont,
-    plotDimensions: Dimensions,
-    margin: Margin
-): number {
-    const updatedRange = AxisInterval.from(
-        Math.min(range.start, 0),
-        Math.max(range.end, plotDimensions.width)
-    )
-
-    axis.scale = axis.scale
-        .domain(names)
-        .range(updatedRange.asTuple())
-
-    axis.categorySize = axis.scale.bandwidth()
-
-    const clipPathId = setClipPath(chartId, axis.axisId, svg, location, plotDimensions, margin)
-    axis.selection = axis.selection
-        .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
-        .attr("clip-path", `url(#${clipPathId})`)
-        .call(axis.generator)
-
-    const xLabelTranslation = ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)
-    const yLabelTranslation = ordinalLabelYTranslation(location, plotDimensions, margin)
-    svg
-        .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${xLabelTranslation}, ${yLabelTranslation})`)
-
-    return axis.categorySize
+export function removeOrdinalXAxis(cc: CanvasContext, axisId: string): void {
+    cc.unregister(`x-axis-ordinal-${cc.chartId}-${axisId}`)
 }
 
-/**
- * Updates the category axis representing the y-axis, calculates and returns the
- * number of pixels for each category on the y-axis.
- * @param chartId The unique ID of the chart to which this axis belongs
- * @param axis The category axis to be updated
- * @param svg The SVG selection (d3)
- * @param location The location of the axis
- * @param names An array holding the category names
- * @param range The range of the axis (e.g. start and end)
- * @param axesLabelFont The font for the axis label
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margin
- * @param axesLabelFont The font for the axis label
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margin
- * @return The number of pixels for each category
- */
-function updateOrdinalStringYAxis(
-    chartId: number,
-    axis: OrdinalStringAxis,
-    svg: SvgSelection,
-    location: typeof AxisLocation.Left | typeof AxisLocation.Right,
-    names: Array<string>, // domain
-    range: AxisInterval,  // range
-    axesLabelFont: AxesFont,
-    plotDimensions: Dimensions,
-    margin: Margin,
-): number {
-    const updatedRange = AxisInterval.from(
-        Math.min(range.start, 0),
-        Math.max(range.end, plotDimensions.height)
-    )
-
-    axis.scale = axis.scale
-        .domain(names)
-        .range(updatedRange.asTuple())
-    axis.categorySize = axis.scale.bandwidth()
-    axis.selection = axis.selection
-        .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
-        .call(axis.generator)
-
-    svg
-        .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${ordinalLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${ordinalLabelYTranslation(location, plotDimensions, margin)}) rotate(-90)`)
-
-    return axis.categorySize
+export function removeOrdinalYAxis(cc: CanvasContext, axisId: string): void {
+    cc.unregister(`y-axis-ordinal-${cc.chartId}-${axisId}`)
 }
 
-/**
- * Calculates the number of pixels by which to translate the label in the x-direction for the axis.
- * The calculation uses the dimensions and margins of the plot, the location of the
- * axis, and the font for the label.
- * @param location The axis location (i.e. top, bottom, left, right)
- * @param plotDimensions The dimensions of the plot
- * @param margin The margins for the plot
- * @param axesLabelFont The font for the axis label
- * @return The number of pixels to translate the label in the x-direction
- */
 function ordinalLabelXTranslation(
     location: AxisLocation,
     plotDimensions: Dimensions,
@@ -590,15 +480,6 @@ function ordinalLabelXTranslation(
     }
 }
 
-/**
- * Calculates the number of pixels by which to translate the label in the y-direction the axis.
- * The calculation uses the dimensions and margins of the plot, the location of the
- * axis, and the font for the label.
- * @param location The axis location (i.e. top, bottom, left, right)
- * @param plotDimensions The dimensions of the plot
- * @param margin The margins for the plot
- * @return The number of pixels to translate the label for the y-direction
- */
 function ordinalLabelYTranslation(
     location: AxisLocation,
     plotDimensions: Dimensions,
@@ -621,21 +502,21 @@ function ordinalLabelYTranslation(
  */
 
 /**
- * Adds a new empty x-axis to the SVG element at the specified location. An empty axis
+ * Adds a new, empty x-axis (a line with no ticks or label) to the canvas context. An empty axis
  * is just a line where the axis would be, without any ticks or labels.
+ * @param cc The canvas context to register the axis' draw function with
  * @param axisId The ID of the axis
- * @param svg The SVG selection to which to add the axis
  * @param plotDimensions The dimensions of the plot
  * @param location The location of the axis
- * @param scaleGenerator The higher-order function that returns the axis d3 "scale" function
- * @param domain The axis range (start, end)
+ * @param scaleGenerator The d3 scale to use for the axis
  * @param margin The plot margins for the border of main SVG group
  * @param setAxisRangeFor A callback used to set the axis range
+ * @param domain The axis range (start, end)
  * @return A {@link ContinuousNumericAxis} based on the arguments to this function
  */
 export function addEmptyXAxis(
+    cc: CanvasContext,
     axisId: string,
-    svg: SvgSelection,
     plotDimensions: Dimensions,
     location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
@@ -645,55 +526,56 @@ export function addEmptyXAxis(
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([0, plotDimensions.width])
 
-    const selection = svg
-        .append<SVGGElement>('g')
-        .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
+    let currentDimensions = plotDimensions
+    let currentMargin = margin
 
-    const line = selection.append('line')
-        .attr('x1', 0)
-        .attr('y1', 0)
-        .attr('x2', plotDimensions.width)
-        .attr('y2', 0)
-        .attr('stroke', 'currentColor')
+    const drawHandle: DrawHandle = `x-axis-empty-${cc.chartId}-${axisId}`
 
-    const axis: ContinuousNumericAxis = {
+    const draw = (context: CanvasContext) => {
+        const {ctx} = context
+        ctx.save()
+        ctx.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
+        ctx.strokeStyle = ctx.fillStyle // "currentColor" equivalent: use whatever the chart's base fill color is
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(currentDimensions.width, 0)
+        ctx.stroke()
+        ctx.restore()
+    }
+
+    cc.register(drawHandle, draw, 0)
+
+    return {
         axisId,
         location,
-        selection,
         scale,
-        generator: d3.axisBottom(scale).tickValues([]).tickSize(0),
-        update: noop
-    }
-    return {
-        ...axis,
-        update: (domain: AxisInterval, plotDimensions: Dimensions, margin: Margin) => {
-            axis.scale.domain(domain.asTuple()).range([0, plotDimensions.width])
-            axis.selection
-                .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
-
-            line.attr('x2', plotDimensions.width)
-
+        update: (domain, plotDimensions, margin) => {
+            scale.domain(domain.asTuple()).range([0, plotDimensions.width])
+            currentDimensions = plotDimensions
+            currentMargin = margin
             setAxisRangeFor(axisId, domain)
-        }
+            cc.requestRedraw()
+        },
+        // an empty axis has no ticks or label to color, so there's nothing for updateFont to do
+        updateFont: () => {}
     }
 }
 
 /**
- * Adds a new empty y-axis to the SVG element at the specified location. An empty axis
- * is just a line where the axis would be, without any ticks or labels.
+ * Adds a new, empty y-axis (a line with no ticks or label) to the canvas context.
+ * @param cc The canvas context to register the axis' draw function with
  * @param axisId The ID of the axis
- * @param svg The SVG selection to which to add the axis
  * @param plotDimensions The dimensions of the plot
  * @param location The location of the axis
- * @param scaleGenerator The higher-order function that returns the axis d3 "scale" function
- * @param domain The axis range (start, end)
+ * @param scaleGenerator The d3 scale to use for the axis
  * @param margin The plot margins for the border of main SVG group
  * @param setAxisRangeFor A callback used to set the axis range
+ * @param domain The axis range (start, end)
  * @return A {@link ContinuousNumericAxis} based on the arguments to this function
  */
 export function addEmptyYAxis(
+    cc: CanvasContext,
     axisId: string,
-    svg: SvgSelection,
     plotDimensions: Dimensions,
     location: typeof AxisLocation.Left | typeof AxisLocation.Right,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
@@ -703,58 +585,58 @@ export function addEmptyYAxis(
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([plotDimensions.height, 0])
 
-    const selection = svg
-        .append<SVGGElement>('g')
-        .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
+    let currentDimensions = plotDimensions
+    let currentMargin = margin
 
-    const line = selection.append('line')
-        .attr('x1', 0)
-        .attr('y1', 0)
-        .attr('x2', 0)
-        .attr('y2', plotDimensions.height)
-        .attr('stroke', 'currentColor')
+    const drawHandle: DrawHandle = `y-axis-empty-${cc.chartId}-${axisId}`
 
-    const axis: ContinuousNumericAxis = {
+    const draw = (context: CanvasContext) => {
+        const {ctx} = context
+        ctx.save()
+        ctx.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
+        ctx.strokeStyle = ctx.fillStyle
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(0, currentDimensions.height)
+        ctx.stroke()
+        ctx.restore()
+    }
+
+    cc.register(drawHandle, draw, 0)
+
+    return {
         axisId,
         location,
-        selection,
         scale,
-        generator: d3.axisLeft(scale).tickValues([]).tickSize(0),
-        update: noop
-    }
-    return {
-        ...axis,
-        update: (domain: AxisInterval, plotDimensions: Dimensions, margin: Margin) => {
-            axis.scale.domain(domain.asTuple()).range([plotDimensions.height, 0])
-            axis.selection
-                .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
-
-            line.attr('y2', plotDimensions.height)
-
+        update: (domain, plotDimensions, margin) => {
+            scale.domain(domain.asTuple()).range([plotDimensions.height, 0])
+            currentDimensions = plotDimensions
+            currentMargin = margin
             setAxisRangeFor(axisId, domain)
-        }
+            cc.requestRedraw()
+        },
+        // an empty axis has no ticks or label to color, so there's nothing for updateFont to do
+        updateFont: () => {}
     }
 }
 
 /**
- * Adds a new x-axis to the SVG element at the specified location
- * @param chartId The ID of the chart
- * @param axisId The ID of the axis
- * @param svg The SVG selection to which to add the axis
+ * Adds a new x-axis, registering its draw function with the canvas context.
+ * @param cc The canvas context to register the axis' draw function with
+ * @param axisId A unique ID for the axis
  * @param plotDimensions The dimensions of the plot
- * @param location The location of the axis
- * @param scaleGenerator The higher-order function that returns the axis d3 "scale" function
+ * @param location The location of the axis (top or bottom)
+ * @param scaleGenerator The d3 scale to use for the axis (its domain/range get overwritten)
  * @param domain The axis range (start, end)
- * @param axesLabelFont The font for the axis labels
- * @param margin The plot margins for the border of main SVG group
+ * @param axesLabelFont The font for the axis label and ticks
+ * @param margin The plot margins
  * @param axisLabel The label for the axis
- * @param setAxisRangeFor A callback used to set the axis range
- * @return A {@link ContinuousNumericAxis} based on the arguments to this function
+ * @param setAxisRangeFor Callback used to report the axis' current range
+ * @return A {@link ContinuousNumericAxis}
  */
 export function addContinuousNumericXAxis(
-    chartId: number,
+    cc: CanvasContext,
     axisId: string,
-    svg: SvgSelection,
     plotDimensions: Dimensions,
     location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
@@ -766,103 +648,100 @@ export function addContinuousNumericXAxis(
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([0, plotDimensions.width])
 
-    const selection = svg
-        .append<SVGGElement>('g')
-        .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
+    let currentDimensions = plotDimensions
+    let currentMargin = margin
+    let currentLabel = axisLabel
+    let currentFont = axesLabelFont
 
-    svg
-        .append<SVGTextElement>('text')
-            .attr('id', labelIdFor(chartId, location))
-            .attr('text-anchor', 'middle')
-            // when the axis is at the top, want the label to hang from the top (y=0) of the plot
-            .attr('dominant-baseline', location === AxisLocation.Top ? "hanging" : "baseline")
-            .attr('font-size', axesLabelFont.size)
-            .attr('fill', axesLabelFont.color)
-            .attr('font-family', axesLabelFont.family)
-            .attr('font-weight', axesLabelFont.weight)
-            .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${continuousLabelYTranslation(location, plotDimensions, margin)})`)
-        .text(axisLabel)
+    const drawHandle: DrawHandle = `x-axis-${cc.chartId}-${axisId}`
 
-    const axis: ContinuousNumericAxis = {
+    const draw = (context: CanvasContext) => {
+        const {ctx} = context
+        ctx.save()
+        ctx.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
+
+        // clip ticks/labels to the width of the plot (mirrors the old SVG clip-path)
+        ctx.save()
+        clipToArea(context, {width: currentDimensions.width, height: currentMargin.bottom}, {x: 0, y: location === AxisLocation.Bottom ? -1 : -currentMargin.top})
+
+        ctx.strokeStyle = currentFont.color
+        ctx.fillStyle = currentFont.color
+        ctx.lineWidth = 1
+        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        ctx.textAlign = 'center'
+        ctx.textBaseline = location === AxisLocation.Bottom ? 'top' : 'bottom'
+
+        // domain line
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(currentDimensions.width, 0)
+        ctx.stroke()
+
+        // ticks
+        const tickDirection = location === AxisLocation.Bottom ? 1 : -1
+        scale.ticks().forEach(tickValue => {
+            const x = scale(tickValue)
+            ctx.beginPath()
+            ctx.moveTo(x, 0)
+            ctx.lineTo(x, TICK_SIZE * tickDirection)
+            ctx.stroke()
+            ctx.fillText(
+                scale.tickFormat()(tickValue),
+                x,
+                (TICK_SIZE + TICK_PADDING) * tickDirection
+            )
+        })
+
+        ctx.restore() // pop the clip
+
+        // axis label (not clipped, matches the old behavior)
+        ctx.fillStyle = currentFont.color
+        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        ctx.textAlign = 'center'
+        ctx.textBaseline = location === AxisLocation.Top ? 'hanging' : 'alphabetic'
+        const labelY = continuousLabelYTranslation(location, currentDimensions, currentMargin) - yTranslation(location, currentDimensions, currentMargin)
+        ctx.fillText(currentLabel, currentDimensions.width / 2, labelY)
+
+        ctx.restore()
+    }
+
+    cc.register(drawHandle, draw, 0)
+
+    return {
         axisId,
         location,
-        selection,
         scale,
-        generator: location === AxisLocation.Bottom ? d3.axisBottom(scale) : d3.axisTop(scale),
-        update: noop
-    }
-    return {
-        ...axis,
-        update: (domain: AxisInterval, plotDimensions: Dimensions, margin: Margin) => {
-            updateLinearXAxis(domain, axisLabel, chartId, svg, axis, plotDimensions, margin, location)
+        update: (domain, plotDimensions, margin) => {
+            scale.domain(domain.asTuple()).range([0, plotDimensions.width])
+            currentDimensions = plotDimensions
+            currentMargin = margin
             setAxisRangeFor(axisId, domain)
+            cc.requestRedraw()
+        },
+        updateFont: (font) => {
+            currentFont = font
+            cc.requestRedraw()
         }
     }
 }
 
 /**
- * Updates the x-axis with the new domain and axis label
- * @param domain The new (start, end) range of the axis
- * @param label The new label for the axis
- * @param chartId The ID of the chart
- * @param svg The SVG selection of which the axis is a child node
- * @param axis The x-axis
+ * Adds a new y-axis, registering its draw function with the canvas context.
+ * @param cc The canvas context to register the axis' draw function with
+ * @param axisId A unique ID for the axis
  * @param plotDimensions The dimensions of the plot
- * @param margin The plot margins for the border of main SVG group
- * @param location The location of the axis (i.e. top, bottom, left, right)
- */
-function updateLinearXAxis(
-    domain: AxisInterval,
-    label: string,
-    chartId: number,
-    svg: SvgSelection,
-    axis: ContinuousNumericAxis,
-    plotDimensions: Dimensions,
-    margin: Margin,
-    location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
-): void {
-    axis.scale.domain(domain.asTuple()).range([0, plotDimensions.width])
-
-    axis.selection
-        .attr('transform', `translate(${margin.left}, ${yTranslation(location, plotDimensions, margin)})`)
-        // .transition().duration(60)
-        .call(axis.generator)
-    svg
-        .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${margin.left + plotDimensions.width / 2}, ${continuousLabelYTranslation(location, plotDimensions, margin)})`)
-        .text(label)
-}
-
-/**
- * The number of pixels to translate the x-axis label to the right
- * @param location The location of the x-axis
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margins for the border of main SVG group
- * @return The number of pixels to translate the x-axis label to the right
- */
-function continuousLabelYTranslation(location: typeof AxisLocation.Bottom | typeof AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
-    return location === AxisLocation.Bottom ? plotDimensions.height + margin.top + margin.bottom : 0
-}
-
-/**
- * Adds a new y-axis to the SVG element at the specified location
- * @param chartId The ID of the chart
- * @param axisId The ID of the axis
- * @param svg The SVG selection to which to add the axis
- * @param plotDimensions The dimensions of the plot
- * @param location The location of the axis
- * @param scaleGenerator The higher-order function that returns the axis d3 "scale" function
+ * @param location The location of the axis (left or right)
+ * @param scaleGenerator The d3 scale to use for the axis (its domain/range get overwritten)
  * @param domain The axis range (start, end)
- * @param axesLabelFont The font for the axis labels
- * @param margin The plot margins for the border of main SVG group
+ * @param axesLabelFont The font for the axis label and ticks
+ * @param margin The plot margins
  * @param axisLabel The label for the axis
- * @param setAxisRangeFor A callback used to set the axis range
- * @return A {@link ContinuousNumericAxis} based on the arguments to this function
+ * @param setAxisRangeFor Callback used to report the axis' current range
+ * @return A {@link ContinuousNumericAxis}
  */
 export function addContinuousNumericYAxis(
-    chartId: number,
+    cc: CanvasContext,
     axisId: string,
-    svg: SvgSelection,
     plotDimensions: Dimensions,
     location: typeof AxisLocation.Left | typeof AxisLocation.Right,
     scaleGenerator: ScaleContinuousNumeric<number, number>,
@@ -876,133 +755,122 @@ export function addContinuousNumericYAxis(
         .domain(domain)
         .range([Math.max(margin.bottom, plotDimensions.height), 0])
 
-    const selection = svg
-        .append<SVGGElement>('g')
-        .attr('class', 'y-axis')
-        .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
+    let currentDimensions = plotDimensions
+    let currentMargin = margin
+    let currentLabel = axisLabel
+    let currentFont = axesLabelFont
 
-    svg
-        .append<SVGTextElement>('text')
-            .attr('id', labelIdFor(chartId, location))
-            .attr('text-anchor', 'start')
-            .attr('font-size', axesLabelFont.size)
-            .attr('fill', axesLabelFont.color)
-            .attr('font-family', axesLabelFont.family)
-            .attr('font-weight', axesLabelFont.weight)
-            .attr('transform', `translate(${continuousLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
-        .text(axisLabel)
+    const drawHandle: DrawHandle = `y-axis-${cc.chartId}-${axisId}`
 
-    const axis: ContinuousNumericAxis = {
+    const draw = (context: CanvasContext) => {
+        const {ctx} = context
+        ctx.save()
+        ctx.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
+
+        ctx.save()
+        const clipWidth = location === AxisLocation.Left ? currentMargin.left : currentMargin.right
+        clipToArea(context, {width: clipWidth, height: currentDimensions.height}, {x: location === AxisLocation.Left ? -clipWidth : 0, y: 0})
+
+        ctx.strokeStyle = currentFont.color
+        ctx.fillStyle = currentFont.color
+        ctx.lineWidth = 1
+        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        ctx.textBaseline = 'middle'
+        ctx.textAlign = location === AxisLocation.Left ? 'right' : 'left'
+
+        // domain line
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(0, currentDimensions.height)
+        ctx.stroke()
+
+        // ticks
+        const tickDirection = location === AxisLocation.Left ? -1 : 1
+        scale.ticks().forEach(tickValue => {
+            const y = scale(tickValue)
+            ctx.beginPath()
+            ctx.moveTo(0, y)
+            ctx.lineTo(TICK_SIZE * tickDirection, y)
+            ctx.stroke()
+            ctx.fillText(
+                scale.tickFormat()(tickValue),
+                (TICK_SIZE + TICK_PADDING) * tickDirection,
+                y
+            )
+        })
+
+        ctx.restore() // pop the clip
+
+        // axis label, rotated -90deg, matching the old SVG version
+        ctx.save()
+        const labelX = continuousLabelXTranslation(location, currentDimensions, currentMargin, currentFont) - xTranslation(location, currentDimensions, currentMargin)
+        ctx.translate(labelX, currentDimensions.height / 2)
+        ctx.rotate(-Math.PI / 2)
+        ctx.fillStyle = currentFont.color
+        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'alphabetic'
+        ctx.fillText(currentLabel, 0, 0)
+        ctx.restore()
+
+        ctx.restore()
+    }
+
+    cc.register(drawHandle, draw, 0)
+
+    return {
         axisId,
         location,
-        selection,
         scale,
-        generator: location === AxisLocation.Left ? d3.axisLeft(scale) : d3.axisRight(scale),
-        update: noop
-    }
-    return {
-        ...axis,
-        update: (domain: AxisInterval, plotDimensions: Dimensions, margin: Margin) => {
-            updateLinearYAxis(domain, axisLabel, chartId, svg, axis, plotDimensions, margin, axesLabelFont, location)
+        update: (domain, plotDimensions, margin) => {
+            scale.domain(domain.asTuple()).range([Math.max(margin.bottom, plotDimensions.height), 0])
+            currentDimensions = plotDimensions
+            currentMargin = margin
             setAxisRangeFor(axisId, domain)
+            cc.requestRedraw()
+        },
+        updateFont: (font) => {
+            currentFont = font
+            cc.requestRedraw()
         }
     }
 }
 
 /**
- * Updates the y-axis with the new domain and axis label
- * @param domain The new (start, end) range of the axis
- * @param label The new label for the axis
- * @param chartId The ID of the chart
- * @param svg The SVG selection of which the axis is a child node
- * @param axis The y-axis
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margins for the border of main SVG group
- * @param axesLabelFont The font for the axis label
- * @param location The location of the axis (i.e. top, bottom, left, right)
+ * Removes an axis' draw function from the canvas context (call on unmount to avoid leaking a
+ * draw registration for an axis that's no longer part of the chart).
  */
-function updateLinearYAxis(
-    domain: AxisInterval,
-    label: string,
-    chartId: number,
-    svg: SvgSelection,
-    axis: ContinuousNumericAxis,
-    plotDimensions: Dimensions,
-    margin: Margin,
-    axesLabelFont: AxesFont,
-    location: typeof AxisLocation.Left | typeof AxisLocation.Right,
-): void {
-    axis.scale.domain(domain.asTuple()).range([Math.max(margin.bottom, plotDimensions.height), 0])
-    axis.selection
-        .attr('transform', `translate(${xTranslation(location, plotDimensions, margin)}, ${margin.top})`)
-        // .transition().duration(60)
-        .call(axis.generator)
-
-    svg
-        .select(`#${labelIdFor(chartId, location)}`)
-        .attr('transform', `translate(${continuousLabelXTranslation(location, plotDimensions, margin, axesLabelFont)}, ${margin.top + plotDimensions.height / 2}) rotate(-90)`)
-        .text(label)
+export function removeContinuousXAxis(cc: CanvasContext, axisId: string): void {
+    cc.unregister(`x-axis-${cc.chartId}-${axisId}`)
 }
 
-/**
- * The number of pixels to translate the y-axis label down
- * @param location The location of the y-axis
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margins for the border of main SVG group
- * @param axesLabelFont The font for the axis label
- * @return The number of pixels to translate the y-axis label down
- */
-function continuousLabelXTranslation(location: typeof AxisLocation.Left | typeof AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesFont): number {
-    return location === AxisLocation.Left ?
-        axesLabelFont.size :
-        margin.left + plotDimensions.width + margin.right - axesLabelFont.size
+export function removeContinuousYAxis(cc: CanvasContext, axisId: string): void {
+    cc.unregister(`y-axis-${cc.chartId}-${axisId}`)
 }
 
 /*
     common axis functions
  */
 
-/**
- * Calculates the number of pixels by which to translate the x-axis.
- * @param location The axis location (i.e. top, bottom, left, right)
- * @param plotDimensions The dimensions of the plot
- * @param margin The margins for the plot
- * @return The number of pixels to translate the x-axis
- */
 function xTranslation(location: typeof AxisLocation.Left | typeof AxisLocation.Right, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Left ? margin.left : margin.left + plotDimensions.width
 }
 
-/**
- * The number of pixels to translate the x-axis to the right
- * @param location The location of the x-axis
- * @param plotDimensions The dimensions of the plot
- * @param margin The plot margins for the border of main SVG group
- * @return The number of pixels to translate the y-axis to the down
- */
 function yTranslation(location: typeof AxisLocation.Bottom | typeof AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
     return location === AxisLocation.Bottom ?
         plotDimensions.height + margin.top :
         margin.top
 }
 
-/**
- * Calculates a unique ID for the axis based on the location and chart ID
- * @param chartId The unique ID of the chart
- * @param location The axis location (i.e. top, bottom, left, right)
- * @return A unique ID for the axis
- */
-export function labelIdFor(chartId: number, location: AxisLocation): string {
-    switch (location) {
-        case AxisLocation.Left:
-        case AxisLocation.Right:
-            return `stream-chart-y-axis-${location}-label-${chartId}`
-        case AxisLocation.Top:
-        case AxisLocation.Bottom:
-            return `stream-chart-x-axis-${location}-label-${chartId}`
-    }
+function continuousLabelYTranslation(location: typeof AxisLocation.Bottom | typeof AxisLocation.Top, plotDimensions: Dimensions, margin: Margin): number {
+    return location === AxisLocation.Bottom ? plotDimensions.height + margin.top + margin.bottom : 0
 }
 
+function continuousLabelXTranslation(location: typeof AxisLocation.Left | typeof AxisLocation.Right, plotDimensions: Dimensions, margin: Margin, axesLabelFont: AxesFont): number {
+    return location === AxisLocation.Left ?
+        axesLabelFont.size :
+        margin.left + plotDimensions.width + margin.right - axesLabelFont.size
+}
 
 /*
     zooming
@@ -1013,33 +881,8 @@ export function labelIdFor(chartId: number, location: AxisLocation): string {
  */
 export interface ZoomResult<AR extends BaseAxisRange> {
     range: AR
-    // range: ContinuousAxisRange
     zoomFactor: number
 }
-
-// /**
-//  * todo this can be generalized to any continuous numeric axis, replace x with value
-//  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-//  * at the location of the mouse when the scroll wheel or gesture was applied.
-//  * @param transform The d3 zoom transformation information
-//  * @param x The x-position of the mouse when the scroll wheel or gesture is used
-//  * @param axis The axis being zoomed
-//  * @param range The current range for the axis being zoomed
-//  * @return The updated range and the new zoom factor
-//  */
-// // export function calculateZoomFor<AR extends BaseAxisRange>(
-// export function calculateZoomFor(
-//     transform: ZoomTransform,
-//     x: number,
-//     axis: ContinuousNumericAxis,
-//     range: ContinuousAxisRange,
-// ): ZoomResult<ContinuousAxisRange> {
-//     const time = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
-//     return {
-//         range: range.scale(transform.k, time),
-//         zoomFactor: transform.k
-//     } as ZoomResult<ContinuousAxisRange>
-// }
 
 /**
  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
@@ -1059,7 +902,10 @@ export function calculateConstrainedZoomFor(
     range: ContinuousAxisRange,
     constraint: [min: number, max: number],
 ): ZoomResult<ContinuousAxisRange> {
-    const domainValue = axis.generator.scale<ScaleLinear<number, number>>().invert(x);
+    // was: axis.generator.scale<ScaleLinear<number, number>>().invert(x) -- the old d3 axis
+    // generator's underlying scale. Canvas axes expose `scale` directly, so we can invert it
+    // without going through a generator.
+    const domainValue = (axis.scale as ScaleLinear<number, number>).invert(x);
     return {
         range: range.constrainedScale(transform.k, domainValue, constraint),
         zoomFactor: transform.k
@@ -1107,7 +953,9 @@ export function calculatePanFor(
     range: ContinuousAxisRange,
     constrainToOriginalRange: boolean = false
 ): ContinuousAxisRange {
-    const scale = axis.generator.scale<ScaleLinear<number, number>>()
+    // was: axis.generator.scale<ScaleLinear<number, number>>() -- see note in
+    // calculateConstrainedZoomFor above
+    const scale = axis.scale as ScaleLinear<number, number>
     const value = scale(range.current.start)
     if (value !== undefined) {
         const deltaValue = scale.invert(value + delta) - range.current.start
@@ -1135,10 +983,6 @@ export function calculateOrdinalPanFor(
     }
     return range.translate(delta, constraint) as OrdinalAxisRange
 }
-
-/*
-
- */
 
 /**
  * Accepts the series, the assignment of the series to axes, and the current x-axes state, and
@@ -1276,18 +1120,15 @@ export function panHandler(
 ): (
     x: number,
     plotDimensions: Dimensions,
-    // series: Array<string>,
     ranges: Map<string, ContinuousAxisRange>,
 ) => void {
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param deltaX The amount that the plot is dragged
+     * @param delta The amount that the plot is dragged
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
      */
     return (delta: number, plotDimensions: Dimensions, ranges: Map<string, ContinuousAxisRange>) => {
-    // return (delta: number, plotDimensions: Dimensions, series: Array<string>, ranges: Map<string, ContinuousAxisRange>) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         panAxes(delta, axesForSeries, axesState, ranges, setAxisRangeFor, plotDimensions, margin, constrainToOriginalRange)
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
@@ -1325,9 +1166,9 @@ export function ordinalPanHandler(
 ) => void {
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param deltaX The amount that the plot is dragged
+     * @param delta The amount that the plot is dragged
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
+     * @param _series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
      */
     return (delta: number, plotDimensions: Dimensions, _series: Array<string>, ranges: Map<string, OrdinalAxisRange>) => {
@@ -1374,10 +1215,12 @@ export function panHandler2D(
 ) => void {
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param deltaX The amount that the plot is dragged
+     * @param deltaX The amount that the plot is dragged in x
+     * @param deltaY The amount that the plot is dragged in y
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
-     * @param ranges A map holding the axis ID and its associated time range
+     * @param _series An array of series names
+     * @param xRanges A map holding the x-axis ID and its associated time range
+     * @param yRanges A map holding the y-axis ID and its associated time range
      */
     return (deltaX, deltaY, plotDimensions, _series, xRanges, yRanges) => {
         // run through the x- and y-axes and update them by delta, within the original bounds
@@ -1390,10 +1233,10 @@ export function panHandler2D(
 /**
  * Calculates the zoom for the specified axis and updates the axis and the axis ranges
  * @param value The x- or y-coordinate of the mouse
- * @param axisId
+ * @param axisId The id of the axis to zoom
  * @param margin The plot margin
- * @param setRangeFor Function for setting the new time-range for a specific axis * @param scaleExtent The smallest and largest scale factors allowed
- * @param axesState
+ * @param setRangeFor Function for setting the new time-range for a specific axis
+ * @param axesState The current state of the x- or y-axes
  * @param ranges A map associating axis IDs with axis ranges
  * @param scaleExtent The smallest and largest scale factors allowed
  * @param transform The d3 zoom transformation information
@@ -1452,7 +1295,6 @@ function calcOrdinalZoomAndUpdate(
         const range = ranges.get(axisId)
         if (range && axis) {
             // calculate the constraint for the zoom
-            // const [originalStart, originalEnd] = range.original
             const constraint: [number, number] = isFinite(zoomMax) ?
                 [range.original.start * zoomMax, range.original.end * zoomMax] :
                 [range.original.start, range.original.end]
@@ -1601,9 +1443,10 @@ export function axesZoomHandler(
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
      * @param transform The d3 zoom transformation information
-     * @param mousePosistion The position of the mouse when the scroll wheel or gesture is used
+     * @param mousePosition The position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
-     * @param ranges A map holding the axis ID and its associated time-range
+     * @param xRanges A map holding the x-axis ID and its associated time-range
+     * @param yRanges A map holding the y-axis ID and its associated time-range
      */
     return (transform, mousePosition, plotDimensions, xRanges, yRanges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis

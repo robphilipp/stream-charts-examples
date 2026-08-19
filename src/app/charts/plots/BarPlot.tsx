@@ -1,11 +1,11 @@
-import {type AxesAssignment, setClipPathG} from "./plot";
+import {type AxesAssignment, clipToArea} from "./plot";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {makeIdSafeForCss, noop} from "../utils";
+import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
-import React, {useCallback, useEffect, useMemo, useRef} from "react";
-import type {Datum, TimeSeries} from "../series/timeSeries";
-import type {GSelection} from "../d3types";
+import {useCallback, useEffect, useMemo, useRef} from "react";
+import type {CanvasContext} from "../d3types";
+import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {
     axesForSeriesGen,
     type BaseAxis,
@@ -22,24 +22,17 @@ import {subscriptionOrdinalXFor, type WindowedOrdinalStats} from "../subscriptio
 import {useDataObservable} from "../hooks/useDataObservable";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {copyValueStatsForSeries, type OrdinalChartData, type OrdinalStats} from "../observables/ordinals";
+import {copyValueStatsForSeries, type OrdinalChartData} from "../observables/ordinals";
 import type {BaseSeries} from "../series/baseSeries";
 import {calculateOrdinalStats, type OrdinalDatum, type OrdinalSeries} from "../series/ordinalSeries";
-import {
-    applyFillStylesTo,
-    applyStrokeStylesTo,
-    STROKE_COLOR,
-    STROKE_OPACITY,
-    STROKE_WIDTH,
-    type SvgFillStyle,
-    type SvgStrokeStyle
-} from "../styling/svgStyle";
-import {type BarSeriesStyle, type BarStyle, defaultBarSeriesStyle, type LineStyle} from "../styling/barPlotStyle";
+import {applyFillStyle, applyStrokeStyle} from "../styling/canvasStyle";
+import type {SvgFillStyle, SvgStrokeStyle} from "../styling/svgStyle";
+import {type BarSeriesStyle, type BarStyle, defaultBarSeriesStyle} from "../styling/barPlotStyle";
 import type {TooltipData} from "../hooks/useTooltip";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
-import {BAR_CHART_TOOLTIP_PROVIDER_IDS, STREAM_CHARTS_BAR_CHART_ID} from "./constants.ts";
+import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "./constants.ts";
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -49,17 +42,6 @@ export type BarChartElementId = {
     readonly windowedMeanValue: string
     readonly windowedMinMax: string
 }
-
-// elements of the bar-chart
-const BAR_CHART_CLASS_IDS: BarChartElementId = {
-    currentValue: STREAM_CHARTS_BAR_CHART_ID + '-value-lines',
-    meanValue: STREAM_CHARTS_BAR_CHART_ID + '-mean-value-lines',
-    minMax: STREAM_CHARTS_BAR_CHART_ID + '-min-max-bars',
-    windowedMeanValue: STREAM_CHARTS_BAR_CHART_ID + '-windowed-mean-value-lines',
-    windowedMinMax: STREAM_CHARTS_BAR_CHART_ID + '-windowed-mean-bars'
-}
-
-const classIdFor = (id: string) => '.' + id
 
 export interface Props {
     /**
@@ -108,6 +90,14 @@ export interface Props {
  * hook, and therefore must be a child of the {@link Chart} to be plugged in to the
  * chart ecosystem (axes, tracker, tooltip).
  *
+ * Internally, this no longer creates/updates SVG `<rect>`/`<line>` elements. Instead, it registers
+ * a single draw function with the chart's {@link CanvasContext} that redraws every series' bars
+ * and lines from scratch each time the canvas repaints. Mouse hover (for the tooltip and the
+ * value-line/windowed-mean-line highlight) is handled by hit-testing the mouse position against
+ * the last-drawn geometry, keyed per `${seriesName}::${elementType}` so the five overlaid visual
+ * elements (min-max bar, windowed min-max bar, mean line, windowed mean line, value line) can be
+ * hit-tested and highlighted independently, matching the old per-element SVG mouseover behavior.
+ *
  * For a relatively complete example of how to use this plot component, see the
  * <a href="https://github.com/robphilipp/stream-charts-examples">`StreamingBarChart` example</a>
  *
@@ -130,11 +120,23 @@ export interface Props {
  * />
  * ```
  */
+/**
+ * Maps the short element-type keys used internally for hit-testing geometry (`minMax`,
+ * `windowedMinMax`, `meanValue`, `windowedMeanValue`, `currentValue`) to the actual provider IDs
+ * (`BAR_CHART_TOOLTIP_PROVIDER_IDS`) that `mouseOverHandlerFor`/`mouseLeaveHandlerFor` expect.
+ */
+const PROVIDER_ID_FOR_ELEMENT_TYPE: Record<string, string> = {
+    minMax: BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax,
+    windowedMinMax: BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax,
+    meanValue: BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue,
+    windowedMeanValue: BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue,
+    currentValue: BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue,
+}
+
 export function BarPlot(props: Props): null {
     const {
         chartId,
-        container,
-        mainG,
+        canvasContext,
         axes,
         seriesStyles,
         seriesFilter,
@@ -184,7 +186,7 @@ export function BarPlot(props: Props): null {
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
     //
     // the "dataRef" and "seriesRef" both point to the same underlying data, a collection
-    // of series. The series in "dataRef" are bound to the DOM elements through d3. The "seriesRef" series
+    // of series. The series in "dataRef" are read by the canvas draw function. The "seriesRef" series
     // are the ones that are updated as new data is streamed in.
     //
     // the "dataRef" object holds on to a copy of the initial data (which is an array of
@@ -195,8 +197,8 @@ export function BarPlot(props: Props): null {
     // the "seriesRef" object is a reference to a map (series_name -> BaseSeries<OrdinalDatum>) which is
     // used to update the data in the series. When new data enters, it is appended to one or more series.
     //
-    // the series in the "dataRef" object are the ones bound to the DOM elements in d3, and so as these
-    // are updated, d3 will update the DOM elements (the elements in this plot).
+    // the series in the "dataRef" object are the ones read by the next redraw, so as these are
+    // updated, the next canvas repaint picks up the new data.
     const dataRef = useRef<Array<BaseSeries<OrdinalDatum>>>(initialData.slice())
     const seriesRef = useRef<Map<string, BaseSeries<OrdinalDatum>>>(
         new Map(initialData.map(series => [series.name, series]))
@@ -212,6 +214,16 @@ export function BarPlot(props: Props): null {
 
     // eslint-disable-next-line react-hooks/refs
     const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
+
+    // the last-drawn geometry for each `${seriesName}::${elementType}`, in canvas coordinates,
+    // used for hit-testing mouse hover on `mousemove` (see the effect below that wires up the
+    // listener)
+    const geometryRef = useRef<Map<string, SeriesGeometry>>(new Map())
+    // which specific element (series + type) the mouse was over on the previous `mousemove`, so
+    // we know when to fire a "leave" before firing an "over" for a different element -- unlike
+    // Scatter/Raster, BarPlot doesn't use the shared `hoveredSeriesName` chart state, since here
+    // hover is scoped to one of five element *types* per series, not the series as a whole
+    const lastHoveredRef = useRef<{seriesName: string, elementType: string} | undefined>(undefined)
 
     useEffect(
         () => {
@@ -239,13 +251,13 @@ export function BarPlot(props: Props): null {
     // functions.
     const updateTimingAndPlot = useCallback(
         (ranges: Map<string, OrdinalAxisRange>): void => {
-            if (mainG !== null) {
-                updatePlotRef.current(ranges, mainG)
+            if (canvasContext !== null) {
+                updatePlotRef.current(ranges, canvasContext)
                 onUpdateChartTime(currentTimeRef.current)
-                updatePlotRef.current(ranges, mainG)
+                updatePlotRef.current(ranges, canvasContext)
             }
         },
-        [mainG, onUpdateChartTime]
+        [canvasContext, onUpdateChartTime]
     )
 
     // todo find better way
@@ -261,13 +273,13 @@ export function BarPlot(props: Props): null {
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
         // other dependencies are recalculated anyway.
-         
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [initialData]
     )
 
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param deltaX The amount that the plot is dragged
+     * @param x The amount that the plot is dragged
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
@@ -287,7 +299,6 @@ export function BarPlot(props: Props): null {
      * @param transform The d3 zoom transformation information
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time-range
      */
     const onZoom = useCallback(
@@ -301,54 +312,66 @@ export function BarPlot(props: Props): null {
     )
 
     /**
-     * @param ordinalRanges
-     * @param mainGElem
+     * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
+     * Replaces the old version, which directly mutated SVG `<rect>`/`<line>` elements bound via
+     * d3's enter/update/exit join. Canvas has no persistent elements to join against, so the draw
+     * function just redraws every element from current data/scale state each time it's invoked.
+     * @param ordinalRanges The current per-axis ordinal ranges (mutated in place by pan/zoom)
+     * @param cc The canvas context to register the draw function with
      */
     const updatePlot = useCallback(
-        (ordinalRanges: Map<string, OrdinalAxisRange>, mainGElem: GSelection) => {
-            if (container) {
-                // select the svg element bind the data to them
-                const svg = d3.select<SVGSVGElement, Datum>(container)
+        (ordinalRanges: Map<string, OrdinalAxisRange>, cc: CanvasContext) => {
+            // set up panning
+            if (panEnabled) {
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => {
+                        canvasSelection.style("cursor", "move")
+                        allowTooltipRef.current = false
+                    })
+                    .on("drag", event => {
+                        const names = dataRef.current.map(series => series.name)
+                        onPan(event.dx, plotDimensions, names, ordinalRanges)
+                        // need to update the plot with the new time-ranges
+                        updatePlotRef.current(ordinalRanges, cc)
+                    })
+                    .on("end", () => {
+                        canvasSelection.style("cursor", "auto")
+                        allowTooltipRef.current = isSubscriptionClosed()
+                    })
 
-                // set up panning
-                if (panEnabled) {
-                    const drag = d3.drag<SVGSVGElement, Datum>()
-                        .on("start", () => {
-                            d3.select(container).style("cursor", "move")
-                            allowTooltipRef.current = false
-                        })
-                        .on("drag", event => {
-                            const names = dataRef.current.map(series => series.name)
-                            onPan(event.dx, plotDimensions, names, ordinalRanges)
-                            // need to update the plot with the new time-ranges
-                            updatePlotRef.current(ordinalRanges, mainGElem)
-                        })
-                        .on("end", () => {
-                            d3.select(container).style("cursor", "auto")
-                            allowTooltipRef.current = isSubscriptionClosed()
-                        })
+                canvasSelection.call(drag)
+            }
 
-                    svg.call(drag)
-                }
+            // set up for zooming
+            if (zoomEnabled) {
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([1, 10])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", event => {
+                            onZoom(
+                                event.transform,
+                                event.sourceEvent.offsetX - margin.left,
+                                plotDimensions,
+                                ordinalRanges,
+                            )
+                            updatePlotRef.current(ordinalRanges, cc)
+                        }
+                    )
+                canvasSelection.call(zoom)
+            }
 
-                // set up for zooming
-                if (zoomEnabled) {
-                    const zoom = d3.zoom<SVGSVGElement, Datum>()
-                        .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                        .scaleExtent([1, 10])
-                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", event => {
-                                onZoom(
-                                    event.transform,
-                                    event.sourceEvent.offsetX - margin.left,
-                                    plotDimensions,
-                                    ordinalRanges,
-                                )
-                                updatePlotRef.current(ordinalRanges, mainGElem)
-                            }
-                        )
-                    svg.call(zoom)
-                }
+            const draw = (context: CanvasContext) => {
+                const {ctx} = context
+
+                ctx.save()
+                clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
+                ctx.translate(margin.left, margin.top)
+
+                const newGeometry = new Map<string, SeriesGeometry>()
+                const hovered = lastHoveredRef.current
 
                 // enter, update, delete the bar data
                 dataRef.current.forEach(series => {
@@ -358,6 +381,7 @@ export function BarPlot(props: Props): null {
                         axisId => xAxesState.axisFor(axisId).getOrUndefined(),
                         axisId => yAxesState.axisFor(axisId).getOrUndefined()
                     )
+                    if (xAxis === undefined || yAxis === undefined) return
 
                     // grab the series styles, or the defaults if none exist
                     const {
@@ -373,13 +397,13 @@ export function BarPlot(props: Props): null {
                     }
 
                     // only show the data for which the regex filter matches
-                    const plotData = series.name.match(seriesFilter) ? [series.data[series.data.length - 1]] : []
+                    const plotData = series.name.match(seriesFilter) && series.data.length > 0 ?
+                        [series.data[series.data.length - 1]] :
+                        []
+                    if (plotData.length === 0) return
 
                     // grab the functions for determining the lower and upper bounds of the category
-                    const {
-                        lower,
-                        upper
-                    } = xAxisCategoryBoundsFn(xAxis.scale.bandwidth(), valueLineStyle.regular.width, categoryMargin)
+                    const {lower, upper} = xAxisCategoryBoundsFn(xAxis.scale.bandwidth(), valueLineStyle.regular.width, categoryMargin)
 
                     // grab the value (index) associated with the series name (this is a category axis)
                     const x = xAxis.scale(series.name) || 0
@@ -393,55 +417,15 @@ export function BarPlot(props: Props): null {
                         statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0,
                         yAxis
                     )
-
-                    svg
-                        .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
-                        .selectAll<SVGRectElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.minMax))
-                        .data(plotData)
-                        .join(
-                            enter => barFor(
-                                enter.append<SVGRectElement>('rect').attr('class', BAR_CHART_CLASS_IDS.minMax),
-                                totalBar,
-                                barStyleFor(showMinMaxBars, minMaxBarStyle)
-                            ),
-                            update => barFor(
-                                update,
-                                totalBar,
-                                barStyleFor(showMinMaxBars, minMaxBarStyle)
-                            ),
-                            exit => exit.remove()
-                        )
-                        .on(
-                            "mouseover",
-                            (event,) =>
-                                handleMouseOverBar(
-                                    container,
-                                    yAxis,
-                                    series,
-                                    statsRef.current,
-                                    event,
-                                    margin,
-                                    seriesStyles,
-                                    barSeriesStyle,
-                                    allowTooltipRef.current && showMinMaxBars,
-                                    mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax),
-                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax
-                                )
-                        )
-                        .on(
-                            "mouseleave",
-                            event => handleMouseLeaveSeries(
-                                series.name,
-                                event.currentTarget,
-                                seriesStyles,
-                                barSeriesStyle,
-                                mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax),
-                                BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax
-                            )
-                        )
+                    drawBar(ctx, totalBar, barStyleFor(showMinMaxBars, minMaxBarStyle))
+                    newGeometry.set(`${series.name}::minMax`, {
+                        points: [],
+                        rects: [{x: totalBar.upperX, y: totalBar.upperY, width: totalBar.width, height: totalBar.height}],
+                        hitRadius: 0
+                    })
 
                     //
-                    // windowed-mean line when the windowed stats are defined for the series
+                    // windowed-mean line and windowed min/max bar, when the windowed stats are defined for the series
                     const seriesWindowedStats = statsRef.current.windowedValueStatsForSeries.get(series.name)
                     if (seriesWindowedStats !== undefined) {
                         const windowedBar = barDimensions(
@@ -450,229 +434,74 @@ export function BarPlot(props: Props): null {
                             seriesWindowedStats.min.value, seriesWindowedStats.max.value,
                             yAxis
                         )
-
-                        svg
-                            .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
-                            .selectAll<SVGRectElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.windowedMinMax))
-                            .data(plotData)
-                            .join(
-                                enter => barFor(
-                                    enter.append<SVGRectElement>('rect').attr('class', BAR_CHART_CLASS_IDS.windowedMinMax),
-                                    windowedBar,
-                                    barStyleFor(showWindowedMinMaxBars, windowedBarStyle)
-                                ),
-                                update => barFor(
-                                    update,
-                                    windowedBar,
-                                    barStyleFor(showWindowedMinMaxBars, windowedBarStyle)),
-                                exit => exit.remove()
-                            )
-                            .on(
-                                "mouseover",
-                                (event,) =>
-                                    handleMouseOverBar(
-                                        container,
-                                        yAxis,
-                                        series,
-                                        statsRef.current,
-                                        event,
-                                        margin,
-                                        seriesStyles,
-                                        barSeriesStyle,
-                                        allowTooltipRef.current && showWindowedMinMaxBars,
-                                        mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax),
-                                        BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax
-                                    )
-                            )
-                            .on(
-                                "mouseleave",
-                                event => handleMouseLeaveSeries(
-                                    series.name,
-                                    event.currentTarget,
-                                    seriesStyles,
-                                    barSeriesStyle,
-                                    mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax),
-                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax
-                                )
-                            )
+                        drawBar(ctx, windowedBar, barStyleFor(showWindowedMinMaxBars, windowedBarStyle))
+                        newGeometry.set(`${series.name}::windowedMinMax`, {
+                            points: [],
+                            rects: [{x: windowedBar.upperX, y: windowedBar.upperY, width: windowedBar.width, height: windowedBar.height}],
+                            hitRadius: 0
+                        })
 
                         //
                         // mean line
-                        const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
-                        svg
-                            .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
-                            .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.meanValue))
-                            .data(showMeanValueLines ? plotData : [])
-                            .join(
-                                enter => lineFor(
-                                    enter.append<SVGLineElement>('line').attr('class', BAR_CHART_CLASS_IDS.meanValue),
-                                    {
-                                        x1: () => lower(x), y1: () => meanLineY,
-                                        x2: () => upper(x), y2: () => meanLineY
-                                    },
-                                    meanValueLineStyle.regular
-                                ),
-                                update => lineFor(
-                                    update,
-                                    {
-                                        x1: () => lower(x), y1: () => meanLineY,
-                                        x2: () => upper(x), y2: () => meanLineY
-                                    },
-                                    meanValueLineStyle.regular
-                                ),
-                                exit => exit.remove()
-                            )
-                            .on(
-                                "mouseover",
-                                (event,) =>
-                                    handleMouseOverBar(
-                                        container,
-                                        yAxis,
-                                        series,
-                                        statsRef.current,
-                                        event,
-                                        margin,
-                                        seriesStyles,
-                                        barSeriesStyle,
-                                        allowTooltipRef.current && showMeanValueLines,
-                                        mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue),
-                                        BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue
-                                    )
-                            )
-                            .on(
-                                "mouseleave",
-                                event => handleMouseLeaveSeries(
-                                    series.name,
-                                    event.currentTarget,
-                                    seriesStyles,
-                                    barSeriesStyle,
-                                    mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue),
-                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue
-                                )
-                            )
+                        if (showMeanValueLines) {
+                            const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
+                            drawLine(ctx, lower(x), meanLineY, upper(x), meanLineY, meanValueLineStyle.regular)
+                            newGeometry.set(`${series.name}::meanValue`, {
+                                points: [],
+                                segments: [[[lower(x), meanLineY], [upper(x), meanLineY]]],
+                                hitRadius: Math.max(4, meanValueLineStyle.regular.width ?? 1)
+                            })
+                        }
 
-                        const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
-                        svg
-                            .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
-                            .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.windowedMeanValue))
-                            .data(showWindowedMeanValueLines ? plotData : [])
-                            .join(
-                                enter => lineFor(
-                                    enter.append<SVGLineElement>('line').attr('class', BAR_CHART_CLASS_IDS.windowedMeanValue),
-                                    {
-                                        x1: () => lower(x), y1: () => windowedMeanLineY,
-                                        x2: () => upper(x), y2: () => windowedMeanLineY
-                                    },
-                                    windowedMeanLineStyle.regular
-                                ),
-                                update => lineFor(
-                                    update,
-                                    {
-                                        x1: () => lower(x), y1: () => windowedMeanLineY,
-                                        x2: () => upper(x), y2: () => windowedMeanLineY
-                                    },
-                                    windowedMeanLineStyle.regular
-                                ),
-                                exit => exit.remove()
-                            )
-                            .on(
-                                "mouseover",
-                                (event,) =>
-                                    handleMouseOverBar(
-                                        container,
-                                        yAxis,
-                                        series,
-                                        statsRef.current,
-                                        event,
-                                        margin,
-                                        seriesStyles,
-                                        barSeriesStyle,
-                                        allowTooltipRef.current && showWindowedMeanValueLines,
-                                        mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue),
-                                        BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue
-                                    )
-                            )
-                            .on(
-                                "mouseleave",
-                                event => handleMouseLeaveSeries(
-                                    series.name,
-                                    event.currentTarget,
-                                    seriesStyles,
-                                    barSeriesStyle,
-                                    mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue),
-                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue
-                                )
-                            )
+                        //
+                        // windowed-mean line
+                        if (showWindowedMeanValueLines) {
+                            const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
+                            const isHovered = hovered?.seriesName === series.name && hovered.elementType === 'windowedMeanValue'
+                            const style = isHovered ? windowedMeanLineStyle.highlight : windowedMeanLineStyle.regular
+                            drawLine(ctx, lower(x), windowedMeanLineY, upper(x), windowedMeanLineY, style)
+                            newGeometry.set(`${series.name}::windowedMeanValue`, {
+                                points: [],
+                                segments: [[[lower(x), windowedMeanLineY], [upper(x), windowedMeanLineY]]],
+                                hitRadius: Math.max(4, style.width ?? 1)
+                            })
+                        }
                     }
 
                     //
-                    // value lines
-                    svg
-                        .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-bar`)
-                        .selectAll<SVGLineElement, PlotData>(classIdFor(BAR_CHART_CLASS_IDS.currentValue))
-                        .data(showValueLines ? plotData : [])
-                        .join(
-                            enter => lineFor(
-                                enter.append<SVGLineElement>('line').attr('class', BAR_CHART_CLASS_IDS.currentValue),
-                                {
-                                    x1: () => lower(x), y1: datum => yAxis.scale(datum.value),
-                                    x2: () => upper(x), y2: datum => yAxis.scale(datum.value)
-                                },
-                                valueLineStyle.regular
-                            ),
-                            update => lineFor(
-                                update,
-                                {
-                                    x1: () => lower(x), y1: datum => yAxis.scale(datum.value),
-                                    x2: () => upper(x), y2: datum => yAxis.scale(datum.value)
-                                },
-                                valueLineStyle.regular
-                            ),
-                            exit => exit.remove()
-                        )
-                        .on(
-                            "mouseover",
-                            (event,) =>
-                                handleMouseOverBar(
-                                    container,
-                                    yAxis,
-                                    series,
-                                    statsRef.current,
-                                    event,
-                                    margin,
-                                    seriesStyles,
-                                    barSeriesStyle,
-                                    allowTooltipRef.current && showValueLines,
-                                    mouseOverHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue),
-                                    BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue
-                                )
-                        )
-                        .on(
-                            "mouseleave",
-                            event => handleMouseLeaveSeries(
-                                series.name,
-                                event.currentTarget,
-                                seriesStyles,
-                                barSeriesStyle,
-                                mouseLeaveHandlerFor(`tooltip-${chartId}`, BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue),
-                                BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue
-                            )
-                        )
+                    // value line
+                    if (showValueLines) {
+                        const datum = plotData[0]
+                        const valueLineY = yAxis.scale(datum.value)
+                        const isHovered = hovered?.seriesName === series.name && hovered.elementType === 'currentValue'
+                        const style = isHovered ? valueLineStyle.highlight : valueLineStyle.regular
+                        drawLine(ctx, lower(x), valueLineY, upper(x), valueLineY, style)
+                        newGeometry.set(`${series.name}::currentValue`, {
+                            points: [],
+                            segments: [[[lower(x), valueLineY], [upper(x), valueLineY]]],
+                            hitRadius: Math.max(4, style.width ?? 1)
+                        })
+                    }
                 })
+
+                geometryRef.current = newGeometry
+
+                ctx.restore()
             }
+
+            cc.register(`bar-plot-${chartId}`, draw, 10)
+            cc.requestRedraw()
         },
         [
-            container,
+            chartId, canvasContext,
             panEnabled, zoomEnabled,
             onPan, onZoom,
             plotDimensions, margin, zoomKeyModifiersRequired,
             axisAssignments, xAxesState, yAxesState,
             barMargin, seriesStyles, barSeriesStyle,
             seriesFilter,
-            chartId,
             showValueLines,
             showMinMaxBars,
-            mouseOverHandlerFor, mouseLeaveHandlerFor,
             showMeanValueLines,
             showWindowedMeanValueLines,
             showWindowedMinMaxBars
@@ -682,39 +511,19 @@ export function BarPlot(props: Props): null {
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef<(ordinalRange: Map<string, OrdinalAxisRange>, g: GSelection) => void>(noop)
+    const updatePlotRef = useRef<(ordinalRange: Map<string, OrdinalAxisRange>, cc: CanvasContext) => void>(noop)
     useEffect(
         () => {
-            if (mainG != null && container != null) {
-                // when the update plot function doesn't yet exist, then create the container holding the plot
-                const clipPathId = setClipPathG(chartId, mainG, plotDimensions)
-                if (updatePlotRef.current === noop) {
-                    mainG
-                        .selectAll<SVGGElement, BaseSeries<OrdinalDatum>>('g')
-                        .attr("clip-path", `url(#${clipPathId})`)
-                        .data<BaseSeries<OrdinalDatum>>(dataRef.current)
-                        .enter()
-                        .append('g')
-                        .attr('class', 'spikes-series')
-                        .attr('id', series => `${makeIdSafeForCss(series.name)}-${chartId}-bar`)
-                        .attr('transform', `translate(${margin.left}, ${margin.top})`)
-
-                } else {
-                    mainG
-                        .selectAll<SVGGElement, TimeSeries>('g')
-                        .attr("clip-path", `url(#${clipPathId})`)
-                }
-                // eslint-disable-next-line react-hooks/immutability
-                updatePlotRef.current = updatePlot
-            }
+            // eslint-disable-next-line react-hooks/immutability
+            updatePlotRef.current = updatePlot
         },
-        [chartId, container, mainG, margin, plotDimensions, updatePlot]
+        [updatePlot]
     )
 
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
-            if (seriesObservable === undefined || mainG === null) return undefined
+            if (seriesObservable === undefined || canvasContext === null) return undefined
             return subscriptionOrdinalXFor(
                 seriesObservable,
                 onSubscribe,
@@ -733,7 +542,7 @@ export function BarPlot(props: Props): null {
             )
         },
         [
-            axisAssignments, dropDataAfter, mainG,
+            axisAssignments, dropDataAfter, canvasContext,
             onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, yAxesState,
             plotDimensions.width
@@ -742,7 +551,7 @@ export function BarPlot(props: Props): null {
 
     useEffect(
         () => {
-            if (container && mainG) {
+            if (canvasContext) {
                 const ordinalAxesRanges = axesRanges()
                 // so this gets a bit complicated. the ordinal-ranges need to be updated whenever the ordinal-ranges
                 // change. for example, when the window is resized, and then we need to update the
@@ -751,7 +560,7 @@ export function BarPlot(props: Props): null {
                 if (ordinalAxesRanges.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    updatePlot(ordinalAxisRanges(xAxesState.axes, AxisInterval.from(0, plotDimensions.width)), mainG)
+                    updatePlot(ordinalAxisRanges(xAxesState.axes, AxisInterval.from(0, plotDimensions.width)), canvasContext)
                 } else {
                     // when the ordinal-ranges already exist, then we want to update the ordinal-ranges for each
                     // existing ordinal-range in a way that maintains the original scale.
@@ -768,11 +577,98 @@ export function BarPlot(props: Props): null {
                                     rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
                                 })
                         })
-                    updatePlot(ordinalAxesRanges, mainG)
+                    updatePlot(ordinalAxesRanges, canvasContext)
                 }
             }
         },
-        [axesRanges, container, mainG, plotDimensions.width, updatePlot, xAxesState.axes]
+        [axesRanges, canvasContext, plotDimensions.width, updatePlot, xAxesState.axes]
+    )
+
+    // wires up a single mousemove/mouseleave listener on the shared canvas to replace the old
+    // per-element SVG mouseover/mouseleave handlers. Hit-tests the mouse position against the
+    // last-drawn geometry (see `geometryRef`, populated by the draw function above), keyed per
+    // `${seriesName}::${elementType}` so the five overlaid elements resolve independently.
+    useEffect(
+        () => {
+            if (!canvasContext) return
+
+            const canvas = canvasContext.canvas
+
+            const handleMove = (event: MouseEvent) => {
+                const [x, y] = canvasLocalPoint(event, canvas)
+                const hit = seriesAt(x, y, geometryRef.current)
+                // geometry keys are "${seriesName}::${elementType}"; split back apart
+                const [hitSeriesName, hitElementType] = hit !== undefined ? hit.name.split('::') : [undefined, undefined]
+
+                const previous = lastHoveredRef.current
+                const sameAsBefore = previous !== undefined && hitSeriesName === previous.seriesName && hitElementType === previous.elementType
+
+                if (!sameAsBefore) {
+                    if (previous !== undefined) {
+                        handleMouseLeaveSeries(
+                            previous.seriesName,
+                            mouseLeaveHandlerFor(`tooltip-${chartId}`, PROVIDER_ID_FOR_ELEMENT_TYPE[previous.elementType])
+                        )
+                    }
+
+                    if (hitSeriesName !== undefined && hitElementType !== undefined) {
+                        const series = seriesRef.current.get(hitSeriesName)
+                        const yAxis = axesFor(
+                            hitSeriesName,
+                            axisAssignments,
+                            axisId => xAxesState.axisFor(axisId).getOrUndefined(),
+                            axisId => yAxesState.axisFor(axisId).getOrUndefined()
+                        )[1]
+                        const showingByType: Record<string, boolean> = {
+                            minMax: showMinMaxBars,
+                            windowedMinMax: showWindowedMinMaxBars,
+                            meanValue: showMeanValueLines,
+                            windowedMeanValue: showWindowedMeanValueLines,
+                            currentValue: showValueLines,
+                        }
+                        if (series !== undefined && yAxis !== undefined && allowTooltipRef.current && showingByType[hitElementType]) {
+                            handleMouseOverBar(
+                                yAxis,
+                                series,
+                                statsRef.current,
+                                [x, y],
+                                margin,
+                                mouseOverHandlerFor(`tooltip-${chartId}`, PROVIDER_ID_FOR_ELEMENT_TYPE[hitElementType])
+                            )
+                        }
+                    }
+
+                    lastHoveredRef.current = hitSeriesName !== undefined && hitElementType !== undefined ?
+                        {seriesName: hitSeriesName, elementType: hitElementType} :
+                        undefined
+
+                    // the value-line and windowed-mean-line highlight depends on hover state, so
+                    // request a redraw when it changes
+                    canvasContext.requestRedraw()
+                }
+            }
+
+            const handleLeaveCanvas = () => {
+                const previous = lastHoveredRef.current
+                if (previous !== undefined) {
+                    handleMouseLeaveSeries(previous.seriesName, mouseLeaveHandlerFor(`tooltip-${chartId}`, PROVIDER_ID_FOR_ELEMENT_TYPE[previous.elementType]))
+                    lastHoveredRef.current = undefined
+                    canvasContext.requestRedraw()
+                }
+            }
+
+            canvas.addEventListener('mousemove', handleMove)
+            canvas.addEventListener('mouseleave', handleLeaveCanvas)
+            return () => {
+                canvas.removeEventListener('mousemove', handleMove)
+                canvas.removeEventListener('mouseleave', handleLeaveCanvas)
+            }
+        },
+        [
+            canvasContext, chartId, margin, axisAssignments, xAxesState, yAxesState,
+            mouseOverHandlerFor, mouseLeaveHandlerFor,
+            showMinMaxBars, showWindowedMinMaxBars, showMeanValueLines, showWindowedMeanValueLines, showValueLines
+        ]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
@@ -793,17 +689,24 @@ export function BarPlot(props: Props): null {
         [shouldSubscribe, subscribe]
     )
 
+    // unregister this plot's draw function on unmount
+    useEffect(
+        () => {
+            return () => {
+                if (canvasContext) {
+                    canvasContext.unregister(`bar-plot-${chartId}`)
+                }
+            }
+        },
+        [canvasContext, chartId]
+    )
+
     return null
 }
 
 /*
     Helper functions and types
  */
-
-type PlotData = {
-    data: OrdinalDatum,
-    stats: OrdinalStats,
-}
 
 type BarDimensions = {
     upperX: number
@@ -828,53 +731,51 @@ function updateOpacityFor<S extends SvgFillStyle | SvgStrokeStyle>(isVisible: bo
 }
 
 /**
- * Sets the attributes for the bar based on the d3 selection
- * @param selection The d3 selection (rect SVG element)
- * @param dimensions The bar dimensions
+ * Draws a bar (rectangle) onto the canvas context. Replaces the old `barFor`, which set SVG
+ * `<rect>` attributes via a d3 selection.
+ * @param ctx The canvas 2D context
+ * @param dimensions The bar's dimensions
  * @param style The bar style holding the fill and stroke styles
- * @return The updated SVG selection (rect SVG element)
  */
-function barFor(
-    selection: d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, unknown>,
+function drawBar(
+    ctx: CanvasRenderingContext2D,
     dimensions: BarDimensions,
     style: BarStyle
-): d3.Selection<SVGRectElement, OrdinalDatum, SVGGElement, unknown> {
-    selection
-        .attr('x', () => dimensions.upperX)
-        .attr('y', () => dimensions.upperY)
-        .attr('width', () => dimensions.width)
-        .attr('height', () => dimensions.height)
+): void {
+    if (dimensions.width <= 0 || dimensions.height <= 0) return
 
-    return applyStrokeStylesTo(applyFillStylesTo(selection, style.fill), style.stroke)
-}
+    applyFillStyle(ctx, style.fill)
+    ctx.fillRect(dimensions.upperX, dimensions.upperY, dimensions.width, dimensions.height)
 
-type PathSegment = {
-    x1: (datum: OrdinalDatum) => number,
-    y1: (datum: OrdinalDatum) => number,
-    x2: (datum: OrdinalDatum) => number,
-    y2: (datum: OrdinalDatum) => number,
+    if ((style.stroke.width ?? 0) > 0) {
+        applyStrokeStyle(ctx, style.stroke)
+        ctx.strokeRect(dimensions.upperX, dimensions.upperY, dimensions.width, dimensions.height)
+    }
 }
 
 /**
- * Creates the line segment for values and means
- * @param selection The d3 selection (rect SVG element)
- * @param pathSegment The object containing functions for extracting the (x1, y1) and (x2, y2)
- * points for the path segment
+ * Draws a horizontal line segment (used for the value/mean/windowed-mean lines) onto the canvas
+ * context. Replaces the old `lineFor`, which set SVG `<line>` attributes via a d3 selection.
+ * @param ctx The canvas 2D context
+ * @param x1 The line's start x-coordinate
+ * @param y1 The line's start y-coordinate
+ * @param x2 The line's end x-coordinate
+ * @param y2 The line's end y-coordinate
  * @param strokeStyle The stroke style
- * @return The updated SVG selection (rect SVG element)
  */
-function lineFor(
-    selection: d3.Selection<SVGLineElement, OrdinalDatum, SVGGElement, unknown>,
-    pathSegment: PathSegment,
+function drawLine(
+    ctx: CanvasRenderingContext2D,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
     strokeStyle: Partial<SvgStrokeStyle>
-) {
-    selection
-        .attr('x1', datum => pathSegment.x1(datum))
-        .attr('y1', datum => pathSegment.y1(datum))
-        .attr('x2', datum => pathSegment.x2(datum))
-        .attr('y2', datum => pathSegment.y2(datum))
-
-    return applyStrokeStylesTo(selection, strokeStyle)
+): void {
+    applyStrokeStyle(ctx, strokeStyle)
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
 }
 
 /**
@@ -982,97 +883,55 @@ function xAxisCategoryBoundsFn(categorySize: number, lineWidth: number, margin: 
 }
 
 /**
- * Renders a tooltip showing for the bar in the bar chart (see {@link BarPlotTooltipContent})
- * @param container The chart container
+ * Reports a tooltip showing for the bar in the bar chart (see {@link BarPlotTooltipContent}).
+ * Replaces the old version, which also mutated the hovered SVG element's stroke directly for the
+ * two element types that support a highlight (`currentValue`, `windowedMeanValue`); that highlight
+ * is now handled by the draw function checking the hover state (see `updatePlot`'s `draw`) rather
+ * than by touching an element here.
  * @param yAxis The y-axis
  * @param selectedSeries The selected series
  * @param seriesStats The statistics about the current series
- * @param event The mouse-over series event holding the line element
+ * @param mouseCoords The `[x, y]` position of the mouse, in canvas coordinates
  * @param margin The plot margin
- * @param barStyles The series style information (needed for (un)highlighting)
- * @param defaultBarSeriesStyle The default bar series style that is used if no style is found for the series
- * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
- * @param tooltipProvider The ID of the tooltip provider
  */
 function handleMouseOverBar(
-    container: SVGSVGElement,
     yAxis: ContinuousNumericAxis,
     selectedSeries: BaseSeries<OrdinalDatum>,
     seriesStats: WindowedOrdinalStats,
-    event: React.MouseEvent<SVGLineElement>,
+    mouseCoords: [x: number, y: number],
     margin: Margin,
-    barStyles: Map<string, BarSeriesStyle>,
-    defaultBarSeriesStyle: BarSeriesStyle,
-    allowTooltip: boolean,
     mouseOverHandlerFor: ((
         seriesName: string,
         value: number,
         tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
         mouseCoords: [x: number, y: number]
     ) => void) | undefined,
-    tooltipProvider?: string
 ): void {
-    // grab the time needed for the tooltip ID
-    const [x, y] = d3.pointer(event, container)
+    const [, y] = mouseCoords
     const value = yAxis.scale.invert(y - margin.top)
 
     const {name: categoryName, data: selectedData} = selectedSeries
 
-    const barSeriesStyle = barStyles.get(categoryName) || defaultBarSeriesStyle
-    const lineStyle = lineStyleFor(tooltipProvider, barSeriesStyle)
-    if (lineStyle !== undefined) {
-        d3.select<SVGPathElement, Datum>(event.currentTarget)
-            .style(STROKE_COLOR, lineStyle.highlight.color)
-            .style(STROKE_WIDTH, lineStyle.highlight.width)
-            .style(STROKE_OPACITY, lineStyle.highlight.opacity)
-    }
-
-    if (mouseOverHandlerFor && allowTooltip) {
+    if (mouseOverHandlerFor) {
         // the contract for the mouse over handler is for a series
-        mouseOverHandlerFor(categoryName, value, {series: selectedData, metadata: seriesStats}, [x, y])
+        mouseOverHandlerFor(categoryName, value, {series: selectedData, metadata: seriesStats}, mouseCoords)
     }
 }
 
 /**
- * Unselects the time series and calls the mouse-leave-series handler registered for this series.
+ * Calls the mouse-leave-series handler registered for this series. Replaces the old version, which
+ * also reset the hovered SVG element's stroke color/width directly; that reset is now implicit --
+ * once the hover state no longer matches this element, the next redraw simply paints it in its
+ * normal (non-highlighted) style.
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param segment The SVG line element representing the spike, over which the mouse is hovering.
- * @param seriesStyles The styles for the series (for (un)highlighting)
- * @param defaultBarSeriesStyle The default bar series style that is used if no style is found for the series
  * @param mouseLeaverHandlerFor Registered handler for the series when the mouse leaves
- * @param tooltipProvider The tooltip provider ID for the mouse-over event
  */
 function handleMouseLeaveSeries(
     seriesName: string,
-    segment: SVGLineElement,
-    seriesStyles: Map<string, BarSeriesStyle>,
-    defaultBarSeriesStyle: BarSeriesStyle,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
-    tooltipProvider?: string
 ): void {
-    const barSeriesStyle = seriesStyles.get(seriesName) || defaultBarSeriesStyle
-    const lineStyle = lineStyleFor(tooltipProvider, barSeriesStyle)
-    if (lineStyle !== undefined) {
-        d3.select<SVGPathElement, Datum>(segment)
-            .style(STROKE_COLOR, lineStyle.regular.color)
-            .style(STROKE_WIDTH, lineStyle.regular.width)
-            .style(STROKE_OPACITY, lineStyle.regular.opacity)
-    }
-
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)
-    }
-}
-
-function lineStyleFor(tooltipProvider: string | undefined, barSeriesStyle: BarSeriesStyle): LineStyle | undefined {
-    const {valueLine, windowedMeanValueLine} = barSeriesStyle
-    switch (tooltipProvider) {
-        case BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue:
-            return valueLine
-        case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
-            return windowedMeanValueLine
-        default:
-            return undefined
     }
 }

@@ -1,61 +1,127 @@
 import type {Dimensions} from "../styling/margins";
-import * as d3 from "d3";
-import type {GSelection} from "../d3types";
+import type {CanvasContext, DrawFn, DrawHandle} from "../d3types";
 import type {FastShiftArray} from "fast-shift-array";
 import type {BaseAxisRange} from "../axes/BaseAxisRange";
 import type {AxisInterval} from "../axes/AxisInterval";
 
 export type Series<D> = Array<D> | FastShiftArray<D>
 
+interface RegisteredDraw {
+    draw: DrawFn
+    zIndex: number
+}
+
+// @ts-ignore
 /**
- * Creates the main SVG for holding the plot.
+ * Creates the {@link CanvasContext} for the chart -- the drawing context plus the redraw
+ * registration/scheduling API that axes, plots, and the tracker use to (re)paint themselves.
+ * Replaces the old `createPlotContainer`, which appended the root SVG `<g>`.
  * @param chartId A unique value identifying the chart.
- * @param container The SVG element interface
- * @param plotDimensions The dimensions of the plot
- * @param color The SVG `color` attribute used for the axis
+ * @param canvas The `<canvas>` DOM element backing the chart.
+ * @param plotDimensions The dimensions of the plot (unused directly here -- kept as a parameter
+ * for symmetry with the old signature and because callers should call {@link resizeCanvasTo}
+ * immediately after this with the actual container dimensions).
+ * @param color The default `color` used for text/strokes when nothing more specific is set.
  */
-export function createPlotContainer(
+export function createCanvasContext(
     chartId: number,
-    container: SVGSVGElement,
+    canvas: HTMLCanvasElement,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     plotDimensions: Dimensions,
     color: string
-): GSelection {
-    const {width, height} = plotDimensions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return d3.select<SVGSVGElement, any>(container)
-        .attr('width', Math.max(0, width))
-        .attr('height', Math.max(0, height))
-        .attr('color', color)
-        .append<SVGGElement>('g')
-        .attr('id', `main-container-${chartId}`)
+): CanvasContext {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+        throw new Error(`Unable to acquire a 2D rendering context for chart ${chartId}`)
+    }
+
+    const dpr = window.devicePixelRatio || 1
+    ctx.textBaseline = 'alphabetic'
+    ctx.strokeStyle = color
+    ctx.fillStyle = color
+
+    const drawFns = new Map<DrawHandle, RegisteredDraw>()
+    let animationFrameId: number | null = null
+
+    const redrawNow = (): void => {
+        animationFrameId = null
+
+        // clear the full backing-store (not just the CSS-pixel size, since the backing store is
+        // scaled by devicePixelRatio and the current transform includes that scale)
+        ctx.save()
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.restore()
+
+        Array.from(drawFns.values())
+            .sort((a, b) => a.zIndex - b.zIndex)
+            .forEach(({draw}) => draw(canvasContext))
+    }
+
+    const canvasContext: CanvasContext = {
+        chartId,
+        canvas,
+        ctx,
+        dpr,
+        register: (id, draw, zIndex = 0) => {
+            drawFns.set(id, {draw, zIndex})
+            canvasContext.requestRedraw()
+        },
+        unregister: (id) => {
+            drawFns.delete(id)
+            canvasContext.requestRedraw()
+        },
+        requestRedraw: () => {
+            if (animationFrameId === null) {
+                animationFrameId = window.requestAnimationFrame(redrawNow)
+            }
+        }
+    }
+
+    return canvasContext
 }
 
 /**
- * Adds a clip area for the chart to the specified SVG element. The clip-area is given
- * an `id` of `clip-series-<chart_id>`, which because the chart ID should be unique, makes
- * this unique as well.
- * @param chartId The ID of the chart to which the clip area is to be added.
- * @param plotGroup The SVG group element to which the clip area is to be added.
- * @param plotDimensions The dimensions of the plot.
- * @return The ID of the clip-path.
+ * Resizes the canvas's backing store to match `dimensions` at the current devicePixelRatio, so
+ * that drawing stays crisp on high-DPI displays, and re-applies the dpr scale to the drawing
+ * context so that one drawing-unit equals one CSS pixel. Replaces the old SVG `width`/`height`
+ * attribute updates. Call this whenever the container's pixel dimensions change, before the next
+ * redraw.
+ * @param cc The canvas context
+ * @param dimensions The new overall (plot + margin) dimensions, in CSS pixels
  */
-export function setClipPathG(chartId: number, plotGroup: GSelection, plotDimensions: Dimensions): string {
-    const clipPathId = `chart-clip-path-${chartId}`
+export function resizeCanvasTo(cc: CanvasContext, dimensions: Dimensions): void {
+    const {canvas, ctx, dpr} = cc
+    const width = Math.max(0, dimensions.width)
+    const height = Math.max(0, dimensions.height)
 
-    // remove the old clipping region and add a new one with the updated plot dimensions
-    plotGroup.select(`#${clipPathId}-defs`).remove();
-    plotGroup
-        .append('defs')
-            .attr('id', `${clipPathId}-defs`)
-        .append("clipPath")
-            .attr("id", clipPathId)
-        .append("rect")
-            .attr("x", 0)
-            .attr("y", 0)
-            .attr("width", Math.max(0, plotDimensions.width))
-            .attr("height", Math.max(0, plotDimensions.height))
+    canvas.style.width = `${width}px`
+    canvas.style.height = `${height}px`
+    canvas.width = Math.round(width * dpr)
+    canvas.height = Math.round(height * dpr)
 
-    return clipPathId
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+}
+
+/**
+ * Clips subsequent drawing to a rectangular area. Replaces the old SVG `<clipPath>`/
+ * `setClipPathG`/`setClipPath`. Canvas clip regions are stack-based: callers must `ctx.save()`
+ * before calling this and `ctx.restore()` once the clipped drawing is done, or the clip will leak
+ * into unrelated draw calls later in the same frame.
+ * @param cc The canvas context
+ * @param dimensions The dimensions of the area to clip to
+ * @param origin The top-left corner of the clip area, in canvas drawing coordinates (defaults to
+ * `(0, 0)`; pass the margin's `(left, top)` when clipping to the plot area, which is offset from
+ * the canvas origin)
+ */
+export function clipToArea(
+    cc: CanvasContext,
+    dimensions: Dimensions,
+    origin: {x: number, y: number} = {x: 0, y: 0}
+): void {
+    cc.ctx.beginPath()
+    cc.ctx.rect(origin.x, origin.y, Math.max(0, dimensions.width), Math.max(0, dimensions.height))
+    cc.ctx.clip()
 }
 
 /**
@@ -87,5 +153,3 @@ export function currentIntervalsFrom(ranges: Map<string, BaseAxisRange>): Map<st
     ranges.forEach((range, axisId) => intervals.set(axisId, range.current))
     return intervals
 }
-
-

@@ -62,7 +62,7 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
 
     const {
         chartId,
-        container,
+        canvas,
         tooltip,
         mouse,
     } = useChart<OutlierDatum<readonly number[]>, SeriesLineStyle, OutlierBandTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
@@ -91,7 +91,7 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
     // Register the content provider — called by <Tooltip> on mouse-over to show the portal
     useEffect(
         () => {
-            if (container) {
+            if (canvas) {
                 // if (keepOpen && tooltip != null) return
                 registerTooltipContentProvider(
                     (
@@ -101,17 +101,17 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
                         mouseCoords: [x: number, y: number]
                     ) => buildTooltipContent(
                         seriesName, tooltipData.metadata, mouseCoords,
-                        container,
+                        canvas,
                         setTooltipContent
                     )
                 )
             }
         },
-        [chartId, container, margin, plotDimensions, registerTooltipContentProvider, tooltip, tooltipContent, tooltipStyle]
+        [chartId, canvas, margin, plotDimensions, registerTooltipContentProvider, tooltip, tooltipContent, tooltipStyle]
     )
 
-    // Register a mouse-leave handler to unmount the portal — <Tooltip> handles its own SVG cleanup
-    // (removeTooltip) while we handle ours (clearing the portal state)
+    // Register a mouse-leave handler to unmount the portal — <Tooltip> handles its own background
+    // cleanup (removeTooltip) while we handle ours (clearing the portal state)
     useEffect(
         () => {
             const handlerId = `html-tooltip-leave-${chartId}`
@@ -167,7 +167,7 @@ function buildTooltipContent(
     seriesName: string,
     metadata: OutlierBandTooltipMetadata,
     mouseCoords: [x: number, y: number],
-    container: SVGSVGElement,
+    canvas: HTMLCanvasElement,
     setTooltipContent: (content: TooltipContent) => void,
 ): TooltipDimensions {
     const {
@@ -177,13 +177,13 @@ function buildTooltipContent(
         pointsInBand,
     } = metadata
 
-    const svgRect = container.getBoundingClientRect()
+    const canvasRect = canvas.getBoundingClientRect()
     const ESTIMATED_WIDTH = 350
-    const left = Math.min(svgRect.left + mouseCoords[0] + 12, window.innerWidth - ESTIMATED_WIDTH)
-    const top = svgRect.top + mouseCoords[1] + 12
+    const left = Math.min(canvasRect.left + mouseCoords[0] + 12, window.innerWidth - ESTIMATED_WIDTH)
+    const top = canvasRect.top + mouseCoords[1] + 12
 
     setTooltipContent({bandIndex: 0, seriesName, datum, upperMeasure, lowerMeasure, pointsInBand, left, top})
 
-    // Return off-screen coordinates so the Tooltip parent's SVG rect is invisible
+    // Return off-screen coordinates so the Tooltip parent's background div is invisible
     return {x: -99999, y: -99999, contentWidth: 0, contentHeight: 0}
 }

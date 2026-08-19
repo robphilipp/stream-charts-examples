@@ -1,8 +1,8 @@
-import React, {useCallback, useEffect, useMemo, useRef} from 'react'
+import {useCallback, useEffect, useMemo, useRef} from 'react'
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
 import {ZoomTransform} from "d3";
-import {setClipPathG} from "./plot";
+import {clipToArea} from "./plot";
 import {type Datum} from "../series/timeSeries";
 import {
     axesZoomHandler,
@@ -12,10 +12,11 @@ import {
     panHandler2D,
     type SeriesLineStyle
 } from "../axes/axes";
-import {type GSelection} from "../d3types";
+import type {CanvasContext} from "../d3types";
+import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {Observable, Subscription} from "rxjs";
-import {formatTime, makeIdSafeForCss, noop, textDimensions} from "../utils";
-import type {Dimensions, Margin} from "../styling/margins";
+import {formatTime, fontStringFor, noop, textDimensions} from "../utils";
+import type {Dimensions} from "../styling/margins";
 import {subscriptionIteratesFor} from "../subscriptions/subscriptions";
 import {useDataObservable} from "../hooks/useDataObservable";
 import type {IterateChartData} from "../observables/iterates";
@@ -97,6 +98,15 @@ export interface Props {
  * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
  * chart ecosystem (axes, tracker, tooltip).
  *
+ * Internally, this no longer creates/updates SVG `<path>`/`<circle>`/`<text>` elements. Instead, it
+ * registers a single draw function with the chart's {@link CanvasContext} that redraws every
+ * series' line and points from scratch each time the canvas repaints. The old version's
+ * hover-a-point-and-annotate-its-neighbors behavior used direct `d3.select('#specific-id')` lookups
+ * into already-rendered SVG elements from a separate pass after the main render; since canvas has
+ * no persistent elements to reach back into, this is restructured so the single draw pass checks
+ * "is this point hovered, or a neighbor of the hovered point" and renders the highlight/label
+ * inline, driven by a `hoveredPointRef` updated on `mousemove`.
+ *
  * @param props The properties associated with the scatter plot
  * @example
  * ```typescript
@@ -115,8 +125,7 @@ export interface Props {
 export function PoincarePlot(props: Props): null {
     const {
         chartId,
-        container,
-        mainG,
+        canvasContext,
         axes,
         backgroundColor,
         seriesStyles,
@@ -173,7 +182,7 @@ export function PoincarePlot(props: Props): null {
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
     //
     // the "dataRef" and "seriesRef" both point to the same underlying data, a collection
-    // of series. The series in "dataRef" are bound to the DOM elements through d3. The "seriesRef" series
+    // of series. The series in "dataRef" are read by the canvas draw function. The "seriesRef" series
     // are the ones that are updated as new data is streamed in.
     //
     // the "dataRef" object holds on to a copy of the initial data (which is an array of
@@ -184,8 +193,8 @@ export function PoincarePlot(props: Props): null {
     // the "seriesRef" object is a reference to a map (series_name -> BaseSeries<OrdinalDatum>) which is
     // used to update the data in the series. When new data enters, it is appended to one or more series.
     //
-    // the series in the "dataRef" object are the ones bound to the DOM elements in d3, and so as these
-    // are updated, d3 will update the DOM elements (the elements in this plot).
+    // the series in the "dataRef" object are the ones read by the next redraw, so as these are
+    // updated, the next canvas repaint picks up the new data.
     const dataRef = useRef<Array<IterateSeries>>(initialData.slice() as Array<IterateSeries>)
     const seriesRef = useRef<Map<string, IterateSeries>>(new Map(initialData.map(series => [series.name, series as IterateSeries])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
@@ -196,14 +205,23 @@ export function PoincarePlot(props: Props): null {
     const subscriptionRef = useRef<Subscription>(undefined)
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
-
     // eslint-disable-next-line react-hooks/refs
     const allowTooltip = useRef<boolean>(isSubscriptionClosed())
 
     // so that we can reset the zoom when the axes-bounds change, we hold on to the zoom-behaviour
     // and the zoom-selection so that we can reset the transform to the identity
-    const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, Datum>>(undefined)
-    const zoomSelectionRef = useRef<d3.Selection<SVGSVGElement, Datum, null, undefined>>(undefined)
+    const zoomRef = useRef<d3.ZoomBehavior<HTMLCanvasElement, Datum>>(undefined)
+    const zoomSelectionRef = useRef<d3.Selection<HTMLCanvasElement, Datum, null, undefined>>(undefined)
+
+    // the last-drawn geometry for each series' points, in canvas coordinates, used for
+    // hit-testing mouse hover on `mousemove` (see the effect below that wires up the listener).
+    // Also keeps the corresponding `IteratePointSeries` so the hovered/neighbor points' data can
+    // be looked up by index.
+    const geometryRef = useRef<Map<string, SeriesGeometry>>(new Map())
+    const plotDataRef = useRef<Map<string, IteratePointSeries>>(new Map())
+    // which point (series + index) is currently hovered, so the draw pass can highlight it and
+    // its neighbors, and so we know when to fire a "leave"
+    const hoveredPointRef = useRef<{seriesName: string, index: number} | undefined>(undefined)
 
     // calculates the distinct axis IDs that cover all the series in the plot
     const xAxesForSeries = useMemo(
@@ -228,11 +246,11 @@ export function PoincarePlot(props: Props): null {
     // update the plot with the new axes bounds
     const updateRangesAndPlot = useCallback(
         (): void => {
-            if (mainG !== null) {
-                updatePlotRef.current(mainG)
+            if (canvasContext !== null) {
+                updatePlotRef.current(canvasContext)
             }
         },
-        [mainG]
+        [canvasContext]
     )
 
     // todo find better way
@@ -295,9 +313,11 @@ export function PoincarePlot(props: Props): null {
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
      * @param x The amount that the plot is dragged
+     * @param y The amount that the plot is dragged in y
      * @param plotDimensions The dimensions of the plot
      * @param series An array of series names
-     * @param ranges A map holding the axis ID and its associated time range
+     * @param xRanges A map holding the axis ID and its associated time range
+     * @param yRanges A map holding the axis ID and its associated time range
      */
     const onPan = useCallback(
         (
@@ -324,8 +344,8 @@ export function PoincarePlot(props: Props): null {
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param y The y-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
-     * @param ranges A map holding the axis ID and its associated time-range
+     * @param xRanges A map holding the axis ID and its associated time-range
+     * @param yRanges A map holding the axis ID and its associated time-range
      */
     const onZoom = useCallback(
         (
@@ -343,99 +363,94 @@ export function PoincarePlot(props: Props): null {
 
     const updatePlot = useCallback(
         /**
-         * Updates the plot data for the specified time-range, which may have changed due to zoom or pan
-         * @param mainGElem The main <g> element selection for that holds the plot
+         * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
+         * @param cc The canvas context to register the draw function with
          */
-        (mainGElem: GSelection) => {
-            if (container) {
-                onUpdateChartTime(currentTimeRef.current)
+        (cc: CanvasContext) => {
+            onUpdateChartTime(currentTimeRef.current)
 
-                // select the svg element bind the data to them
-                const svg = d3.select<SVGSVGElement, Datum>(container)
+            // create a map associating series-names to their time-series.
+            const boundedSeries = new Map<string, IteratePointSeries>(dataRef.current.map(series => {
+                return [
+                    series.name,
+                    series.data
+                        .filter(datum => !isNaN(datum.iterateN))
+                        .map((datum, index) => ({
+                                n: datum.iterateN,
+                                n_1: datum.iterateN_1,
+                                time: datum.time,
+                                index: index
+                            })
+                        ) as IteratePointSeries
+                ]
+            }))
 
-                // create a map associating series-names to their time-series.
-                //
-                // performance-related confusion: wondering where the dataRef is updated? well it isn't
-                // directly. The dataRef holds on to an array of references to the Series. And so does the
-                // seriesRef, though it uses a map(series_name -> series). The seriesRef is used to append
-                // data to the underlying Series, and the dataRef is used so that we can just use
-                // dataRef.current and don't have to do Array.from(seriesRef.current.values()) which
-                // creates a temporary array
-                // const offset = 1
-                const boundedSeries = new Map<string, IteratePointSeries>(dataRef.current.map(series => {
-                    return [
-                        series.name,
-                        series.data
-                            .filter(datum => !isNaN(datum.iterateN))
-                            .map((datum, index) => ({
-                                    n: datum.iterateN,
-                                    n_1: datum.iterateN_1,
-                                    time: datum.time,
-                                    index: index
-                                })
-                            ) as IteratePointSeries
-                    ]
-                }))
-
-                // set up panning
-                if (panEnabled) {
-                    const drag = d3.drag<SVGSVGElement, Datum>()
-                        .on("start", () => {
-                            d3.select(container).style("cursor", "move")
-                            // during panning, we need to disable viewing the tooltip to prevent
-                            // tooltips from rendering but not getting removed
-                            allowTooltip.current = false;
-                        })
-                        .on("drag", event => {
-                            onPan(
-                                event.dx,
-                                event.dy,
-                                plotDimensions,
-                                Array.from(boundedSeries.keys()),
-                                xAxisRangesRef.current,
-                                yAxisRangesRef.current
-                            )
-                            updatePlotRef.current(mainGElem)
-                        })
-                        .on("end", () => {
-                            d3.select(container).style("cursor", "auto")
-                            // during panning, we disabled viewing the tooltip to prevent
-                            // tooltips from rendering but not getting removed, now that panning
-                            // is over, allow tooltips to render again
-                            allowTooltip.current = isSubscriptionClosed();
-                        })
-
-                    svg.call(drag)
-                }
-
-                // set up for zooming
-                if (zoomEnabled) {
-                    zoomRef.current = d3.zoom<SVGSVGElement, Datum>()
-                        .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                        .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
-                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", event => {
-                                allowTooltip.current = false
-                                if (event.sourceEvent !== null) {
-                                    onZoom(
-                                        event.transform,
-                                        event.sourceEvent.offsetX - margin.left,
-                                        event.sourceEvent.offsetY - margin.top,
-                                        plotDimensions,
-                                        xAxisRangesRef.current,
-                                        yAxisRangesRef.current
-                                    )
-                                    updatePlotRef.current(mainGElem)
-                                }
-                                allowTooltip.current = true
-                            }
+            // set up panning
+            if (panEnabled) {
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => {
+                        canvasSelection.style("cursor", "move")
+                        // during panning, we need to disable viewing the tooltip to prevent
+                        // tooltips from rendering but not getting removed
+                        allowTooltip.current = false;
+                    })
+                    .on("drag", event => {
+                        onPan(
+                            event.dx,
+                            event.dy,
+                            plotDimensions,
+                            Array.from(boundedSeries.keys()),
+                            xAxisRangesRef.current,
+                            yAxisRangesRef.current
                         )
+                        updatePlotRef.current(cc)
+                    })
+                    .on("end", () => {
+                        canvasSelection.style("cursor", "auto")
+                        // during panning, we disabled viewing the tooltip to prevent
+                        // tooltips from rendering but not getting removed, now that panning
+                        // is over, allow tooltips to render again
+                        allowTooltip.current = isSubscriptionClosed();
+                    })
 
-                    zoomSelectionRef.current = svg.call(zoomRef.current)
-                }
+                canvasSelection.call(drag)
+            }
 
-                // define the clip-path so that the series lines don't go beyond the plot area
-                const clipPathId = setClipPathG(chartId, mainGElem, plotDimensions)
+            // set up for zooming
+            if (zoomEnabled) {
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                zoomRef.current = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", event => {
+                            allowTooltip.current = false
+                            if (event.sourceEvent !== null) {
+                                onZoom(
+                                    event.transform,
+                                    event.sourceEvent.offsetX - margin.left,
+                                    event.sourceEvent.offsetY - margin.top,
+                                    plotDimensions,
+                                    xAxisRangesRef.current,
+                                    yAxisRangesRef.current
+                                )
+                                updatePlotRef.current(cc)
+                            }
+                            allowTooltip.current = true
+                        }
+                    )
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                zoomSelectionRef.current = canvasSelection.call(zoomRef.current) as any
+            }
+
+            const draw = (context: CanvasContext) => {
+                const {ctx} = context
+
+                ctx.save()
+                clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
+                ctx.translate(margin.left, margin.top)
 
                 // ---
                 // todo only want to do this once, on the first plot, and then leave it,
@@ -443,10 +458,6 @@ export function PoincarePlot(props: Props): null {
                 //     plot size changes
                 const xAxis = xAxesState.defaultAxis().getOrThrow(() => new Error('No default axis found')) as ContinuousNumericAxis
                 const yAxis = yAxesState.defaultAxis().getOrThrow(() => new Error('No default axis found')) as ContinuousNumericAxis
-
-                const lineGenerator = d3.line<[x: number, y: number]>()
-                    .x(d => xAxis.scale(d[0] || 0))
-                    .y(d => yAxis.scale(d[1] || 0))
                 // ---
 
                 const [xStart, xEnd] = xAxesState.axisDefaultId()
@@ -456,30 +467,20 @@ export function PoincarePlot(props: Props): null {
                     .map(id => yAxisRangesRef.current.get(id)?.original.asTuple() || [0, 0])
                     .getOrElse([0, 0])
 
-                mainGElem
-                    .selectAll(`#fn-equals-fn1-${chartId}-poincare`)
-                    .data([[[xStart, yStart], [xEnd, yEnd]] as Array<[x: number, y: number]>])
-                    .join(enter => enter
-                            .select("path")
-                            .style("stroke", "grey")
-                            .style("fill", "none")
-                            .style("stroke-width", "1px")
-                            .attr("class", `fn-equals-fn1-poincare`)
-                            .attr("id", `#fn-equals-fn1-${chartId}-poincare`)
-                            .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                            .attr("d", lineGenerator),
-                        update => update.remove(),
-                        exit => exit.remove()
-                    )
-                    // clear out mouse-enter callbacks for the diagonal line
-                    .on("mouseenter", () => {
-                    })
-                    .on("mouseleave", () => {
-                    })
+                // the fn = fn+1 diagonal reference line (no hover behavior, matching the old
+                // version's explicitly no-op mouseenter/mouseleave handlers)
+                ctx.strokeStyle = "grey"
+                ctx.lineWidth = 1
+                ctx.beginPath()
+                ctx.moveTo(xAxis.scale(xStart), yAxis.scale(yStart))
+                ctx.lineTo(xAxis.scale(xEnd), yAxis.scale(yEnd))
+                ctx.stroke()
+
+                const newGeometry = new Map<string, SeriesGeometry>()
+                const newPlotDataBySeries = new Map<string, IteratePointSeries>()
+                const hovered = hoveredPointRef.current
 
                 boundedSeries.forEach((data, name) => {
-                    const seriesId = makeIdSafeForCss(name)
-
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
                     const [xAxisLinear, yAxisLinear] = axesFor(
@@ -496,107 +497,101 @@ export function PoincarePlot(props: Props): null {
 
                     // only show the data for which the filter matches
                     const plotData = (name.match(seriesFilter)) ? data : FastShiftArray.empty<IteratePoint>()
+                    newPlotDataBySeries.set(name, plotData)
 
-                    const pathGenerator = d3.line<IteratePoint>()
-                        .x(d => xAxis.scale(d.n || 0))
-                        .y(d => yAxis.scale(d.n_1 || 0))
+                    // create the time-series path (when no interpolation is given, don't draw a
+                    // connecting line at all -- matches the old version's `mainGElem.selectAll(...).remove()`)
+                    if (interpolation !== undefined) {
+                        const pathGenerator = d3.line<IteratePoint>()
+                            .x(d => xAxis.scale(d.n || 0))
+                            .y(d => yAxis.scale(d.n_1 || 0))
+                            .curve(interpolation)
 
-                    if (interpolation === undefined) {
-                        mainGElem
-                            .selectAll(`#${makeIdSafeForCss(name)}-${chartId}-poincare`)
-                            .remove()
-                    } else {
-                        // create the time-series paths
-                        mainGElem
-                            .selectAll(`#${makeIdSafeForCss(name)}-${chartId}-poincare`)
-                            .data([[], plotData], () => `${name}`)
-                            .join(
-                                enter => enter
-                                    .append("path")
-                                    .attr("class", 'iterate-series-lines')
-                                    .attr("id", `${seriesId}-${chartId}-poincare`)
-                                    .attr("d", pathGenerator.curve(interpolation))
-                                    .style("fill", "none")
-                                    .style("stroke", seriesLineStyle.color)
-                                    .style("stroke-width", seriesLineStyle.lineWidth)
-                                    .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                                    .attr("clip-path", `url(#${clipPathId})`)
-                                ,
-                                update => update
-                                    .style("stroke", seriesLineStyle.color)
-                                    .style("stroke-width", seriesLineStyle.lineWidth)
-                                ,
-                                exit => exit.remove()
-                            )
+                        ctx.strokeStyle = seriesLineStyle.color
+                        ctx.lineWidth = seriesLineStyle.lineWidth
+                        ctx.stroke(new Path2D(pathGenerator(Array.from(plotData)) ?? ""))
                     }
 
                     // when specified, show a circle for the actual data point
+                    const points: Array<[number, number]> = []
                     if (showPoints) {
-                        mainGElem
-                            .selectAll(`.${makeIdSafeForCss(name)}-${chartId}-poincare-points`)
-                            .data(plotData, () => `${name}`)
-                            .join(
-                                enter => enter
-                                    .append("circle")
-                                    .attr("class", `${seriesId}-${chartId}-poincare-points`)
-                                    .attr("id", (_, index) => `${seriesId}-${chartId}-poincare-point-${index}`)
-                                    .attr("fill", seriesLineStyle.color)
-                                    .attr("stroke", "none")
-                                    .attr("cx", (d: IteratePoint) => xAxisLinear.scale(d.n) || 0)
-                                    .attr("cy", (d: IteratePoint) => yAxisLinear.scale(d.n_1) || 0)
-                                    .attr("r", 2)
-                                    .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                                    .attr("clip-path", `url(#${clipPathId})`)
-                                ,
-                                update => update
-                                    .attr("cx", (d: IteratePoint) => xAxisLinear.scale(d.n) || 0)
-                                    .attr("cy", (d: IteratePoint) => yAxisLinear.scale(d.n_1) || 0)
-                                ,
-                                exit => exit.remove()
-                            )
-                            .on("mouseenter",
-                                (event: React.MouseEvent<SVGCircleElement>, datum: IteratePoint) => {
-                                    if (allowTooltip.current && tooltipVisible) {
-                                        return handleMouseEnterPoint(
-                                            chartId,
-                                            name,
-                                            container,
-                                            event,
-                                            datum,
-                                            plotData,
-                                            xAxisLinear,
-                                            yAxisLinear,
-                                            margin,
-                                            seriesLineStyle,
-                                            backgroundColor,
-                                            allowTooltip.current,
-                                            mouseOverHandlerFor(`tooltip-${chartId}`)
-                                        )
-                                    }
-                                    return <></>
-                                }
-                            )
-                            .on("mouseleave", () => {
-                                handleMouseLeavePoint(
-                                    chartId,
-                                    name,
-                                    seriesLineStyle.color,
-                                    mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                        const isThisSeriesHovered = hovered?.seriesName === name
+
+                        plotData.forEach((d: IteratePoint) => {
+                            const x = xAxisLinear.scale(d.n) || 0
+                            const y = yAxisLinear.scale(d.n_1) || 0
+                            points.push([x + margin.left, y + margin.top])
+
+                            const isHoveredPoint = isThisSeriesHovered && hovered!.index === d.index
+                            const isNeighborOfHovered = isThisSeriesHovered &&
+                                (hovered!.index === d.index - 1 || hovered!.index === d.index + 1)
+
+                            if (isHoveredPoint) {
+                                // the hovered point itself: enlarged, highlight-colored, no label
+                                // (matches the old version, which only labeled the *neighbors*)
+                                ctx.fillStyle = seriesLineStyle.highlightColor
+                                ctx.beginPath()
+                                ctx.arc(x, y, 5, 0, 2 * Math.PI)
+                                ctx.fill()
+                            } else if (isNeighborOfHovered) {
+                                // a neighbor of the hovered point: enlarged, brighter fill, stroked,
+                                // with a floating "n = i; t = X ms" label above it
+                                const brighterColor = d3.rgb(seriesLineStyle.highlightColor).brighter(0.7).toString()
+                                ctx.fillStyle = brighterColor
+                                ctx.strokeStyle = seriesLineStyle.color
+                                ctx.lineWidth = seriesLineStyle.lineWidth
+                                ctx.beginPath()
+                                ctx.arc(x, y, 5, 0, 2 * Math.PI)
+                                ctx.fill()
+                                ctx.stroke()
+
+                                const label = `n = ${d.index}; t = ${formatTime(d.time)} ms`
+                                ctx.font = fontStringFor(11, 'sans-serif', 700)
+                                const {width, height} = textDimensions(ctx, label)
+                                const padding = 4
+                                const circleRadius = 5
+                                const circleStroke = seriesLineStyle.lineWidth
+
+                                ctx.fillStyle = backgroundColor
+                                ctx.fillRect(
+                                    x - padding / 2 - 8,
+                                    y - padding / 2 - circleRadius - circleStroke - height,
+                                    width + padding,
+                                    height + padding / 2
                                 )
-                            })
+
+                                ctx.fillStyle = seriesLineStyle.highlightColor
+                                ctx.textAlign = 'left'
+                                ctx.textBaseline = 'alphabetic'
+                                ctx.fillText(label, x - 8, y - circleRadius - circleStroke - padding)
+                            } else {
+                                // normal, unhovered point
+                                ctx.fillStyle = seriesLineStyle.color
+                                ctx.beginPath()
+                                ctx.arc(x, y, 2, 0, 2 * Math.PI)
+                                ctx.fill()
+                            }
+                        })
                     }
+                    newGeometry.set(`${name}::points`, {points, hitRadius: 6})
                 })
+
+                geometryRef.current = newGeometry
+                plotDataRef.current = newPlotDataBySeries
+
+                ctx.restore()
             }
+
+            cc.register(`poincare-plot-${chartId}`, draw, 10)
+            cc.requestRedraw()
         },
         [
-            container, onUpdateChartTime, panEnabled, zoomEnabled, chartId, plotDimensions, margin,
+            canvasContext, onUpdateChartTime, panEnabled, zoomEnabled, chartId, plotDimensions, margin,
             xAxesState, yAxesState,
             onPan,
             zoomMinScaleFactor, zoomMaxScaleFactor, zoomKeyModifiersRequired, onZoom,
             seriesStyles, seriesFilter, showPoints,
             interpolation, backgroundColor,
-            mouseOverHandlerFor, mouseLeaveHandlerFor,
-            tooltipVisible,
         ]
     )
 
@@ -622,7 +617,7 @@ export function PoincarePlot(props: Props): null {
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
-            if (seriesObservable === undefined || mainG === null) return undefined
+            if (seriesObservable === undefined || canvasContext === null) return undefined
             return subscriptionIteratesFor(
                 seriesObservable as Observable<IterateChartData>,
                 onSubscribe,
@@ -639,7 +634,7 @@ export function PoincarePlot(props: Props): null {
             )
         },
         [
-            dropDataAfter, mainG,
+            dropDataAfter, canvasContext,
             onSubscribe, onUpdateData,
             seriesObservable, updateRangesAndPlot, windowingTime,
             xAxesState, yAxesState,
@@ -650,11 +645,78 @@ export function PoincarePlot(props: Props): null {
     // callback has changed.
     useEffect(
         () => {
-            if (container && mainG) {
-                updatePlot(mainG)
+            if (canvasContext) {
+                updatePlot(canvasContext)
             }
         },
-        [axisRangeFor, container, mainG, updatePlot]
+        [axisRangeFor, canvasContext, updatePlot]
+    )
+
+    // wires up a single mousemove/mouseleave listener on the shared canvas to replace the old
+    // per-element SVG mouseenter/mouseleave handlers on the point circles. Hit-tests the mouse
+    // position against the last-drawn point geometry (see `geometryRef`, populated by the draw
+    // function above).
+    useEffect(
+        () => {
+            if (!canvasContext) return
+
+            const canvas = canvasContext.canvas
+
+            const handleMove = (event: MouseEvent) => {
+                if (!allowTooltip.current || !tooltipVisible) return
+
+                const [x, y] = canvasLocalPoint(event, canvas)
+                const hit = seriesAt(x, y, geometryRef.current)
+                const hitSeriesName = hit?.name.replace(/::points$/, '')
+
+                const previous = hoveredPointRef.current
+                const sameAsBefore = previous !== undefined && hit !== undefined &&
+                    previous.seriesName === hitSeriesName && previous.index === hit.index
+
+                if (sameAsBefore) return
+
+                if (previous !== undefined) {
+                    handleMouseLeavePoint(previous.seriesName, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                }
+
+                if (hit !== undefined && hitSeriesName !== undefined) {
+                    const plotData = plotDataRef.current.get(hitSeriesName)
+                    if (plotData !== undefined) {
+                        handleMouseEnterPoint(
+                            hitSeriesName,
+                            plotData[hit.index],
+                            plotData,
+                            [x, y],
+                            mouseOverHandlerFor(`tooltip-${chartId}`)
+                        )
+                    }
+                }
+
+                hoveredPointRef.current = hit !== undefined && hitSeriesName !== undefined ?
+                    {seriesName: hitSeriesName, index: hit.index} :
+                    undefined
+
+                // hover state affects the highlight/label drawing, so request a redraw
+                canvasContext.requestRedraw()
+            }
+
+            const handleLeaveCanvas = () => {
+                const previous = hoveredPointRef.current
+                if (previous !== undefined) {
+                    handleMouseLeavePoint(previous.seriesName, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                    hoveredPointRef.current = undefined
+                    canvasContext.requestRedraw()
+                }
+            }
+
+            canvas.addEventListener('mousemove', handleMove)
+            canvas.addEventListener('mouseleave', handleLeaveCanvas)
+            return () => {
+                canvas.removeEventListener('mousemove', handleMove)
+                canvas.removeEventListener('mouseleave', handleLeaveCanvas)
+            }
+        },
+        [canvasContext, chartId, mouseOverHandlerFor, mouseLeaveHandlerFor, tooltipVisible]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
@@ -673,6 +735,18 @@ export function PoincarePlot(props: Props): null {
             }
         },
         [shouldSubscribe, subscribe]
+    )
+
+    // unregister this plot's draw function on unmount
+    useEffect(
+        () => {
+            return () => {
+                if (canvasContext) {
+                    canvasContext.unregister(`poincare-plot-${chartId}`)
+                }
+            }
+        },
+        [canvasContext, chartId]
     )
 
     return null
@@ -702,136 +776,40 @@ function axesFor(
 }
 
 /**
- * @param chartId The ID of the chart
+ * Reports the tooltip for the hovered point. Replaces the old version, which also directly
+ * mutated the hovered SVG `<circle>`'s radius/fill (and its neighbors') as a side effect; that
+ * highlighting is now handled entirely by the draw function reading `hoveredPointRef` (see
+ * `updatePlot`'s `draw`) rather than by touching elements here.
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param container The SVG container holding the plot
- * @param event The mouse event that triggered this call
- * @param datum The datum over which the mouse has entered
+ * @param datum The hovered point, or `undefined` if the index doesn't resolve to a point
  * @param plotData The iterates series
- * @param xAxisLinear The x-axis (f[n](x))
- * @param yAxisLinear The y-axis (f[n+1](x))
- * @param margin The plot margin
- * @param seriesStyle The series style information (needed for (un)highlighting)
- * @param backgroundColor
- * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
+ * @param mouseCoords The `[x, y]` position of the mouse, in canvas coordinates
  * @param mouseOverHandlerFor The handler for the mouse-over (registered by the <Tooltip/>)
  */
 function handleMouseEnterPoint(
-    chartId: number,
     seriesName: string,
-    container: SVGSVGElement,
-    event: React.MouseEvent<SVGPathElement>,
-    datum: IteratePoint,
+    datum: IteratePoint | undefined,
     plotData: IteratePointSeries,
-    xAxisLinear: ContinuousNumericAxis,
-    yAxisLinear: ContinuousNumericAxis,
-    margin: Margin,
-    seriesStyle: SeriesLineStyle,
-    backgroundColor: string,
-    allowTooltip: boolean,
+    mouseCoords: [x: number, y: number],
     mouseOverHandlerFor: ((seriesName: string, time: number, tooltipData: TooltipData<IterateDatum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
-    const {color, highlightColor, lineWidth} = seriesStyle
+    if (datum === undefined) return
 
-    const padding = 4
-    const circleRadius = 5
-    const circleStroke = lineWidth
-
-    const circle = event.currentTarget as SVGCircleElement
-
-    d3.select<SVGPathElement, Datum>(circle)
-        .attr("r", circleRadius)
-        .style("fill", highlightColor)
-
-    const index = plotData
-        .findIndex(point => point.n === datum.n && point.n_1 === datum.n_1)
-
-    /**
-     * Displays basic information about an iterate, generally its neighbors
-     * @param index The index of the iterate
-     */
-    function showInfo(index: number): void {
-        const seriesId = makeIdSafeForCss(seriesName)
-
-        d3.select(`#${seriesId}-${chartId}-poincare-point-${index}`)
-            .attr("r", circleRadius)
-            .style("fill", d3.rgb(highlightColor).brighter(0.7).toString())
-            .style("stroke-width", circleStroke)
-            .style("stroke", color)
-
-        // grab the (x, y)-coordinates for the plot
-        const iterateN = xAxisLinear.scale(plotData[index].n) + margin.left
-        const iterateN_1 = yAxisLinear.scale(plotData[index].n_1) + margin.top
-
-        const svg = d3.select<SVGSVGElement, Datum>(container)
-
-        // add a rectangle that serves as the background for the text (to make the
-        // text readable when the chart is busy)
-        const rect = svg
-            .append("rect")
-            .attr("class", `${seriesId}-${chartId}-poincare-point-text-background`)
-
-        // add the information about the iterate as a text element
-        const textElement = svg
-            .append("text")
-            .attr('class', `${seriesId}-${chartId}-poincare-point-text`)
-            .attr('fill', highlightColor)
-            .attr('font-family', 'sans-serif')
-            .attr('font-size', 11)
-            .attr('font-weight', 700)
-            .text(`n = ${index}; t = ${formatTime(plotData[index].time)} ms`)
-
-        // calculate the width and height of the text element
-        const {width, height} = textDimensions(textElement)
-
-        textElement
-            .attr("transform", `translate(${iterateN - 8}, ${iterateN_1 - circleRadius - circleStroke - padding})`)
-
-        rect
-            .attr("x", iterateN - padding / 2 - 8)
-            .attr("y", iterateN_1 - padding / 2 - circleRadius - circleStroke - height)
-            .attr("width", width + padding)
-            .attr("height", height + padding / 2)
-            .style("fill", backgroundColor)
-    }
-
-    if (index > 0) {
-        showInfo(index - 1)
-    }
-    if (index < plotData.length - 1) {
-        showInfo(index + 1)
-    }
-
-    const [x, y] = d3.pointer(event, container)
-    const currentDatum: IteratePoint = (index >= 0) ? plotData[index] : {time: 0, n: 0, n_1: 0, index}
-
-    if (mouseOverHandlerFor && allowTooltip) {
+    if (mouseOverHandlerFor) {
         mouseOverHandlerFor(
             seriesName,
-            currentDatum.time,
+            datum.time,
             {series: plotData.map(ip => ({iterateN: ip.n, iterateN_1: ip.n_1, time: ip.time})), metadata: {}},
-            [x, y]
+            mouseCoords
         )
     }
 }
 
 function handleMouseLeavePoint(
-    chartId: number,
     seriesName: string,
-    color: string,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    const seriesId = makeIdSafeForCss(seriesName)
-    d3.selectAll<SVGPathElement, Datum>(`.${seriesId}-${chartId}-poincare-points`)
-        .attr("r", 2)
-        .style("fill", color)
-        .style("stroke", "none")
-    d3.selectAll(`.${seriesId}-${chartId}-poincare-point-arrows`).remove()
-    d3.selectAll(`.${seriesId}-${chartId}-poincare-point-text`).remove()
-    d3.selectAll(`.${seriesId}-${chartId}-poincare-point-text-background`).remove()
-
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)
     }
-
 }

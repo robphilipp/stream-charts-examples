@@ -1,18 +1,12 @@
-import {useEffect, useMemo} from "react"
-import * as d3 from "d3"
+import type {CSSProperties, ReactElement} from "react"
+import {useEffect, useMemo, useState} from "react"
+import {createPortal} from "react-dom"
 import {useChart} from "../hooks/useChart"
 import {usePlotDimensions} from "../hooks/usePlotDimensions"
 import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes"
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange"
-import {
-    defaultTooltipStyle,
-    textHeightFor,
-    textWidthFor,
-    type TooltipDimensions,
-    type TooltipStyle,
-    tooltipX,
-    tooltipY
-} from "./tooltipUtils"
+import {defaultTooltipStyle, type TooltipDimensions, type TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils"
+import {withAlpha} from "../styling/canvasStyle"
 import type {TooltipData} from "../hooks/useTooltip"
 import type {OutlierBandTooltipMetadata} from "../plots/OutlierPlot"
 import type {OutlierDatum} from "../series/outlierSeries"
@@ -45,14 +39,39 @@ export interface Props {
 }
 
 /**
+ * The data needed to render the tooltip's content, captured at mouse-over time and read back out
+ * during render. Replaces the old version's immediate SVG DOM manipulation (which appended and
+ * hand-positioned one SVG `<text>` element per line, using `getBBox()` to measure each) -- plain
+ * HTML/CSS text flows and sizes itself, so no equivalent per-line measurement is needed here.
+ */
+interface OutlierTooltipContentState {
+    header: string
+    datumLine?: string
+    bandLine: string
+    explanationLines: Array<string>
+    countLine: string
+    left: number
+    top: number
+}
+
+/** A generous estimate of the tooltip's rendered width, used to keep it from running off the right edge of the viewport. */
+const ESTIMATED_WIDTH = 320
+/** A generous estimate of the tooltip's rendered height, used to keep it from running off the bottom edge of the plot. */
+const ESTIMATED_HEIGHT = 140
+
+/**
  * Registers a tooltip content provider for {@link OutlierPlot} bands. When the user hovers over
  * a band, the tooltip shows the measure associated with the band along with the implied outlier
  * probabilities for points inside and outside the band.
  *
  * Must be rendered as a child of a {@link Tooltip} inside a {@link Chart} that contains an
- * {@link OutlierPlot}.
+ * {@link OutlierPlot}. On mouse-over, the registered provider just captures the data needed to
+ * render (via `setTooltipContent`) and returns off-screen {@link TooltipDimensions} so the parent
+ * {@link Tooltip}'s own background element stays invisible -- this component renders its own,
+ * independent portal instead (see {@link OutlierPlotHtmlTooltipContent} for the established
+ * pattern this follows).
  */
-export function OutlierPlotTooltipContent(props: Props): null {
+export function OutlierPlotTooltipContent(props: Props): ReactElement | null {
     const {
         style,
         datumFormatter = (x: number, y: number) => `(${x}, ${y})`,
@@ -65,11 +84,13 @@ export function OutlierPlotTooltipContent(props: Props): null {
 
     const {
         chartId,
-        container,
-        tooltip
+        canvas,
+        tooltip,
+        mouse
     } = useChart<OutlierDatum<readonly number[]>, SeriesLineStyle, OutlierBandTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {registerTooltipContentProvider} = tooltip
+    const {registerMouseLeaveHandler, unregisterMouseLeaveHandler} = mouse
 
     const {
         margin,
@@ -84,45 +105,107 @@ export function OutlierPlotTooltipContent(props: Props): null {
         [style]
     )
 
+    const [tooltipContent, setTooltipContent] = useState<OutlierTooltipContentState | null>(null)
+
+    // register the tooltip content provider, which when called on mouse-over-band events
+    // captures the data needed to render the tooltip; the actual rendering happens declaratively
+    // below, via the portal.
     useEffect(
         () => {
-            if (container) {
+            if (canvas) {
                 registerTooltipContentProvider(
                     (
                         seriesName: string,
-                        time: number,
+                        _time: number,
                         tooltipData: TooltipData<OutlierDatum<readonly number[]>, OutlierBandTooltipMetadata>,
                         mouseCoords: [x: number, y: number]
-                    ) => addTooltipContent(
-                        seriesName, time, tooltipData.metadata, mouseCoords,
-                        chartId, container, margin, plotDimensions, tooltipStyle,
-                        datumFormatter, bandFormatter, measureFormatter
+                    ) => captureTooltipContent(
+                        seriesName, tooltipData.metadata, mouseCoords,
+                        canvas, margin, plotDimensions, tooltipStyle,
+                        datumFormatter, bandFormatter, measureFormatter,
+                        setTooltipContent
                     )
                 )
             }
         },
         [
-            bandFormatter, chartId, container, datumFormatter, margin, measureFormatter,
+            bandFormatter, chartId, canvas, datumFormatter, margin, measureFormatter,
             plotDimensions, registerTooltipContentProvider, tooltipStyle
         ]
     )
 
-    return null
+    // clears the captured content (and so unmounts the portal) when the mouse leaves the band
+    useEffect(
+        () => {
+            const handlerId = `html-tooltip-leave-${chartId}`
+            registerMouseLeaveHandler(handlerId, () => setTooltipContent(null))
+            return () => unregisterMouseLeaveHandler(handlerId)
+        },
+        [chartId, registerMouseLeaveHandler, unregisterMouseLeaveHandler]
+    )
+
+    if (tooltipContent === null) return null
+
+    const divStyle: CSSProperties = {
+        position: 'fixed',
+        left: tooltipContent.left,
+        top: tooltipContent.top,
+        backgroundColor: withAlpha(tooltipStyle.backgroundColor, tooltipStyle.backgroundOpacity),
+        border: `${tooltipStyle.borderWidth}px solid ${withAlpha(tooltipStyle.borderColor, tooltipStyle.borderOpacity)}`,
+        borderRadius: tooltipStyle.borderRadius,
+        padding: `${tooltipStyle.paddingTop}px ${tooltipStyle.paddingRight}px ${tooltipStyle.paddingBottom}px ${tooltipStyle.paddingLeft}px`,
+        fontFamily: tooltipStyle.fontFamily,
+        fontSize: tooltipStyle.fontSize,
+        color: tooltipStyle.fontColor,
+        pointerEvents: 'none',
+        zIndex: 9999,
+    }
+
+    return createPortal(
+        <div style={divStyle}>
+            <div style={{fontWeight: tooltipStyle.fontWeight + 500, fontSize: tooltipStyle.fontSize + 2}}>
+                {tooltipContent.header}
+            </div>
+            {tooltipContent.datumLine && <div style={{marginTop: 6}}>{tooltipContent.datumLine}</div>}
+            <div style={{marginTop: 6}}>{tooltipContent.bandLine}</div>
+            <div style={{marginTop: 6}}>
+                {tooltipContent.explanationLines.map((line, index) => <div key={index}>{line}</div>)}
+            </div>
+            <div style={{marginTop: 6}}>{tooltipContent.countLine}</div>
+        </div>,
+        document.body
+    )
 }
 
-function addTooltipContent(
+/**
+ * Captures the data needed to render the tooltip content, and computes its viewport-fixed
+ * position. Replaces the old version, which appended and hand-positioned one SVG `<text>` element
+ * per line via `getBBox()`.
+ * @param seriesName The name of the series
+ * @param metadata The band metadata
+ * @param mouseCoords The coordinates of the mouse when the event was fired, in canvas-local coordinates
+ * @param canvas The chart's canvas element
+ * @param margin The plot margins
+ * @param plotDimensions The dimensions of the plot
+ * @param tooltipStyle The style properties for the tooltip
+ * @param datumFormatter Formatter for the hovered datum
+ * @param bandFormatter Formatter for the band's bounds
+ * @param measureFormatter Formatter for the band's inside/outside probabilities
+ * @param setTooltipContent Setter that stashes the captured content for the component to render
+ * @return Off-screen {@link TooltipDimensions}, so the parent <Tooltip>'s own background stays invisible
+ */
+function captureTooltipContent(
     seriesName: string,
-    time: number,
     metadata: OutlierBandTooltipMetadata,
     mouseCoords: [x: number, y: number],
-    chartId: number,
-    container: SVGSVGElement,
+    canvas: HTMLCanvasElement,
     margin: Margin,
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
     datumFormatter: (x: number, y: number) => string,
     bandFormatter: (lower: number, upper: number) => string,
     measureFormatter: (innerProb: number, outerProb: number) => Array<string>,
+    setTooltipContent: (content: OutlierTooltipContentState) => void,
 ): TooltipDimensions {
     const {
         datum,
@@ -134,96 +217,20 @@ function addTooltipContent(
     const innerProb = upperMeasure - lowerMeasure
     const [x, y] = mouseCoords
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mainGroup = d3.select<SVGSVGElement | null, any>(container)
-    const idPrefix = `ob${time}-${seriesName}-${chartId}`
+    const xCoord = tooltipX(x, ESTIMATED_WIDTH, plotDimensions, tooltipStyle, margin)
+    const yCoord = tooltipY(y, ESTIMATED_HEIGHT, plotDimensions, tooltipStyle, margin)
 
-    // create the text elements that get displayed in the tooltip
-    const elements: Array<d3.Selection<SVGTextElement, unknown, null, undefined>> = []
-    const header = createTextElement(
-        mainGroup,
-        `${idPrefix}-h`,
-        {...tooltipStyle, fontWeight: tooltipStyle.fontWeight + 500, fontSize: tooltipStyle.fontSize + 2},
-        `Series: ${seriesName}`
-    )
-    elements.push(header)
-    elements.push(createTextElement(mainGroup, `${idPrefix}-lh0`, tooltipStyle, " "))
-
-    if (datum) {
-        elements.push(createTextElement(
-            mainGroup,
-            `${idPrefix}-p`,
-            tooltipStyle,
-            datumFormatter(datum.datum.x, datum.datum.y)
-        ))
-    }
-    const measureText = createTextElement(
-        mainGroup,
-        `${idPrefix}-m`,
-        tooltipStyle,
-        bandFormatter(lowerMeasure, upperMeasure)
-    )
-    elements.push(measureText)
-    elements.push(createTextElement(mainGroup, `${idPrefix}-l1`, tooltipStyle, " "))
-
-    const explanation = measureFormatter(innerProb, outerProb)
-        .map(line => {
-            const elem = createTextElement(
-                mainGroup,
-                `${idPrefix}-m`,
-                tooltipStyle,
-                line
-            )
-            elements.push(elem)
-            return elem
-        })
-    elements.push(createTextElement(mainGroup, `${idPrefix}-l2`, tooltipStyle, " "))
-
-    const countText = createTextElement(
-        mainGroup,
-        `${idPrefix}-c`,
-        tooltipStyle,
-        `Points in band: ${pointsInBand}`
-    )
-    elements.push(countText)
-
-    // tooltip dimensions
-    const lineHeight = textHeightFor(header)
-    const contentWidth = Math.max(
-        textWidthFor(header), textWidthFor(measureText),
-        textWidthFor(countText), ...explanation.map(line => textWidthFor(line))
-    )
-    const contentHeight = lineHeight * elements.length
-
-    // tooltip positioning
-    const xCoord = tooltipX(x, contentWidth, plotDimensions, tooltipStyle, margin)
-    const yCoord = tooltipY(y, contentHeight, plotDimensions, tooltipStyle, margin)
-    const xTip = xCoord + tooltipStyle.paddingLeft
-    const yTip = yCoord + tooltipStyle.paddingTop + lineHeight
-
-    // update the element attributes
-    elements.forEach((element, index) => {
-        element.attr("x", xTip).attr("y", yTip + lineHeight * index)
+    const canvasRect = canvas.getBoundingClientRect()
+    setTooltipContent({
+        header: `Series: ${seriesName}`,
+        datumLine: datum ? datumFormatter(datum.datum.x, datum.datum.y) : undefined,
+        bandLine: bandFormatter(lowerMeasure, upperMeasure),
+        explanationLines: measureFormatter(innerProb, outerProb),
+        countLine: `Points in band: ${pointsInBand}`,
+        left: canvasRect.left + xCoord,
+        top: canvasRect.top + yCoord,
     })
 
-    return {x: xCoord, y: yCoord, contentWidth, contentHeight}
-}
-
-/**
- * Creates a text element with the given style and content.
- * @param mainGroup The SVG group holding the plot container
- * @param id The id of the text element
- * @param style The style of the text element
- * @param content The content of the text element
- * @return The SVG text element
- */
-function createTextElement(mainGroup: d3.Selection<SVGSVGElement | null, unknown, null, undefined>, id: string, style: TooltipStyle, content: string): d3.Selection<SVGTextElement, unknown, null, undefined> {
-    return mainGroup.append<SVGTextElement>("text")
-        .attr("id", id)
-        .attr("class", "tooltip")
-        .attr("fill", style.fontColor)
-        .attr("font-family", "sans-serif")
-        .attr("font-size", style.fontSize)
-        .attr("font-weight", style.fontWeight)
-        .text(content)
+    // return off-screen coordinates so the Tooltip parent's background div is invisible
+    return {x: -99999, y: -99999, contentWidth: 0, contentHeight: 0}
 }

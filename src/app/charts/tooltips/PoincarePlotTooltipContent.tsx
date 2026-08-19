@@ -1,12 +1,6 @@
-import {
-    type CellStyle,
-    createTable,
-    type Margin,
-    type TableFont,
-    TableData,
-    TableFormatter,
-    TableStyler, type Padding
-} from "svg-table";
+import type {CSSProperties, ReactElement} from "react";
+import {useEffect, useMemo, useState} from "react";
+import {createPortal} from "react-dom";
 import {
     defaultTooltipStyle,
     findPointAndNeighbors,
@@ -15,16 +9,14 @@ import {
     tooltipX,
     tooltipY
 } from "./tooltipUtils";
-import {formatTime, formatTimeChange, formatValue, formatValueChange} from "../utils";
-import {useEffect, useMemo} from "react";
+import {withAlpha} from "../styling/canvasStyle";
+import {formatTime, formatValue} from "../utils";
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {emptyIterateDatum, type IterateDatum} from "../series/iterateSeries";
 import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
 import type {TooltipData} from "../hooks/useTooltip";
-import {DataFrame} from "data-frame-ts";
-import type {Dimensions} from "../styling/margins";
-import type {Background, Border, BorderElement, Dimension} from "svg-table/stylings";
+import type {Dimensions, Margin} from "../styling/margins";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
 /**
@@ -38,7 +30,7 @@ import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
  2. Use the {@link useChart} hook to get the {@link registerTooltipContentProvider} registration function.
  3. When your tooltip content component (`<MyTooltipContent/>`) mounts, use the {@link registerTooltipContentProvider}
  function to register your tooltip content provider.
- 4. When the chart dimensions, margin, container, etc, change, register your tooltip content provider
+ 4. When the chart dimensions, margin, canvas, etc, change, register your tooltip content provider
  again (you can register as many times as you like because it only uses the last content provider
  registered).
 
@@ -54,32 +46,17 @@ import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 
  `(seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions`
 
- Your function to add that actual content will be what this function calls whenever d3 fires a mouse-over
- event on one you the time-series in the chart.
+ Your function to capture the actual content will be what this function calls whenever the plot's
+ mousemove hit-test finds the mouse hovering over one of the points in the chart. Tooltip content
+ itself is rendered declaratively as a React portal (see {@link PoincarePlotTooltipContent} below
+ for a full example) rather than drawn/appended directly.
 
- The code snippet below is from the `useEffect` call in the {@link PoincarePlotTooltipContent}.
- Note that the first four arguments to the {@link addTooltipContent} function are those provided by the {@link useChart} hook
- when a d3 mouse-over event occurs on one of your series. The additional six arguments are from the closure formed
- on the variables in your component. The `chartId`, `container`, `margin`, and `plotDimensions` are from the
- {@link useChart} hook called by the {@link PoincarePlotTooltipContent} component. The last two
- arguments, `defaultTooltipStyle` and `options` are specific to the {@link PoincarePlotTooltipContent}.
- For example, the `options` property is set by the caller of the {@link PoincarePlotTooltipContent}
- component.
-
- ```ts
- // register the tooltip content provider function with the chart hook (useChart) so that
- // it is visible to all children of the Chart (i.e. the <Tooltip>).
- registerTooltipContentProvider(
- (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
- addTooltipContent(
- seriesName, time, series, mouseCoords,
- chartId, container, margin, plotDimensions,
- defaultTooltipStyle, options
- )
- )
- ```
-
- This pattern allows you to supplement that `useChart` mouse-over callback with information specific to your component.
+ NOTE ON THIS FILE'S CONVERSION: like `BarPlotTooltipContent.tsx`, the original SVG version
+ rendered its table using the third-party `svg-table` library (`createTable(...)`), which renders
+ directly into an SVG container element. That has no canvas equivalent and no visibility into its
+ internal cell-styling data shape for retargeting, so this version replaces it with a plain HTML
+ `<table>` -- same data (previous/current/next iterate values), same "current" column highlight,
+ just laid out with real HTML/CSS instead of an external SVG-table-rendering dependency.
 
  */
 
@@ -108,32 +85,62 @@ export interface Props {
 }
 
 /**
- * Adds tooltip content as a table. The columns of the table are the "label", the value before
- * the mouse cursor, then value after the mouse cursor, and the difference between the two values.
- * The rows of the table are x-values for the first row, and the y-values for the second row.
- * The table has the following form.
+ * The data needed to render the tooltip's table content, captured at mouse-over time and read
+ * back out during render. Replaces the old version's immediate SVG DOM manipulation (via
+ * `svg-table`'s `createTable`).
+ */
+interface PoincareTooltipContent {
+    seriesName: string
+    prevHeader: string
+    currentHeader: string
+    nextHeader: string
+    xLabel: string
+    xPrev: string
+    xCurrent: string
+    xNext: string
+    yLabel: string
+    yPrev: string
+    yCurrent: string
+    yNext: string
+    left: number
+    top: number
+}
+
+/** A generous estimate of the tooltip's rendered width, used to keep it from running off the right edge of the viewport. */
+const ESTIMATED_WIDTH = 300
+/** A generous estimate of the tooltip's rendered height, used to keep it from running off the bottom edge of the plot. */
+const ESTIMATED_HEIGHT = 90
+
+/**
+ * Adds tooltip content as a table. The columns of the table are the previous, current, and next
+ * iterate (relative to the hovered point). The rows of the table are the time values for the
+ * first row, and the iterate values for the second row.
  * ```
  * series name
- *            previous  current         next
- * time        x_tb      x_ta       x_ta - x_tb
- * value       y_tb      y_ta       y_ta - y_tb
+ *            f[n-1](x)     f[n](x)      f[n+1](x)
+ * t (ms)       t_p            t_c          t_n
+ * value        v_p            v_c          v_n
  * ```
  *
- * Registers the tooltip-content provider with the `ChartContext` so that when d3 fires a mouse-over
- * event on a series. The content provider is returns the {@link addTooltipContent} function
- * when called. And when called the {@link addTooltipContent} function adds the actual tooltip
- * content to the SVG element.
+ * Registers the tooltip-content provider with the `ChartContext` so that when the plot's
+ * mousemove hit-test finds the mouse over a point, this component's content is shown. On
+ * mouse-over, the provider just captures the data needed to render (via `setTooltipContent`) and
+ * returns off-screen {@link TooltipDimensions} so the parent {@link Tooltip}'s own background
+ * element stays invisible -- this component renders its own, independent portal instead (see
+ * {@link OutlierPlotHtmlTooltipContent} for the established pattern this follows).
  * @param props The properties describing the tooltip content
- * @return null
+ * @return The tooltip's portal, or `null` when nothing is being hovered
  */
-export function PoincarePlotTooltipContent(props: Props): null {
+export function PoincarePlotTooltipContent(props: Props): ReactElement | null {
     const {
         chartId,
-        container,
-        tooltip
+        canvas,
+        tooltip,
+        mouse
     } = useChart<IterateDatum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {registerTooltipContentProvider} = tooltip
+    const {registerMouseLeaveHandler, unregisterMouseLeaveHandler} = mouse
 
     const {
         margin,
@@ -143,209 +150,179 @@ export function PoincarePlotTooltipContent(props: Props): null {
     const {
         xLabel,
         yLabel,
-        nMinusLagHeader = ' f[n-1](x)',
-        nHeader = ' f[n](x)  ',
-        nPlusLagHeader = ' f[n+1](x)',
+        // NOTE: matches the original exactly -- these props are accepted but never actually used;
+        // the real column headers are always the hard-coded `f[i](x)` form built in
+        // captureTooltipContent from the point's index, regardless of what's passed here. This
+        // looks like a latent bug in the original, but the goal here is a faithful port, not an
+        // unrequested behavior change.
+        nMinusLagHeader: _nMinusLagHeader = 'f[n-1](x)',
+        nHeader: _nHeader = 'f[n](x)',
+        nPlusLagHeader: _nPlusLagHeader = 'f[n+1](x)',
         xValueFormatter = formatTime,
         yValueFormatter = formatValue,
-        xChangeFormatter = formatTimeChange,
-        yChangeFormatter = formatValueChange,
         style,
     } = props
 
     const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
 
-    // register the tooltip content provider, which when called on mouse-enter-series events
-    // will render the tooltip container and then the tooltip content. recall that the
-    // tooltip content is generated in this plot (because this is the plot that holds all the
-    // information needed to render it), and the container for the content is rendered by
-    // the <Tooltip>, which this knows nothing about.
-    //
-    // the 'registration function accepts a function of the form (seriesName, time, series) => TooltipDimensions.
-    // and that function has a closure on the content-specific information needed to add the
-    // actual content
+    const [tooltipContent, setTooltipContent] = useState<PoincareTooltipContent | null>(null)
+
+    // register the tooltip content provider, which when called on mouse-over-point events
+    // captures the data needed to render the tooltip; the actual rendering happens declaratively
+    // below, via the portal.
     useEffect(
         () => {
-            if (container) {
-                // register the tooltip content provider function with the chart hook (useChart) so that
-                // it is visible to all children of the Chart (i.e. the <Tooltip>).
+            if (canvas) {
                 registerTooltipContentProvider(
                     (seriesName: string, time: number, tooltipData: TooltipData<IterateDatum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) =>
-                        addTooltipContent(
+                        captureTooltipContent(
                             seriesName, time, tooltipData, mouseCoords,
-                            chartId, container, margin, plotDimensions, tooltipStyle,
+                            canvas, margin, plotDimensions, tooltipStyle,
+                            {xLabel, yLabel, xValueFormatter, yValueFormatter},
+                            setTooltipContent
                         )
                 )
             }
         },
         [
-            chartId, container, margin, plotDimensions, registerTooltipContentProvider,
-            xLabel, xChangeFormatter, xValueFormatter,
-            yLabel, yChangeFormatter, yValueFormatter,
-            nMinusLagHeader, nHeader, nPlusLagHeader,
+            canvas, margin, plotDimensions, registerTooltipContentProvider,
+            xLabel, xValueFormatter,
+            yLabel, yValueFormatter,
             tooltipStyle
         ]
     )
 
-    return null
+    // clears the captured content (and so unmounts the portal) when the mouse leaves the point
+    useEffect(
+        () => {
+            const handlerId = `html-tooltip-leave-${chartId}`
+            registerMouseLeaveHandler(handlerId, () => setTooltipContent(null))
+            return () => unregisterMouseLeaveHandler(handlerId)
+        },
+        [chartId, registerMouseLeaveHandler, unregisterMouseLeaveHandler]
+    )
+
+    if (tooltipContent === null) return null
+
+    const divStyle: CSSProperties = {
+        position: 'fixed',
+        left: tooltipContent.left,
+        top: tooltipContent.top,
+        backgroundColor: withAlpha(tooltipStyle.backgroundColor, tooltipStyle.backgroundOpacity),
+        border: `${tooltipStyle.borderWidth}px solid ${withAlpha(tooltipStyle.borderColor, tooltipStyle.borderOpacity)}`,
+        borderRadius: tooltipStyle.borderRadius,
+        padding: `${tooltipStyle.paddingTop}px ${tooltipStyle.paddingRight}px ${tooltipStyle.paddingBottom}px ${tooltipStyle.paddingLeft}px`,
+        fontFamily: tooltipStyle.fontFamily,
+        color: tooltipStyle.fontColor,
+        pointerEvents: 'none',
+        zIndex: 9999,
+    }
+
+    const cellStyle: CSSProperties = {padding: '1px 8px', textAlign: 'right'}
+    const rowLabelStyle: CSSProperties = {...cellStyle, textAlign: 'left', paddingLeft: 0}
+    const headerCellStyle: CSSProperties = {...cellStyle, fontWeight: tooltipStyle.fontWeight + 550}
+    // matches the old version's `currentIterateStyle`, applied to the "current" (middle) column
+    const currentColumnStyle: CSSProperties = {...cellStyle, fontWeight: tooltipStyle.fontWeight + 300}
+
+    return createPortal(
+        <div style={divStyle}>
+            <div style={{fontSize: tooltipStyle.fontSize, fontWeight: tooltipStyle.fontWeight, marginBottom: 4}}>
+                {tooltipContent.seriesName}
+            </div>
+            <table style={{fontSize: tooltipStyle.fontSize, borderCollapse: 'collapse'}}>
+                <thead>
+                <tr>
+                    <td style={rowLabelStyle}/>
+                    <td style={headerCellStyle}>{tooltipContent.prevHeader}</td>
+                    <td style={{...headerCellStyle, ...currentColumnStyle}}>{tooltipContent.currentHeader}</td>
+                    <td style={headerCellStyle}>{tooltipContent.nextHeader}</td>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td style={rowLabelStyle}>{tooltipContent.xLabel}</td>
+                    <td style={cellStyle}>{tooltipContent.xPrev}</td>
+                    <td style={currentColumnStyle}>{tooltipContent.xCurrent}</td>
+                    <td style={cellStyle}>{tooltipContent.xNext}</td>
+                </tr>
+                <tr>
+                    <td style={rowLabelStyle}>{tooltipContent.yLabel}</td>
+                    <td style={cellStyle}>{tooltipContent.yPrev}</td>
+                    <td style={currentColumnStyle}>{tooltipContent.yCurrent}</td>
+                    <td style={cellStyle}>{tooltipContent.yNext}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>,
+        document.body
+    )
 }
 
-const dimension: Dimension = {
-    width: 60,
-    defaultWidth: 70,
-    minWidth: 50,
-    maxWidth: 100,
-
-    height: 15,
-    defaultHeight: 15,
-    minHeight: 10,
-    maxHeight: 50
+interface CaptureOptions {
+    xLabel: string
+    yLabel: string
+    xValueFormatter: (value: number) => string
+    yValueFormatter: (value: number) => string
 }
 
 /**
- * Callback function that adds tooltip content and returns the tooltip width and text height
+ * Captures the data needed to render the tooltip's table content, and computes its viewport-fixed
+ * position. Replaces the old version, which built and positioned an SVG table via `svg-table`'s
+ * `createTable`.
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param time The time (x-coordinate value) corresponding to the mouse location
  * @param tooltipData The series data and metadata
- * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
- * @param chartId The ID of this chart
- * @param container The plot container (SVGSVGElement)
+ * @param mouseCoords The coordinates of the mouse when the event was fired, in canvas-local coordinates
+ * @param canvas The chart's canvas element
  * @param margin The plot margins
- * @param tooltipStyle The style properties for the tooltip
  * @param plotDimensions The dimensions of the plot
- * @return The width and text height of the tooltip content
+ * @param tooltipStyle The style properties for the tooltip
+ * @param options Header labels and value formatters
+ * @param setTooltipContent Setter that stashes the captured content for the component to render
+ * @return Off-screen {@link TooltipDimensions}, so the parent <Tooltip>'s own background stays invisible
  */
-function addTooltipContent(
+function captureTooltipContent(
     seriesName: string,
     time: number,
     tooltipData: TooltipData<IterateDatum, NoTooltipMetadata>,
     mouseCoords: [x: number, y: number],
-    chartId: number,
-    container: SVGSVGElement,
+    canvas: HTMLCanvasElement,
     margin: Margin,
     plotDimensions: Dimensions,
-    tooltipStyle: TooltipStyle
+    tooltipStyle: TooltipStyle,
+    options: CaptureOptions,
+    setTooltipContent: (content: PoincareTooltipContent) => void,
 ): TooltipDimensions {
     const [x, y] = mouseCoords
     const {series} = tooltipData
     const [lower, point, upper, index] = findPointAndNeighbors(
         series, time, 0.1, value => value.time, () => emptyIterateDatum
     )
+    const {xLabel, yLabel, xValueFormatter, yValueFormatter} = options
 
-    const defaultBorderElement: BorderElement = {
-        color: tooltipStyle.borderColor,
-        radius: 0,
-        width: 0,
-        opacity: 0
-    }
+    const xCoord = tooltipX(x, ESTIMATED_WIDTH, plotDimensions, tooltipStyle, margin)
+    const yCoord = tooltipY(y, ESTIMATED_HEIGHT, plotDimensions, tooltipStyle, margin)
 
-    const border: Border = {
-        top: defaultBorderElement,
-        bottom: defaultBorderElement,
-        left: defaultBorderElement,
-        right: defaultBorderElement,
-    }
+    const canvasRect = canvas.getBoundingClientRect()
+    setTooltipContent({
+        seriesName,
+        // matches the original: the header props are accepted but unused; headers are always this
+        // hard-coded f[i](x) form, built from the point's index
+        prevHeader: index > 0 ? `f[${index - 1}](x)` : '- n/a -',
+        currentHeader: `f[${index}](x)`,
+        nextHeader: index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -',
+        xLabel,
+        xPrev: xValueFormatter(lower.time),
+        xCurrent: xValueFormatter(point.time),
+        xNext: xValueFormatter(upper.time),
+        yLabel,
+        yPrev: yValueFormatter(lower.iterateN_1),
+        yCurrent: yValueFormatter(point.iterateN_1),
+        yNext: yValueFormatter(upper.iterateN_1),
+        left: canvasRect.left + xCoord,
+        top: canvasRect.top + yCoord,
+    })
 
-    const background: Background = {
-        color: tooltipStyle.backgroundColor,
-        opacity: tooltipStyle.backgroundOpacity
-    }
-
-    const font: TableFont = {
-        size: tooltipStyle.fontSize,
-        family: tooltipStyle.fontFamily,
-        color: tooltipStyle.fontColor,
-        weight: tooltipStyle.fontWeight
-    }
-
-    const padding: Padding = {
-        top: tooltipStyle.paddingTop,
-        bottom: tooltipStyle.paddingBottom,
-        right: tooltipStyle.paddingRight,
-        left: tooltipStyle.paddingLeft
-    }
-
-    const currentIterateStyle: CellStyle = {
-        border,
-        dimension,
-        background,
-        font: {...font, weight: 550},
-        padding,
-        alignText: 'right',
-        verticalAlignText: 'middle'
-    }
-
-    return DataFrame
-        .from<number | string>([
-            [lower.time, point.time, upper.time],
-            [lower.iterateN_1, point.iterateN_1, upper.iterateN_1]
-        ])
-        // create the table data that has the column headers
-        .flatMap(df => TableData
-            .fromDataFrame(df)
-            .withColumnHeader([
-                index > 0 ? `f[${index - 1}](x)` : '- n/a -',
-                `f[${index}](x)`,
-                index < series.length - 1 ? `f[${index + 1}](x)` : '- n/a -'
-            ])
-            .flatMap(td => td.withRowHeader(['t (ms)', 'value']))
-        )
-        // add the dat formatters for the (x, y) values of the iterates
-        .flatMap(tableData => TableFormatter.fromTableData(tableData)
-            .addRowFormatter(1, value => formatTime(value as number, ""))
-            .flatMap(tf => tf.addRowFormatter(2, value => formatValue(value as number)))
-            .flatMap(tf => tf.formatTable())
-        )
-        .map(tableData => TableStyler.fromTableData(tableData)
-            .withTableFont(font)
-            .withPadding(padding)
-            .withColumnHeaderStyle({
-                font: {...font, weight: 650},
-                padding: {top: 0, bottom: 10},
-                dimension: {...dimension, maxHeight: 70},
-                alignText: 'center',
-            })
-            .withRowHeaderStyle({
-                font: {...font, weight: 650},
-                padding: {left: 0, right: 10},
-                dimension: dimension,
-                alignText: 'center',
-            })
-            .withColumnStyles([], {
-                padding: {left: 10, right: 10},
-                alignText: 'right',
-            })
-            .withCellStyle(1, 2, currentIterateStyle)
-            .withCellStyle(2, 2, currentIterateStyle)
-            .withRowStyles([], {
-                font,
-                dimension: {...dimension, maxHeight: 20},
-                padding: {top: 0, bottom: 0}}
-            )
-            .styleTable()
-        )
-        .flatMap(styledTable =>
-            createTable(styledTable, container, `t${time}-${seriesName}-header-${chartId}`, tooltipCoordinates)
-        )
-        .map(renderingInfo => {
-            const {tableX: x, tableY: y, tableWidth: contentWidth, tableHeight: contentHeight} = renderingInfo
-            return {x, y, contentWidth, contentHeight}
-        })
-        .getOrThrow()
-
-    /**
-     * Calculates the coordinates of the tooltip based on the width and height of the SVG
-     * table. This is needed because the tooltip needs to be adjusted relative mouse location
-     * when the mouse coordinates are too close to an edge.
-     * @param width The SVG table width
-     * @param height The SVG table height
-     * @return The updated tooltip coordinates
-     */
-    function tooltipCoordinates(width: number, height: number): [x: number, y: number] {
-        return [
-            tooltipX(x, width, plotDimensions, tooltipStyle, margin),
-            tooltipY(y, height, plotDimensions, tooltipStyle, margin)
-        ]
-    }
-
+    // return off-screen coordinates so the Tooltip parent's background div is invisible
+    return {x: -99999, y: -99999, contentWidth: 0, contentHeight: 0}
 }

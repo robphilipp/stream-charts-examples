@@ -1,11 +1,13 @@
 import {
-    addContinuousNumericXAxis,
-    addContinuousNumericYAxis,
     type AxesFont,
     AxisLocation,
-    type ContinuousNumericAxis,
     defaultAxesFont,
-    labelIdFor, type SeriesStyle
+    type SeriesStyle,
+    addContinuousNumericXAxis,
+    addContinuousNumericYAxis,
+    removeContinuousXAxis,
+    removeContinuousYAxis,
+    type ContinuousNumericAxis
 } from "./axes";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
@@ -52,15 +54,15 @@ export interface Props {
 /**
  * Represents a continuous numeric axis (x or y) that can be place on the top, bottom,
  * left, or right of the chart. The domain (axis range) can be managed by this axis
- *  component or managed externally (i.e. deferred). This component returns null, meaning
- * React won't render it because we are updating the SVG element and don't want React
- * involved, except to call this function if the props change.
+ * component or managed externally (i.e. deferred). This component returns null, meaning
+ * React won't render it because we are drawing directly onto the chart's shared canvas and
+ * don't want React involved, except to call this function if the props change.
  * @param props The properties for the axis
  */
 export function ContinuousAxis(props: Props): null {
     const {
         chartId,
-        container,
+        canvasContext,
         axes,
         color
     } = useChart<Datum, SeriesStyle, unknown, ContinuousAxisRange, ContinuousNumericAxis>()
@@ -109,8 +111,7 @@ export function ContinuousAxis(props: Props): null {
 
     useEffect(
         () => {
-            if (container) {
-                const svg = d3.select<SVGSVGElement, Datum>(container)
+            if (canvasContext) {
                 const font: AxesFont = {...defaultAxesFont(), color, ...props.font}
 
                 const handleRangeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
@@ -127,7 +128,7 @@ export function ContinuousAxis(props: Props): null {
                         case AxisLocation.Bottom:
                         case AxisLocation.Top: {
                             axisRef.current = addContinuousNumericXAxis(
-                                chartId, axisId, svg, plotDimensions, location, scale, domain,
+                                canvasContext, axisId, plotDimensions, location, scale, domain,
                                 font, margin, label, setAxisIntervalFor
                             )
                             // add the x-axis to the chart context
@@ -144,7 +145,7 @@ export function ContinuousAxis(props: Props): null {
                         case AxisLocation.Left:
                         case AxisLocation.Right: {
                             axisRef.current = addContinuousNumericYAxis(
-                                chartId, axisId, svg, plotDimensions, location, scale, domain,
+                                canvasContext, axisId, plotDimensions, location, scale, domain,
                                 font, margin, label, setAxisIntervalFor
                             )
                             // add the y-axis to the chart context
@@ -181,23 +182,46 @@ export function ContinuousAxis(props: Props): null {
                             [axisId, ContinuousAxisRange.from(propDomain.start, propDomain.end)]
                         ]))
                     }
-                    // otherwise, if the domina exists, update the current axis
+                    // otherwise, if the domain exists, update the current axis
                     else if (currentDomain.isNotEmpty()) {
                         axisRef.current.update(currentDomain, plotDimensions, margin)
                     }
 
-                    svg.select(`#${labelIdFor(chartId, location)}`).attr('fill', color)
+                    // keep the label/tick color in sync with the chart's color (e.g. on theme change),
+                    // without recreating the axis or touching its domain
+                    axisRef.current.updateFont(font)
                 }
             }
         },
         [
             chartId, axisId, label, location, props.font, xAxesState, yAxesState, addXAxis, addYAxis, domain,
-            scale, container, margin, plotDimensions, setAxisIntervalFor,
+            scale, canvasContext, margin, plotDimensions, setAxisIntervalFor,
             axisRangeFor,
             addAxesRangesUpdateHandler,
             updateAxisRanges,
             color, updateAxisBasedOnDomainValues
         ]
+    )
+
+    // unregister the axis' draw function when the axis unmounts (e.g. the chart is torn down, or
+    // this axis is swapped out for a different one)
+    useEffect(
+        () => {
+            return () => {
+                if (canvasContext) {
+                    switch (location) {
+                        case AxisLocation.Bottom:
+                        case AxisLocation.Top:
+                            removeContinuousXAxis(canvasContext, axisId)
+                            break
+                        case AxisLocation.Left:
+                        case AxisLocation.Right:
+                            removeContinuousYAxis(canvasContext, axisId)
+                    }
+                }
+            }
+        },
+        [canvasContext, axisId, location]
     )
 
     return null

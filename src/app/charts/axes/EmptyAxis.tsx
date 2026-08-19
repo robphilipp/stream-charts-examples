@@ -1,4 +1,11 @@
-import {addEmptyXAxis, addEmptyYAxis, AxisLocation, type ContinuousNumericAxis,} from "./axes";
+import {
+    AxisLocation,
+    addEmptyXAxis,
+    addEmptyYAxis,
+    removeContinuousXAxis,
+    removeContinuousYAxis,
+    type ContinuousNumericAxis
+} from "./axes";
 import {useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
@@ -25,13 +32,14 @@ const EMPTY_AXIS_DOMAIN: [min: number, max: number] = [0, 1]
 /**
  * Represents an empty axis (x or y) that can be place on the top, bottom,
  * left, or right of the chart. An empty axis is just a line where the axis
- * would be, without any ticks or labels.
+ * would be, without any ticks or labels. This component returns null, meaning React won't
+ * render it because we are drawing directly onto the chart's shared canvas.
  * @param props The properties for the axis
  */
 export function EmptyAxis(props: Props): null {
     const {
         chartId,
-        container,
+        canvasContext,
         axes,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = useChart<Datum, any, any, ContinuousAxisRange, ContinuousNumericAxis>()
@@ -68,15 +76,13 @@ export function EmptyAxis(props: Props): null {
 
     useEffect(
         () => {
-            if (container) {
-                const svg = d3.select<SVGSVGElement, Datum>(container)
-
+            if (canvasContext) {
                 if (axisRef.current === undefined) {
                     switch (location) {
                         case AxisLocation.Bottom:
                         case AxisLocation.Top: {
                             axisRef.current = addEmptyXAxis(
-                                axisId, svg, plotDimensions, location, EMPTY_AXIS_SCALE,
+                                canvasContext, axisId, plotDimensions, location, EMPTY_AXIS_SCALE,
                                 margin, setAxisIntervalFor, EMPTY_AXIS_DOMAIN
                             )
                             // add the x-axis to the chart context
@@ -89,7 +95,7 @@ export function EmptyAxis(props: Props): null {
                         case AxisLocation.Left:
                         case AxisLocation.Right: {
                             axisRef.current = addEmptyYAxis(
-                                axisId, svg, plotDimensions, location, EMPTY_AXIS_SCALE,
+                                canvasContext, axisId, plotDimensions, location, EMPTY_AXIS_SCALE,
                                 margin, setAxisIntervalFor, EMPTY_AXIS_DOMAIN
                             )
                             // add the y-axis to the chart context
@@ -110,10 +116,30 @@ export function EmptyAxis(props: Props): null {
         },
         [
             chartId, axisId, location, addXAxis, addYAxis,
-            container, margin, plotDimensions, setAxisIntervalFor,
+            canvasContext, margin, plotDimensions, setAxisIntervalFor,
             axisRangeFor,
             setAxisRangeFor,
         ]
+    )
+
+    // unregister the axis' draw function when the axis unmounts
+    useEffect(
+        () => {
+            return () => {
+                if (canvasContext) {
+                    switch (location) {
+                        case AxisLocation.Bottom:
+                        case AxisLocation.Top:
+                            removeContinuousXAxis(canvasContext, axisId)
+                            break
+                        case AxisLocation.Left:
+                        case AxisLocation.Right:
+                            removeContinuousYAxis(canvasContext, axisId)
+                    }
+                }
+            }
+        },
+        [canvasContext, axisId, location]
     )
 
     return null

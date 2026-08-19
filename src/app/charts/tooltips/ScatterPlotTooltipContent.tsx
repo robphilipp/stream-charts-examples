@@ -1,10 +1,11 @@
+import type {CSSProperties, ReactElement} from "react";
+import {useEffect, useMemo, useState} from "react";
+import {createPortal} from "react-dom";
 import {type Series} from "../plots/plot";
 import type {Dimensions, Margin} from "../styling/margins";
 import {boundingPoints, defaultTooltipStyle, type TooltipDimensions, type TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
-import * as d3 from "d3";
+import {withAlpha} from "../styling/canvasStyle";
 import {formatTime, formatTimeChange, formatValue, formatValueChange} from "../utils";
-import type {TextSelection} from "../d3types";
-import {useEffect, useMemo} from "react";
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
@@ -23,7 +24,7 @@ To create your own tooltip content `<MyTooltipContent/>` you must do the followi
 2. Use the {@link useChart} hook to get the {@link registerTooltipContentProvider} registration function.
 3. When your tooltip content component (`<MyTooltipContent/>`) mounts, use the {@link registerTooltipContentProvider}
    function to register your tooltip content provider.
-4. When the chart dimensions, margin, container, etc, change, register your tooltip content provider
+4. When the chart dimensions, margin, canvas, etc, change, register your tooltip content provider
    again (you can register as many times as you like because it only uses the last content provider
    registered).
 
@@ -39,32 +40,11 @@ function that allowing a closure on content/chart-specific data. Specifically, y
 
 `(seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions`
 
-Your function to add that actual content will be what this function calls whenever d3 fires a mouse-over
-event on one you the time-series in the chart.
-
-The code snippet below is from the `useEffect` call in the {@link ScatterPlotTooltipContent}.
-Note that the first four arguments to the {@link addTooltipContent} function are those provided by the {@link useChart} hook
-when a d3 mouse-over event occurs on one of your series. The additional six arguments are from the closure formed
-on the variables in your component. The `chartId`, `container`, `margin`, and `plotDimensions` are from the
- {@link useChart} hook called by the {@link ScatterPlotTooltipContent} component. The last two
-arguments, `defaultTooltipStyle` and `options` are specific to the {@link ScatterPlotTooltipContent}.
-For example, the `options` property is set by the caller of the {@link ScatterPlotTooltipContent}
-component.
-
-```ts
-// register the tooltip content provider function with the chart hook (useChart) so that
-// it is visible to all children of the Chart (i.e. the <Tooltip>).
-registerTooltipContentProvider(
-    (seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) =>
-        addTooltipContent(
-            seriesName, time, series, mouseCoords,
-            chartId, container, margin, plotDimensions,
-            defaultTooltipStyle, options
-        )
-)
-```
-
-This pattern allows you to supplement that `useChart` mouse-over callback with information specific to you component.
+Your function to capture the actual content will be what this function calls whenever the plot's
+mousemove hit-test finds the mouse hovering over one of the time-series in the chart. Tooltip
+content itself is rendered declaratively as a React portal (see {@link ScatterPlotTooltipContent}
+below for a full example) rather than drawn/appended directly -- the content-provider's job is
+just to capture the data needed to render, via a bit of React state.
 
  */
 
@@ -113,6 +93,35 @@ export interface Props {
 }
 
 /**
+ * The data needed to render the tooltip's table content, captured at mouse-over time and read
+ * back out during render. Replaces the old version's immediate SVG DOM manipulation (which
+ * hand-positioned each table cell's SVG `<text>` element using a `spacesWidthFor` pixel-width
+ * hack) -- an actual HTML `<table>` handles column alignment natively, so no equivalent hack is
+ * needed here.
+ */
+interface ScatterTooltipContent {
+    seriesName: string
+    beforeHeader: string
+    afterHeader: string
+    deltaHeader: string
+    xLabel: string
+    xBefore: string
+    xAfter: string
+    xDelta: string
+    yLabel: string
+    yBefore: string
+    yAfter: string
+    yDelta: string
+    left: number
+    top: number
+}
+
+/** A generous estimate of the tooltip's rendered width, used to keep it from running off the right edge of the viewport. */
+const ESTIMATED_WIDTH = 320
+/** A generous estimate of the tooltip's rendered height, used to keep it from running off the bottom edge of the plot. */
+const ESTIMATED_HEIGHT = 90
+
+/**
  * Adds tooltip content as a table. The columns of the table are the "label", the value before
  * the mouse cursor, then value after the mouse cursor, and the difference between the two values.
  * The rows of the table are x-values for the first row, and the y-values for the second row.
@@ -124,21 +133,25 @@ export interface Props {
  * y-label     y_tb      y_ta       y_ta - y_tb
  * ```
  *
- * Registers the tooltip-content provider with the `ChartContext` so that when d3 fires a mouse-over
- * event on a series. The content provider is returns the {@link addTooltipContent} function
- * when called. And when called the {@link addTooltipContent} function adds the actual tooltip
- * content to the SVG element.
+ * Registers the tooltip-content provider with the `ChartContext` so that when the plot's
+ * mousemove hit-test finds the mouse over a series, this component's content is shown. On
+ * mouse-over, the provider just captures the data needed to render (via `setTooltipContent`) and
+ * returns off-screen {@link TooltipDimensions} so the parent {@link Tooltip}'s own background
+ * element stays invisible -- this component renders its own, independent portal instead (see
+ * {@link OutlierPlotHtmlTooltipContent} for the established pattern this follows).
  * @param props The properties describing the tooltip content
- * @return null
+ * @return The tooltip's portal, or `null` when nothing is being hovered
  */
-export function ScatterPlotTooltipContent(props: Props): null {
+export function ScatterPlotTooltipContent(props: Props): ReactElement | null {
     const {
         chartId,
-        container,
-        tooltip
+        canvas,
+        tooltip,
+        mouse
     } = useChart<Datum, SeriesLineStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {registerTooltipContentProvider} = tooltip
+    const {registerMouseLeaveHandler, unregisterMouseLeaveHandler} = mouse
 
     const {margin, plotDimensions} = usePlotDimensions()
 
@@ -157,19 +170,14 @@ export function ScatterPlotTooltipContent(props: Props): null {
 
     const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
 
-    // register the tooltip content provider, which when called on mouse-enter-series events
-    // will render the tooltip container and then the tooltip content. recall that that the
-    // tooltip content is generated in this plot (because this is the plot that holds all the
-    // information needed to render it), and the container for the content is rendered by
-    // the <Tooltip>, which this know nothing about.
-    //
-    // the 'registration function accepts a function of the form (seriesName, time, series) => TooltipDimensions.
-    // and that function has a closure on the content-specific information needed to add the
-    // actual content
+    const [tooltipContent, setTooltipContent] = useState<ScatterTooltipContent | null>(null)
+
+    // register the tooltip content provider, which when called on mouse-over-series events
+    // captures the data needed to render the tooltip (this plot holds all the information needed
+    // to render it); the actual rendering happens declaratively below, via the portal.
     useEffect(
         () => {
-            if (container) {
-                // assemble the options for adding the tooltip
+            if (canvas) {
                 const options: TooltipOptions = {
                     labels: {x: xLabel, y: yLabel},
                     headers: {before: beforeHeader, after: afterHeader, delta: deltaHeader},
@@ -179,20 +187,19 @@ export function ScatterPlotTooltipContent(props: Props): null {
                     }
                 }
 
-                // register the tooltip content provider function with the chart hook (useChart) so that
-                // it is visible to all children of the Chart (i.e. the <Tooltip>).
                 registerTooltipContentProvider(
                     (seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) =>
-                        addTooltipContent(
+                        captureTooltipContent(
                             seriesName, time, tooltipData.series, mouseCoords,
-                            chartId, container, margin, plotDimensions, tooltipStyle,
-                            options
+                            canvas, margin, plotDimensions, tooltipStyle,
+                            options,
+                            setTooltipContent
                         )
                 )
             }
         },
         [
-            chartId, container, margin, plotDimensions, registerTooltipContentProvider,
+            canvas, margin, plotDimensions, registerTooltipContentProvider,
             xLabel, xChangeFormatter, xValueFormatter,
             yLabel, yChangeFormatter, yValueFormatter,
             beforeHeader, afterHeader, deltaHeader,
@@ -200,123 +207,123 @@ export function ScatterPlotTooltipContent(props: Props): null {
         ]
     )
 
-    return null
+    // clears the captured content (and so unmounts the portal) when the mouse leaves the series
+    useEffect(
+        () => {
+            const handlerId = `html-tooltip-leave-${chartId}`
+            registerMouseLeaveHandler(handlerId, () => setTooltipContent(null))
+            return () => unregisterMouseLeaveHandler(handlerId)
+        },
+        [chartId, registerMouseLeaveHandler, unregisterMouseLeaveHandler]
+    )
+
+    if (tooltipContent === null) return null
+
+    const divStyle: CSSProperties = {
+        position: 'fixed',
+        left: tooltipContent.left,
+        top: tooltipContent.top,
+        backgroundColor: withAlpha(tooltipStyle.backgroundColor, tooltipStyle.backgroundOpacity),
+        border: `${tooltipStyle.borderWidth}px solid ${withAlpha(tooltipStyle.borderColor, tooltipStyle.borderOpacity)}`,
+        borderRadius: tooltipStyle.borderRadius,
+        padding: `${tooltipStyle.paddingTop}px ${tooltipStyle.paddingRight}px ${tooltipStyle.paddingBottom}px ${tooltipStyle.paddingLeft}px`,
+        fontFamily: tooltipStyle.fontFamily,
+        color: tooltipStyle.fontColor,
+        pointerEvents: 'none',
+        zIndex: 9999,
+    }
+
+    const cellStyle: CSSProperties = {padding: '1px 8px', textAlign: 'right'}
+    const rowLabelStyle: CSSProperties = {...cellStyle, textAlign: 'left', paddingLeft: 0}
+
+    return createPortal(
+        <div style={divStyle}>
+            <div style={{fontSize: tooltipStyle.fontSize, fontWeight: tooltipStyle.fontWeight, marginBottom: 4}}>
+                {tooltipContent.seriesName}
+            </div>
+            <table style={{fontSize: tooltipStyle.fontSize + 2, fontWeight: tooltipStyle.fontWeight + 150, borderCollapse: 'collapse'}}>
+                <thead>
+                <tr style={{fontWeight: tooltipStyle.fontWeight + 550}}>
+                    <td style={rowLabelStyle}/>
+                    <td style={cellStyle}>{tooltipContent.beforeHeader}</td>
+                    <td style={cellStyle}>{tooltipContent.afterHeader}</td>
+                    <td style={cellStyle}>{tooltipContent.deltaHeader}</td>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td style={rowLabelStyle}>{tooltipContent.xLabel}</td>
+                    <td style={cellStyle}>{tooltipContent.xBefore}</td>
+                    <td style={cellStyle}>{tooltipContent.xAfter}</td>
+                    <td style={cellStyle}>{tooltipContent.xDelta}</td>
+                </tr>
+                <tr>
+                    <td style={rowLabelStyle}>{tooltipContent.yLabel}</td>
+                    <td style={cellStyle}>{tooltipContent.yBefore}</td>
+                    <td style={cellStyle}>{tooltipContent.yAfter}</td>
+                    <td style={cellStyle}>{tooltipContent.yDelta}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>,
+        document.body
+    )
 }
 
 /**
- * Callback function that adds tooltip content and returns the tooltip width and text height
+ * Captures the data needed to render the tooltip's table content, and computes its viewport-fixed
+ * position. Replaces the old version, which measured and hand-positioned each SVG `<text>` cell
+ * via `getBBox()` and a `spacesWidthFor` pixel-width heuristic -- an HTML `<table>` (see the
+ * component above) handles all of that alignment natively.
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param time The time (x-coordinate value) corresponding to the mouse location
  * @param series The datum (t ms, s mV)
- * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
- * @param chartId The ID of this chart
- * @param container The plot container (SVGSVGElement)
+ * @param mouseCoords The coordinates of the mouse when the event was fired, in canvas-local coordinates
+ * @param canvas The chart's canvas element
  * @param margin The plot margins
- * @param tooltipStyle The style properties for the tooltip
  * @param plotDimensions The dimensions of the plot
+ * @param tooltipStyle The style properties for the tooltip
  * @param options The options passed through the function that adds the tooltip content
- * @return The width and text height of the tooltip content
+ * @param setTooltipContent Setter that stashes the captured content for the component to render
+ * @return Off-screen {@link TooltipDimensions}, so the parent <Tooltip>'s own background stays invisible
  */
-function addTooltipContent(
+function captureTooltipContent(
     seriesName: string,
     time: number,
     series: Series<Datum>,
     mouseCoords: [x: number, y: number],
-    chartId: number,
-    container: SVGSVGElement,
+    canvas: HTMLCanvasElement,
     margin: Margin,
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
-    options: TooltipOptions
+    options: TooltipOptions,
+    setTooltipContent: (content: ScatterTooltipContent) => void,
 ): TooltipDimensions {
-    const {labels, formatters} = options
+    const {labels, headers, formatters} = options
     const [x, y] = mouseCoords
     const [lower, upper] = boundingPoints(series, time, value => value.x, () => emptyDatum())
 
-    // display the neuron ID in the tooltip
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const header = d3.select<SVGSVGElement | null, any>(container)
-        .append<SVGTextElement>("text")
-        .attr('id', `tn${time}-${seriesName}-${chartId}`)
-        .attr('class', 'tooltip')
-        .attr('fill', tooltipStyle.fontColor)
-        .attr('font-family', 'sans-serif')
-        .attr('font-size', tooltipStyle.fontSize)
-        .attr('font-weight', tooltipStyle.fontWeight)
-        .attr('fill-opacity', tooltipStyle.borderOpacity)
-        .text(() => seriesName)
+    const xCoord = tooltipX(x, ESTIMATED_WIDTH, plotDimensions, tooltipStyle, margin)
+    const yCoord = tooltipY(y, ESTIMATED_HEIGHT, plotDimensions, tooltipStyle, margin)
 
+    const canvasRect = canvas.getBoundingClientRect()
+    setTooltipContent({
+        seriesName,
+        beforeHeader: headers.before,
+        afterHeader: headers.after,
+        deltaHeader: headers.delta,
+        xLabel: labels.x,
+        xBefore: formatters.x.value(lower.x),
+        xAfter: formatters.x.value(upper.x),
+        xDelta: formatters.x.change(lower.x, upper.x),
+        yLabel: labels.y,
+        yBefore: formatters.y.value(lower.y),
+        yAfter: formatters.y.value(upper.y),
+        yDelta: formatters.y.change(lower.y, upper.y),
+        left: canvasRect.left + xCoord,
+        top: canvasRect.top + yCoord,
+    })
 
-    // create the table that shows the points that come before and after the mouse time, and the
-    // changes in the time and value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const table = d3.select<SVGSVGElement | null, any>(container)
-        .append("g")
-        .attr('id', `t${time}-${seriesName}-header-${chartId}`)
-        .attr('class', 'tooltip')
-        .attr('fill', tooltipStyle.fontColor)
-        .attr('font-family', 'sans-serif')
-        .attr('font-size', tooltipStyle.fontSize + 2)
-        .attr('font-weight', tooltipStyle.fontWeight + 150)
-        .attr('fill-opacity', tooltipStyle.borderOpacity)
-
-
-    const headerRow = table.append('g').attr('font-weight', tooltipStyle.fontWeight + 550)
-    const hrLower = headerRow.append<SVGTextElement>("text").text(() => options.headers.before)
-    const hrUpper = headerRow.append<SVGTextElement>("text").text(() => options.headers.after)
-    const hrDelta = headerRow.append<SVGTextElement>("text").text(() => options.headers.delta)
-
-    const trHeader = table.append<SVGTextElement>("text").text(() => labels.x)
-    const trLower = table.append<SVGTextElement>("text").text(() => formatters.x.value(lower.x))
-    const trUpper = table.append<SVGTextElement>("text").text(() => formatters.x.value(upper.x))
-    const trDelta = table.append<SVGTextElement>("text").text(() => formatters.x.change(lower.x, upper.x))
-
-    const vrHeader = table.append<SVGTextElement>("text").text(() => labels.y)
-    const vrLower = table.append<SVGTextElement>("text").text(() => formatters.y.value(lower.y))
-    const vrUpper = table.append<SVGTextElement>("text").text(() => formatters.y.value(upper.y))
-    const vrDelta = table.append<SVGTextElement>("text").text(() => formatters.y.change(lower.y, upper.y))
-
-    const textWidthOf = (elem: TextSelection) => elem.node()?.getBBox()?.width || 0
-    const textHeightOf = (elem: TextSelection) => elem.node()?.getBBox()?.height || 0
-    const spacesWidthFor = (spaces: number) => spaces * textWidthOf(hrLower) / 5
-
-    // calculate the max width and height of the text
-    const tooltipWidth = Math.max(textWidthOf(header), spacesWidthFor(33))
-    const headerTextHeight = textHeightOf(header)
-    const headerRowHeight = textHeightOf(hrLower)
-    const timeRowHeight = textHeightOf(trHeader)
-    const valueRowHeight = textHeightOf(vrHeader)
-    const textHeight = headerTextHeight + headerRowHeight + timeRowHeight + valueRowHeight
-
-    // set the header text location
-    const xCoord = tooltipX(x, tooltipWidth, plotDimensions, tooltipStyle, margin)
-    const yCoord = tooltipY(y, textHeight, plotDimensions, tooltipStyle, margin)
-    const xTooltip = xCoord + tooltipStyle.paddingLeft
-    const yTooltip = yCoord + tooltipStyle.paddingTop
-    header
-        .attr('x', () => xTooltip)
-        .attr('y', () => yTooltip - (headerRowHeight + timeRowHeight + valueRowHeight) + textHeight)
-
-
-    const hrRowY = yTooltip + headerTextHeight + headerRowHeight
-    const hrLowerX = spacesWidthFor(14)
-    const hrUpperX = spacesWidthFor(24)
-    const hrDeltaX = spacesWidthFor(32)
-    hrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(hrLower)).attr('y', () => hrRowY)
-    hrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(hrUpper)).attr('y', () => hrRowY)
-    hrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(hrDelta)).attr('y', () => hrRowY)
-
-    const trRowY = hrRowY + timeRowHeight
-    trHeader.attr('x', () => xTooltip).attr('y', () => trRowY)
-    trLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(trLower)).attr('y', () => trRowY)
-    trUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(trUpper)).attr('y', () => trRowY)
-    trDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(trDelta)).attr('y', () => trRowY)
-
-    const vrRowY = trRowY + valueRowHeight
-    vrHeader.attr('x', () => xTooltip).attr('y', () => vrRowY)
-    vrLower.attr('x', () => xTooltip + hrLowerX - textWidthOf(vrLower)).attr('y', () => vrRowY)
-    vrUpper.attr('x', () => xTooltip + hrUpperX - textWidthOf(vrUpper)).attr('y', () => vrRowY)
-    vrDelta.attr('x', () => xTooltip + hrDeltaX - textWidthOf(vrDelta)).attr('y', () => vrRowY)
-
-    return {x: xCoord, y: yCoord, contentWidth: tooltipWidth, contentHeight: textHeight}
+    // return off-screen coordinates so the Tooltip parent's background div is invisible
+    return {x: -99999, y: -99999, contentWidth: 0, contentHeight: 0}
 }

@@ -1,11 +1,10 @@
-import {type AxesAssignment, currentIntervalsFrom, setClipPathG} from "./plot";
+import {type AxesAssignment, clipToArea, currentIntervalsFrom} from "./plot";
 import * as d3 from "d3";
 import {type D3DragEvent, type D3ZoomEvent, ZoomTransform} from "d3";
-import {makeIdSafeForCss, noop} from "../utils";
+import {noop} from "../utils";
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
-import React, {useCallback, useEffect, useMemo, useRef} from "react";
-import type {Datum, PixelDatum, TimeSeries} from "../series/timeSeries";
-import type {GSelection} from "../d3types";
+import {useCallback, useEffect, useMemo, useRef} from "react";
+import type {Datum, TimeSeries} from "../series/timeSeries";
 import {
     axesForSeriesGen,
     type BaseAxis,
@@ -18,6 +17,8 @@ import {
     panHandler,
     type SeriesLineStyle
 } from "../axes/axes";
+import type {CanvasContext} from "../d3types";
+import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {Observable, Subscription} from "rxjs";
 import type {Dimensions, Margin} from "../styling/margins";
 import {subscriptionTimeSeriesFor, subscriptionTimeSeriesWithCadenceFor} from "../subscriptions/subscriptions";
@@ -77,6 +78,12 @@ export interface Props {
  * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
  * chart ecosystem (axes, tracker, tooltip).
  *
+ * Internally, this no longer creates/updates SVG `<line>` elements. Instead, it registers a single
+ * draw function with the chart's {@link CanvasContext} that redraws every series' spikes from
+ * scratch each time the canvas repaints. Mouse hover (for the tooltip) is handled by hit-testing
+ * the mouse position against the last-drawn spike geometry -- as *disjoint* segments, since unlike
+ * a scatter series, consecutive spikes are not connected by a line (see `hitTesting.ts`).
+ *
  * @param props The properties associated with the raster plot
  * @example
  <RasterPlot
@@ -94,8 +101,7 @@ export interface Props {
 export function RasterPlot(props: Props): null {
     const {
         chartId,
-        container,
-        mainG,
+        canvasContext,
         axes,
         color,
         seriesStyles,
@@ -141,8 +147,8 @@ export function RasterPlot(props: Props): null {
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
     //
     // the "dataRef" and "seriesRef" both point to the same underlying data, a collection
-    // of series. The series in "dataRef" are bound to the DOM elements through d3. The "seriesRef" series
-    // are the ones that are updated as new data is streamed in.
+    // of series. The series in "dataRef" are read by the canvas draw function. The "seriesRef"
+    // series are the ones that are updated as new data is streamed in.
     //
     // the "dataRef" object holds on to a copy of the initial data (which is an array of
     // time-series, e.i. an array of BaseSeries<OrdinalDatum> objects). The slice just creates a copy of
@@ -152,8 +158,8 @@ export function RasterPlot(props: Props): null {
     // the "seriesRef" object is a reference to a map (series_name -> BaseSeries<OrdinalDatum>) which is
     // used to update the data in the series. When new data enters, it is appended to one or more series.
     //
-    // the series in the "dataRef" object are the ones bound to the DOM elements in d3, and so as these
-    // are updated, d3 will update the DOM elements (the elements in this plot).
+    // the series in the "dataRef" object are the ones read by the next redraw, so as these are
+    // updated, the next canvas repaint picks up the new data.
     const dataRef = useRef<Array<TimeSeries>>(initialData.slice())
     const seriesRef = useRef<Map<string, TimeSeries>>(
         new Map(initialData.map(
@@ -163,6 +169,13 @@ export function RasterPlot(props: Props): null {
     )
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
+
+    // the last-drawn geometry for each series' spikes, in canvas coordinates, used for
+    // hit-testing mouse hover on `mousemove` (see the effect below that wires up the listener)
+    const geometryRef = useRef<Map<string, SeriesGeometry>>(new Map())
+    // the name of the series the mouse was over on the previous `mousemove`, so we know when to
+    // fire a "leave" for the old series before firing an "over" for the new one
+    const lastHoveredRef = useRef<string | undefined>(undefined)
 
     const subscriptionRef = useRef<Subscription>(undefined)
 
@@ -196,16 +209,16 @@ export function RasterPlot(props: Props): null {
     // defined above allow the axes' times to be update properly by avoid stale reference to these
     // functions.
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
-            if (mainG !== null) {
+            if (canvasContext !== null) {
                 onUpdateTimeRef.current(ranges)
-                updatePlotRef.current(ranges, mainG)
+                updatePlotRef.current(canvasContext)
                 // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
                 // so that this doesn't update the application state synchronously from within the
                 // subscription's update
                 notifyIntervalsRef.current(ranges)
             }
         },
-        [mainG]
+        [canvasContext]
     )
 
     // todo find better way
@@ -265,9 +278,8 @@ export function RasterPlot(props: Props): null {
 
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param deltaX The amount that the plot is dragged
+     * @param x The amount that the plot is dragged
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time range
      */
     const onPan = useCallback(
@@ -284,7 +296,6 @@ export function RasterPlot(props: Props): null {
      * @param transform The d3 zoom transformation information
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time-range
      */
     const onZoom = useCallback(
@@ -298,58 +309,68 @@ export function RasterPlot(props: Props): null {
     )
 
     /**
-     * @param timeRanges
-     * @param mainGElem
+     * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
+     * Replaces the old version, which directly mutated SVG `<line>` elements bound via d3's
+     * enter/update/exit join. Canvas has no persistent elements to join against, so the draw
+     * function just redraws every spike from current data/scale state each time it's invoked.
+     * @param cc The canvas context to register the draw function with
      */
     const updatePlot = useCallback(
-        (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
-            if (container) {
-                // select the svg element bind the data to them
-                const svg = d3.select<SVGSVGElement, Datum>(container)
+        (cc: CanvasContext) => {
+            // set up panning
+            if (panEnabled) {
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => {
+                        canvasSelection.style("cursor", "move")
+                        allowTooltipRef.current = false
+                    })
+                    .on("drag", (event: D3DragEvent<HTMLCanvasElement, unknown, ContinuousNumericAxis>) => {
+                        onPan(event.dx, plotDimensions, timeRangesRef.current)
+                        // need to update the plot with the new time-ranges
+                        updatePlotRef.current(cc)
+                        // the pan updated the axes' ranges in place, so report the new intervals
+                        notifyIntervalsRef.current(timeRangesRef.current)
+                    })
+                    .on("end", () => {
+                        canvasSelection.style("cursor", "auto")
+                        allowTooltipRef.current = isSubscriptionClosed()
+                    })
 
-                // set up panning
-                if (panEnabled) {
-                    const drag = d3.drag<SVGSVGElement, Datum>()
-                        .on("start", () => {
-                            d3.select(container).style("cursor", "move")
-                            allowTooltipRef.current = false
-                        })
-                        .on("drag", (event: D3DragEvent<SVGSVGElement, Datum, ContinuousNumericAxis>) => {
-                            onPan(event.dx, plotDimensions, timeRanges)
-                            // need to update the plot with the new time-ranges
-                            updatePlotRef.current(timeRanges, mainGElem)
-                            // the pan updated the axes' ranges in place, so report the new intervals
-                            notifyIntervalsRef.current(timeRanges)
-                        })
-                        .on("end", () => {
-                            d3.select(container).style("cursor", "auto")
-                            allowTooltipRef.current = isSubscriptionClosed()
-                        })
+                canvasSelection.call(drag)
+            }
 
-                    svg.call(drag)
-                }
+            // set up for zooming
+            if (zoomEnabled) {
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter((event: KeyboardEvent) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([0, 10])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
+                            onZoom(
+                                event.transform,
+                                event.sourceEvent.offsetX - margin.left,
+                                plotDimensions,
+                                timeRangesRef.current,
+                            )
+                            updatePlotRef.current(cc)
+                            // the zoom updated the axes' ranges in place, so report the new intervals
+                            notifyIntervalsRef.current(timeRangesRef.current)
+                        }
+                    )
 
-                // set up for zooming
-                if (zoomEnabled) {
-                    const zoom = d3.zoom<SVGSVGElement, Datum>()
-                        .filter((event: KeyboardEvent) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                        .scaleExtent([0, 10])
-                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", (event: D3ZoomEvent<SVGSVGElement, Datum>) => {
-                                onZoom(
-                                    event.transform,
-                                    event.sourceEvent.offsetX - margin.left,
-                                    plotDimensions,
-                                    timeRanges,
-                                )
-                                updatePlotRef.current(timeRanges, mainGElem)
-                                // the zoom updated the axes' ranges in place, so report the new intervals
-                                notifyIntervalsRef.current(timeRanges)
-                            }
-                        )
+                canvasSelection.call(zoom)
+            }
 
-                    svg.call(zoom)
-                }
+            const draw = (context: CanvasContext) => {
+                const {ctx} = context
+
+                ctx.save()
+                clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
+                ctx.translate(margin.left, margin.top)
+
+                const newGeometry = new Map<string, SeriesGeometry>()
 
                 // enter, update, delete the raster data
                 dataRef.current.forEach(series => {
@@ -359,10 +380,11 @@ export function RasterPlot(props: Props): null {
                         axisId => xAxesState.axisFor(axisId).getOrUndefined(),
                         axisId => yAxesState.axisFor(axisId).getOrUndefined()
                     )
+                    if (xAxis === undefined || yAxis === undefined) return
 
                     // grab the series styles, or the defaults if none exist
                     const {
-                        color,
+                        color: seriesColor,
                         lineWidth,
                         highlightColor,
                         highlightWidth,
@@ -373,7 +395,7 @@ export function RasterPlot(props: Props): null {
                     }
 
                     const isHovered = hoveredSeriesName === series.name
-                    const strokeColor = isHovered ? highlightColor : color
+                    const strokeColor = isHovered ? highlightColor : seriesColor
                     const strokeWidth = isHovered ? (highlightWidth || lineWidth) : lineWidth
 
                     // only show the data for which the regex filter matches
@@ -386,63 +408,37 @@ export function RasterPlot(props: Props): null {
                     const y1 = yUpper(y)
                     const y2 = yLower(y)
 
-                    // manage the svg elements representing the raster lines
-                    mainGElem
-                        .select<SVGGElement>(`#${makeIdSafeForCss(series.name)}-${chartId}-raster`)
-                        .selectAll<SVGLineElement, PixelDatum>('line')
-                        .data(plotData as FastShiftArray<PixelDatum>)
-                        .join(
-                            enter => enter
-                                .append<SVGLineElement>('line')
-                                .attr('x1', datum => xAxis.scale(datum.x))
-                                .attr('x2', datum => xAxis.scale(datum.x))
-                                .attr('y1', () => y1)
-                                .attr('y2', () => y2)
-                                .attr('stroke', strokeColor)
-                                .attr('stroke-width', strokeWidth)
-                                .attr('data-series-name', series.name)
-                                .attr('class', 'spikes-lines')
-                                .on(
-                                    "mouseover",
-                                    (event, datumArray) =>
-                                        handleMouseOverSeries(
-                                            container,
-                                            xAxis,
-                                            series.name,
-                                            datumArray,
-                                            event,
-                                            margin,
-                                            seriesStyles,
-                                            allowTooltipRef.current,
-                                            mouseOverHandlerFor(`tooltip-${chartId}`)
-                                        )
-                                )
-                                .on(
-                                    "mouseleave",
-                                    event => handleMouseLeaveSeries(
-                                        series.name,
-                                        event.currentTarget,
-                                        seriesStyles,
-                                        mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                                    )
-                                ),
-                            // these are needed for resize and zoom
-                            update => update
-                                .attr('x1', datum => xAxis.scale(datum.x))
-                                .attr('x2', datum => xAxis.scale(datum.x))
-                                .attr('y1', () => y1)
-                                .attr('y2', () => y2)
-                                .attr('stroke', strokeColor)
-                                .attr('stroke-width', strokeWidth)
-                            ,
-                            exit => exit.remove()
-                        )
+                    ctx.strokeStyle = strokeColor
+                    ctx.lineWidth = strokeWidth
+
+                    const segments: Array<[[number, number], [number, number]]> = []
+                    for (let i = 0; i < plotData.length; i++) {
+                        const x = xAxis.scale(plotData[i].x)
+                        ctx.beginPath()
+                        ctx.moveTo(x, y1)
+                        ctx.lineTo(x, y2)
+                        ctx.stroke()
+                        segments.push([[x + margin.left, y1 + margin.top], [x + margin.left, y2 + margin.top]])
+                    }
+
+                    newGeometry.set(series.name, {
+                        points: [],
+                        segments,
+                        hitRadius: Math.max(4, strokeWidth)
+                    })
                 })
+
+                geometryRef.current = newGeometry
+
+                ctx.restore()
             }
+
+            cc.register(`raster-plot-${chartId}`, draw, 10)
+            cc.requestRedraw()
         },
         [
-            axisAssignments, chartId, container, margin,
-            mouseLeaveHandlerFor, mouseOverHandlerFor, onPan, onZoom,
+            axisAssignments, chartId, canvasContext, margin,
+            onPan, onZoom,
             panEnabled,
             plotDimensions,
             seriesFilter, seriesStyles,
@@ -456,33 +452,13 @@ export function RasterPlot(props: Props): null {
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef<(r: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(noop)
     useEffect(
         () => {
-            if (mainG !== null && container !== null) {
-                // when the update plot function doesn't yet exist, then create the container holding the plot
-                const clipPathId = setClipPathG(chartId, mainG, plotDimensions)
-                if (updatePlotRef.current === noop) {
-                    mainG
-                        .selectAll<SVGGElement, TimeSeries>('g')
-                        .attr("clip-path", `url(#${clipPathId})`)
-                        .data<TimeSeries>(dataRef.current)
-                        .enter()
-                        .append('g')
-                        .attr('class', 'spikes-series')
-                        .attr('id', series => `${makeIdSafeForCss(series.name)}-${chartId}-raster`)
-                        .attr('transform', `translate(${margin.left}, ${margin.top})`)
-
-                } else {
-                    mainG
-                        .selectAll<SVGGElement, TimeSeries>('g')
-                        .attr("clip-path", `url(#${clipPathId})`)
-                }
-                // eslint-disable-next-line react-hooks/immutability
-                updatePlotRef.current = updatePlot
-            }
+            // eslint-disable-next-line react-hooks/immutability
+            updatePlotRef.current = updatePlot
         },
-        [chartId, container, mainG, margin, plotDimensions, updatePlot]
+        [updatePlot]
     )
 
     // grab a reference to the function used to update the time ranges and update that reference
@@ -538,7 +514,7 @@ export function RasterPlot(props: Props): null {
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
-            if (seriesObservable === undefined || mainG === null) return undefined
+            if (seriesObservable === undefined || canvasContext === null) return undefined
             if (withCadenceOf !== undefined) {
                 return subscriptionTimeSeriesWithCadenceFor(
                     seriesObservable as Observable<TimeSeriesChartData>,
@@ -570,7 +546,7 @@ export function RasterPlot(props: Props): null {
             )
         },
         [
-            axisAssignments, dropDataAfter, mainG,
+            axisAssignments, dropDataAfter, canvasContext,
             onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
             withCadenceOf
@@ -580,7 +556,7 @@ export function RasterPlot(props: Props): null {
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
     useEffect(
         () => {
-            if (container && mainG) {
+            if (canvasContext) {
                 // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
                 // change. for example, as data is streamed in, the times change, and then we need to update the
                 // time-range. however, we want to keep the time-ranges to reflect their original scale so that
@@ -600,7 +576,6 @@ export function RasterPlot(props: Props): null {
                             const [start, end] = Optional.ofNullable(intervals.get(id))
                                 .map(interval => interval.asTuple())
                                 .getOrThrow(() => new Error(`Unable to retrieve interval for axis; axis_id: ${id}`))
-                                // .getOrElse([NaN, NaN])
                             if (!isNaN(start) && !isNaN(end)) {
                                 // update the reference map with the new (start, end) portion of the range,
                                 // while keeping the original scale intact
@@ -608,10 +583,73 @@ export function RasterPlot(props: Props): null {
                             }
                         })
                 }
-                updatePlot(timeRangesRef.current, mainG)
+                updatePlot(canvasContext)
             }
         },
-        [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
+        [chartId, color, canvasContext, plotDimensions, updatePlot, xAxesState]
+    )
+
+    // wires up a single mousemove/mouseleave listener on the shared canvas to replace the old
+    // per-element SVG mouseover/mouseleave handlers. Hit-tests the mouse position against the
+    // last-drawn spike geometry (see `geometryRef`, populated by the draw function above).
+    useEffect(
+        () => {
+            if (!canvasContext) return
+
+            const canvas = canvasContext.canvas
+
+            const handleMove = (event: MouseEvent) => {
+                if (!allowTooltipRef.current) return
+
+                const [x, y] = canvasLocalPoint(event, canvas)
+                const hit = seriesAt(x, y, geometryRef.current)
+
+                if (hit?.name === lastHoveredRef.current && hit !== undefined) {
+                    // still hovering the same series -- no enter/leave to fire, but the specific
+                    // spike may have changed, so fall through and re-report below
+                } else if (lastHoveredRef.current !== undefined) {
+                    handleMouseLeaveSeries(lastHoveredRef.current, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                }
+
+                if (hit !== undefined) {
+                    const series = seriesRef.current.get(hit.name)
+                    const selectedDatum = series?.data[hit.index]
+                    const xAxis = axesFor(
+                        hit.name,
+                        axisAssignments,
+                        axisId => xAxesState.axisFor(axisId).getOrUndefined(),
+                        axisId => yAxesState.axisFor(axisId).getOrUndefined()
+                    )[0]
+                    if (selectedDatum !== undefined && xAxis !== undefined) {
+                        handleMouseOverSeries(
+                            xAxis,
+                            hit.name,
+                            selectedDatum,
+                            [x, y],
+                            margin,
+                            mouseOverHandlerFor(`tooltip-${chartId}`)
+                        )
+                    }
+                }
+
+                lastHoveredRef.current = hit?.name
+            }
+
+            const handleLeaveCanvas = () => {
+                if (lastHoveredRef.current !== undefined) {
+                    handleMouseLeaveSeries(lastHoveredRef.current, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                    lastHoveredRef.current = undefined
+                }
+            }
+
+            canvas.addEventListener('mousemove', handleMove)
+            canvas.addEventListener('mouseleave', handleLeaveCanvas)
+            return () => {
+                canvas.removeEventListener('mousemove', handleMove)
+                canvas.removeEventListener('mouseleave', handleLeaveCanvas)
+            }
+        },
+        [canvasContext, chartId, margin, axisAssignments, xAxesState, yAxesState, mouseOverHandlerFor, mouseLeaveHandlerFor]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
@@ -630,6 +668,18 @@ export function RasterPlot(props: Props): null {
             }
         },
         [shouldSubscribe, subscribe]
+    )
+
+    // unregister this plot's draw function on unmount
+    useEffect(
+        () => {
+            return () => {
+                if (canvasContext) {
+                    canvasContext.unregister(`raster-plot-${chartId}`)
+                }
+            }
+        },
+        [canvasContext, chartId]
     )
 
     return null
@@ -668,66 +718,50 @@ function axesFor(
 }
 
 /**
- * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
- * @param container The chart container
+ * Reports a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
+ * Replaces the old version, which mutated the hovered SVG `<line>`'s stroke directly; highlighting is now
+ * handled by the draw function reading `hoveredSeriesName` from chart state rather than by touching an
+ * element here.
  * @param xAxis The x-axis
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param selectedDatum The selected datum
- * @param event The mouse-over series event
+ * @param mouseCoords The `[x, y]` position of the mouse, in canvas coordinates
  * @param margin The plot margin
- * @param seriesStyles The series style information (needed for (un)highlighting)
- * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
  */
 function handleMouseOverSeries(
-    container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
     selectedDatum: Datum,
-    event: React.MouseEvent<SVGPathElement>,
+    mouseCoords: [x: number, y: number],
     margin: Margin,
-    seriesStyles: Map<string, SeriesLineStyle>,
-    allowTooltip: boolean,
     mouseOverHandlerFor: ((seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
-    const [x, y] = d3.pointer(event, container)
+    const [x] = mouseCoords
     const time = Math.round(xAxis.scale.invert(x - margin.left))
 
-    const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
-
-    // Use d3 to select element, change color and size
-    d3.select<SVGPathElement, Datum>(event.currentTarget)
-        .attr('stroke', highlightColor)
-        .attr('stroke-width', highlightWidth)
-
-    if (mouseOverHandlerFor && allowTooltip) {
+    if (mouseOverHandlerFor) {
         // the contract for the mouse over handler is for a time-series, but here we only
         // need one point, the selected datum, and so we convert it into an array of point
         // (i.e. a time-series). The category tooltip is (and custom ones, must) be
         // written to expect only the selected point
-        mouseOverHandlerFor(seriesName, time, {series: [selectedDatum], metadata: {}}, [x, y])
+        mouseOverHandlerFor(seriesName, time, {series: [selectedDatum], metadata: {}}, mouseCoords)
     }
 }
 
 /**
- * Unselects the time series and calls the mouse-leave-series handler registered for this series.
+ * Calls the mouse-leave-series handler registered for this series. Replaces the old version, which
+ * also reset the hovered SVG element's stroke color/width directly; that reset is now implicit --
+ * once `hoveredSeriesName` is cleared, the next redraw simply paints the spikes in their normal
+ * (non-highlighted) style.
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param segment The SVG line element representing the spike, over which the mouse is hovering.
- * @param seriesStyles The styles for the series (for (un)highlighting)
  * @param mouseLeaverHandlerFor Registered handler for the series when the mouse leaves
  */
 function handleMouseLeaveSeries(
     seriesName: string,
-    segment: SVGPathElement,
-    seriesStyles: Map<string, SeriesLineStyle>,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
-    d3.select<SVGPathElement, Datum>(segment)
-        .attr('stroke', color)
-        .attr('stroke-width', lineWidth)
-
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)
     }

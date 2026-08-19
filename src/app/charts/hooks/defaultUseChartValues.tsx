@@ -17,8 +17,8 @@ import type {UseChartValues} from "./useChart";
 export function defaultUseChartValues<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(): UseChartValues<D, S, TM, AR, A> {
     return {
         chartId: NaN,
-        container: null,
-        mainG: null,
+        canvas: null,
+        canvasContext: null,
         color: '#d2933f',
         backgroundColor: '#EEE',
         svgStyle: new Map(),

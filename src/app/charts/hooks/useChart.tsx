@@ -1,5 +1,5 @@
 import {createContext, type SetStateAction, type Dispatch, useContext} from "react";
-import type {GSelection} from "../d3types";
+import type {CanvasContext} from "../d3types";
 import type {BaseAxis, SeriesStyle} from "../axes/axes";
 import {type UseAxesValues} from "./useAxes";
 import {type UseMouseValues} from "./useMouse";
@@ -13,8 +13,8 @@ export type NoTooltipMetadata = object
 /**
  * The values exposed through the {@link useChart} react hook
  * @param chartId The unique ID for the chart
- * @param mainG The root <g> element for the chart
- * @param container The SVG element which is the container for this chart
+ * @param canvasContext The canvas drawing context and redraw-registration API for the chart
+ * @param canvas The `<canvas>` element which is the container for this chart
  * @template D The type of the series' datum
  * @template S The type of the series style
  * @template TM The type of the tooltip's metadata (data about the series data)
@@ -27,13 +27,16 @@ export interface UseChartValues<D, S extends SeriesStyle, TM, AR extends BaseAxi
      */
     chartId: number
     /**
-     * The root <g> element for the chart
+     * The canvas drawing context and redraw-registration API for the chart. Axes, plots, and the
+     * tracker register a draw function here (via `canvasContext.register(id, drawFn, zIndex)`)
+     * instead of creating/updating SVG elements. Replaces the old `mainG`.
      */
-    mainG: GSelection | null
+    canvasContext: CanvasContext | null
     /**
-     * The SVG element which is the container for this chart
+     * The `<canvas>` element which is the container for this chart. Replaces the old `container`
+     * (root `<svg>` element).
      */
-    container: SVGSVGElement | null
+    canvas: HTMLCanvasElement | null
     /**
      * Base color
      */
@@ -43,7 +46,7 @@ export interface UseChartValues<D, S extends SeriesStyle, TM, AR extends BaseAxi
      */
     backgroundColor: string
     /**
-     * Overrides for the SVG style
+     * Overrides for the chart container's CSS style
      */
     svgStyle: Partial<SvgStyle>
     /**

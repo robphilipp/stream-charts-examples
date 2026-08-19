@@ -1,10 +1,9 @@
-import {type JSX, useCallback, useMemo, useState} from 'react'
+import {type JSX, useCallback, useEffect, useMemo, useState} from 'react'
 import {type Dimensions, type Margin, plotDimensionsFrom} from "./styling/margins";
 import {initialSvgStyle, type SvgStyle} from "./styling/svgStyle";
-import type {GSelection} from "./d3types";
-import * as d3 from "d3";
+import type {CanvasContext} from "./d3types";
 import type {BaseAxis, SeriesStyle} from "./axes/axes";
-import {createPlotContainer} from "./plots/plot";
+import {createCanvasContext, resizeCanvasTo} from "./plots/plot";
 import {noop} from "./utils";
 import {Observable, Subscription} from "rxjs";
 import type {BaseSeries} from "./series/baseSeries";
@@ -23,13 +22,14 @@ import AxesProvider from "./hooks/AxesProvider";
 const defaultBackground = '#202020';
 
 /**
- * @param chartId A unique identifier for the chart. This is used to identify the chart in the DOM.
+ * @param chartId A unique identifier for the chart. This is used to namespace draw-handles registered
+ * with the chart's canvas context.
  * @param width The width of the chart container
  * @param height The height of the chart container
  * @param margin The margin between the edges of the chart container and the axes
  * @param color The base/default color of the chart lines. This can be overridden by the {@link Props.svgStyle} property.
  * @param backgroundColor The base/default background color. This can be overridden by the {@link Props.svgStyle} property.
- * @param svgStyle Overrides for the SVG style
+ * @param svgStyle Overrides for the chart container's CSS style
  * @param seriesStyles Map holding the series name to the series style associated with that series.
  * @param initialData Initial (static) data to plot before subscribing to the {@link ChartData} observable.
  * @param asChartData Optional conversion function that converts an array of base-series with datum type D to a
@@ -73,7 +73,7 @@ export interface Props<CD, D, S extends SeriesStyle> {
      */
     backgroundColor?: string
     /**
-     * Overrides for the SVG style
+     * Overrides for the chart container's CSS style
      */
     svgStyle?: Partial<SvgStyle>
     /**
@@ -156,6 +156,11 @@ export interface Props<CD, D, S extends SeriesStyle> {
 /**
  * The chart container that holds the axes, plot, tracker, and tooltip. The chart manages the
  * subscription, sets up the {@link useChart} hook via the {@link ChartProvider}.
+ *
+ * Internally, the chart is backed by a single `<canvas>` element rather than an SVG element tree.
+ * Axes, plots, and the tracker don't create/mutate their own DOM nodes anymore -- they register a
+ * draw function with the {@link CanvasContext} (exposed via `useChart().canvasContext`), and the
+ * canvas context clears and repaints all registered draw functions whenever a redraw is requested.
  * @param props The properties of the chart
  * @template CD Chart data
  * @template D The type of the datum type held in a series
@@ -274,25 +279,41 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
     // hold a reference to the current width and the plot dimensions
     const [plotDim, ] = useState<Dimensions>(() => plotDimensionsFrom(width, height, margin))
 
-    // the container that holds the d3 svg element
-    const [mainG, setMainG] = useState<GSelection | null>(null)
-    const [container, setContainer] = useState<SVGSVGElement | null>(null)
+    // the canvas element and the drawing-context/redraw-registry built on top of it. `canvasContext`
+    // replaces the old `mainG` (root SVG `<g>` selection) -- axes, plots, and the tracker register
+    // their draw functions with it instead of appending/updating SVG child elements.
+    const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
+    const [canvasContext, setCanvasContext] = useState<CanvasContext | null>(null)
 
-    // create the main SVG element if it doesn't already exist
-    if (!mainG && container) {
-        setMainG(createPlotContainer(chartId, container, plotDim, color))
+    // create the canvas context (and size the backing store) if it doesn't already exist
+    if (!canvasContext && canvas) {
+        const cc = createCanvasContext(chartId, canvas, plotDim, color)
+        resizeCanvasTo(cc, {width, height})
+        setCanvasContext(cc)
     }
 
-    const setMainGCallback = useCallback(
-        /**
-         * Callback for setting the main SVG container element and updating its dimensions and style.
-         * @param container - The SVG container element or null if not available.
-         */
-        (container:  SVGSVGElement | null) => {
-            if (container) {
-                setContainer(container)
+    // keep the canvas's backing store in sync with the container's pixel dimensions; mirrors the
+    // old effect that updated the SVG element's `width`/`height` attributes
+    useEffect(
+        () => {
+            if (canvasContext) {
+                resizeCanvasTo(canvasContext, {width, height})
+                canvasContext.requestRedraw()
+            }
+        },
+        [canvasContext, width, height]
+    )
 
-                // build up the svg style from the defaults and any svg style object
+    const setCanvasCallback = useCallback(
+        /**
+         * Callback for setting the canvas element and updating its CSS style.
+         * @param canvasElement - The canvas element, or null if not available (e.g. unmounting).
+         */
+        (canvasElement: HTMLCanvasElement | null) => {
+            if (canvasElement) {
+                setCanvas(canvasElement)
+
+                // build up the container style from the defaults and any style object
                 // passed in as properties
                 const style = Object.getOwnPropertyNames(svgStyle)
                     .map(name => `${name}: ${svgStyle[name]}; `)
@@ -300,24 +321,24 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
 
                 // when the chart "backgroundColor" property is set (i.e. not the default value),
                 // then we need to add it to the styles, overwriting any color that may have been
-                // set in the svg style object
+                // set in the style object
                 const background = backgroundColor !== defaultBackground ?
                     `background-color: ${backgroundColor}; ` :
                     ''
 
-                // update the dimension and style
-                d3.select<SVGSVGElement, unknown>(container!)
-                    .attr('width', width)
-                    .attr('height', height)
-                    .attr('style', style + background + ` color: ${color}`)
+                // update the style (dimensions are handled separately, on the canvas's backing
+                // store, by resizeCanvasTo -- see the effect above)
+                canvasElement.setAttribute('style', style + background + ` color: ${color}`)
             }
         },
-        [backgroundColor, color, height, svgStyle, width]
+        [backgroundColor, color, svgStyle]
     )
 
     return (
         <>
-            <svg ref={container => setMainGCallback(container)}/>
+            <div style={{position: 'relative', width, height}}>
+                <canvas ref={canvasElement => setCanvasCallback(canvasElement)}/>
+            </div>
             <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
                 <AxesProvider onUpdateAxesInterval={onUpdateAxesBounds}>
                     <MouseProvider<D, TM>>
@@ -337,8 +358,8 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                                 >
                                     <ChartProvider<S, AR, A>
                                         chartId={chartId}
-                                        container={container}
-                                        mainG={mainG}
+                                        canvas={canvas}
+                                        canvasContext={canvasContext}
 
                                         color={color}
                                         backgroundColor={backgroundColor}

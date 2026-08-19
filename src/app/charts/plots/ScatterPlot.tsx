@@ -1,8 +1,8 @@
-import React, {useCallback, useEffect, useMemo, useRef} from 'react'
+import {useCallback, useEffect, useMemo, useRef} from 'react'
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
 import {type D3ZoomEvent, ZoomTransform} from "d3";
-import {type AxesAssignment, currentIntervalsFrom, type Series, setClipPathG} from "./plot";
+import {type AxesAssignment, clipToArea, currentIntervalsFrom, type Series} from "./plot";
 import type {Datum, TimeSeries} from "../series/timeSeries";
 import {
     axesForSeriesGen,
@@ -15,7 +15,8 @@ import {
     panHandler,
     type SeriesLineStyle
 } from "../axes/axes";
-import type {GSelection} from "../d3types";
+import type {CanvasContext} from "../d3types";
+import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {Observable, Subscription} from "rxjs";
 import {makeIdSafeForCss, noop} from "../utils";
 import type {Dimensions, Margin} from "../styling/margins";
@@ -95,6 +96,12 @@ export interface Props {
  * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
  * chart ecosystem (axes, tracker, tooltip).
  *
+ * Internally, this no longer creates/updates SVG `<path>`/`<circle>` elements. Instead, it
+ * registers a single draw function with the chart's {@link CanvasContext} that redraws every
+ * series from scratch each time the canvas repaints. Mouse hover (for the tooltip) is handled by
+ * hit-testing the mouse position against the last-drawn series geometry (see `hitTesting.ts`) on a
+ * `mousemove` listener attached directly to the canvas, since canvas has no per-shape events.
+ *
  * @param props The properties associated with the scatter plot
  * @example
  <ScatterPlot
@@ -111,8 +118,7 @@ export interface Props {
 export function ScatterPlot(props: Props): null {
     const {
         chartId,
-        container,
-        mainG,
+        canvasContext,
         axes,
         color,
         seriesStyles,
@@ -172,8 +178,8 @@ export function ScatterPlot(props: Props): null {
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
     //
     // the "dataRef" and "seriesRef" both point to the same underlying data, a collection
-    // of series. The series in "dataRef" are bound to the DOM elements through d3. The "seriesRef" series
-    // are the ones that are updated as new data is streamed in.
+    // of series. The series in "dataRef" are bound to the DOM elements through d3. The "seriesRef"
+    // series are the ones that are updated as new data is streamed in.
     //
     // the "dataRef" object holds on to a copy of the initial data (which is an array of
     // time-series, e.i. an array of BaseSeries<Datum> objects). The slice just creates a copy of
@@ -183,12 +189,19 @@ export function ScatterPlot(props: Props): null {
     // the "seriesRef" object is a reference to a map (series_name -> BaseSeries<OrdinalDatum>) which is
     // used to update the data in the series. When new data enters, it is appended to one or more series.
     //
-    // the series in the "dataRef" object are the ones bound to the DOM elements in d3, and so as these
-    // are updated, d3 will update the DOM elements (the elements in this plot).
+    // the series in the "dataRef" object are the ones read by the canvas draw function, and so as
+    // these are updated, the next redraw picks up the new data.
     const dataRef = useRef<Array<TimeSeries>>(initialData.slice() as Array<TimeSeries>)
     const seriesRef = useRef<Map<string, TimeSeries>>(new Map(initialData.map(series => [series.name, series as TimeSeries])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<Map<string, number>>(new Map())
+
+    // the last-drawn geometry for each series, in canvas coordinates, used for hit-testing mouse
+    // hover on `mousemove` (see the effect below that wires up the listener)
+    const geometryRef = useRef<Map<string, SeriesGeometry>>(new Map())
+    // the name of the series the mouse was over on the previous `mousemove`, so we know when to
+    // fire a "leave" for the old series before firing an "over" for the new one
+    const lastHoveredRef = useRef<string | undefined>(undefined)
 
     const subscriptionRef = useRef<Subscription>(props.subscription)
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
@@ -213,16 +226,16 @@ export function ScatterPlot(props: Props): null {
     // defined above allow the axes' times to be updated properly by avoid stale reference to these
     // functions.
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
-            if (mainG !== null) {
+            if (canvasContext !== null) {
                 onUpdateTimeRef.current(ranges)
-                updatePlotRef.current(ranges, mainG)
+                updatePlotRef.current(canvasContext)
                 // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
                 // so that this doesn't update the application state synchronously from within the
                 // subscription's update
                 notifyIntervalsRef.current(ranges)
             }
         },
-        [mainG]
+        [canvasContext]
     )
 
     // todo find better way
@@ -262,7 +275,7 @@ export function ScatterPlot(props: Props): null {
 
     /**
      * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param deltaX The amount that the plot is dragged
+     * @param x The amount that the plot is dragged
      * @param plotDimensions The dimensions of the plot
      * @param ranges A map holding the axis ID and its associated time range
      */
@@ -280,7 +293,6 @@ export function ScatterPlot(props: Props): null {
      * @param transform The d3 zoom transformation information
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
      * @param ranges A map holding the axis ID and its associated time-range
      */
     const onZoom = useCallback(
@@ -295,14 +307,71 @@ export function ScatterPlot(props: Props): null {
 
     const updatePlot = useCallback(
         /**
-         * Updates the plot data for the specified time-range, which may have changed due to zoom or pan
-         * @param timeRanges The current time range
-         * @param mainGElem The main <g> element selection for that holds the plot
+         * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
+         * Replaces the old version, which directly mutated SVG `<path>`/`<circle>` elements bound
+         * via d3's enter/update/exit join. Canvas has no persistent elements to join against, so
+         * the draw function just redraws every series from its current data/scale state each time
+         * it's invoked -- there's no separate "update" case to handle.
+         * @param cc The canvas context to register the draw function with
          */
-        (timeRanges: Map<string, ContinuousAxisRange>, mainGElem: GSelection) => {
-            if (container) {
-                // select the svg element bind the data to them
-                const svg = d3.select<SVGSVGElement, Datum>(container)
+        (cc: CanvasContext) => {
+            // set up panning (idempotent: d3 replaces the previous .call(drag) behavior on the
+            // same selection when called again with a new drag instance)
+            if (panEnabled) {
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => {
+                        canvasSelection.style("cursor", "move")
+                        // during panning, we need to disable viewing the tooltip to prevent
+                        // tooltips from rendering but not getting removed
+                        allowTooltip.current = false;
+                    })
+                    .on("drag", (event) => {
+                        onPan(
+                            event.dx,
+                            plotDimensions,
+                            timeRangesRef.current,
+                        )
+                        updatePlotRef.current(cc)
+                        // the pan updated the axes' ranges in place, so report the new intervals
+                        notifyIntervalsRef.current(timeRangesRef.current)
+                    })
+                    .on("end", () => {
+                        canvasSelection.style("cursor", "auto")
+                        // during panning, we disabled viewing the tooltip to prevent
+                        // tooltips from rendering but not getting removed, now that panning
+                        // is over, allow tooltips to render again
+                        allowTooltip.current = isSubscriptionClosed();
+                    })
+
+                canvasSelection.call(drag)
+            }
+
+            // set up for zooming
+            if (zoomEnabled) {
+                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([0, 10])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
+                            onZoom(
+                                event.transform,
+                                event.sourceEvent.offsetX - margin.left,
+                                plotDimensions,
+                                timeRangesRef.current,
+                            )
+                            updatePlotRef.current(cc)
+                            // the zoom updated the axes' ranges in place, so report the new intervals
+                            notifyIntervalsRef.current(timeRangesRef.current)
+                        }
+                    )
+
+                canvasSelection.call(zoom)
+            }
+
+            const draw = (context: CanvasContext) => {
+                const {ctx} = context
 
                 // create a map associating series-names with their time-series.
                 //
@@ -317,65 +386,13 @@ export function ScatterPlot(props: Props): null {
                     series.data
                 ]))
 
-                // set up panning
-                if (panEnabled) {
-                    const drag = d3.drag<SVGSVGElement, Datum>()
-                        .on("start", () => {
-                            d3.select(container).style("cursor", "move")
-                            // during panning, we need to disable viewing the tooltip to prevent
-                            // tooltips from rendering but not getting removed
-                            allowTooltip.current = false;
-                        })
-                        .on("drag", (event) => {
-                            onPan(
-                                event.dx,
-                                plotDimensions,
-                                // Array.from(boundedSeries.keys()),
-                                timeRanges,
-                            )
-                            updatePlotRef.current(timeRanges, mainGElem)
-                            // the pan updated the axes' ranges in place, so report the new intervals
-                            notifyIntervalsRef.current(timeRanges)
-                        })
-                        .on("end", () => {
-                            d3.select(container).style("cursor", "auto")
-                            // during panning, we disabled viewing the tooltip to prevent
-                            // tooltips from rendering but not getting removed, now that panning
-                            // is over, allow tooltips to render again
-                            allowTooltip.current = isSubscriptionClosed();
-                        })
+                ctx.save()
+                clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
+                ctx.translate(margin.left, margin.top)
 
-                    svg.call(drag)
-                }
-
-                // set up for zooming
-                if (zoomEnabled) {
-                    const zoom = d3.zoom<SVGSVGElement, Datum>()
-                        .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                        .scaleExtent([0, 10])
-                        .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                        .on("zoom", (event: D3ZoomEvent<SVGSVGElement, Datum>) => {
-                                onZoom(
-                                    event.transform,
-                                    event.sourceEvent.offsetX - margin.left,
-                                    plotDimensions,
-                                    timeRanges,
-                                )
-                                updatePlotRef.current(timeRanges, mainGElem)
-                                // the zoom updated the axes' ranges in place, so report the new intervals
-                                notifyIntervalsRef.current(timeRanges)
-                            }
-                        )
-
-                    svg.call(zoom)
-                }
-
-                // define the clip-path so that the series lines don't go beyond the plot area
-                const clipPathId = setClipPathG(chartId, mainGElem, plotDimensions)
+                const newGeometry = new Map<string, SeriesGeometry>()
 
                 boundedSeries.forEach((data, name) => {
-                    const seriesId = makeIdSafeForCss(name)
-
                     // grab the x and y axes assigned to the series, and if either or both
                     // axes aren't found, then give up and return
                     const [xAxisLinear, yAxisLinear] = axesFor(
@@ -388,7 +405,7 @@ export function ScatterPlot(props: Props): null {
 
                     // grab the style for the series
                     const {
-                        color,
+                        color: seriesColor,
                         lineWidth,
                         highlightColor,
                         highlightWidth
@@ -396,125 +413,88 @@ export function ScatterPlot(props: Props): null {
 
                     // only show the data for which the filter matches
                     const plotData = (name.match(seriesFilter)) ? data : []
+                    const isHovered = hoveredSeriesName === name
 
-                    // drop data in the x-axis that is out of the chart bounds
-                    const lineGenerator = d3.line<Datum>()
-                        .defined((d: Datum) => {
-                            const x = xAxisLinear.scale(d.x)
-                            return x >= 0 && x <= plotDimensions.width
-                        })
-                        .x((d: Datum) => xAxisLinear.scale(d.x))
-                        .y((d: Datum) => yAxisLinear.scale(d.y))
-                        .curve(interpolation)
+                    // build the on-screen points, dropping data in the x-axis that is out of the
+                    // chart bounds (mirrors the old lineGenerator's `.defined(...)`)
+                    type ScreenPoint = [x: number, y: number]
+                    const segments: Array<Array<ScreenPoint>> = []
+                    let currentSegment: Array<ScreenPoint> = []
+                    plotData.forEach((d: Datum) => {
+                        const x = xAxisLinear.scale(d.x)
+                        if (x < 0 || x > plotDimensions.width) {
+                            if (currentSegment.length > 0) {
+                                segments.push(currentSegment)
+                                currentSegment = []
+                            }
+                            return
+                        }
+                        currentSegment.push([x, yAxisLinear.scale(d.y)])
+                    })
+                    if (currentSegment.length > 0) segments.push(currentSegment)
 
-                    // create the time-series paths
-                    mainGElem
-                        .selectAll(`#${seriesId}-${chartId}-scatter`)
-                        .data([[], plotData], () => `${name}`)
-                        .join(
-                            enter => enter
-                                .append("path")
-                                .attr("class", 'time-series-lines')
-                                .attr("id", `${seriesId}-${chartId}-scatter`)
-                                .attr("data-series-name", name)
-                                .attr("d", lineGenerator)
-                                .attr("fill", "none")
-                                .attr("stroke", hoveredSeriesName === name ? highlightColor : color)
-                                .attr("stroke-width", hoveredSeriesName === name ? highlightWidth : lineWidth)
-                                .attr('transform', `translate(${margin.left}, ${margin.top})`)
-                                .attr("clip-path", `url(#${clipPathId})`)
-                                .on(
-                                    "mouseover",
-                                    (event, datumArray) =>
-                                        // recall that this handler is passed down via the "useChart" hook
-                                        handleMouseOverSeries(
-                                            container,
-                                            xAxisLinear,
-                                            name,
-                                            datumArray,
-                                            event,
-                                            margin,
-                                            seriesStyles,
-                                            allowTooltip.current,
-                                            mouseOverHandlerFor(`tooltip-${chartId}`)
-                                        )
-                                )
-                                .on(
-                                    "mouseleave",
-                                    event => handleMouseLeaveSeries(
-                                        name,
-                                        event.currentTarget,
-                                        seriesStyles,
-                                        mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                                    )
-                                ),
-                            update => update,
-                            exit => exit.remove()
+                    // draw the series line (interpolation is applied via a Path2D built through a
+                    // d3 line generator so that custom curve factories -- e.g. curveBasis,
+                    // curveStep -- keep working exactly as they did with the SVG path)
+                    ctx.strokeStyle = isHovered ? highlightColor : seriesColor
+                    ctx.lineWidth = isHovered ? highlightWidth : lineWidth
+                    segments.forEach(segment => {
+                        const path = new Path2D(
+                            d3.line().curve(interpolation)(segment) ?? ""
                         )
+                        ctx.stroke(path)
+                    })
 
-                    // point markers (one circle per datum) — suppressed while streaming because
-                    // updating O(n) circle positions every frame causes stutter vs. O(1) for a line path
-                    const markerGroupId = `${seriesId}-${chartId}-scatter-markers`
-                    if (markerRadius != null && markerRadius >= 0 && !shouldSubscribe) {
-                        const radius = hoveredSeriesName === name ? markerRadius + 2 : markerRadius
-                        const markerGroup = mainGElem
-                            .selectAll<SVGGElement, Array<Datum>>(`#${markerGroupId}`)
-                            .data([plotData], () => `${name}-markers`)
-                            .join(
-                                enter => enter
-                                    .append("g")
-                                    .attr("id", markerGroupId)
-                                    .attr("class", "scatter-markers")
-                                    .attr("data-series-name", name)
-                                    .attr("transform", `translate(${margin.left}, ${margin.top})`)
-                                    .attr("clip-path", `url(#${clipPathId})`)
-                                    .on("mouseover", (event: MouseEvent) => {
-                                        if (allowTooltip.current) {
-                                            const [x, y] = d3.pointer(event, container)
-                                            const time = Math.round(xAxisLinear.scale.invert(x - margin.left))
-                                            mouseOverHandlerFor(`tooltip-${chartId}`)?.(name, time, {
-                                                series: plotData,
-                                                metadata: {}
-                                            }, [x, y])
-                                        }
-                                    })
-                                    .on("mouseleave", () => {
-                                        mouseLeaveHandlerFor(`tooltip-${chartId}`)?.(name)
-                                    }),
-                                update => update,
-                                exit => exit.remove()
-                            )
+                    // point markers (one circle per datum) -- suppressed while streaming because
+                    // redrawing many circles every frame is more work than a single line path
+                    const showMarkers = markerRadius != null && markerRadius >= 0 && !shouldSubscribe
+                    if (showMarkers) {
+                        const radius = isHovered ? markerRadius! + 2 : markerRadius!
+                        ctx.fillStyle = isHovered ? highlightColor : seriesColor
+                        plotData.forEach((d: Datum) => {
+                            const x = xAxisLinear.scale(d.x)
+                            const y = yAxisLinear.scale(d.y)
+                            ctx.beginPath()
+                            ctx.arc(x, y, radius, 0, 2 * Math.PI)
+                            ctx.fill()
+                        })
+                    }
 
-                        markerGroup
-                            .selectAll<SVGCircleElement, Datum>("circle")
-                            .data(plotData)
-                            .join(
-                                enter => enter
-                                    .append("circle")
-                                    .attr("r", radius)
-                                    .attr("fill", hoveredSeriesName === name ? highlightColor : color)
-                                    .attr("stroke", "none")
-                                    .attr("cx", d => xAxisLinear.scale(d.x) || 0)
-                                    .attr("cy", d => yAxisLinear.scale(d.y) || 0),
-                                update => update
-                                    .attr("r", radius)
-                                    .attr("fill", hoveredSeriesName === name ? highlightColor : color)
-                                    .attr("cx", d => xAxisLinear.scale(d.x) || 0)
-                                    .attr("cy", d => yAxisLinear.scale(d.y) || 0),
-                                exit => exit.remove()
-                            )
-                    } else {
-                        mainGElem.selectAll(`#${markerGroupId}`).remove()
+                    // record this series' geometry, in the *outer* (canvas) coordinate space
+                    // (i.e. with the margin offset baked back in), for mousemove hit-testing
+                    const screenPoints: Array<[number, number]> = plotData.map((d: Datum) => [
+                        xAxisLinear.scale(d.x) + margin.left,
+                        yAxisLinear.scale(d.y) + margin.top
+                    ])
+                    newGeometry.set(name, {
+                        points: screenPoints,
+                        asLine: true,
+                        hitRadius: Math.max(6, (isHovered ? highlightWidth : lineWidth) + 4)
+                    })
+                    if (showMarkers) {
+                        // markers get their own, generously-sized hit target keyed under a
+                        // derived name so a marker hover can be distinguished from a line hover
+                        // if the caller ever wants to (currently treated the same on mousemove)
+                        newGeometry.set(`${name}-markers`, {
+                            points: screenPoints,
+                            hitRadius: (isHovered ? markerRadius! + 2 : markerRadius!) + 3
+                        })
                     }
                 })
+
+                geometryRef.current = newGeometry
+
+                ctx.restore()
             }
+
+            cc.register(`scatter-plot-${chartId}`, draw, 10)
+            cc.requestRedraw()
         },
         [
-            container, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
+            canvasContext, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
             zoomKeyModifiersRequired, onZoom, axisAssignments,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
-            mouseOverHandlerFor, mouseLeaveHandlerFor,
             hoveredSeriesName, markerRadius, shouldSubscribe
         ]
     )
@@ -522,7 +502,7 @@ export function ScatterPlot(props: Props): null {
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef<(ordinalRange: Map<string, ContinuousAxisRange>, g: GSelection) => void>(noop)
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(noop)
     useEffect(
         () => {
             // eslint-disable-next-line react-hooks/immutability
@@ -578,11 +558,116 @@ export function ScatterPlot(props: Props): null {
         []
     )
 
+    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
+    useEffect(
+        () => {
+            if (canvasContext) {
+                // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
+                // change. for example, as data is streamed in, the times change, and then we need to update the
+                // time-range. however, we want to keep the time-ranges to reflect their original scale so that
+                // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
+                // interpolation changes, then the update plot changes, and the time-ranges must maintain their
+                // original scale as well.
+                if (timeRangesRef.current.size === 0) {
+                    // when no time-ranges have yet been created, then create them and hold on to a mutable
+                    // reference to them
+                    timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                } else {
+                    // when the time-ranges already exist, then we want to update the time-ranges for each
+                    // existing time-range in a way that maintains the original scale.
+                    const intervals = continuousAxisIntervals(xAxesState.axes)
+                    timeRangesRef.current
+                        .forEach((range, id, rangesMap) => {
+                            const [start, end] = Optional.ofNullable(intervals.get(id))
+                                .map(interval => interval.asTuple())
+                                .getOrThrow(() => new Error(`Unable to retrieve interval for axis; axis_id: ${id}`))
+                            if (!isNaN(start) && !isNaN(end)) {
+                                // update the reference map with the new (start, end) portion of the range,
+                                // while keeping the original scale intact
+                                rangesMap.set(id, range.update(start, end))
+                            }
+                        })
+                }
+                updatePlot(canvasContext)
+            }
+        },
+        [chartId, color, canvasContext, plotDimensions, updatePlot, xAxesState]
+    )
+
+    // wires up a single mousemove/mouseleave listener on the shared canvas to replace the old
+    // per-element SVG mouseover/mouseleave handlers. Hit-tests the mouse position against the
+    // last-drawn geometry (see `geometryRef`, populated by the draw function above).
+    useEffect(
+        () => {
+            if (!canvasContext) return
+
+            const canvas = canvasContext.canvas
+
+            const handleMove = (event: MouseEvent) => {
+                if (!allowTooltip.current) return
+
+                const [x, y] = canvasLocalPoint(event, canvas)
+                const rawHit = seriesAt(x, y, geometryRef.current)
+                // markers are recorded under a "<name>-markers" key; normalize back to the
+                // underlying series name so callers only ever see the real series name
+                const hitName = rawHit?.endsWith('-markers') ? rawHit.slice(0, -'-markers'.length) : rawHit
+
+                if (hitName === lastHoveredRef.current) return
+
+                if (lastHoveredRef.current !== undefined) {
+                    handleMouseLeaveSeries(
+                        lastHoveredRef.current,
+                        mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                    )
+                }
+
+                if (hitName !== undefined) {
+                    const series = seriesRef.current.get(hitName)
+                    if (series !== undefined) {
+                        const xAxisLinear = axesFor(
+                            hitName,
+                            axisAssignments,
+                            axisId => xAxesState.axisFor(axisId).getOrUndefined(),
+                            axisId => yAxesState.axisFor(axisId).getOrUndefined()
+                        )[0]
+                        if (xAxisLinear !== undefined) {
+                            handleMouseOverSeries(
+                                xAxisLinear,
+                                hitName,
+                                series.data,
+                                [x, y],
+                                margin,
+                                mouseOverHandlerFor(`tooltip-${chartId}`)
+                            )
+                        }
+                    }
+                }
+
+                lastHoveredRef.current = hitName
+            }
+
+            const handleLeaveCanvas = () => {
+                if (lastHoveredRef.current !== undefined) {
+                    handleMouseLeaveSeries(lastHoveredRef.current, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                    lastHoveredRef.current = undefined
+                }
+            }
+
+            canvas.addEventListener('mousemove', handleMove)
+            canvas.addEventListener('mouseleave', handleLeaveCanvas)
+            return () => {
+                canvas.removeEventListener('mousemove', handleMove)
+                canvas.removeEventListener('mouseleave', handleLeaveCanvas)
+            }
+        },
+        [canvasContext, chartId, margin, axisAssignments, xAxesState, yAxesState, mouseOverHandlerFor, mouseLeaveHandlerFor]
+    )
+
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
             if (subscriptionRef.current) return subscriptionRef.current
-            if (seriesObservable === undefined || mainG === null) return undefined
+            if (seriesObservable === undefined || canvasContext === null) return undefined
             if (withCadenceOf !== undefined) {
                 return subscriptionTimeSeriesWithCadenceFor(
                     seriesObservable as Observable<TimeSeriesChartData>,
@@ -616,49 +701,12 @@ export function ScatterPlot(props: Props): null {
             )
         },
         [
-            axisAssignments, dropDataAfter, mainG,
+            axisAssignments, dropDataAfter, canvasContext,
             onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
             withCadenceOf,
             initialTimes, timeWindowBehavior
         ]
-    )
-
-    const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
-    useEffect(
-        () => {
-            if (container && mainG) {
-                // so this gets a bit complicated. the time-ranges need to be updated whenever the time-ranges
-                // change. for example, as data is streamed in, the times change, and then we need to update the
-                // time-range. however, we want to keep the time-ranges to reflect their original scale so that
-                // we can zoom properly (so the updates can't fuck with the scale). At the same time, when the
-                // interpolation changes, then the update plot changes, and the time-ranges must maintain their
-                // original scale as well.
-                if (timeRangesRef.current.size === 0) {
-                    // when no time-ranges have yet been created, then create them and hold on to a mutable
-                    // reference to them
-                    timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-                } else {
-                    // when the time-ranges already exist, then we want to update the time-ranges for each
-                    // existing time-range in a way that maintains the original scale.
-                    const intervals = continuousAxisIntervals(xAxesState.axes)
-                    timeRangesRef.current
-                        .forEach((range, id, rangesMap) => {
-                            const [start, end] = Optional.ofNullable(intervals.get(id))
-                                .map(interval => interval.asTuple())
-                                .getOrThrow(() => new Error(`Unable to retrieve interval for axis; axis_id: ${id}`))
-                            // .getOrElse([NaN, NaN])
-                            if (!isNaN(start) && !isNaN(end)) {
-                                // update the reference map with the new (start, end) portion of the range,
-                                // while keeping the original scale intact
-                                rangesMap.set(id, range.update(start, end))
-                            }
-                        })
-                }
-                updatePlot(timeRangesRef.current, mainG)
-            }
-        },
-        [chartId, color, container, mainG, plotDimensions, updatePlot, xAxesState]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
@@ -677,6 +725,18 @@ export function ScatterPlot(props: Props): null {
             }
         },
         [shouldSubscribe, subscribe]
+    )
+
+    // unregister this plot's draw function on unmount
+    useEffect(
+        () => {
+            return () => {
+                if (canvasContext) {
+                    canvasContext.unregister(`scatter-plot-${chartId}`)
+                }
+            }
+        },
+        [canvasContext, chartId]
     )
 
     return null
@@ -713,62 +773,46 @@ function axesFor(
 }
 
 /**
- * Renders a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
- * @param container The chart container
+ * Reports a tooltip showing the neuron, spike time, and the spike strength when the mouse hovers over a spike.
+ * Replaces the old version, which mutated the hovered SVG `<path>`'s stroke directly; highlighting is now
+ * handled by the draw function reading `hoveredSeriesName` from chart state (set via `setHoveredSeriesName`
+ * elsewhere) rather than by touching an element here.
  * @param xAxis The x-axis
  * @param seriesName The name of the series (i.e. the neuron ID)
  * @param series The time series
- * @param event The mouse-over series event
+ * @param mouseCoords The `[x, y]` position of the mouse, in canvas coordinates
  * @param margin The plot margin
- * @param seriesStyles The series style information (needed for (un)highlighting)
- * @param allowTooltip When set to `false` won't show tooltip, even if it is visible (used by pan)
  * @param mouseOverHandlerFor The handler for the mouse over (registered by the <Tooltip/>)
  */
 function handleMouseOverSeries(
-    container: SVGSVGElement,
     xAxis: ContinuousNumericAxis,
     seriesName: string,
     series: Series<Datum>,
-    event: React.MouseEvent<SVGPathElement>,
+    mouseCoords: [x: number, y: number],
     margin: Margin,
-    seriesStyles: Map<string, SeriesLineStyle>,
-    allowTooltip: boolean,
     mouseOverHandlerFor: ((seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => void) | undefined,
 ): void {
     // grab the time needed for the tooltip ID
-    const [x, y] = d3.pointer(event, container)
+    const [x] = mouseCoords
     const time = Math.round(xAxis.scale.invert(x - margin.left))
 
-    const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
-
-    // Use d3 to select element, change color and size
-    d3.select<SVGPathElement, Datum>(event.currentTarget)
-        .attr('stroke', highlightColor)
-        .attr('stroke-width', highlightWidth)
-
-    if (mouseOverHandlerFor && allowTooltip) {
-        mouseOverHandlerFor(seriesName, time, {series, metadata: {}}, [x, y])
+    if (mouseOverHandlerFor) {
+        mouseOverHandlerFor(seriesName, time, {series, metadata: {}}, mouseCoords)
     }
 }
 
 /**
- * Unselects the time series and calls the mouse-leave-series handler registered for this series.
+ * Calls the mouse-leave-series handler registered for this series. Replaces the old version, which
+ * also reset the hovered SVG element's stroke color/width directly; that reset is now implicit --
+ * once `hoveredSeriesName` is cleared, the next redraw simply paints the series in its normal
+ * (non-highlighted) style.
  * @param seriesName The name of the series (i.e. the neuron ID)
- * @param segment The SVG line element representing the spike, over which the mouse is hovering.
- * @param seriesStyles The styles for the series (for (un)highlighting)
  * @param mouseLeaverHandlerFor Registered handler for the series when the mouse leaves
  */
 function handleMouseLeaveSeries(
     seriesName: string,
-    segment: SVGPathElement,
-    seriesStyles: Map<string, SeriesLineStyle>,
     mouseLeaverHandlerFor: ((seriesName: string) => void) | undefined,
 ): void {
-    const {color, lineWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
-    d3.select<SVGPathElement, Datum>(segment)
-        .attr('stroke', color)
-        .attr('stroke-width', lineWidth)
-
     if (mouseLeaverHandlerFor) {
         mouseLeaverHandlerFor(seriesName)
     }

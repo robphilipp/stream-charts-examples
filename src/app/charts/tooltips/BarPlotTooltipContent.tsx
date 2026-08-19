@@ -1,20 +1,19 @@
-import type {Dimensions, Margin} from "../styling/margins";
+import type {CSSProperties, ReactElement} from "react";
+import {useEffect, useMemo, useState} from "react";
+import {createPortal} from "react-dom";
 import {defaultTooltipStyle, type TooltipDimensions, type TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils";
-import * as d3 from "d3";
+import {withAlpha} from "../styling/canvasStyle";
 import {formatNumber, formatTime, formatValue} from "../utils";
-import {useEffect, useMemo} from "react";
 import {useChart} from "../hooks/useChart";
 import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {emptyOrdinalDatum, type OrdinalDatum} from "../series/ordinalSeries";
 import type {TooltipData} from "../hooks/useTooltip";
 import type {WindowedOrdinalStats} from "../subscriptions/subscriptions";
-import {DataFrame} from "data-frame-ts";
-import {createTable, type Padding, TableData, type TableFont, TableFormatter, TableStyler} from "svg-table";
 import {defaultOrdinalValueStats} from "../observables/ordinals";
-import type {Dimension} from "svg-table/stylings";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/constants.ts";
+import type {Dimensions, Margin} from "../styling/margins";
 
 /**
  # Want to write your own tooltip-content component?
@@ -27,7 +26,7 @@ import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/constants.ts";
  2. Use the {@link useChart} hook to get the {@link registerTooltipContentProvider} registration function.
  3. When your tooltip content component (`<MyTooltipContent/>`) mounts, use the {@link registerTooltipContentProvider}
  function to register your tooltip content provider.
- 4. When the chart dimensions, margin, container, etc, change, register your tooltip content provider
+ 4. When the chart dimensions, margin, canvas, etc, change, register your tooltip content provider
  again (you can register as many times as you like because it only uses the last content provider
  registered).
 
@@ -43,37 +42,17 @@ import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/constants.ts";
 
  `(seriesName: string, time: number, series: TimeSeries, mouseCoords: [x: number, y: number]) => TooltipDimensions`
 
- Your function to add that actual content will be what this function calls whenever d3 fires a mouse-over
- event on one you the time-series in the chart.
+ Your function to capture the actual content will be what this function calls whenever the plot's
+ mousemove hit-test finds the mouse hovering over one of the elements in the chart. Tooltip content
+ itself is rendered declaratively as a React portal (see {@link BarPlotTooltipContent} below for a
+ full example) rather than drawn/appended directly.
 
- The code snippet below is from the `useEffect` call in the {@link ScatterPlotTooltipContent}.
- Note that the first four arguments to the {@link addTooltipContent} function are those provided by the {@link useChart} hook
- when a d3 mouse-over event occurs on one of your series. The additional six arguments are from the closure formed
- on the variables in your component. The `chartId`, `container`, `margin`, and `plotDimensions` are from the
- {@link useChart} hook called by the {@link ScatterPlotTooltipContent} component. The last two
- arguments, `defaultTooltipStyle` and `options` are specific to the {@link ScatterPlotTooltipContent}.
- For example, the `options` property is set by the caller of the {@link ScatterPlotTooltipContent}
- component.
-
- ```typescript
- // register the tooltip content provider function with the chart hook (useChart) so that
- // it is visible to all children of the Chart (i.e. the <Tooltip>).
- registerTooltipContentProvider(
- (seriesName: string,
- time: number,
- tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
- mouseCoords: [x: number, y: number]
- ) => {
- return addTooltipContent(
- seriesName, tooltipData, mouseCoords,
- chartId, container, margin, plotDimensions, tooltipStyle,
- ordinalUnits
- )
- }
- )
- ```
-
- This pattern allows you to supplement that `useChart` mouse-over callback with information specific to your component.
+ NOTE ON THIS FILE'S CONVERSION: the original SVG version rendered its statistics table using the
+ third-party `svg-table` library (`createTable(...)`), which renders directly into an SVG container
+ element. That has no canvas equivalent and no visibility into its internal cell-styling data shape
+ for retargeting, so this version replaces it with a plain HTML `<table>` -- same data, same
+ per-cell highlight semantics (see `coordinatesForProviderId`), just laid out with real HTML/CSS
+ instead of an external SVG-table-rendering dependency.
 
  */
 
@@ -91,56 +70,79 @@ export interface Props {
 }
 
 /**
- * Adds tooltip content that shows the series name and the (time, value) of the selected point.
- * ```
- * series name
- * time, value
- * ```
- *
- * Registers the tooltip-content provider with the `ChartContext` so that when d3 fires a mouse-over
- * event on a series. The content provider is returns the {@link addTooltipContent} function
- * when called. And when called the {@link addTooltipContent} function adds the actual tooltip
- * content to the SVG element.
- * @param props The properties describing the tooltip content
- * @return null
+ * A single stats row's windowed/all values, already formatted for display.
  */
-export function BarPlotTooltipContent(props: Props): null {
+interface StatsRow {
+    label: string
+    windowed: string
+    all: string
+    /** whether the windowed or all-time cell (or neither) should be highlighted, based on which specific bar-chart element is hovered */
+    highlight: 'windowed' | 'all' | 'none'
+}
+
+/**
+ * The data needed to render the tooltip's table content, captured at mouse-over time and read
+ * back out during render. Replaces the old version's immediate SVG DOM manipulation (via
+ * `svg-table`'s `createTable`).
+ */
+interface BarTooltipContent {
+    seriesName: string
+    headerLabel: string
+    valueLine: string
+    rows: Array<StatsRow>
+    left: number
+    top: number
+}
+
+/** A generous estimate of the tooltip's rendered width, used to keep it from running off the right edge of the viewport. */
+const ESTIMATED_WIDTH = 260
+/** A generous estimate of the tooltip's rendered height, used to keep it from running off the bottom edge of the plot. */
+const ESTIMATED_HEIGHT = 160
+
+/**
+ * Adds tooltip content that shows the series name, the current value, and a small stats table
+ * (count/min/max/mean, windowed vs. all-time) for the bar-chart element being hovered.
+ *
+ * Registers the tooltip-content provider with the `ChartContext` so that when the plot's
+ * mousemove hit-test finds the mouse over one of the bar-chart's five element types, this
+ * component's content is shown. On mouse-over, the provider just captures the data needed to
+ * render (via `setTooltipContent`) and returns off-screen {@link TooltipDimensions} so the parent
+ * {@link Tooltip}'s own background element stays invisible -- this component renders its own,
+ * independent portal instead (see {@link OutlierPlotHtmlTooltipContent} for the established
+ * pattern this follows).
+ * @param props The properties describing the tooltip content
+ * @return The tooltip's portal, or `null` when nothing is being hovered
+ */
+export function BarPlotTooltipContent(props: Props): ReactElement | null {
     const {
         chartId,
-        container,
+        canvas,
         tooltip,
-        axes
+        mouse
     } = useChart<OrdinalDatum, SeriesLineStyle, WindowedOrdinalStats, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {registerTooltipContentProvider} = tooltip
-    const {yAxesState, axisAssignmentsFor} = axes
+    const {registerMouseLeaveHandler, unregisterMouseLeaveHandler} = mouse
     const {margin, plotDimensions} = usePlotDimensions()
     const {style, ordinalUnits = ""} = props
     const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
 
-    // register the tooltip content provider, which when called on mouse-enter-series events
-    // will render the tooltip container and then the tooltip content. recall that that the
-    // tooltip content is generated in this plot (because this is the plot that holds all the
-    // information needed to render it), and the container for the content is rendered by
-    // the <Tooltip>, which this know nothing about.
-    //
-    // the 'registration function accepts a function of the form (seriesName, time, series) => TooltipDimensions.
-    // and that function has a closure on the content-specific information needed to add the
-    // actual content
+    const [tooltipContent, setTooltipContent] = useState<BarTooltipContent | null>(null)
+
+    // register the tooltip content provider, which when called on mouse-over-element events
+    // captures the data needed to render the tooltip; the actual rendering happens declaratively
+    // below, via the portal.
     useEffect(
         () => {
-            if (container) {
-                // register the tooltip content provider function with the chart hook (useChart) so that
-                // it is visible to all children of the Chart (i.e. the <Tooltip>).
+            if (canvas) {
                 registerTooltipContentProvider(
                     /**
-                     *
                      * @param seriesName The name of the series
                      * @param _time The mouse time
                      * @param tooltipData The series data and metadata
-                     * @param mouseCoords The coordinates of the mouse
-                     * @param providerId The ID of the tooltip content provider
-                     * @return The tooltip contents
+                     * @param mouseCoords The coordinates of the mouse, in canvas-local coordinates
+                     * @param providerId The ID of the tooltip content provider (identifies which of the five element types was hovered)
+                     * @return Off-screen dimensions, so the parent <Tooltip>'s own background stays invisible
                      */
                     (seriesName: string,
                      _time: number,
@@ -148,76 +150,86 @@ export function BarPlotTooltipContent(props: Props): null {
                      mouseCoords: [x: number, y: number],
                      providerId?: string
                     ) => {
-                        if (providerId !== undefined) {
-                            return addTooltipContent(
-                                seriesName, providerId, tooltipData, mouseCoords,
-                                chartId, container, margin, plotDimensions, tooltipStyle,
-                                ordinalUnits
-                            )
+                        if (providerId === undefined) {
+                            return {x: -99999, y: -99999, contentWidth: 0, contentHeight: 0}
                         }
-                        return {x: 0, y: 0, contentWidth: 0, contentHeight: 0}
-                        //
-                        // switch (providerId) {
-                        //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue:
-                        //         return addTooltipContent(
-                        //             seriesName, 'current value', tooltipData, mouseCoords,
-                        //             chartId, container, margin, plotDimensions, tooltipStyle,
-                        //             ordinalUnits
-                        //         )
-                        //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue:
-                        //         return addTooltipContent(
-                        //             seriesName, 'mean value', tooltipData, mouseCoords,
-                        //             chartId, container, margin, plotDimensions, tooltipStyle,
-                        //             ordinalUnits
-                        //         )
-                        //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax:
-                        //         return addTooltipContent(
-                        //             seriesName, 'min/max', tooltipData, mouseCoords,
-                        //             chartId, container, margin, plotDimensions, tooltipStyle,
-                        //             ordinalUnits
-                        //         )
-                        //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
-                        //         return addTooltipContent(
-                        //             seriesName, 'windowed mean', tooltipData, mouseCoords,
-                        //             chartId, container, margin, plotDimensions, tooltipStyle,
-                        //             ordinalUnits
-                        //         )
-                        //     case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax:
-                        //         return addTooltipContent(
-                        //             seriesName, 'windowed min/max', tooltipData, mouseCoords,
-                        //             chartId, container, margin, plotDimensions, tooltipStyle,
-                        //             ordinalUnits
-                        //         )
-                        //
-                        //
-                        //     default:
-                        //         return {x: 0, y: 0, contentWidth: 0, contentHeight: 0}
-                        // }
+                        return captureTooltipContent(
+                            seriesName, providerId, tooltipData, mouseCoords,
+                            canvas, margin, plotDimensions, tooltipStyle,
+                            ordinalUnits,
+                            setTooltipContent
+                        )
                     }
                 )
             }
         },
         [
-            chartId, container, margin, plotDimensions, registerTooltipContentProvider,
+            canvas, margin, plotDimensions, registerTooltipContentProvider,
             tooltipStyle,
-            yAxesState, axisAssignmentsFor,
             ordinalUnits
         ]
     )
 
-    return null
-}
+    // clears the captured content (and so unmounts the portal) when the mouse leaves the element
+    useEffect(
+        () => {
+            const handlerId = `html-tooltip-leave-${chartId}`
+            registerMouseLeaveHandler(handlerId, () => setTooltipContent(null))
+            return () => unregisterMouseLeaveHandler(handlerId)
+        },
+        [chartId, registerMouseLeaveHandler, unregisterMouseLeaveHandler]
+    )
 
-const dimension: Dimension = {
-    width: 60,
-    defaultWidth: 70,
-    minWidth: 50,
-    maxWidth: 100,
+    if (tooltipContent === null) return null
 
-    height: 15,
-    defaultHeight: 15,
-    minHeight: 10,
-    maxHeight: 50
+    const divStyle: CSSProperties = {
+        position: 'fixed',
+        left: tooltipContent.left,
+        top: tooltipContent.top,
+        backgroundColor: withAlpha(tooltipStyle.backgroundColor, tooltipStyle.backgroundOpacity),
+        border: `${tooltipStyle.borderWidth}px solid ${withAlpha(tooltipStyle.borderColor, tooltipStyle.borderOpacity)}`,
+        borderRadius: tooltipStyle.borderRadius,
+        padding: `${tooltipStyle.paddingTop}px ${tooltipStyle.paddingRight}px ${tooltipStyle.paddingBottom}px ${tooltipStyle.paddingLeft}px`,
+        fontFamily: tooltipStyle.fontFamily,
+        color: tooltipStyle.fontColor,
+        pointerEvents: 'none',
+        zIndex: 9999,
+    }
+
+    const cellStyle: CSSProperties = {padding: '1px 10px', textAlign: 'right'}
+    const rowLabelStyle: CSSProperties = {...cellStyle, textAlign: 'left', paddingLeft: 0}
+    const headerCellStyle: CSSProperties = {...cellStyle, fontWeight: tooltipStyle.fontWeight + 550}
+    const highlightStyle: CSSProperties = {fontWeight: tooltipStyle.fontWeight + 300}
+
+    return createPortal(
+        <div style={divStyle}>
+            <div style={{fontSize: tooltipStyle.fontSize, fontWeight: tooltipStyle.fontWeight}}>
+                {tooltipContent.seriesName} ({tooltipContent.headerLabel})
+            </div>
+            <div style={{fontSize: tooltipStyle.fontSize + 2, fontWeight: tooltipStyle.fontWeight + 150, marginBottom: 6}}>
+                {tooltipContent.valueLine}
+            </div>
+            <table style={{fontSize: tooltipStyle.fontSize, borderCollapse: 'collapse'}}>
+                <thead>
+                <tr>
+                    <td style={rowLabelStyle}/>
+                    <td style={headerCellStyle}>Windowed</td>
+                    <td style={headerCellStyle}>All</td>
+                </tr>
+                </thead>
+                <tbody>
+                {tooltipContent.rows.map(row => (
+                    <tr key={row.label}>
+                        <td style={rowLabelStyle}>{row.label}</td>
+                        <td style={row.highlight === 'windowed' ? {...cellStyle, ...highlightStyle} : cellStyle}>{row.windowed}</td>
+                        <td style={row.highlight === 'all' ? {...cellStyle, ...highlightStyle} : cellStyle}>{row.all}</td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+        </div>,
+        document.body
+    )
 }
 
 /**
@@ -244,198 +256,86 @@ function labelForProviderId(providerId: string): string {
 }
 
 /**
- * Callback function that adds tooltip content and returns the tooltip width and text height
- * @param seriesName The name of the series (i.e. the neuron ID)
- * @param providerId The tooltip content provider ID (i.e. the name of the tooltip)
- * @param tooltipData The series data and metadata
- * @param mouseCoords The coordinates of the mouse when the event was fired (relative to the plot container)
- * @param chartId The ID of this chart
- * @param container The plot container (SVGSVGElement)
- * @param margin The plot margins
- * @param tooltipStyle The style properties for the tooltip
- * @param plotDimensions The dimensions of the plot
- * @param ordinalUnits The units of the ordinal data (i.e. "mV")
- * @return The width and text height of the tooltip content
+ * Determines which stats-table cell (if any) should be highlighted for the given provider ID,
+ * matching the original's `coordinatesForProviderId` (row 2/3/4 = Min/Max/Mean; column
+ * 1/2 = Windowed/All).
+ * @param providerId The tooltip provider ID for which the highlighted element (bar chart series
+ * element) that is hovered
+ * @return A function that, given a stats-row label, returns which column (if any) to highlight
  */
-function addTooltipContent(
+function highlightFor(providerId: string): (rowLabel: 'Count' | 'Min' | 'Max' | 'Mean') => 'windowed' | 'all' | 'none' {
+    switch (providerId) {
+        case BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue:
+            return label => label === 'Mean' ? 'all' : 'none'
+        case BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax:
+            return label => (label === 'Min' || label === 'Max') ? 'all' : 'none'
+        case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
+            return label => label === 'Mean' ? 'windowed' : 'none'
+        case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax:
+            return label => (label === 'Min' || label === 'Max') ? 'windowed' : 'none'
+        default:
+            return () => 'none'
+    }
+}
+
+/**
+ * Captures the data needed to render the tooltip's table content, and computes its viewport-fixed
+ * position. Replaces the old version, which built and positioned an SVG table via `svg-table`'s
+ * `createTable`.
+ * @param seriesName The name of the series (i.e. the neuron ID)
+ * @param providerId The tooltip content provider ID (i.e. which bar-chart element is hovered)
+ * @param tooltipData The series data and metadata
+ * @param mouseCoords The coordinates of the mouse when the event was fired, in canvas-local coordinates
+ * @param canvas The chart's canvas element
+ * @param margin The plot margins
+ * @param plotDimensions The dimensions of the plot
+ * @param tooltipStyle The style properties for the tooltip
+ * @param ordinalUnits The units of the ordinal data (i.e. "mV")
+ * @param setTooltipContent Setter that stashes the captured content for the component to render
+ * @return Off-screen {@link TooltipDimensions}, so the parent <Tooltip>'s own background stays invisible
+ */
+function captureTooltipContent(
     seriesName: string,
     providerId: string,
     tooltipData: TooltipData<OrdinalDatum, WindowedOrdinalStats>,
     mouseCoords: [x: number, y: number],
-    chartId: number,
-    container: SVGSVGElement,
+    canvas: HTMLCanvasElement,
     margin: Margin,
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
-    ordinalUnits: string
+    ordinalUnits: string,
+    setTooltipContent: (content: BarTooltipContent) => void,
 ): TooltipDimensions {
     const [x, y] = mouseCoords
     const {series, metadata: statistics} = tooltipData
+
     const currentDatum = series.length > 0 ? series[series.length - 1] : emptyOrdinalDatum
     const valueStats = statistics.valueStatsForSeries.get(seriesName) || defaultOrdinalValueStats()
     const windowedValueStats = statistics.windowedValueStatsForSeries.get(seriesName) || defaultOrdinalValueStats()
     const displayOrdinalUnits = ordinalUnits.length > 0 ? ` ${ordinalUnits}` : ""
+    const unitsSuffix = ordinalUnits.length > 0 ? ` (${ordinalUnits})` : ""
 
-    // display the neuron ID in the tooltip
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const header = d3.select<SVGSVGElement | null, any>(container)
-        .append<SVGTextElement>("text")
-        .attr('id', `tn${currentDatum.time}-${seriesName}-${chartId}`)
-        .attr('class', 'tooltip')
-        .attr('fill', tooltipStyle.fontColor)
-        .attr('font-family', 'sans-serif')
-        .attr('font-size', tooltipStyle.fontSize)
-        .attr('font-weight', tooltipStyle.fontWeight)
-        .text(() => `${seriesName} (${labelForProviderId(providerId)})`)
+    const highlight = highlightFor(providerId)
+    const rows: Array<StatsRow> = [
+        {label: 'Count', windowed: formatNumber(windowedValueStats.count, " ,.0f"), all: formatNumber(valueStats.count, " ,.0f"), highlight: highlight('Count')},
+        {label: `Min${unitsSuffix}`, windowed: formatValue(windowedValueStats.min.value), all: formatValue(valueStats.min.value), highlight: highlight('Min')},
+        {label: `Max${unitsSuffix}`, windowed: formatValue(windowedValueStats.max.value), all: formatValue(valueStats.max.value), highlight: highlight('Max')},
+        {label: `Mean${unitsSuffix}`, windowed: formatValue(windowedValueStats.mean), all: formatValue(valueStats.mean), highlight: highlight('Mean')},
+    ]
 
+    const xCoord = tooltipX(x, ESTIMATED_WIDTH, plotDimensions, tooltipStyle, margin)
+    const yCoord = tooltipY(y, ESTIMATED_HEIGHT, plotDimensions, tooltipStyle, margin)
 
-    // display the series name and the current value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const text = d3.select<SVGSVGElement | null, any>(container)
-        .append<SVGTextElement>("text")
-        .attr('id', `t${currentDatum.time}-${seriesName}-${chartId}`)
-        .attr('class', 'tooltip')
-        .attr('fill', tooltipStyle.fontColor)
-        .attr('font-family', 'sans-serif')
-        .attr('font-size', tooltipStyle.fontSize + 2)
-        .attr('font-weight', tooltipStyle.fontWeight + 150)
-        .text(() => `${formatValue(currentDatum.value)}${displayOrdinalUnits}  (${formatTime(currentDatum.time)} ms)`)
+    const canvasRect = canvas.getBoundingClientRect()
+    setTooltipContent({
+        seriesName,
+        headerLabel: labelForProviderId(providerId),
+        valueLine: `${formatValue(currentDatum.value)}${displayOrdinalUnits}  (${formatTime(currentDatum.time)} ms)`,
+        rows,
+        left: canvasRect.left + xCoord,
+        top: canvasRect.top + yCoord,
+    })
 
-    // calculate the max width and height of the text (we'll adjust the coordinates of the header
-    // text once we have the table dimensions)
-    const headerTextHeight = header.node()?.getBBox()?.height || 0;
-    const idHeight = text.node()?.getBBox()?.height || 0;
-    const textHeight = headerTextHeight + idHeight;
-
-    const font: TableFont = {
-        size: tooltipStyle.fontSize,
-        family: tooltipStyle.fontFamily,
-        color: tooltipStyle.fontColor,
-        weight: tooltipStyle.fontWeight
-    }
-
-    const padding: Padding = {
-        top: tooltipStyle.paddingTop,
-        bottom: tooltipStyle.paddingBottom,
-        right: tooltipStyle.paddingRight,
-        left: tooltipStyle.paddingLeft
-    }
-
-    const units = ordinalUnits.length > 0 ? ` (${ordinalUnits})` : ""
-    return DataFrame
-        .from<number | string>([
-            [windowedValueStats.count, valueStats.count],
-            [windowedValueStats.min.value, valueStats.min.value],
-            [windowedValueStats.max.value, valueStats.max.value],
-            [windowedValueStats.mean, valueStats.mean],
-        ])
-        // create the table data that has the column headers
-        .flatMap(df => TableData
-            .fromDataFrame(df)
-            .withColumnHeader(["Windowed", "All"])
-            .flatMap(td => td.withRowHeader(["Count", `Min${units}`, `Max${units}`, `Mean${units}`]))
-        )
-        // add the data formatters for statistics
-        .flatMap(tableData => TableFormatter.fromTableData(tableData)
-            .addRowFormatters([2, 3, 4], value => formatValue(value as number))
-            .flatMap(tf => tf.addRowFormatter(1, value => formatNumber(value as number, " ,.0f")))
-            .flatMap(tf => tf.formatTable())
-        )
-        .map(tableData => TableStyler.fromTableData(tableData)
-            .withTableFont(font)
-            .withPadding(padding)
-            .withColumnHeaderStyle({
-                font: {...font, weight: 650},
-                padding: {top: 15, bottom: 0},
-                dimension: {...dimension, maxHeight: 70},
-                alignText: 'right',
-            })
-            .withRowHeaderStyle({
-                font: {...font, weight: 650},
-                padding: {left: 0, right: 10},
-                dimension: dimension,
-                alignText: 'left',
-            })
-            .withColumnStyles([], {
-                padding: {left: 10, right: 10},
-                alignText: 'right',
-            })
-            .withRowStyles([], {
-                    font,
-                    dimension: {...dimension, maxHeight: 20},
-                    padding: {top: 0, bottom: 0}
-                }
-            )
-            .withCellStyleWhen((_, row, column) => {
-                // apply the style to the cell corresponding to the chart element that the user
-                // moused-over.
-                const coordinates = coordinatesForProviderId(providerId)
-                if (coordinates.length > 0) {
-                    return coordinates.findIndex(c => c.row === row && c.column === column) > -1
-                }
-                return false
-                },
-                {font: {...font, weight: font.weight + 300}, alignText: 'right', padding: {left: 10, right: 10, top: 0, bottom: 0}},
-                100
-            )
-            .styleTable()
-        )
-        .flatMap(styledTable =>
-            createTable(styledTable, container, `t${currentDatum.time}-${seriesName}-header-${chartId}`, tooltipCoordinates)
-        )
-        .map(renderingInfo => {
-            // the calculated table coordinates and dimensions. we'll move the header text into place,
-            // and then move the table down so that it fits
-            const {tableX: x, tableY: y, tableWidth: contentWidth, tableHeight: contentHeight} = renderingInfo
-
-            // set the location of the header (series name) and text (value and time)
-            header
-                .attr('x', () => x + tooltipStyle.paddingLeft)
-                .attr('y', () => y - idHeight)
-            text
-                .attr('x', () => x + tooltipStyle.paddingLeft)
-                .attr('y', () => y)
-
-            return {x, y: y - textHeight, contentWidth, contentHeight: contentHeight + textHeight + padding.top}
-        })
-        .getOrThrow()
-
-    /**
-     * Calculates the coordinates that are affected by the provider ID
-     * @param providerId The ID of the provider for the element type being moused-over
-     * @return An array of coordinates that are affected by the provider ID
-     */
-    function coordinatesForProviderId(providerId: string): Array<{ row: number, column: number }> {
-        switch (providerId) {
-            case BAR_CHART_TOOLTIP_PROVIDER_IDS.currentValue:
-                return []
-            case BAR_CHART_TOOLTIP_PROVIDER_IDS.meanValue:
-                return [{row: 4, column: 2}]
-            case BAR_CHART_TOOLTIP_PROVIDER_IDS.minMax:
-                return [{row: 2, column: 2}, {row: 3, column: 2}]
-            case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMeanValue:
-                return [{row: 4, column: 1}]
-            case BAR_CHART_TOOLTIP_PROVIDER_IDS.windowedMinMax:
-                return [{row: 2, column: 1}, {row: 3, column: 1}]
-
-            default:
-                return []
-        }
-    }
-
-    /**
-     * Calculates the coordinates of the tooltip based on the width and height of the SVG
-     * table. This is needed because the tooltip needs to be adjusted relative mouse location
-     * when the mouse coordinates are too close to an edge.
-     * @param width The SVG table width
-     * @param height The SVG table height
-     * @return The updated tooltip coordinates
-     */
-    function tooltipCoordinates(width: number, height: number): [x: number, y: number] {
-        return [
-            tooltipX(x, width, plotDimensions, tooltipStyle, margin),
-            tooltipY(y + textHeight + padding.top, height, plotDimensions, tooltipStyle, margin)
-        ]
-    }
-
+    // return off-screen coordinates so the Tooltip parent's background div is invisible
+    return {x: -99999, y: -99999, contentWidth: 0, contentHeight: 0}
 }
