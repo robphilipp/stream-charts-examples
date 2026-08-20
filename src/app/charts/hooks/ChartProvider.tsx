@@ -5,7 +5,7 @@ import {defaultUseChartValues} from "./defaultUseChartValues";
 import {useAxes} from "./useAxes";
 import {useMouse} from "./useMouse";
 import {useTooltip} from "./useTooltip";
-import type {CanvasContext} from "../d3types";
+import {useCanvasSurface} from "./useCanvasSurface";
 import type {SvgStyle} from "../styling/svgStyle";
 import {ChartContext} from "./useChart";
 
@@ -18,18 +18,6 @@ export interface Props<S extends SeriesStyle> {
      * The unique ID for the chart
      */
     chartId: number
-    /**
-     * The canvas drawing context and redraw-registration API for the chart. Replaces the old
-     * `mainG` (root SVG `<g>` selection) -- axes, plots, and the tracker register their draw
-     * functions with this instead of creating/updating SVG child elements.
-     */
-    canvasContext: CanvasContext | null
-    /**
-     * The `<canvas>` element backing the chart. Replaces the old `container` (root `<svg>`
-     * element) -- still handed down mainly so mouse-position/hit-testing code can call
-     * `getBoundingClientRect()` on it.
-     */
-    canvas: HTMLCanvasElement | null
     /**
      * Base color
      */
@@ -67,14 +55,17 @@ export interface Props<S extends SeriesStyle> {
 export default function ChartProvider<S extends SeriesStyle, AR extends BaseAxisRange, A extends BaseAxis>(props: Props<S>): JSX.Element {
     const {
         chartId,
-        canvas,
-        canvasContext,
         color,
         backgroundColor,
         seriesFilter = defaultUseChartValues().seriesFilter,
         svgStyle,
         seriesStyles = new Map<string, S>(),
     } = props
+
+    // canvas/canvasContext come from CanvasSurfaceProvider (a shared ancestor -- see Chart.tsx),
+    // which sizes the canvas from usePlotDimensions() rather than from props, so this always
+    // reflects the same dimensions the axes/plots are using.
+    const {canvas, canvasContext} = useCanvasSurface()
 
     const axes = useAxes<AR, A>()
     const mouse = useMouse()

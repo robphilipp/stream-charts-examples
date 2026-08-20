@@ -1,9 +1,7 @@
-import {type JSX, useCallback, useEffect, useMemo, useState} from 'react'
-import {type Dimensions, type Margin, plotDimensionsFrom} from "./styling/margins";
+import {type JSX, useMemo} from 'react'
+import {type Margin} from "./styling/margins";
 import {initialSvgStyle, type SvgStyle} from "./styling/svgStyle";
-import type {CanvasContext} from "./d3types";
 import type {BaseAxis, SeriesStyle} from "./axes/axes";
-import {createCanvasContext, resizeCanvasTo} from "./plots/plot";
 import {noop} from "./utils";
 import {Observable, Subscription} from "rxjs";
 import type {BaseSeries} from "./series/baseSeries";
@@ -13,6 +11,7 @@ import type {BaseAxisRange} from "./axes/BaseAxisRange.ts";
 import {defaultMargin} from "./hooks/defaultPlotDimensions";
 import TooltipProvider from "./hooks/TooltipProvider";
 import PlotDimensionsProvider from "./hooks/PlotDimensionsProvider";
+import CanvasSurfaceProvider from "./hooks/CanvasSurfaceProvider";
 import MouseProvider from "./hooks/MouseProvider";
 import InitialDataProvider from "./hooks/InitialDataProvider";
 import DataObservableProvider from "./hooks/DataObservableProvider";
@@ -158,9 +157,15 @@ export interface Props<CD, D, S extends SeriesStyle> {
  * subscription, sets up the {@link useChart} hook via the {@link ChartProvider}.
  *
  * Internally, the chart is backed by a single `<canvas>` element rather than an SVG element tree.
- * Axes, plots, and the tracker don't create/mutate their own DOM nodes anymore -- they register a
- * draw function with the {@link CanvasContext} (exposed via `useChart().canvasContext`), and the
- * canvas context clears and repaints all registered draw functions whenever a redraw is requested.
+ * The canvas itself is created and sized by {@link CanvasSurfaceProvider}, which derives its size
+ * from {@link usePlotDimensions} (the single source of truth for the chart's dimensions) rather
+ * than from this component's `width`/`height` props directly -- this keeps the canvas correctly
+ * sized even if dimensions are ever updated via `usePlotDimensions().updateDimensions(...)`
+ * independent of a prop change. Axes, plots, and the tracker don't create/mutate their own DOM
+ * nodes -- they register a draw function with the {@link CanvasContext} (exposed via
+ * `useChart().canvasContext`, itself sourced from {@link CanvasSurfaceProvider} via
+ * `useCanvasSurface()`), and the canvas context clears and repaints all registered draw functions
+ * whenever a redraw is requested.
  * @param props The properties of the chart
  * @template CD Chart data
  * @template D The type of the datum type held in a series
@@ -271,85 +276,17 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
 
     // override the defaults with the parent's properties, leaving any unset values as the default value
     const margin = {...defaultMargin, ...props.margin}
+    // svgStyle (with width/height baked in) is kept for the useChart().svgStyle context value's
+    // existing shape/contract -- it is NOT used for the canvas's own CSS sizing, which
+    // CanvasSurfaceProvider derives from usePlotDimensions() instead (see the doc comment above)
     const svgStyle = useMemo<SvgStyle>(
         () => ({...initialSvgStyle, ...props.svgStyle, width: props.width, height: props.height}),
         [props.height, props.svgStyle, props.width]
     )
 
-    // hold a reference to the current width and the plot dimensions
-    const [plotDim, ] = useState<Dimensions>(() => plotDimensionsFrom(width, height, margin))
-
-    // the canvas element and the drawing-context/redraw-registry built on top of it. `canvasContext`
-    // replaces the old `mainG` (root SVG `<g>` selection) -- axes, plots, and the tracker register
-    // their draw functions with it instead of appending/updating SVG child elements.
-    const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
-    const [canvasContext, setCanvasContext] = useState<CanvasContext | null>(null)
-
-    // create the canvas context (and size the backing store) if it doesn't already exist
-    if (!canvasContext && canvas) {
-        const cc = createCanvasContext(chartId, canvas, plotDim, color)
-        resizeCanvasTo(cc, {width, height})
-        setCanvasContext(cc)
-    }
-
-    // keep the canvas's backing store in sync with the container's pixel dimensions; mirrors the
-    // old effect that updated the SVG element's `width`/`height` attributes
-    useEffect(
-        () => {
-            if (canvasContext) {
-                resizeCanvasTo(canvasContext, {width, height})
-                canvasContext.requestRedraw()
-            }
-        },
-        [canvasContext, width, height]
-    )
-
-    const setCanvasCallback = useCallback(
-        /**
-         * Callback for setting the canvas element and updating its CSS style.
-         * @param canvasElement - The canvas element, or null if not available (e.g. unmounting).
-         */
-        (canvasElement: HTMLCanvasElement | null) => {
-            if (canvasElement) {
-                setCanvas(canvasElement)
-
-                // build up the container style from the defaults and any style object passed in
-                // as properties. IMPORTANT: width/height are deliberately excluded here. svgStyle
-                // carries them as bare numbers (a holdover from the SVG version, where unitless
-                // `width`/`height` are valid presentation-attribute values); as CSS `style`
-                // properties, a unitless number is invalid and gets silently ignored by the
-                // browser. Since resizeCanvasTo() is the sole thing responsible for the canvas's
-                // CSS size (via properly `px`-suffixed values) and its dpr-scaled backing store,
-                // letting a width/height slip into this string would overwrite that correct,
-                // unitted sizing with an invalid one -- which the browser then discards, falling
-                // back to the (dpr-scaled, so wrong on any non-1 devicePixelRatio) backing-store
-                // size as the canvas's effective on-screen size.
-                const style = Object.getOwnPropertyNames(svgStyle)
-                    .filter(name => name !== 'width' && name !== 'height')
-                    .map(name => `${name}: ${svgStyle[name]}; `)
-                    .join("")
-
-                // when the chart "backgroundColor" property is set (i.e. not the default value),
-                // then we need to add it to the styles, overwriting any color that may have been
-                // set in the style object
-                const background = backgroundColor !== defaultBackground ?
-                    `background-color: ${backgroundColor}; ` :
-                    ''
-
-                // update the style (dimensions are handled separately, on the canvas's backing
-                // store, by resizeCanvasTo -- see the effect above)
-                canvasElement.setAttribute('style', style + background + ` color: ${color}`)
-            }
-        },
-        [backgroundColor, color, svgStyle]
-    )
-
     return (
-        <>
-            <div style={{position: 'relative', width, height}}>
-                <canvas ref={setCanvasCallback}/>
-            </div>
-            <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
+        <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
+            <CanvasSurfaceProvider chartId={chartId} color={color} backgroundColor={backgroundColor} svgStyle={props.svgStyle}>
                 <AxesProvider onUpdateAxesInterval={onUpdateAxesBounds}>
                     <MouseProvider<D, TM>>
                         <TooltipProvider<D, TM>>
@@ -368,8 +305,6 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                                 >
                                     <ChartProvider<S, AR, A>
                                         chartId={chartId}
-                                        canvas={canvas}
-                                        canvasContext={canvasContext}
 
                                         color={color}
                                         backgroundColor={backgroundColor}
@@ -387,7 +322,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                         </TooltipProvider>
                     </MouseProvider>
                 </AxesProvider>
-            </PlotDimensionsProvider>
-        </>
+            </CanvasSurfaceProvider>
+        </PlotDimensionsProvider>
     );
 }
