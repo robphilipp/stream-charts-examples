@@ -313,9 +313,19 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
             if (canvasElement) {
                 setCanvas(canvasElement)
 
-                // build up the container style from the defaults and any style object
-                // passed in as properties
+                // build up the container style from the defaults and any style object passed in
+                // as properties. IMPORTANT: width/height are deliberately excluded here. svgStyle
+                // carries them as bare numbers (a holdover from the SVG version, where unitless
+                // `width`/`height` are valid presentation-attribute values); as CSS `style`
+                // properties, a unitless number is invalid and gets silently ignored by the
+                // browser. Since resizeCanvasTo() is the sole thing responsible for the canvas's
+                // CSS size (via properly `px`-suffixed values) and its dpr-scaled backing store,
+                // letting a width/height slip into this string would overwrite that correct,
+                // unitted sizing with an invalid one -- which the browser then discards, falling
+                // back to the (dpr-scaled, so wrong on any non-1 devicePixelRatio) backing-store
+                // size as the canvas's effective on-screen size.
                 const style = Object.getOwnPropertyNames(svgStyle)
+                    .filter(name => name !== 'width' && name !== 'height')
                     .map(name => `${name}: ${svgStyle[name]}; `)
                     .join("")
 
@@ -337,7 +347,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
     return (
         <>
             <div style={{position: 'relative', width, height}}>
-                <canvas ref={canvasElement => setCanvasCallback(canvasElement)}/>
+                <canvas ref={setCanvasCallback}/>
             </div>
             <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
                 <AxesProvider onUpdateAxesInterval={onUpdateAxesBounds}>
