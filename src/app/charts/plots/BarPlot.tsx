@@ -420,7 +420,12 @@ export function BarPlot(props: Props): null {
                     drawBar(ctx, totalBar, barStyleFor(showMinMaxBars, minMaxBarStyle))
                     newGeometry.set(`${series.name}::minMax`, {
                         points: [],
-                        rects: [{x: totalBar.upperX, y: totalBar.upperY, width: totalBar.width, height: totalBar.height}],
+                        rects: [{
+                            x: totalBar.upperX + margin.left,
+                            y: totalBar.upperY + margin.top,
+                            width: totalBar.width,
+                            height: totalBar.height
+                        }],
                         hitRadius: 0
                     })
 
@@ -437,7 +442,12 @@ export function BarPlot(props: Props): null {
                         drawBar(ctx, windowedBar, barStyleFor(showWindowedMinMaxBars, windowedBarStyle))
                         newGeometry.set(`${series.name}::windowedMinMax`, {
                             points: [],
-                            rects: [{x: windowedBar.upperX, y: windowedBar.upperY, width: windowedBar.width, height: windowedBar.height}],
+                            rects: [{
+                                x: windowedBar.upperX + margin.left,
+                                y: windowedBar.upperY + margin.top,
+                                width: windowedBar.width,
+                                height: windowedBar.height
+                            }],
                             hitRadius: 0
                         })
 
@@ -448,7 +458,10 @@ export function BarPlot(props: Props): null {
                             drawLine(ctx, lower(x), meanLineY, upper(x), meanLineY, meanValueLineStyle.regular)
                             newGeometry.set(`${series.name}::meanValue`, {
                                 points: [],
-                                segments: [[[lower(x), meanLineY], [upper(x), meanLineY]]],
+                                segments: [[
+                                    [lower(x) + margin.left, meanLineY + margin.top],
+                                    [upper(x) + margin.left, meanLineY + margin.top]
+                                ]],
                                 hitRadius: Math.max(4, meanValueLineStyle.regular.width ?? 1)
                             })
                         }
@@ -462,7 +475,10 @@ export function BarPlot(props: Props): null {
                             drawLine(ctx, lower(x), windowedMeanLineY, upper(x), windowedMeanLineY, style)
                             newGeometry.set(`${series.name}::windowedMeanValue`, {
                                 points: [],
-                                segments: [[[lower(x), windowedMeanLineY], [upper(x), windowedMeanLineY]]],
+                                segments: [[
+                                    [lower(x) + margin.left, windowedMeanLineY + margin.top],
+                                    [upper(x) + margin.left, windowedMeanLineY + margin.top]
+                                ]],
                                 hitRadius: Math.max(4, style.width ?? 1)
                             })
                         }
@@ -478,7 +494,10 @@ export function BarPlot(props: Props): null {
                         drawLine(ctx, lower(x), valueLineY, upper(x), valueLineY, style)
                         newGeometry.set(`${series.name}::currentValue`, {
                             points: [],
-                            segments: [[[lower(x), valueLineY], [upper(x), valueLineY]]],
+                            segments: [[
+                                [lower(x) + margin.left, valueLineY + margin.top],
+                                [upper(x) + margin.left, valueLineY + margin.top]
+                            ]],
                             hitRadius: Math.max(4, style.width ?? 1)
                         })
                     }

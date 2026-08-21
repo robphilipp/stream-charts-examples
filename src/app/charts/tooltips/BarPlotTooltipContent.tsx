@@ -196,7 +196,7 @@ export function BarPlotTooltipContent(props: Props): ReactElement | null {
         zIndex: 9999,
     }
 
-    const cellStyle: CSSProperties = {padding: '1px 10px', textAlign: 'right'}
+    const cellStyle: CSSProperties = {padding: '1px 10px', textAlign: 'right', border: 'none'}
     const rowLabelStyle: CSSProperties = {...cellStyle, textAlign: 'left', paddingLeft: 0}
     const headerCellStyle: CSSProperties = {...cellStyle, fontWeight: tooltipStyle.fontWeight + 550}
     const highlightStyle: CSSProperties = {fontWeight: tooltipStyle.fontWeight + 300}
@@ -209,7 +209,7 @@ export function BarPlotTooltipContent(props: Props): ReactElement | null {
             <div style={{fontSize: tooltipStyle.fontSize + 2, fontWeight: tooltipStyle.fontWeight + 150, marginBottom: 6}}>
                 {tooltipContent.valueLine}
             </div>
-            <table style={{fontSize: tooltipStyle.fontSize, borderCollapse: 'collapse'}}>
+            <table style={{fontSize: tooltipStyle.fontSize, borderCollapse: 'collapse', border: 'none'}}>
                 <thead>
                 <tr>
                     <td style={rowLabelStyle}/>

@@ -419,8 +419,8 @@ export function PoincarePlot(props: Props): null {
 
             // set up for zooming
             if (zoomEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                zoomRef.current = d3.zoom<HTMLCanvasElement, unknown>()
+                const canvasSelection = d3.select<HTMLCanvasElement, Datum>(cc.canvas)
+                zoomRef.current = d3.zoom<HTMLCanvasElement, Datum>()
                     .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
                     .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])

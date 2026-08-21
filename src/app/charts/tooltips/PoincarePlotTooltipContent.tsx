@@ -218,7 +218,7 @@ export function PoincarePlotTooltipContent(props: Props): ReactElement | null {
         zIndex: 9999,
     }
 
-    const cellStyle: CSSProperties = {padding: '1px 8px', textAlign: 'right'}
+    const cellStyle: CSSProperties = {padding: '1px 8px', textAlign: 'right', border: 'none'}
     const rowLabelStyle: CSSProperties = {...cellStyle, textAlign: 'left', paddingLeft: 0}
     const headerCellStyle: CSSProperties = {...cellStyle, fontWeight: tooltipStyle.fontWeight + 550}
     // matches the old version's `currentIterateStyle`, applied to the "current" (middle) column
@@ -229,7 +229,7 @@ export function PoincarePlotTooltipContent(props: Props): ReactElement | null {
             <div style={{fontSize: tooltipStyle.fontSize, fontWeight: tooltipStyle.fontWeight, marginBottom: 4}}>
                 {tooltipContent.seriesName}
             </div>
-            <table style={{fontSize: tooltipStyle.fontSize, borderCollapse: 'collapse'}}>
+            <table style={{fontSize: tooltipStyle.fontSize, borderCollapse: 'collapse', border: 'none'}}>
                 <thead>
                 <tr>
                     <td style={rowLabelStyle}/>

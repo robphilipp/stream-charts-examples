@@ -78,51 +78,63 @@ export interface SeriesHit {
 }
 
 /**
- * Finds the series (and specific point/segment within it) whose geometry is closest to (and
- * within hit-testing range of) the given mouse position. When more than one series is within
- * range, returns the one whose geometry is nearest, so that overlapping series resolve to the one
- * visually "on top" from the mouse's point of view rather than an arbitrary map-iteration order.
+ * Finds the series (and specific point/segment within it) hit by the given mouse position.
+ * Entries are checked in *reverse* insertion order -- i.e. most-recently-added first -- and the
+ * first entry with any qualifying match wins, matching normal DOM/SVG hit-testing (the topmost
+ * element captures the pointer) rather than picking whichever entry happens to report the smallest
+ * geometric distance across all entries.
+ *
+ * This distinction matters whenever two entries visually overlap: e.g. a bar-chart's value-line
+ * segment is drawn on top of (and can extend slightly beyond) its min/max bar's rect. A rect is a
+ * containment test -- any point inside it is unambiguously "hit," with no notion of "how close" --
+ * so comparing it against a segment's proximity-based distance would let the rect win everywhere
+ * the two overlap, even dead-center on the line, since 0 distance beats any nonzero one. Since
+ * plots insert geometry in the same order they draw it, checking entries topmost-first resolves
+ * this the way it looks on screen: whichever shape is drawn last (visually on top) claims the
+ * pointer first, and only falls through to earlier (lower) entries where it doesn't match at all.
+ *
+ * Within a single entry (e.g. Scatter's many polyline segments, or Raster's many disjoint spikes)
+ * the closest qualifying point/segment still wins, since there's no z-order to speak of among
+ * pieces of the same drawn shape.
  * @param mouseX The mouse's x-coordinate, in the same canvas coordinate space the geometry was recorded in
  * @param mouseY The mouse's y-coordinate, in the same canvas coordinate space the geometry was recorded in
- * @param geometry A `map(series_name -> SeriesGeometry)` as last drawn
+ * @param geometry A `map(series_name -> SeriesGeometry)` as last drawn, in draw order
  * @return The hit series and matched index, or `undefined` if the mouse isn't over any series
  */
 export function seriesAt(mouseX: number, mouseY: number, geometry: Map<string, SeriesGeometry>): SeriesHit | undefined {
-    let best: SeriesHit | undefined = undefined
-    let bestDistanceSquared = Infinity
+    const entries = Array.from(geometry.entries()).reverse()
 
-    geometry.forEach(({points, asLine, segments, rects, hitRadius}, name) => {
+    for (const [name, {points, asLine, segments, rects, hitRadius}] of entries) {
         const hitRadiusSquared = hitRadius * hitRadius
 
         if (rects !== undefined) {
-            rects.forEach((rect, index) => {
-                const inside = mouseX >= rect.x && mouseX <= rect.x + rect.width &&
-                    mouseY >= rect.y && mouseY <= rect.y + rect.height
-                if (!inside) return
-                // rects are exact-containment hits (not proximity-based), so treat any
-                // containing rect as a zero-distance (highest priority) match
-                if (0 < bestDistanceSquared) {
-                    bestDistanceSquared = 0
-                    best = {name, index}
-                }
-            })
-            return
+            const index = rects.findIndex(rect =>
+                mouseX >= rect.x && mouseX <= rect.x + rect.width &&
+                mouseY >= rect.y && mouseY <= rect.y + rect.height
+            )
+            if (index >= 0) return {name, index}
+            continue
         }
 
         if (segments !== undefined) {
+            let bestIndex = -1
+            let bestDistanceSquared = Infinity
             segments.forEach(([[x1, y1], [x2, y2]], index) => {
                 const distanceSquared = distanceSquaredToSegment(mouseX, mouseY, x1, y1, x2, y2)
                 if (distanceSquared <= hitRadiusSquared && distanceSquared < bestDistanceSquared) {
                     bestDistanceSquared = distanceSquared
-                    best = {name, index}
+                    bestIndex = index
                 }
             })
-            return
+            if (bestIndex >= 0) return {name, index: bestIndex}
+            continue
         }
 
-        if (points.length === 0) return
+        if (points.length === 0) continue
 
         if (asLine) {
+            let bestIndex = -1
+            let bestDistanceSquared = Infinity
             for (let i = 0; i < points.length - 1; i++) {
                 const [x1, y1] = points[i]
                 const [x2, y2] = points[i + 1]
@@ -132,22 +144,26 @@ export function seriesAt(mouseX: number, mouseY: number, geometry: Map<string, S
                     // attribute the hit to whichever endpoint of the segment is nearer
                     const toStart = (mouseX - x1) ** 2 + (mouseY - y1) ** 2
                     const toEnd = (mouseX - x2) ** 2 + (mouseY - y2) ** 2
-                    best = {name, index: toStart <= toEnd ? i : i + 1}
+                    bestIndex = toStart <= toEnd ? i : i + 1
                 }
             }
-            return
+            if (bestIndex >= 0) return {name, index: bestIndex}
+            continue
         }
 
+        let bestIndex = -1
+        let bestDistanceSquared = Infinity
         points.forEach(([x, y], index) => {
             const distanceSquared = (mouseX - x) ** 2 + (mouseY - y) ** 2
             if (distanceSquared <= hitRadiusSquared && distanceSquared < bestDistanceSquared) {
                 bestDistanceSquared = distanceSquared
-                best = {name, index}
+                bestIndex = index
             }
         })
-    })
+        if (bestIndex >= 0) return {name, index: bestIndex}
+    }
 
-    return best
+    return undefined
 }
 
 /**

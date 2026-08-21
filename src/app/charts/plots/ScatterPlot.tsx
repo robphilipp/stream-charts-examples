@@ -18,7 +18,7 @@ import {
 import type {CanvasContext} from "../d3types";
 import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {Observable, Subscription} from "rxjs";
-import {makeIdSafeForCss, noop} from "../utils";
+import {noop} from "../utils";
 import type {Dimensions, Margin} from "../styling/margins";
 import {
     subscriptionTimeSeriesFor,
@@ -607,10 +607,15 @@ export function ScatterPlot(props: Props): null {
                 if (!allowTooltip.current) return
 
                 const [x, y] = canvasLocalPoint(event, canvas)
-                const rawHit = seriesAt(x, y, geometryRef.current)
+                const hit = seriesAt(x, y, geometryRef.current)
                 // markers are recorded under a "<name>-markers" key; normalize back to the
-                // underlying series name so callers only ever see the real series name
-                const hitName = rawHit?.endsWith('-markers') ? rawHit.slice(0, -'-markers'.length) : rawHit
+                // underlying series name so callers only ever see the real series name.
+                // NOTE: `hit?.name.endsWith(...)` here would be unsafe -- `?.` only protects the
+                // `.name` access, not the chained `.endsWith(...)` call, so it would throw a
+                // TypeError on every mousemove where `hit` is undefined (i.e. most of them).
+                const hitName = hit !== undefined
+                    ? (hit.name.endsWith('-markers') ? hit.name.slice(0, -'-markers'.length) : hit.name)
+                    : undefined
 
                 if (hitName === lastHoveredRef.current) return
 

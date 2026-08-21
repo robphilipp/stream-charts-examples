@@ -233,7 +233,7 @@ export function ScatterPlotTooltipContent(props: Props): ReactElement | null {
         zIndex: 9999,
     }
 
-    const cellStyle: CSSProperties = {padding: '1px 8px', textAlign: 'right'}
+    const cellStyle: CSSProperties = {padding: '1px 8px', textAlign: 'right', border: 'none'}
     const rowLabelStyle: CSSProperties = {...cellStyle, textAlign: 'left', paddingLeft: 0}
 
     return createPortal(
@@ -241,7 +241,7 @@ export function ScatterPlotTooltipContent(props: Props): ReactElement | null {
             <div style={{fontSize: tooltipStyle.fontSize, fontWeight: tooltipStyle.fontWeight, marginBottom: 4}}>
                 {tooltipContent.seriesName}
             </div>
-            <table style={{fontSize: tooltipStyle.fontSize + 2, fontWeight: tooltipStyle.fontWeight + 150, borderCollapse: 'collapse'}}>
+            <table style={{fontSize: tooltipStyle.fontSize + 2, fontWeight: tooltipStyle.fontWeight + 150, borderCollapse: 'collapse', border: 'none'}}>
                 <thead>
                 <tr style={{fontWeight: tooltipStyle.fontWeight + 550}}>
                     <td style={rowLabelStyle}/>
