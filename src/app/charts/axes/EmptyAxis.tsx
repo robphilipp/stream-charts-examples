@@ -2,6 +2,7 @@ import {
     AxisLocation,
     addEmptyXAxis,
     addEmptyYAxis,
+    defaultAxesFont,
     removeContinuousXAxis,
     removeContinuousYAxis,
     type ContinuousNumericAxis
@@ -41,6 +42,7 @@ export function EmptyAxis(props: Props): null {
         chartId,
         canvasContext,
         axes,
+        color,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = useChart<Datum, any, any, ContinuousAxisRange, ContinuousNumericAxis>()
 
@@ -83,7 +85,7 @@ export function EmptyAxis(props: Props): null {
                         case AxisLocation.Top: {
                             axisRef.current = addEmptyXAxis(
                                 canvasContext, axisId, plotDimensions, location, EMPTY_AXIS_SCALE,
-                                margin, setAxisIntervalFor, EMPTY_AXIS_DOMAIN
+                                margin, setAxisIntervalFor, color, EMPTY_AXIS_DOMAIN
                             )
                             // add the x-axis to the chart context
                             const [start, end] = AxisInterval.as(EMPTY_AXIS_DOMAIN).asTuple()
@@ -96,7 +98,7 @@ export function EmptyAxis(props: Props): null {
                         case AxisLocation.Right: {
                             axisRef.current = addEmptyYAxis(
                                 canvasContext, axisId, plotDimensions, location, EMPTY_AXIS_SCALE,
-                                margin, setAxisIntervalFor, EMPTY_AXIS_DOMAIN
+                                margin, setAxisIntervalFor, color, EMPTY_AXIS_DOMAIN
                             )
                             // add the y-axis to the chart context
                             const [start, end] = AxisInterval.as(EMPTY_AXIS_DOMAIN).asTuple()
@@ -111,6 +113,10 @@ export function EmptyAxis(props: Props): null {
                     if (domain.isNotEmpty()) {
                         axisRef.current.update(domain, plotDimensions, margin)
                     }
+
+                    // keep the line color in sync with the chart's color (e.g. on theme change),
+                    // without recreating the axis or touching its domain
+                    axisRef.current.updateFont({...defaultAxesFont(), color})
                 }
             }
         },
@@ -119,6 +125,7 @@ export function EmptyAxis(props: Props): null {
             canvasContext, margin, plotDimensions, setAxisIntervalFor,
             axisRangeFor,
             setAxisRangeFor,
+            color,
         ]
     )
 

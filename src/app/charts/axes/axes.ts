@@ -514,6 +514,7 @@ function ordinalLabelYTranslation(
  * @param scaleGenerator The d3 scale to use for the axis
  * @param margin The plot margins for the border of main SVG group
  * @param setAxisRangeFor A callback used to set the axis range
+ * @param color The color of the axis line
  * @param domain The axis range (start, end)
  * @return A {@link ContinuousNumericAxis} based on the arguments to this function
  */
@@ -525,12 +526,21 @@ export function addEmptyXAxis(
     scaleGenerator: ScaleContinuousNumeric<number, number>,
     margin: Margin,
     setAxisRangeFor: (axisId: string, timeRange: AxisInterval) => void,
+    color: string,
     domain: [minValue: number, maxValue: number] = [0, 1],
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([0, plotDimensions.width])
 
     let currentDimensions = plotDimensions
     let currentMargin = margin
+    // NOTE: previously this read `ctx.fillStyle` directly, assuming it reflected "the chart's
+    // current color". But `ctx` is shared across every draw function registered on the canvas
+    // (all axes, all plots, the tracker), and whichever one last set `fillStyle` before this one
+    // ran left that value behind -- it had nothing to do with this axis' actual color, and never
+    // updated when the chart's `color`/theme changed, since nothing here ever assigned a new
+    // value in response to that. `currentColor` is now explicit, passed in and refreshable via
+    // `updateFont` below.
+    let currentColor = color
 
     const drawHandle: DrawHandle = `x-axis-empty-${cc.chartId}-${axisId}`
 
@@ -538,7 +548,7 @@ export function addEmptyXAxis(
         const {ctx} = context
         ctx.save()
         ctx.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
-        ctx.strokeStyle = ctx.fillStyle // "currentColor" equivalent: use whatever the chart's base fill color is
+        ctx.strokeStyle = currentColor
         ctx.beginPath()
         ctx.moveTo(0, 0)
         ctx.lineTo(currentDimensions.width, 0)
@@ -559,8 +569,13 @@ export function addEmptyXAxis(
             setAxisRangeFor(axisId, domain)
             cc.requestRedraw()
         },
-        // an empty axis has no ticks or label to color, so there's nothing for updateFont to do
-        updateFont: () => {}
+        // an empty axis has no ticks or label text, but does have a colored line -- reuse
+        // updateFont's color field to keep that line in sync with the chart's color (e.g. on a
+        // theme change), matching the pattern used by the other axis types
+        updateFont: (font) => {
+            currentColor = font.color
+            cc.requestRedraw()
+        }
     }
 }
 
@@ -573,6 +588,7 @@ export function addEmptyXAxis(
  * @param scaleGenerator The d3 scale to use for the axis
  * @param margin The plot margins for the border of main SVG group
  * @param setAxisRangeFor A callback used to set the axis range
+ * @param color The color of the axis line
  * @param domain The axis range (start, end)
  * @return A {@link ContinuousNumericAxis} based on the arguments to this function
  */
@@ -584,12 +600,14 @@ export function addEmptyYAxis(
     scaleGenerator: ScaleContinuousNumeric<number, number>,
     margin: Margin,
     setAxisRangeFor: (axisId: string, timeRange: AxisInterval) => void,
+    color: string,
     domain: [minValue: number, maxValue: number] = [0, 1],
 ): ContinuousNumericAxis {
     const scale = scaleGenerator.domain(domain).range([plotDimensions.height, 0])
 
     let currentDimensions = plotDimensions
     let currentMargin = margin
+    let currentColor = color
 
     const drawHandle: DrawHandle = `y-axis-empty-${cc.chartId}-${axisId}`
 
@@ -597,7 +615,7 @@ export function addEmptyYAxis(
         const {ctx} = context
         ctx.save()
         ctx.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
-        ctx.strokeStyle = ctx.fillStyle
+        ctx.strokeStyle = currentColor
         ctx.beginPath()
         ctx.moveTo(0, 0)
         ctx.lineTo(0, currentDimensions.height)
@@ -618,8 +636,13 @@ export function addEmptyYAxis(
             setAxisRangeFor(axisId, domain)
             cc.requestRedraw()
         },
-        // an empty axis has no ticks or label to color, so there's nothing for updateFont to do
-        updateFont: () => {}
+        // an empty axis has no ticks or label text, but does have a colored line -- reuse
+        // updateFont's color field to keep that line in sync with the chart's color (e.g. on a
+        // theme change), matching the pattern used by the other axis types
+        updateFont: (font) => {
+            currentColor = font.color
+            cc.requestRedraw()
+        }
     }
 }
 
