@@ -252,9 +252,10 @@ export function BarPlot(props: Props): null {
     const updateTimingAndPlot = useCallback(
         (ranges: Map<string, OrdinalAxisRange>): void => {
             if (canvasContext !== null) {
-                updatePlotRef.current(ranges, canvasContext)
+                ordinalRangesRef.current = ranges
+                updatePlotRef.current(canvasContext)
                 onUpdateChartTime(currentTimeRef.current)
-                updatePlotRef.current(ranges, canvasContext)
+                updatePlotRef.current(canvasContext)
             }
         },
         [canvasContext, onUpdateChartTime]
@@ -311,58 +312,27 @@ export function BarPlot(props: Props): null {
         [axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState]
     )
 
+    // holds the current per-axis ordinal ranges, kept in sync by the effect below. Replaces
+    // threading `ordinalRanges` through as an explicit `updatePlot` parameter, so the pan/zoom
+    // handlers (now set up once, in a separate effect below, rather than inside `updatePlot`
+    // itself) can always read the current ranges without needing `updatePlot` to be recreated
+    // every time the ranges change.
+    const ordinalRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
+
     /**
      * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
      * Replaces the old version, which directly mutated SVG `<rect>`/`<line>` elements bound via
      * d3's enter/update/exit join. Canvas has no persistent elements to join against, so the draw
      * function just redraws every element from current data/scale state each time it's invoked.
-     * @param ordinalRanges The current per-axis ordinal ranges (mutated in place by pan/zoom)
+     *
+     * Pan/zoom behavior setup lives in a separate effect (see below), not here -- this function
+     * runs on every data tick (each `windowingTime` interval), and recreating/reattaching a
+     * `d3.drag()`/`d3.zoom()` behavior that often is pure overhead unrelated to drawing the new
+     * data.
      * @param cc The canvas context to register the draw function with
      */
     const updatePlot = useCallback(
-        (ordinalRanges: Map<string, OrdinalAxisRange>, cc: CanvasContext) => {
-            // set up panning
-            if (panEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const drag = d3.drag<HTMLCanvasElement, unknown>()
-                    .on("start", () => {
-                        canvasSelection.style("cursor", "move")
-                        allowTooltipRef.current = false
-                    })
-                    .on("drag", event => {
-                        const names = dataRef.current.map(series => series.name)
-                        onPan(event.dx, plotDimensions, names, ordinalRanges)
-                        // need to update the plot with the new time-ranges
-                        updatePlotRef.current(ordinalRanges, cc)
-                    })
-                    .on("end", () => {
-                        canvasSelection.style("cursor", "auto")
-                        allowTooltipRef.current = isSubscriptionClosed()
-                    })
-
-                canvasSelection.call(drag)
-            }
-
-            // set up for zooming
-            if (zoomEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
-                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                    .scaleExtent([1, 10])
-                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", event => {
-                            onZoom(
-                                event.transform,
-                                event.sourceEvent.offsetX - margin.left,
-                                plotDimensions,
-                                ordinalRanges,
-                            )
-                            updatePlotRef.current(ordinalRanges, cc)
-                        }
-                    )
-                canvasSelection.call(zoom)
-            }
-
+        (cc: CanvasContext) => {
             const draw = (context: CanvasContext) => {
                 const {ctx} = context
 
@@ -512,10 +482,7 @@ export function BarPlot(props: Props): null {
             cc.requestRedraw()
         },
         [
-            chartId, canvasContext,
-            panEnabled, zoomEnabled,
-            onPan, onZoom,
-            plotDimensions, margin, zoomKeyModifiersRequired,
+            chartId, plotDimensions, margin,
             axisAssignments, xAxesState, yAxesState,
             barMargin, seriesStyles, barSeriesStyle,
             seriesFilter,
@@ -527,10 +494,68 @@ export function BarPlot(props: Props): null {
         ]
     )
 
+    // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
+    // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
+    // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
+    // behavior and reattaching it to the canvas that often was pure overhead unrelated to drawing
+    // the new data, and the constant allocation churn is a plausible contributor to the plot
+    // getting choppier the longer a stream runs.
+    useEffect(
+        () => {
+            if (!canvasContext) return
+            const cc = canvasContext
+            const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+
+            if (panEnabled) {
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => {
+                        canvasSelection.style("cursor", "move")
+                        allowTooltipRef.current = false
+                    })
+                    .on("drag", event => {
+                        const names = dataRef.current.map(series => series.name)
+                        onPan(event.dx, plotDimensions, names, ordinalRangesRef.current)
+                        // need to update the plot with the new time-ranges
+                        updatePlotRef.current(cc)
+                    })
+                    .on("end", () => {
+                        canvasSelection.style("cursor", "auto")
+                        allowTooltipRef.current = isSubscriptionClosed()
+                    })
+
+                canvasSelection.call(drag)
+            }
+
+            if (zoomEnabled) {
+                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([1, 10])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", event => {
+                            onZoom(
+                                event.transform,
+                                event.sourceEvent.offsetX - margin.left,
+                                plotDimensions,
+                                ordinalRangesRef.current,
+                            )
+                            updatePlotRef.current(cc)
+                        }
+                    )
+                canvasSelection.call(zoom)
+            }
+
+            return () => {
+                if (panEnabled) canvasSelection.on(".drag", null)
+                if (zoomEnabled) canvasSelection.on(".zoom", null)
+            }
+        },
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
+    )
+
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef<(ordinalRange: Map<string, OrdinalAxisRange>, cc: CanvasContext) => void>(noop)
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(noop)
     useEffect(
         () => {
             // eslint-disable-next-line react-hooks/immutability
@@ -579,7 +604,7 @@ export function BarPlot(props: Props): null {
                 if (ordinalAxesRanges.size === 0) {
                     // when no time-ranges have yet been created, then create them and hold on to a mutable
                     // reference to them
-                    updatePlot(ordinalAxisRanges(xAxesState.axes, AxisInterval.from(0, plotDimensions.width)), canvasContext)
+                    ordinalRangesRef.current = ordinalAxisRanges(xAxesState.axes, AxisInterval.from(0, plotDimensions.width))
                 } else {
                     // when the ordinal-ranges already exist, then we want to update the ordinal-ranges for each
                     // existing ordinal-range in a way that maintains the original scale.
@@ -596,8 +621,9 @@ export function BarPlot(props: Props): null {
                                     rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
                                 })
                         })
-                    updatePlot(ordinalAxesRanges, canvasContext)
+                    ordinalRangesRef.current = ordinalAxesRanges
                 }
+                updatePlot(canvasContext)
             }
         },
         [axesRanges, canvasContext, plotDimensions.width, updatePlot, xAxesState.axes]

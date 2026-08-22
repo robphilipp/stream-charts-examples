@@ -233,7 +233,11 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
         if (canvasContext !== null) {
             onUpdateTimeRef.current(ranges)
-            updatePlotRef.current(ranges, canvasContext)
+            // keep the single canonical ranges ref in sync, so the pan/zoom handlers (now set up
+            // once, in a separate effect, rather than inside updatePlot itself) always read the
+            // current ranges without updatePlot needing to be recreated whenever ranges change
+            timeRangesRef.current = ranges
+            updatePlotRef.current(canvasContext)
             // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
             // so that this doesn't update the application state synchronously from within the
             // subscription's update
@@ -285,41 +289,14 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
      * d3's enter/update/exit join. Canvas has no persistent elements to join against, so the draw
      * function just redraws every band/line/marker from current data/scale state each time it's
      * invoked.
+     *
+     * Pan/zoom behavior setup lives in a separate effect (see below), not here -- this function
+     * runs on every data tick (each `windowingTime` interval), and recreating/reattaching a
+     * `d3.drag()`/`d3.zoom()` behavior that often is pure overhead unrelated to drawing the new
+     * data.
      */
     const updatePlot = useCallback(
-        (timeRanges: Map<string, ContinuousAxisRange>, cc: CanvasContext) => {
-            if (panEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const drag = d3.drag<HTMLCanvasElement, unknown>()
-                    .on("start", () => canvasSelection.style("cursor", "move"))
-                    .on("drag", event => {
-                        onPan(event.dx, plotDimensions, timeRanges)
-                        updatePlotRef.current(timeRanges, cc)
-                        notifyIntervalsRef.current(timeRanges)
-                    })
-                    .on("end", () => canvasSelection.style("cursor", "auto"))
-                canvasSelection.call(drag)
-            }
-
-            if (zoomEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
-                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                    .scaleExtent([0, 10])
-                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", event => {
-                        onZoom(
-                            event.transform,
-                            event.sourceEvent.offsetX - margin.left,
-                            plotDimensions,
-                            timeRanges,
-                        )
-                        updatePlotRef.current(timeRanges, cc)
-                        notifyIntervalsRef.current(timeRanges)
-                    })
-                canvasSelection.call(zoom)
-            }
-
+        (cc: CanvasContext) => {
             const draw = (context: CanvasContext) => {
                 const {ctx} = context
 
@@ -425,8 +402,8 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
             cc.requestRedraw()
         },
         [
-            canvasContext, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
-            zoomKeyModifiersRequired, onZoom, axisAssignments,
+            chartId, plotDimensions, margin,
+            axisAssignments,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
             bandOpacity, bandOpacityStep, markerRadius, outlierMarkerColors, hoveredSeriesName,
@@ -434,7 +411,57 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         ]
     )
 
-    const updatePlotRef = useRef<(ranges: Map<string, ContinuousAxisRange>, cc: CanvasContext) => void>(noop)
+    // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
+    // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
+    // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
+    // behavior and reattaching it to the canvas that often was pure overhead unrelated to drawing
+    // the new data, and the constant allocation churn is a plausible contributor to the plot
+    // getting choppier the longer a stream runs.
+    useEffect(
+        () => {
+            if (!canvasContext) return
+            const cc = canvasContext
+            const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+
+            if (panEnabled) {
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => canvasSelection.style("cursor", "move"))
+                    .on("drag", event => {
+                        onPan(event.dx, plotDimensions, timeRangesRef.current)
+                        updatePlotRef.current(cc)
+                        notifyIntervalsRef.current(timeRangesRef.current)
+                    })
+                    .on("end", () => canvasSelection.style("cursor", "auto"))
+                canvasSelection.call(drag)
+            }
+
+            if (zoomEnabled) {
+                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([0, 10])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", event => {
+                        onZoom(
+                            event.transform,
+                            event.sourceEvent.offsetX - margin.left,
+                            plotDimensions,
+                            timeRangesRef.current,
+                        )
+                        updatePlotRef.current(cc)
+                        notifyIntervalsRef.current(timeRangesRef.current)
+                    })
+                canvasSelection.call(zoom)
+            }
+
+            return () => {
+                if (panEnabled) canvasSelection.on(".drag", null)
+                if (zoomEnabled) canvasSelection.on(".zoom", null)
+            }
+        },
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
+    )
+
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(noop)
     useEffect(() => {
         // eslint-disable-next-line react-hooks/immutability
         updatePlotRef.current = updatePlot
@@ -525,7 +552,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                     }
                 })
             }
-            updatePlot(timeRangesRef.current, canvasContext)
+            updatePlot(canvasContext)
         }
     }, [chartId, canvasContext, plotDimensions, updatePlot, xAxesState])
 

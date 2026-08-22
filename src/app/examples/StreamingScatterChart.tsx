@@ -120,6 +120,28 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     const filter = useMemo(() => filterFrom(filterValue), [filterValue])
 
+    // memoized so these don't get rebuilt (and thus don't invalidate every downstream hook in the
+    // chart that depends on them) on every render -- previously these were inline object/Map
+    // literals created fresh on every render, which combined with the frequent re-renders driven
+    // by handleChartTimeUpdate (see below) caused a lot of unnecessary recomputation throughout
+    // the chart's axis/plot code.
+    const chartMargin = useMemo(
+        () => ({...defaultMargin, top: 40, bottom: 40, right: 60}),
+        []
+    )
+    const chartSeriesStyles = useMemo(
+        () => new Map(originalInitialData.map(
+            (data, index) => [data.name, {
+                ...defaultLineStyle(),
+                lineWidth: linewidthFor(data.name),
+                color: colorFor(index, initialData.length, theme.name),
+                highlightWidth: highlightLinewidthFor(data.name),
+                highlightColor: colorFor(index, initialData.length, theme.name)
+            }])
+        ),
+        [originalInitialData, initialData.length, theme.name]
+    )
+
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(
         () => interpolationFactoryFor(selectedInterpolationName).getOrElse(d3.curveLinear)
     )
@@ -212,13 +234,26 @@ export function StreamingScatterChart(props: Props): JSX.Element {
      * @param times A map associating the axis with its time range
      */
     function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
+        // IMPORTANT: only call the store setters when the values have actually changed. A fresh
+        // array from `.asTuple()` is a *new reference* every time, even when its contents are
+        // identical to what's already in the store -- and since Zustand's default subscription
+        // equality is referential, calling the setter unconditionally re-renders every component
+        // subscribed to this slice (this component, and anything else reading x1axisRange/
+        // x2axisRange) on essentially every animation frame while streaming, whether or not the
+        // range actually moved.
         const x1AxisInterval = times.get(X1_AXIS_ID)
         if (x1AxisInterval) {
-            setX1axisRange(x1AxisInterval.asTuple())
+            const [start, end] = x1AxisInterval.asTuple()
+            if (start !== x1axisRange[0] || end !== x1axisRange[1]) {
+                setX1axisRange([start, end])
+            }
         }
         const x2AxisInterval = times.get(X2_AXIS_ID)
         if (x2AxisInterval) {
-            setX2axisRange(x2AxisInterval.asTuple())
+            const [start, end] = x2AxisInterval.asTuple()
+            if (start !== x2axisRange[0] || end !== x2axisRange[1]) {
+                setX2axisRange([start, end])
+            }
         }
     }
 
@@ -382,19 +417,11 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     chartId={CHART_ID}
                     width={useGridCellWidth()}
                     height={useGridCellHeight()}
-                    margin={{...defaultMargin, top: 40, bottom: 40, right: 60}}
+                    margin={chartMargin}
                     // svgStyle={{'background-color': 'pink'}}
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
-                    seriesStyles={new Map(originalInitialData.map(
-                        (data, index) => [data.name, {
-                            ...defaultLineStyle(),
-                            lineWidth: linewidthFor(data.name),
-                            color: colorFor(index, initialData.length, theme.name),
-                            highlightWidth: highlightLinewidthFor(data.name),
-                            highlightColor: colorFor(index, initialData.length, theme.name)
-                        }])
-                    )}
+                    seriesStyles={chartSeriesStyles}
                     initialData={initialData}
                     // seriesFilter={filterFrom(filterValue)}
                     seriesFilter={filter}
@@ -472,6 +499,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}
+                        // panEnabled={!running}
+                        // zoomEnabled={!running}
                         zoomKeyModifiersRequired={true}
                         markerRadius={visibility.markers ? 2 : undefined}
                         // withCadenceOf={30}

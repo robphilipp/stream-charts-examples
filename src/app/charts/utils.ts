@@ -148,6 +148,36 @@ export const minMaxOf = <T>(accessor: (v: T) => number) =>
  * @param name The name to be made safe for CSS
  * @return The name with spaces replaced with underscores
  */
+/**
+ * Finds the index of the first element whose x-value (per `xFrom`) is `>= value`, in a
+ * time-ordered (ascending) array-like collection, via binary search. Used to cheaply skip
+ * retained-but-off-screen data before doing per-point work (scaling, segment building) in a
+ * plot's draw function -- retained data (governed by `dropDataAfter`) is often much larger than
+ * what's actually visible in the current axis domain (a scrolling window), so iterating the full
+ * retained array every frame does a lot of work whose result is immediately discarded as
+ * off-screen. Finding the visible slice's start index up front makes per-frame cost scale with
+ * what's on screen, not with how much history is retained.
+ * @param data An array-like collection (supports `.length` and index access), sorted ascending by `xFrom`
+ * @param value The x-value to search for
+ * @param xFrom A function that extracts the x-value from an element
+ * @return The index of the first element with `xFrom(element) >= value`, or `data.length` if
+ * every element is before `value`
+ * @template D The type of the elements in `data`
+ */
+export function firstIndexAtOrAfter<D>(data: {length: number, [index: number]: D}, value: number, xFrom: (datum: D) => number): number {
+    let lo = 0
+    let hi = data.length
+    while (lo < hi) {
+        const mid = (lo + hi) >>> 1
+        if (xFrom(data[mid]) < value) {
+            lo = mid + 1
+        } else {
+            hi = mid
+        }
+    }
+    return lo
+}
+
 export function makeIdSafeForCss(name: string): string {
     // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
     return name.replace(/\s+/g, '_')

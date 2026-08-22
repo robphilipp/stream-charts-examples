@@ -11,6 +11,7 @@ import type {Datum} from "../series/timeSeries";
 import {copyOrdinalDatum, nonEmptyOrdinalDatum, type OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
 import {type ChartData, copyChartData, defaultChartData} from "./ChartData";
 import {FastShiftArray} from "fast-shift-array";
+import {DEFAULT_COMPACTING_SIZE} from "../series/baseSeries.ts";
 
 export interface OrdinalChartData extends ChartData {
     /**
@@ -160,7 +161,10 @@ const initialAccumulate = (): Accumulator => ({previous: new Map(), accumulated:
  * @param dataObservable The observable over {@link TimeSeriesChartData}
  * @return An observable of {@link OrdinalChartData} holding the series for the incoming chart data
  */
-export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartData>): Observable<OrdinalChartData> {
+export function ordinalsObservable(
+    dataObservable: Observable<TimeSeriesChartData>,
+    compactingSize: number = DEFAULT_COMPACTING_SIZE
+): Observable<OrdinalChartData> {
     return dataObservable
         .pipe(
             // calculate the iterates for each series in the chart data
@@ -225,7 +229,11 @@ export function ordinalsObservable(dataObservable: Observable<TimeSeriesChartDat
                         })
 
                         // convert the new points to ordinal datum
-                        accum.newPoints.set(name, FastShiftArray.fromArray(series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y))))
+                        accum.newPoints.set(name, FastShiftArray.fromArray(
+                            series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y)),
+                            true,
+                            compactingSize
+                        ))
                         // accum.newPoints.set(name, series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y)))
                     })
                 return {previous, accumulated: accum}

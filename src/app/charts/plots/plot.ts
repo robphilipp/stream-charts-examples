@@ -55,6 +55,37 @@ export function createCanvasContext(
         Array.from(drawFns.values())
             .sort((a, b) => a.zIndex - b.zIndex)
             .forEach(({draw}) => draw(canvasContext))
+
+        // // TEMPORARY INSTRUMENTATION -- times each registered draw handle individually so we can
+        // // see which one is actually consuming the frame budget, rather than just the total.
+        // // Remove once the culprit is identified.
+        // const __perHandleMs: Record<string, number> = {}
+        // Array.from(drawFns.entries())
+        //     .sort(([, a], [, b]) => a.zIndex - b.zIndex)
+        //     .forEach(([handle, {draw}]) => {
+        //         const __t0 = performance.now()
+        //         draw(canvasContext)
+        //         __perHandleMs[handle] = (__perHandleMs[handle] ?? 0) + (performance.now() - __t0)
+        //     })
+        //
+        // const w = window as unknown as {
+        //     __redrawStats?: {count: number, perHandleTotals: Record<string, number>}
+        // }
+        // if (!w.__redrawStats) w.__redrawStats = {count: 0, perHandleTotals: {}}
+        // w.__redrawStats.count++
+        // for (const [handle, ms] of Object.entries(__perHandleMs)) {
+        //     w.__redrawStats.perHandleTotals[handle] = (w.__redrawStats.perHandleTotals[handle] ?? 0) + ms
+        // }
+        // if (w.__redrawStats.count % 50 === 0) {
+        //     const totals = w.__redrawStats.perHandleTotals
+        //     const sorted = Object.entries(totals).sort(([, a], [, b]) => b - a)
+        //     console.log(`--- redraw breakdown after ${w.__redrawStats.count} frames (avg ms/frame per handle) ---`)
+        //     sorted.forEach(([handle, totalMs]) => {
+        //         console.log(`  ${handle}: ${(totalMs / w.__redrawStats!.count).toFixed(3)}ms`)
+        //     })
+        //     // reset so the next block reflects the next 50 frames, not a growing cumulative average
+        //     w.__redrawStats = {count: 0, perHandleTotals: {}}
+        // }
     }
 
     const canvasContext: CanvasContext = {

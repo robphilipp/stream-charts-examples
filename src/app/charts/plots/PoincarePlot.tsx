@@ -364,89 +364,33 @@ export function PoincarePlot(props: Props): null {
     const updatePlot = useCallback(
         /**
          * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
+         *
+         * Pan/zoom behavior setup lives in a separate effect (see below), not here -- this
+         * function runs on every data tick, and recreating/reattaching a `d3.drag()`/`d3.zoom()`
+         * behavior that often is pure overhead unrelated to drawing the new data.
          * @param cc The canvas context to register the draw function with
          */
         (cc: CanvasContext) => {
             onUpdateChartTime(currentTimeRef.current)
 
-            // create a map associating series-names to their time-series.
-            const boundedSeries = new Map<string, IteratePointSeries>(dataRef.current.map(series => {
-                return [
-                    series.name,
-                    series.data
-                        .filter(datum => !isNaN(datum.iterateN))
-                        .map((datum, index) => ({
-                                n: datum.iterateN,
-                                n_1: datum.iterateN_1,
-                                time: datum.time,
-                                index: index
-                            })
-                        ) as IteratePointSeries
-                ]
-            }))
-
-            // set up panning
-            if (panEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const drag = d3.drag<HTMLCanvasElement, unknown>()
-                    .on("start", () => {
-                        canvasSelection.style("cursor", "move")
-                        // during panning, we need to disable viewing the tooltip to prevent
-                        // tooltips from rendering but not getting removed
-                        allowTooltip.current = false;
-                    })
-                    .on("drag", event => {
-                        onPan(
-                            event.dx,
-                            event.dy,
-                            plotDimensions,
-                            Array.from(boundedSeries.keys()),
-                            xAxisRangesRef.current,
-                            yAxisRangesRef.current
-                        )
-                        updatePlotRef.current(cc)
-                    })
-                    .on("end", () => {
-                        canvasSelection.style("cursor", "auto")
-                        // during panning, we disabled viewing the tooltip to prevent
-                        // tooltips from rendering but not getting removed, now that panning
-                        // is over, allow tooltips to render again
-                        allowTooltip.current = isSubscriptionClosed();
-                    })
-
-                canvasSelection.call(drag)
-            }
-
-            // set up for zooming
-            if (zoomEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, Datum>(cc.canvas)
-                zoomRef.current = d3.zoom<HTMLCanvasElement, Datum>()
-                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                    .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
-                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", event => {
-                            allowTooltip.current = false
-                            if (event.sourceEvent !== null) {
-                                onZoom(
-                                    event.transform,
-                                    event.sourceEvent.offsetX - margin.left,
-                                    event.sourceEvent.offsetY - margin.top,
-                                    plotDimensions,
-                                    xAxisRangesRef.current,
-                                    yAxisRangesRef.current
-                                )
-                                updatePlotRef.current(cc)
-                            }
-                            allowTooltip.current = true
-                        }
-                    )
-
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                zoomSelectionRef.current = canvasSelection.call(zoomRef.current) as any
-            }
-
             const draw = (context: CanvasContext) => {
                 const {ctx} = context
+
+                // create a map associating series-names to their time-series.
+                const boundedSeries = new Map<string, IteratePointSeries>(dataRef.current.map(series => {
+                    return [
+                        series.name,
+                        series.data
+                            .filter(datum => !isNaN(datum.iterateN))
+                            .map((datum, index) => ({
+                                    n: datum.iterateN,
+                                    n_1: datum.iterateN_1,
+                                    time: datum.time,
+                                    index: index
+                                })
+                            ) as IteratePointSeries
+                    ]
+                }))
 
                 ctx.save()
                 clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
@@ -586,19 +530,100 @@ export function PoincarePlot(props: Props): null {
             cc.requestRedraw()
         },
         [
-            canvasContext, onUpdateChartTime, panEnabled, zoomEnabled, chartId, plotDimensions, margin,
+            chartId, onUpdateChartTime, plotDimensions, margin,
             xAxesState, yAxesState,
-            onPan,
-            zoomMinScaleFactor, zoomMaxScaleFactor, zoomKeyModifiersRequired, onZoom,
             seriesStyles, seriesFilter, showPoints,
             interpolation, backgroundColor,
+        ]
+    )
+
+    // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
+    // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
+    // `updatePlot`, which runs on every data tick; recreating a `d3.drag()`/`d3.zoom()` behavior
+    // and reattaching it to the canvas that often was pure overhead unrelated to drawing the new
+    // data, and the constant allocation churn is a plausible contributor to the plot getting
+    // choppier the longer a stream runs.
+    useEffect(
+        () => {
+            if (!canvasContext) return
+            const cc = canvasContext
+            const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+
+            if (panEnabled) {
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => {
+                        canvasSelection.style("cursor", "move")
+                        // during panning, we need to disable viewing the tooltip to prevent
+                        // tooltips from rendering but not getting removed
+                        allowTooltip.current = false;
+                    })
+                    .on("drag", event => {
+                        onPan(
+                            event.dx,
+                            event.dy,
+                            plotDimensions,
+                            dataRef.current.map(series => series.name),
+                            xAxisRangesRef.current,
+                            yAxisRangesRef.current
+                        )
+                        updatePlotRef.current(cc)
+                    })
+                    .on("end", () => {
+                        canvasSelection.style("cursor", "auto")
+                        // during panning, we disabled viewing the tooltip to prevent
+                        // tooltips from rendering but not getting removed, now that panning
+                        // is over, allow tooltips to render again
+                        allowTooltip.current = isSubscriptionClosed();
+                    })
+
+                canvasSelection.call(drag)
+            }
+
+            if (zoomEnabled) {
+                zoomRef.current = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", event => {
+                            allowTooltip.current = false
+                            if (event.sourceEvent !== null) {
+                                onZoom(
+                                    event.transform,
+                                    event.sourceEvent.offsetX - margin.left,
+                                    event.sourceEvent.offsetY - margin.top,
+                                    plotDimensions,
+                                    xAxisRangesRef.current,
+                                    yAxisRangesRef.current
+                                )
+                                updatePlotRef.current(cc)
+                            }
+                            allowTooltip.current = true
+                        }
+                    )
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                zoomSelectionRef.current = canvasSelection.call(zoomRef.current) as any
+            }
+
+            return () => {
+                if (panEnabled) canvasSelection.on(".drag", null)
+                if (zoomEnabled) {
+                    canvasSelection.on(".zoom", null)
+                    zoomRef.current = undefined
+                    zoomSelectionRef.current = undefined
+                }
+            }
+        },
+        [
+            canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin,
+            zoomKeyModifiersRequired, zoomMinScaleFactor, zoomMaxScaleFactor
         ]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure
     // on them. without the references, the closures become stale, and resizing during streaming
     // doesn't work properly
-    const updatePlotRef = useRef(updatePlot)
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(updatePlot)
     useEffect(
         () => {
             // eslint-disable-next-line react-hooks/immutability

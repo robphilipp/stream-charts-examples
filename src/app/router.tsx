@@ -40,7 +40,7 @@ import {useThemeStore} from "./examples/appstate/themeStore.ts";
     regenerate the random data (previously done at module scope in App.tsx).
  */
 const seriesNames: Array<string> = []
-for (let i = 0; i < 30; ++i) {
+for (let i = 0; i < 10; ++i) {
     seriesNames.push(`Series ${i}`)
 }
 const initialScatterData = initialRandomWeightData(seriesNames, 10, 500, 50, 20, 100)

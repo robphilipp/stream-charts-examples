@@ -313,56 +313,15 @@ export function RasterPlot(props: Props): null {
      * Replaces the old version, which directly mutated SVG `<line>` elements bound via d3's
      * enter/update/exit join. Canvas has no persistent elements to join against, so the draw
      * function just redraws every spike from current data/scale state each time it's invoked.
+     *
+     * Pan/zoom behavior setup lives in a separate effect (see below), not here -- this function
+     * runs on every data tick (each `windowingTime` interval), and recreating/reattaching a
+     * `d3.drag()`/`d3.zoom()` behavior that often is pure overhead unrelated to drawing the new
+     * data.
      * @param cc The canvas context to register the draw function with
      */
     const updatePlot = useCallback(
         (cc: CanvasContext) => {
-            // set up panning
-            if (panEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const drag = d3.drag<HTMLCanvasElement, unknown>()
-                    .on("start", () => {
-                        canvasSelection.style("cursor", "move")
-                        allowTooltipRef.current = false
-                    })
-                    .on("drag", (event: D3DragEvent<HTMLCanvasElement, unknown, ContinuousNumericAxis>) => {
-                        onPan(event.dx, plotDimensions, timeRangesRef.current)
-                        // need to update the plot with the new time-ranges
-                        updatePlotRef.current(cc)
-                        // the pan updated the axes' ranges in place, so report the new intervals
-                        notifyIntervalsRef.current(timeRangesRef.current)
-                    })
-                    .on("end", () => {
-                        canvasSelection.style("cursor", "auto")
-                        allowTooltipRef.current = isSubscriptionClosed()
-                    })
-
-                canvasSelection.call(drag)
-            }
-
-            // set up for zooming
-            if (zoomEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
-                    .filter((event: KeyboardEvent) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                    .scaleExtent([0, 10])
-                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
-                            onZoom(
-                                event.transform,
-                                event.sourceEvent.offsetX - margin.left,
-                                plotDimensions,
-                                timeRangesRef.current,
-                            )
-                            updatePlotRef.current(cc)
-                            // the zoom updated the axes' ranges in place, so report the new intervals
-                            notifyIntervalsRef.current(timeRangesRef.current)
-                        }
-                    )
-
-                canvasSelection.call(zoom)
-            }
-
             const draw = (context: CanvasContext) => {
                 const {ctx} = context
 
@@ -437,16 +396,75 @@ export function RasterPlot(props: Props): null {
             cc.requestRedraw()
         },
         [
-            axisAssignments, chartId, canvasContext, margin,
-            onPan, onZoom,
-            panEnabled,
+            axisAssignments, chartId, margin,
             plotDimensions,
             seriesFilter, seriesStyles,
             xAxesState, yAxesState,
-            zoomEnabled, zoomKeyModifiersRequired,
             spikeMargin,
             hoveredSeriesName,
         ]
+    )
+
+    // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
+    // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
+    // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
+    // behavior and reattaching it to the canvas that often was pure overhead unrelated to drawing
+    // the new data, and the constant allocation churn is a plausible contributor to the plot
+    // getting choppier the longer a stream runs.
+    useEffect(
+        () => {
+            if (!canvasContext) return
+            const cc = canvasContext
+            const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+
+            if (panEnabled) {
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => {
+                        canvasSelection.style("cursor", "move")
+                        allowTooltipRef.current = false
+                    })
+                    .on("drag", (event: D3DragEvent<HTMLCanvasElement, unknown, ContinuousNumericAxis>) => {
+                        onPan(event.dx, plotDimensions, timeRangesRef.current)
+                        // need to update the plot with the new time-ranges
+                        updatePlotRef.current(cc)
+                        // the pan updated the axes' ranges in place, so report the new intervals
+                        notifyIntervalsRef.current(timeRangesRef.current)
+                    })
+                    .on("end", () => {
+                        canvasSelection.style("cursor", "auto")
+                        allowTooltipRef.current = isSubscriptionClosed()
+                    })
+
+                canvasSelection.call(drag)
+            }
+
+            if (zoomEnabled) {
+                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter((event: KeyboardEvent) => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([0, 10])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
+                            onZoom(
+                                event.transform,
+                                event.sourceEvent.offsetX - margin.left,
+                                plotDimensions,
+                                timeRangesRef.current,
+                            )
+                            updatePlotRef.current(cc)
+                            // the zoom updated the axes' ranges in place, so report the new intervals
+                            notifyIntervalsRef.current(timeRangesRef.current)
+                        }
+                    )
+
+                canvasSelection.call(zoom)
+            }
+
+            return () => {
+                if (panEnabled) canvasSelection.on(".drag", null)
+                if (zoomEnabled) canvasSelection.on(".zoom", null)
+            }
+        },
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure

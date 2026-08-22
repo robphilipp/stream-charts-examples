@@ -18,7 +18,7 @@ import {
 import type {CanvasContext} from "../d3types";
 import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {Observable, Subscription} from "rxjs";
-import {noop} from "../utils";
+import {firstIndexAtOrAfter, makeIdSafeForCss, noop} from "../utils";
 import type {Dimensions, Margin} from "../styling/margins";
 import {
     subscriptionTimeSeriesFor,
@@ -312,65 +312,19 @@ export function ScatterPlot(props: Props): null {
          * via d3's enter/update/exit join. Canvas has no persistent elements to join against, so
          * the draw function just redraws every series from its current data/scale state each time
          * it's invoked -- there's no separate "update" case to handle.
+         *
+         * Pan/zoom behavior setup lives in a separate effect (see below), not here -- this
+         * function runs on every data tick (each `windowingTime` interval), and recreating/
+         * reattaching a `d3.drag()`/`d3.zoom()` behavior that often is pure overhead with no
+         * benefit, since panEnabled/zoomEnabled/plotDimensions/margin change far less often than
+         * the data does.
          * @param cc The canvas context to register the draw function with
          */
         (cc: CanvasContext) => {
-            // set up panning (idempotent: d3 replaces the previous .call(drag) behavior on the
-            // same selection when called again with a new drag instance)
-            if (panEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const drag = d3.drag<HTMLCanvasElement, unknown>()
-                    .on("start", () => {
-                        canvasSelection.style("cursor", "move")
-                        // during panning, we need to disable viewing the tooltip to prevent
-                        // tooltips from rendering but not getting removed
-                        allowTooltip.current = false;
-                    })
-                    .on("drag", (event) => {
-                        onPan(
-                            event.dx,
-                            plotDimensions,
-                            timeRangesRef.current,
-                        )
-                        updatePlotRef.current(cc)
-                        // the pan updated the axes' ranges in place, so report the new intervals
-                        notifyIntervalsRef.current(timeRangesRef.current)
-                    })
-                    .on("end", () => {
-                        canvasSelection.style("cursor", "auto")
-                        // during panning, we disabled viewing the tooltip to prevent
-                        // tooltips from rendering but not getting removed, now that panning
-                        // is over, allow tooltips to render again
-                        allowTooltip.current = isSubscriptionClosed();
-                    })
-
-                canvasSelection.call(drag)
-            }
-
-            // set up for zooming
-            if (zoomEnabled) {
-                const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
-                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
-                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
-                    .scaleExtent([0, 10])
-                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
-                    .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
-                            onZoom(
-                                event.transform,
-                                event.sourceEvent.offsetX - margin.left,
-                                plotDimensions,
-                                timeRangesRef.current,
-                            )
-                            updatePlotRef.current(cc)
-                            // the zoom updated the axes' ranges in place, so report the new intervals
-                            notifyIntervalsRef.current(timeRangesRef.current)
-                        }
-                    )
-
-                canvasSelection.call(zoom)
-            }
-
             const draw = (context: CanvasContext) => {
+                // const __drawStart = performance.now()
+                // let __totalRetained = 0
+                // let __totalProcessed = 0
                 const {ctx} = context
 
                 // create a map associating series-names with their time-series.
@@ -418,19 +372,56 @@ export function ScatterPlot(props: Props): null {
                     // build the on-screen points, dropping data in the x-axis that is out of the
                     // chart bounds (mirrors the old lineGenerator's `.defined(...)`)
                     type ScreenPoint = [x: number, y: number]
+                    // skip the expensive per-point work below for retained-but-off-screen data:
+                    // `plotData` can hold far more history than is ever visible (dropDataAfter is
+                    // independent of, and often much larger than, the axis's current scrolling
+                    // window), so iterating the *full* retained array every frame does a lot of
+                    // work whose result is immediately thrown away as off-screen. Binary-search
+                    // for where the visible domain begins, and only process from there on --
+                    // backing up by one point so a line entering from off-screen still renders
+                    // correctly across the boundary.
+                    const [domainStart] = xAxisLinear.scale.domain()
+                    const startIndex = Math.max(0, firstIndexAtOrAfter(plotData, domainStart, (d: Datum) => d.x) - 1)
+                    // __totalRetained += plotData.length
+                    // __totalProcessed += Math.max(0, plotData.length - startIndex)
+
+                    const showMarkers = markerRadius != null && markerRadius >= 0 && !shouldSubscribe
+                    const markerRadiusResolved = isHovered ? markerRadius! + 2 : markerRadius!
+
                     const segments: Array<Array<ScreenPoint>> = []
                     let currentSegment: Array<ScreenPoint> = []
-                    plotData.forEach((d: Datum) => {
+                    const screenPoints: Array<[number, number]> = []
+
+                    ctx.fillStyle = isHovered ? highlightColor : seriesColor
+                    for (let i = startIndex; i < plotData.length; i++) {
+                        const d = plotData[i]
                         const x = xAxisLinear.scale(d.x)
+                        const y = yAxisLinear.scale(d.y)
+
+                        // record geometry (outer/canvas coordinate space, margin baked in) for
+                        // mousemove hit-testing, regardless of on/off-screen -- a point just past
+                        // the edge should still be hoverable at the boundary
+                        screenPoints.push([x + margin.left, y + margin.top])
+
                         if (x < 0 || x > plotDimensions.width) {
                             if (currentSegment.length > 0) {
                                 segments.push(currentSegment)
                                 currentSegment = []
                             }
-                            return
+                            continue
                         }
-                        currentSegment.push([x, yAxisLinear.scale(d.y)])
-                    })
+
+                        currentSegment.push([x, y])
+
+                        // point markers (one circle per datum) -- suppressed while streaming
+                        // because redrawing many circles every frame is more work than a single
+                        // line path
+                        if (showMarkers) {
+                            ctx.beginPath()
+                            ctx.arc(x, y, markerRadiusResolved, 0, 2 * Math.PI)
+                            ctx.fill()
+                        }
+                    }
                     if (currentSegment.length > 0) segments.push(currentSegment)
 
                     // draw the series line (interpolation is applied via a Path2D built through a
@@ -445,27 +436,6 @@ export function ScatterPlot(props: Props): null {
                         ctx.stroke(path)
                     })
 
-                    // point markers (one circle per datum) -- suppressed while streaming because
-                    // redrawing many circles every frame is more work than a single line path
-                    const showMarkers = markerRadius != null && markerRadius >= 0 && !shouldSubscribe
-                    if (showMarkers) {
-                        const radius = isHovered ? markerRadius! + 2 : markerRadius!
-                        ctx.fillStyle = isHovered ? highlightColor : seriesColor
-                        plotData.forEach((d: Datum) => {
-                            const x = xAxisLinear.scale(d.x)
-                            const y = yAxisLinear.scale(d.y)
-                            ctx.beginPath()
-                            ctx.arc(x, y, radius, 0, 2 * Math.PI)
-                            ctx.fill()
-                        })
-                    }
-
-                    // record this series' geometry, in the *outer* (canvas) coordinate space
-                    // (i.e. with the margin offset baked back in), for mousemove hit-testing
-                    const screenPoints: Array<[number, number]> = plotData.map((d: Datum) => [
-                        xAxisLinear.scale(d.x) + margin.left,
-                        yAxisLinear.scale(d.y) + margin.top
-                    ])
                     newGeometry.set(name, {
                         points: screenPoints,
                         asLine: true,
@@ -477,13 +447,25 @@ export function ScatterPlot(props: Props): null {
                         // if the caller ever wants to (currently treated the same on mousemove)
                         newGeometry.set(`${name}-markers`, {
                             points: screenPoints,
-                            hitRadius: (isHovered ? markerRadius! + 2 : markerRadius!) + 3
+                            hitRadius: markerRadiusResolved + 3
                         })
                     }
                 })
 
                 geometryRef.current = newGeometry
-
+                // const __drawMs = performance.now() - __drawStart
+                // if (!(window as any).__drawStats) (window as any).__drawStats = {count: 0, totalMs: 0, maxMs: 0}
+                // const stats = (window as any).__drawStats
+                // stats.count++
+                // stats.totalMs += __drawMs
+                // stats.maxMs = Math.max(stats.maxMs, __drawMs)
+                // if (stats.count % 50 === 0) {
+                //     console.log(
+                //         `draw#${stats.count} thisFrame=${__drawMs.toFixed(2)}ms avg=${(stats.totalMs / stats.count).toFixed(2)}ms max=${stats.maxMs.toFixed(2)}ms ` +
+                //         `retained=${__totalRetained} processed=${__totalProcessed}`
+                //     )
+                //     stats.maxMs = 0 // reset max so it reflects the last 50 frames, not the all-time peak
+                // }
                 ctx.restore()
             }
 
@@ -491,12 +473,85 @@ export function ScatterPlot(props: Props): null {
             cc.requestRedraw()
         },
         [
-            canvasContext, panEnabled, zoomEnabled, chartId, plotDimensions, margin, onPan,
-            zoomKeyModifiersRequired, onZoom, axisAssignments,
+            chartId, plotDimensions, margin,
+            axisAssignments,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
             hoveredSeriesName, markerRadius, shouldSubscribe
         ]
+    )
+
+    // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
+    // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
+    // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
+    // behavior and reattaching it to the canvas that often was pure overhead unrelated to drawing
+    // the new data, and the constant allocation churn is a plausible contributor to the plot
+    // getting choppier the longer a stream runs.
+    useEffect(
+        () => {
+            if (!canvasContext) return
+            const cc = canvasContext
+            const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+
+            if (panEnabled) {
+                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                    .on("start", () => {
+                        canvasSelection.style("cursor", "move")
+                        // during panning, we need to disable viewing the tooltip to prevent
+                        // tooltips from rendering but not getting removed
+                        allowTooltip.current = false;
+                    })
+                    .on("drag", (event) => {
+                        onPan(
+                            event.dx,
+                            plotDimensions,
+                            timeRangesRef.current,
+                        )
+                        updatePlotRef.current(cc)
+                        // the pan updated the axes' ranges in place, so report the new intervals
+                        notifyIntervalsRef.current(timeRangesRef.current)
+                    })
+                    .on("end", () => {
+                        canvasSelection.style("cursor", "auto")
+                        // during panning, we disabled viewing the tooltip to prevent
+                        // tooltips from rendering but not getting removed, now that panning
+                        // is over, allow tooltips to render again
+                        allowTooltip.current = isSubscriptionClosed();
+                    })
+
+                canvasSelection.call(drag)
+            }
+
+            if (zoomEnabled) {
+                const zoom = d3.zoom<HTMLCanvasElement, unknown>()
+                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    .scaleExtent([0, 10])
+                    .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
+                    .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
+                            onZoom(
+                                event.transform,
+                                event.sourceEvent.offsetX - margin.left,
+                                plotDimensions,
+                                timeRangesRef.current,
+                            )
+                            updatePlotRef.current(cc)
+                            // the zoom updated the axes' ranges in place, so report the new intervals
+                            notifyIntervalsRef.current(timeRangesRef.current)
+                        }
+                    )
+
+                canvasSelection.call(zoom)
+            }
+
+            // detach the drag/zoom behaviors' listeners when this effect re-runs (e.g. on
+            // resize) or unmounts, rather than relying solely on the next .call(...) to replace
+            // them under the hood
+            return () => {
+                if (panEnabled) canvasSelection.on(".drag", null)
+                if (zoomEnabled) canvasSelection.on(".zoom", null)
+            }
+        },
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
     )
 
     // need to keep the function references for use by the subscription, which forms a closure

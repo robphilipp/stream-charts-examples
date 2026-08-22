@@ -1,6 +1,7 @@
 import type {Datum, TimeSeries} from "./timeSeries";
 import {type ChartData, defaultChartData} from "../observables/ChartData";
 import {FastShiftArray} from "fast-shift-array";
+import {DEFAULT_COMPACTING_SIZE} from "./baseSeries.ts";
 
 /**
  * The spike-chart data produced by the rxjs observable that is pushed to a streaming chart
@@ -48,7 +49,11 @@ export function emptyTimeSeriesChartData(series: Array<string>): TimeSeriesChart
  * @param [currentTime=0] The current time
  * @return An empty chart data object
  */
-export function initialTimeSeriesChartData(seriesList: Array<TimeSeries>, currentTime: number = 0): TimeSeriesChartData {
+export function initialTimeSeriesChartData(
+    seriesList: Array<TimeSeries>,
+    currentTime: number = 0,
+    compactingSize: number = DEFAULT_COMPACTING_SIZE
+): TimeSeriesChartData {
     const maxTime = seriesList.reduce(
         (tMax, series) => Math.max(tMax, series.last().map(datum => datum.x).getOrElse(-Infinity)),
         -Infinity
@@ -62,7 +67,7 @@ export function initialTimeSeriesChartData(seriesList: Array<TimeSeries>, curren
             FastShiftArray.fromArray([{
                 x: series.last().map(datum => datum.x).getOrElse(0),
                 y: series.last().map(datum => datum.y).getOrElse(0)
-            }])
+            }], true, compactingSize)
         ])),
         currentTime: currentTime
     }

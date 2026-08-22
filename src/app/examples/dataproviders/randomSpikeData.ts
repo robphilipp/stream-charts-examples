@@ -3,6 +3,7 @@ import {type TimeSeries} from "../../charts/series/timeSeries.ts";
 import {interval, Observable} from "rxjs";
 import {map} from "rxjs/operators";
 import {FastShiftArray} from "fast-shift-array";
+import {DEFAULT_COMPACTING_SIZE} from "../../charts/series/baseSeries.ts";
 
 const UPDATE_PERIOD_MS = 25;
 
@@ -19,6 +20,7 @@ function randomSpikeData(
     series: Array<string>,
     seriesMaxTimes: Map<string, number>,
     spikeProbability: number = 0.5,
+    compactingSize: number = DEFAULT_COMPACTING_SIZE
 ): TimeSeriesChartData {
     const maxTime = Math.max(...Array.from(seriesMaxTimes.values()))
     const maxTimes = new Map(
@@ -36,7 +38,7 @@ function randomSpikeData(
                     FastShiftArray.fromArray([{
                         x: sequenceTime + maxTime,
                         y: Math.random()
-                    }])
+                    }], true, compactingSize)
                 ]
             }))
     };
