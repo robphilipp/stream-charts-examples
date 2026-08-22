@@ -1,6 +1,5 @@
 import {AxesState} from "./AxesState";
 import {AxisLocation, type BaseAxis} from "./axes";
-import type {AxisElementSelection} from "../d3types";
 
 describe('AxesState', () => {
     describe('creating axes-state', () => {
@@ -12,7 +11,6 @@ describe('AxesState', () => {
             const axis: BaseAxis = {
                 axisId: 'new-axis',
                 location: AxisLocation.Bottom,
-                selection: undefined as unknown as AxisElementSelection
             }
             const axesState = AxesState.from<BaseAxis>(new Map([['new-added-axis', axis]]));
             expect(axesState.isEmpty()).toBe(false);
@@ -25,7 +23,6 @@ describe('AxesState', () => {
             const axis: BaseAxis = {
                 axisId: 'new-axis',
                 location: AxisLocation.Bottom,
-                selection: undefined as unknown as AxisElementSelection
             }
             const updatedAxesState = axesState.addAxis(axis, 'new-added-axis');
             expect(updatedAxesState.isEmpty()).toBe(false);

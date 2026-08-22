@@ -11,7 +11,6 @@ interface RegisteredDraw {
     zIndex: number
 }
 
-// @ts-ignore
 /**
  * Creates the {@link CanvasContext} for the chart -- the drawing context plus the redraw
  * registration/scheduling API that axes, plots, and the tracker use to (re)paint themselves.

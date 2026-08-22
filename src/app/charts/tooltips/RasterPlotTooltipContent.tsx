@@ -157,7 +157,7 @@ export function RasterPlotTooltipContent(props: Props): ReactElement | null {
                 registerTooltipContentProvider(
                     /**
                      * @param seriesName The name of the series
-                     * @param time The mouse time
+                     * @param time The mouse time (not used
                      * @param tooltipData The tooltip data holding the series and metadata (data about the series)
                      * @param mouseCoords The coordinates of the mouse, in canvas-local coordinates
                      * @return Off-screen dimensions, so the parent <Tooltip>'s own background stays invisible
@@ -253,8 +253,7 @@ function captureTooltipContent(
     options: TooltipOptions,
     setTooltipContent: (content: RasterTooltipContent) => void,
 ): TooltipDimensions {
-    const {formatters} = options
-    const {x} = mouseCoords
+    const [x] = mouseCoords
     const {x: spikeTime, y} = selected
 
     // rough content size estimate, used only to keep the tooltip within the plot/viewport edges

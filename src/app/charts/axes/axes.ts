@@ -388,11 +388,14 @@ function addOrdinalStringYAxis(
 
         const degrees = location === AxisLocation.Left ? -currentTickStyle.rotation : currentTickStyle.rotation
         const radians = degrees * Math.PI / 180
-        const xTick = location === AxisLocation.Left ? 0 : scale.bandwidth() // mirrors the old xTranslation offset
+        const tickDirection = location === AxisLocation.Left ? -1 : 1
+        // offset the label past the tick mark plus a little padding, rather than flush against
+        // the axis line -- this was previously just `0` (Left) / `scale.bandwidth()` (Right),
+        // which put the label's text-anchor edge right on top of the axis line with no gap
+        const xTick = (TICK_SIZE + TICK_PADDING) * tickDirection
 
         categories.forEach(category => {
             const y = (scale(category) ?? 0) + scale.bandwidth() / 2
-            const tickDirection = location === AxisLocation.Left ? -1 : 1
             ctx.beginPath()
             ctx.moveTo(0, y)
             ctx.lineTo(TICK_SIZE * tickDirection, y)
