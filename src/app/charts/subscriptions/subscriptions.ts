@@ -472,7 +472,6 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
  * @param seriesObservable The observable streaming outlier-chart-data
  * @param onSubscribe Callback for when the observable is subscribed to
  * @param windowingTime Buffer interval (ms) before flushing batched data to the chart
- * @param axisAssignments Map associating each series to its x- and y-axes
  * @param xAxesState The current state of the x-axis
  * @param onUpdateData Optional callback fired when new data arrives for a series
  * @param dropDataAfter Drops series data points older than this many milliseconds
@@ -486,7 +485,6 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
     seriesObservable: Observable<OutlierChartData<M>>,
     onSubscribe: (subscription: Subscription) => void,
     windowingTime: number,
-    axisAssignments: Map<string, AxesAssignment>,
     xAxesState: AxesState<ContinuousNumericAxis>,
     onUpdateData: ((seriesName: string, data: Array<OutlierDatum<M>>) => void) | undefined,
     dropDataAfter: number,

@@ -19,7 +19,7 @@ import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 Here's how to write your own tooltip-content component.
 
 To create your own tooltip content `<MyTooltipContent/>` you must do the following:
-1. Create a react component for your tooltip content (see for example, {@link ScatterPlotTooltipContent}
+1. Create a React component for your tooltip content (see, for example, {@link ScatterPlotTooltipContent}
    as a reference.
 2. Use the {@link useChart} hook to get the {@link registerTooltipContentProvider} registration function.
 3. When your tooltip content component (`<MyTooltipContent/>`) mounts, use the {@link registerTooltipContentProvider}
@@ -28,7 +28,7 @@ To create your own tooltip content `<MyTooltipContent/>` you must do the followi
    again (you can register as many times as you like because it only uses the last content provider
    registered).
 
-That's it! A bit more details below.
+That's it! A few more details are below.
 
 The {@link registerTooltipContentProvider} function from the {@link useChart} hook allows you to register
 one tooltip content provider. A second call to this function will cause the {@link useChart} hook to drop

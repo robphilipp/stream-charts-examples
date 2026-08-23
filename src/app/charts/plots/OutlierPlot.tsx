@@ -530,7 +530,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 seriesObservable as Observable<OutlierChartData<M>>,
                 onSubscribe,
                 windowingTime,
-                axisAssignments, xAxesState,
+                xAxesState,
                 onUpdateData,
                 dropDataAfter,
                 updateTimingAndPlot,
