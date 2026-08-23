@@ -223,144 +223,6 @@ export function PoincarePlot(props: Props): null {
     // its neighbors, and so we know when to fire a "leave"
     const hoveredPointRef = useRef<{seriesName: string, index: number} | undefined>(undefined)
 
-    // calculates the distinct axis IDs that cover all the series in the plot
-    const xAxesForSeries = useMemo(
-        (): Array<string> => xAxesState.axisIds(),
-        [xAxesState]
-    )
-    const yAxesForSeries = useMemo(
-        (): Array<string> => yAxesState.axisIds(),
-        [yAxesState]
-    )
-
-    // when the axes are available, then set the reference, but only once
-    useEffect(() => {
-        if (xAxesState.axes.size > 0 && xAxisRangesRef.current.size === 0) {
-            xAxisRangesRef.current = generateAxisRangeMap(xAxesState.axes)
-        }
-        if (yAxesState.axes.size > 0 && yAxisRangesRef.current.size === 0) {
-            yAxisRangesRef.current = generateAxisRangeMap(yAxesState.axes)
-        }
-    }, [xAxesState, yAxesState]);
-
-    // update the plot with the new axes bounds
-    const updateRangesAndPlot = useCallback(
-        (): void => {
-            if (canvasContext !== null) {
-                updatePlotRef.current(canvasContext)
-            }
-        },
-        [canvasContext]
-    )
-
-    // todo find better way
-    // when the initial data changes, then reset the plot. note that the initial data doesn't change
-    // during the normal course of updates from the observable, only when the plot is restarted.
-    useEffect(
-        () => {
-            dataRef.current = initialData.slice()
-            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
-            currentTimeRef.current = 0
-
-            updateRangesAndPlot()
-        },
-        [initialData, updateRangesAndPlot]
-    )
-
-    /**
-     * When the axes bounds have changed, we need to reset the range references so that
-     * the new axis ranges are used
-     * @param updates The updates to the axes
-     */
-    const updatedBoundsHandler = useCallback(
-        (updates: Map<string, ContinuousAxisRange>): void => {
-            updates.forEach((update, axisId) => {
-                if (xAxisRangesRef.current.has(axisId)) {
-                    xAxisRangesRef.current.set(axisId, update)
-                }
-                if (yAxisRangesRef.current.has(axisId)) {
-                    yAxisRangesRef.current.set(axisId, update)
-                }
-            })
-            if (zoomEnabled && zoomSelectionRef.current !== undefined && zoomRef.current !== undefined) {
-                zoomSelectionRef.current.call(zoomRef.current.transform, d3.zoomIdentity)
-            }
-        },
-        [zoomEnabled]
-    )
-
-    // strange construct so that we only add the update handler when the chart ID
-    // changes, and not when the addAxesBoundsUpdateHandler or removeAxesBoundsUpdateHandler
-    // which they do, and that breaks the updates...someone, please teach me react
-    //
-    // the update handler is needed so that when the axis bounds are changed (say to accommodate a
-    // different iterate function's domain/range), then the handler needs to update the x and y
-    // axes range refs
-    const addAxesBoundsUpdateHandlerRef = useRef(addAxesRangesUpdateHandler)
-    const removeAxesBoundsUpdateHandlerRef = useRef(removeAxesRangesUpdateHandler)
-    useEffect(
-        () => {
-            addAxesBoundsUpdateHandlerRef.current(`handler-${chartId}`, updatedBoundsHandler)
-            const removeHandler = removeAxesBoundsUpdateHandlerRef.current
-            return () => {
-                // closure on the function to remove the handler from this chart
-                removeHandler(`handler-${chartId}`)
-            }
-        },
-        [chartId, updatedBoundsHandler]
-    );
-
-    /**
-     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param x The amount that the plot is dragged
-     * @param y The amount that the plot is dragged in y
-     * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
-     * @param xRanges A map holding the axis ID and its associated time range
-     * @param yRanges A map holding the axis ID and its associated time range
-     */
-    const onPan = useCallback(
-        (
-            x: number,
-            y: number,
-            plotDimensions: Dimensions,
-            series: Array<string>,
-            xRanges: Map<string, ContinuousAxisRange>,
-            yRanges: Map<string, ContinuousAxisRange>,
-        ) => panHandler2D(
-            xAxesForSeries, yAxesForSeries,
-            margin,
-            setAxisIntervalFor,
-            xAxesState, yAxesState
-        )(x, y, plotDimensions, series, xRanges, yRanges),
-        [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState]
-    )
-
-    /**
-     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-     * at the location of the mouse when the scroll wheel or gesture was applied. Unlike time-series
-     * plots, the iterates plot zooms the x- and y-axis at the same rate.
-     * @param transform The d3 zoom transformation information
-     * @param x The x-position of the mouse when the scroll wheel or gesture is used
-     * @param y The y-position of the mouse when the scroll wheel or gesture is used
-     * @param plotDimensions The dimensions of the plot
-     * @param xRanges A map holding the axis ID and its associated time-range
-     * @param yRanges A map holding the axis ID and its associated time-range
-     */
-    const onZoom = useCallback(
-        (
-            transform: ZoomTransform,
-            x: number,
-            y: number,
-            plotDimensions: Dimensions,
-            xRanges: Map<string, ContinuousAxisRange>,
-            yRanges: Map<string, ContinuousAxisRange>
-        ) => axesZoomHandler(
-            xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, [zoomMinScaleFactor, zoomMaxScaleFactor]
-        )(transform, [x, y], plotDimensions, xRanges, yRanges),
-        [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, zoomMinScaleFactor, zoomMaxScaleFactor]
-    )
-
     const updatePlot = useCallback(
         /**
          * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
@@ -537,6 +399,155 @@ export function PoincarePlot(props: Props): null {
         ]
     )
 
+    // need to keep the function references for use by the subscription, which forms a closure
+    // on them. without the references, the closures become stale, and resizing during streaming
+    // doesn't work properly
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(updatePlot)
+    useEffect(
+        () => {
+            updatePlotRef.current = updatePlot
+        },
+        [updatePlot]
+    )
+
+    // calculates the distinct axis IDs that cover all the series in the plot
+    const xAxesForSeries = useMemo(
+        (): Array<string> => xAxesState.axisIds(),
+        [xAxesState]
+    )
+    const yAxesForSeries = useMemo(
+        (): Array<string> => yAxesState.axisIds(),
+        [yAxesState]
+    )
+
+    // when the axes are available, then set the reference, but only once
+    useEffect(() => {
+        if (xAxesState.axes.size > 0 && xAxisRangesRef.current.size === 0) {
+            xAxisRangesRef.current = generateAxisRangeMap(xAxesState.axes)
+        }
+        if (yAxesState.axes.size > 0 && yAxisRangesRef.current.size === 0) {
+            yAxisRangesRef.current = generateAxisRangeMap(yAxesState.axes)
+        }
+    }, [xAxesState, yAxesState]);
+
+    // update the plot with the new axes bounds
+    const updateRangesAndPlot = useCallback(
+        (): void => {
+            if (canvasContext !== null) {
+                updatePlotRef.current(canvasContext)
+            }
+        },
+        [canvasContext]
+    )
+
+    // todo find better way
+    // when the initial data changes, then reset the plot. note that the initial data doesn't change
+    // during the normal course of updates from the observable, only when the plot is restarted.
+    useEffect(
+        () => {
+            dataRef.current = initialData.slice()
+            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
+            currentTimeRef.current = 0
+
+            updateRangesAndPlot()
+        },
+        [initialData, updateRangesAndPlot]
+    )
+
+    /**
+     * When the axes bounds have changed, we need to reset the range references so that
+     * the new axis ranges are used
+     * @param updates The updates to the axes
+     */
+    const updatedBoundsHandler = useCallback(
+        (updates: Map<string, ContinuousAxisRange>): void => {
+            updates.forEach((update, axisId) => {
+                if (xAxisRangesRef.current.has(axisId)) {
+                    xAxisRangesRef.current.set(axisId, update)
+                }
+                if (yAxisRangesRef.current.has(axisId)) {
+                    yAxisRangesRef.current.set(axisId, update)
+                }
+            })
+            if (zoomEnabled && zoomSelectionRef.current !== undefined && zoomRef.current !== undefined) {
+                zoomSelectionRef.current.call(zoomRef.current.transform, d3.zoomIdentity)
+            }
+        },
+        [zoomEnabled]
+    )
+
+    // strange construct so that we only add the update handler when the chart ID
+    // changes, and not when the addAxesBoundsUpdateHandler or removeAxesBoundsUpdateHandler
+    // which they do, and that breaks the updates...someone, please teach me react
+    //
+    // the update handler is needed so that when the axis bounds are changed (say to accommodate a
+    // different iterate function's domain/range), then the handler needs to update the x and y
+    // axes range refs
+    const addAxesBoundsUpdateHandlerRef = useRef(addAxesRangesUpdateHandler)
+    const removeAxesBoundsUpdateHandlerRef = useRef(removeAxesRangesUpdateHandler)
+    useEffect(
+        () => {
+            addAxesBoundsUpdateHandlerRef.current(`handler-${chartId}`, updatedBoundsHandler)
+            const removeHandler = removeAxesBoundsUpdateHandlerRef.current
+            return () => {
+                // closure on the function to remove the handler from this chart
+                removeHandler(`handler-${chartId}`)
+            }
+        },
+        [chartId, updatedBoundsHandler]
+    );
+
+    /**
+     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+     * @param x The amount that the plot is dragged
+     * @param y The amount that the plot is dragged in y
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param xRanges A map holding the axis ID and its associated time range
+     * @param yRanges A map holding the axis ID and its associated time range
+     */
+    const onPan = useCallback(
+        (
+            x: number,
+            y: number,
+            plotDimensions: Dimensions,
+            series: Array<string>,
+            xRanges: Map<string, ContinuousAxisRange>,
+            yRanges: Map<string, ContinuousAxisRange>,
+        ) => panHandler2D(
+            xAxesForSeries, yAxesForSeries,
+            margin,
+            setAxisIntervalFor,
+            xAxesState, yAxesState
+        )(x, y, plotDimensions, series, xRanges, yRanges),
+        [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState]
+    )
+
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied. Unlike time-series
+     * plots, the iterates plot zooms the x- and y-axis at the same rate.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param y The y-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param xRanges A map holding the axis ID and its associated time-range
+     * @param yRanges A map holding the axis ID and its associated time-range
+     */
+    const onZoom = useCallback(
+        (
+            transform: ZoomTransform,
+            x: number,
+            y: number,
+            plotDimensions: Dimensions,
+            xRanges: Map<string, ContinuousAxisRange>,
+            yRanges: Map<string, ContinuousAxisRange>
+        ) => axesZoomHandler(
+            xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, [zoomMinScaleFactor, zoomMaxScaleFactor]
+        )(transform, [x, y], plotDimensions, xRanges, yRanges),
+        [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, zoomMinScaleFactor, zoomMaxScaleFactor]
+    )
+
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
     // `updatePlot`, which runs on every data tick; recreating a `d3.drag()`/`d3.zoom()` behavior
@@ -620,17 +631,6 @@ export function PoincarePlot(props: Props): null {
         ]
     )
 
-    // need to keep the function references for use by the subscription, which forms a closure
-    // on them. without the references, the closures become stale, and resizing during streaming
-    // doesn't work properly
-    const updatePlotRef = useRef<(cc: CanvasContext) => void>(updatePlot)
-    useEffect(
-        () => {
-            // eslint-disable-next-line react-hooks/immutability
-            updatePlotRef.current = updatePlot
-        },
-        [updatePlot]
-    )
     const onUpdateAxesBoundsRef = useRef(updateAxisRanges)
     useEffect(
         () => {

@@ -203,8 +203,7 @@ export function BarPlot(props: Props): null {
     const seriesRef = useRef<Map<string, BaseSeries<OrdinalDatum>>>(
         new Map(initialData.map(series => [series.name, series]))
     )
-    // eslint-disable-next-line react-hooks/refs
-    const statsRef = useRef<WindowedOrdinalStats>(initialOrdinalStats(dataRef.current))
+    const statsRef = useRef<WindowedOrdinalStats>(initialOrdinalStats(initialData))
 
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<number>(0)
@@ -224,99 +223,6 @@ export function BarPlot(props: Props): null {
     // Scatter/Raster, BarPlot doesn't use the shared `hoveredSeriesName` chart state, since here
     // hover is scoped to one of five element *types* per series, not the series as a whole
     const lastHoveredRef = useRef<{seriesName: string, elementType: string} | undefined>(undefined)
-
-    useEffect(
-        () => {
-            currentTimeRef.current = 0
-        },
-        [xAxesState]
-    )
-
-    // set the axis assignments needed if a tooltip is being used
-    useEffect(
-        () => {
-            setAxisAssignments(axisAssignments)
-        },
-        [axisAssignments, setAxisAssignments]
-    )
-
-    // calculates the distinct series IDs that cover all the series in the plot
-    const axesForSeries = useMemo(
-        () => axesForSeriesGen<OrdinalDatum, OrdinalStringAxis>(initialData, axisAssignments, xAxesState),
-        [initialData, axisAssignments, xAxesState]
-    )
-
-    // updates the timing using the onUpdateTime and updatePlot references. This and the references
-    // defined above allow the axes' times to be updated properly by avoid stale reference to these
-    // functions.
-    const updateTimingAndPlot = useCallback(
-        (ranges: Map<string, OrdinalAxisRange>): void => {
-            if (canvasContext !== null) {
-                ordinalRangesRef.current = ranges
-                updatePlotRef.current(canvasContext)
-                onUpdateChartTime(currentTimeRef.current)
-                updatePlotRef.current(canvasContext)
-            }
-        },
-        [canvasContext, onUpdateChartTime]
-    )
-
-    // todo find better way
-    // when the initial data changes, then reset the plot. note that the initial data doesn't change
-    // during the normal course of updates from the observable, only when the plot is restarted.
-    useEffect(
-        () => {
-            dataRef.current = initialData.slice()
-            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
-            currentTimeRef.current = 0
-            statsRef.current = initialOrdinalStats(dataRef.current)
-        },
-        // ** not happy about this **
-        // only want this effect to run when the initial data is changed, which mean all the
-        // other dependencies are recalculated anyway.
-        [initialData]
-    )
-
-    /**
-     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param x The amount that the plot is dragged
-     * @param plotDimensions The dimensions of the plot
-     * @param series An array of series names
-     * @param ranges A map holding the axis ID and its associated time range
-     */
-    const onPan = useCallback(
-        (x: number,
-         plotDimensions: Dimensions,
-         series: Array<string>,
-         ranges: Map<string, OrdinalAxisRange>
-        ) => ordinalPanHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, series, ranges),
-        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
-    )
-
-    /**
-     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-     * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param transform The d3 zoom transformation information
-     * @param x The x-position of the mouse when the scroll wheel or gesture is used
-     * @param plotDimensions The dimensions of the plot
-     * @param ranges A map holding the axis ID and its associated time-range
-     */
-    const onZoom = useCallback(
-        (
-            transform: ZoomTransform,
-            x: number,
-            plotDimensions: Dimensions,
-            ranges: Map<string, OrdinalAxisRange>,
-        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState]
-    )
-
-    // holds the current per-axis ordinal ranges, kept in sync by the effect below. Replaces
-    // threading `ordinalRanges` through as an explicit `updatePlot` parameter, so the pan/zoom
-    // handlers (now set up once, in a separate effect below, rather than inside `updatePlot`
-    // itself) can always read the current ranges without needing `updatePlot` to be recreated
-    // every time the ranges change.
-    const ordinalRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
 
     /**
      * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
@@ -493,6 +399,110 @@ export function BarPlot(props: Props): null {
         ]
     )
 
+    // need to keep the function references for use by the subscription, which forms a closure
+    // on them. without the references, the closures become stale, and resizing during streaming
+    // doesn't work properly
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(updatePlot)
+    useEffect(
+        () => {
+            updatePlotRef.current = updatePlot
+        },
+        [updatePlot]
+    )
+
+    useEffect(
+        () => {
+            currentTimeRef.current = 0
+        },
+        [xAxesState]
+    )
+
+    // set the axis assignments needed if a tooltip is being used
+    useEffect(
+        () => {
+            setAxisAssignments(axisAssignments)
+        },
+        [axisAssignments, setAxisAssignments]
+    )
+
+    // calculates the distinct series IDs that cover all the series in the plot
+    const axesForSeries = useMemo(
+        () => axesForSeriesGen<OrdinalDatum, OrdinalStringAxis>(initialData, axisAssignments, xAxesState),
+        [initialData, axisAssignments, xAxesState]
+    )
+
+    // updates the timing using the onUpdateTime and updatePlot references. This and the references
+    // defined above allow the axes' times to be updated properly by avoid stale reference to these
+    // functions.
+    const updateTimingAndPlot = useCallback(
+        (ranges: Map<string, OrdinalAxisRange>): void => {
+            if (canvasContext !== null) {
+                ordinalRangesRef.current = ranges
+                updatePlotRef.current(canvasContext)
+                onUpdateChartTime(currentTimeRef.current)
+                updatePlotRef.current(canvasContext)
+            }
+        },
+        [canvasContext, onUpdateChartTime]
+    )
+
+    // todo find better way
+    // when the initial data changes, then reset the plot. note that the initial data doesn't change
+    // during the normal course of updates from the observable, only when the plot is restarted.
+    useEffect(
+        () => {
+            dataRef.current = initialData.slice()
+            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
+            currentTimeRef.current = 0
+            statsRef.current = initialOrdinalStats(dataRef.current)
+        },
+        // ** not happy about this **
+        // only want this effect to run when the initial data is changed, which mean all the
+        // other dependencies are recalculated anyway.
+        [initialData]
+    )
+
+    /**
+     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+     * @param x The amount that the plot is dragged
+     * @param plotDimensions The dimensions of the plot
+     * @param series An array of series names
+     * @param ranges A map holding the axis ID and its associated time range
+     */
+    const onPan = useCallback(
+        (x: number,
+         plotDimensions: Dimensions,
+         series: Array<string>,
+         ranges: Map<string, OrdinalAxisRange>
+        ) => ordinalPanHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, series, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
+    )
+
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param ranges A map holding the axis ID and its associated time-range
+     */
+    const onZoom = useCallback(
+        (
+            transform: ZoomTransform,
+            x: number,
+            plotDimensions: Dimensions,
+            ranges: Map<string, OrdinalAxisRange>,
+        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState]
+    )
+
+    // holds the current per-axis ordinal ranges, kept in sync by the effect below. Replaces
+    // threading `ordinalRanges` through as an explicit `updatePlot` parameter, so the pan/zoom
+    // handlers (now set up once, in a separate effect below, rather than inside `updatePlot`
+    // itself) can always read the current ranges without needing `updatePlot` to be recreated
+    // every time the ranges change.
+    const ordinalRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
+
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
     // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
@@ -551,17 +561,6 @@ export function BarPlot(props: Props): null {
         [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
     )
 
-    // need to keep the function references for use by the subscription, which forms a closure
-    // on them. without the references, the closures become stale, and resizing during streaming
-    // doesn't work properly
-    const updatePlotRef = useRef<(cc: CanvasContext) => void>(noop)
-    useEffect(
-        () => {
-            // eslint-disable-next-line react-hooks/immutability
-            updatePlotRef.current = updatePlot
-        },
-        [updatePlot]
-    )
 
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(

@@ -223,106 +223,20 @@ export function ScatterPlot(props: Props): null {
 
     const allowTooltip = useRef<boolean>(subscription === undefined || subscription.closed)
 
-    // whether this component instance created its own subscription (as opposed to one handed
-    // in, and therefore owned, by the parent). only a self-created subscription should be torn
-    // down when this component unmounts -- a parent-owned subscription is expected to keep
-    // running so that it can be handed back in when the user navigates back to this chart.
-    const ownsSubscriptionRef = useRef<boolean>(subscription === undefined)
-
+    // tracks the latest `subscription` prop value, so the unmount cleanup (below) can tell
+    // whether an external owner has since claimed this subscription -- even if `subscription`
+    // was undefined when this very instance mounted and created it itself. that's the normal
+    // case: this instance creates the subscription, hands it to the parent via `onSubscribe`,
+    // and the parent (if it wants the subscription to survive navigation) feeds it back in as
+    // this prop on the next render, all while this same instance is still mounted. a plain
+    // `useRef(subscription)` would freeze the value from that first render and never see the
+    // hand-off; this ref is kept in sync every render instead.
+    const subscriptionPropRef = useRef(subscription)
     useEffect(
         () => {
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+            subscriptionPropRef.current = subscription
         },
-        [xAxesState]
-    )
-
-    // calculates the distinct series IDs that cover all the series in the plot
-    const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen<Datum, ContinuousNumericAxis>(initialData, axisAssignments, xAxesState),
-        [initialData, axisAssignments, xAxesState]
-    )
-
-    // updates the timing using the onUpdateTime and updatePlot references. This and the references
-    // defined above allow the axes' times to be updated properly by avoid stale reference to these
-    // functions.
-    const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
-            if (canvasContext !== null) {
-                onUpdateTimeRef.current(ranges)
-                updatePlotRef.current(canvasContext)
-                // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
-                // so that this doesn't update the application state synchronously from within the
-                // subscription's update
-                notifyIntervalsRef.current(ranges)
-            }
-        },
-        [canvasContext]
-    )
-
-    // todo find better way
-    // when the initial data changes, then reset the plot. note that the initial data doesn't change
-    // during the normal course of updates from the observable, only when the plot is restarted.
-    useEffect(
-        () => {
-            dataRef.current = initialData.slice()
-            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-                    .map(([id, range]) => {
-                        // grab the current range, then calculate the minimum time from the initial data, and
-                        // set that as the start, and then add the range to it for the end time
-                        const [start, end] = range.original.asTuple()
-                        const minTime = initialData
-                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-                            .reduce(
-                                (tMin, series) => Math.min(
-                                    tMin,
-                                    !series.isEmpty() ? series.data[0].x : tMin
-                                ),
-                                Infinity
-                            )
-                        const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
-                    })
-                )
-            )
-        },
-        // ** not happy about this **
-        // only want this effect to run when the initial data is changed, which mean all the
-        // other dependencies are recalculated anyway.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [initialData]
-    )
-
-    /**
-     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
-     * @param x The amount that the plot is dragged
-     * @param plotDimensions The dimensions of the plot
-     * @param ranges A map holding the axis ID and its associated time range
-     */
-    const onPan = useCallback(
-        (x: number,
-         plotDimensions: Dimensions,
-         ranges: Map<string, ContinuousAxisRange>,
-        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
-    )
-
-    /**
-     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-     * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param transform The d3 zoom transformation information
-     * @param x The x-position of the mouse when the scroll wheel or gesture is used
-     * @param plotDimensions The dimensions of the plot
-     * @param ranges A map holding the axis ID and its associated time-range
-     */
-    const onZoom = useCallback(
-        (
-            transform: ZoomTransform,
-            x: number,
-            plotDimensions: Dimensions,
-            ranges: Map<string, ContinuousAxisRange>,
-        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
-        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
+        [subscription]
     )
 
     const updatePlot = useCallback(
@@ -501,6 +415,158 @@ export function ScatterPlot(props: Props): null {
         ]
     )
 
+    // need to keep the function references for use by the subscription, which forms a closure
+    // on them. without the references, the closures become stale, and resizing during streaming
+    // doesn't work properly
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(updatePlot)
+    useEffect(
+        () => {
+            updatePlotRef.current = updatePlot
+        },
+        [updatePlot]
+    )
+    const onUpdateTimeRef = useRef(updateAxisRanges)
+    useEffect(
+        () => {
+            onUpdateTimeRef.current = updateAxisRanges
+        },
+        [updateAxisRanges]
+    )
+
+    // reports the axes' intervals to the code using the chart. this is held in a reference for the
+    // same reason as the functions above -- the zoom and pan handlers are created inside the memoized
+    // `updatePlot` and would otherwise close over a stale callback.
+    //
+    // the notifications are coalesced into (at most) one per animation frame because zoom and pan
+    // fire many events per gesture, and the callback generally updates the application state, which
+    // in turn causes a render. note that coalescing loses nothing: the zoom and pan handlers mutate
+    // the ranges map in place, so the deferred notification reads the map when the frame runs and
+    // always reports the most recent intervals, rather than those of the event that scheduled it.
+    const notifyIntervalsRef = useRef<(ranges: Map<string, ContinuousAxisRange>) => void>(noop)
+    const notifyFrameRef = useRef<number>(0)
+    useEffect(
+        () => {
+            notifyIntervalsRef.current = onUpdateAxesInterval === undefined ?
+                noop :
+                ranges => {
+                    // a notification is already scheduled for the next frame, and it will pick up
+                    // these intervals when it runs
+                    if (notifyFrameRef.current !== 0) return
+                    notifyFrameRef.current = requestAnimationFrame(() => {
+                        notifyFrameRef.current = 0
+                        onUpdateAxesInterval(currentIntervalsFrom(ranges))
+                    })
+                }
+        },
+        [onUpdateAxesInterval]
+    )
+    // don't leave a scheduled notification pointing at an unmounted plot
+    useEffect(
+        () => () => {
+            if (notifyFrameRef.current !== 0) {
+                cancelAnimationFrame(notifyFrameRef.current)
+                notifyFrameRef.current = 0
+            }
+        },
+        []
+    )
+
+    useEffect(
+        () => {
+            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+        },
+        [xAxesState]
+    )
+
+    // calculates the distinct series IDs that cover all the series in the plot
+    const axesForSeries = useMemo(
+        (): Array<string> => axesForSeriesGen<Datum, ContinuousNumericAxis>(initialData, axisAssignments, xAxesState),
+        [initialData, axisAssignments, xAxesState]
+    )
+
+    // updates the timing using the onUpdateTime and updatePlot references. This and the references
+    // defined above allow the axes' times to be updated properly by avoid stale reference to these
+    // functions.
+    const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
+            if (canvasContext !== null) {
+                onUpdateTimeRef.current(ranges)
+                updatePlotRef.current(canvasContext)
+                // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
+                // so that this doesn't update the application state synchronously from within the
+                // subscription's update
+                notifyIntervalsRef.current(ranges)
+            }
+        },
+        [canvasContext]
+    )
+
+    // todo find better way
+    // when the initial data changes, then reset the plot. note that the initial data doesn't change
+    // during the normal course of updates from the observable, only when the plot is restarted.
+    useEffect(
+        () => {
+            dataRef.current = initialData.slice()
+            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
+            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+            updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+                    .map(([id, range]) => {
+                        // grab the current range, then calculate the minimum time from the initial data, and
+                        // set that as the start, and then add the range to it for the end time
+                        const [start, end] = range.original.asTuple()
+                        const minTime = initialData
+                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+                            .reduce(
+                                (tMin, series) => Math.min(
+                                    tMin,
+                                    !series.isEmpty() ? series.data[0].x : tMin
+                                ),
+                                Infinity
+                            )
+                        const startTime = minTime === Infinity ? 0 : minTime
+                        return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
+                    })
+                )
+            )
+        },
+        // ** not happy about this **
+        // only want this effect to run when the initial data is changed, which mean all the
+        // other dependencies are recalculated anyway.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [initialData]
+    )
+
+    /**
+     * Adjusts the time-range and updates the plot when the plot is dragged to the left or right
+     * @param x The amount that the plot is dragged
+     * @param plotDimensions The dimensions of the plot
+     * @param ranges A map holding the axis ID and its associated time range
+     */
+    const onPan = useCallback(
+        (x: number,
+         plotDimensions: Dimensions,
+         ranges: Map<string, ContinuousAxisRange>,
+        ) => panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
+    )
+
+    /**
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
+     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * @param transform The d3 zoom transformation information
+     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param plotDimensions The dimensions of the plot
+     * @param ranges A map holding the axis ID and its associated time-range
+     */
+    const onZoom = useCallback(
+        (
+            transform: ZoomTransform,
+            x: number,
+            plotDimensions: Dimensions,
+            ranges: Map<string, ContinuousAxisRange>,
+        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
+    )
+
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
     // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
@@ -572,65 +638,6 @@ export function ScatterPlot(props: Props): null {
             }
         },
         [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
-    )
-
-    // need to keep the function references for use by the subscription, which forms a closure
-    // on them. without the references, the closures become stale, and resizing during streaming
-    // doesn't work properly
-    const updatePlotRef = useRef<(cc: CanvasContext) => void>(noop)
-    useEffect(
-        () => {
-            // eslint-disable-next-line react-hooks/immutability
-            updatePlotRef.current = updatePlot
-        },
-        [updatePlot]
-    )
-    const onUpdateTimeRef = useRef(updateAxisRanges)
-    useEffect(
-        () => {
-            // eslint-disable-next-line react-hooks/immutability
-            onUpdateTimeRef.current = updateAxisRanges
-        },
-        [updateAxisRanges]
-    )
-
-    // reports the axes' intervals to the code using the chart. this is held in a reference for the
-    // same reason as the functions above -- the zoom and pan handlers are created inside the memoized
-    // `updatePlot` and would otherwise close over a stale callback.
-    //
-    // the notifications are coalesced into (at most) one per animation frame because zoom and pan
-    // fire many events per gesture, and the callback generally updates the application state, which
-    // in turn causes a render. note that coalescing loses nothing: the zoom and pan handlers mutate
-    // the ranges map in place, so the deferred notification reads the map when the frame runs and
-    // always reports the most recent intervals, rather than those of the event that scheduled it.
-    const notifyIntervalsRef = useRef<(ranges: Map<string, ContinuousAxisRange>) => void>(noop)
-    const notifyFrameRef = useRef<number>(0)
-    useEffect(
-        () => {
-            // eslint-disable-next-line react-hooks/immutability
-            notifyIntervalsRef.current = onUpdateAxesInterval === undefined ?
-                noop :
-                ranges => {
-                    // a notification is already scheduled for the next frame, and it will pick up
-                    // these intervals when it runs
-                    if (notifyFrameRef.current !== 0) return
-                    notifyFrameRef.current = requestAnimationFrame(() => {
-                        notifyFrameRef.current = 0
-                        onUpdateAxesInterval(currentIntervalsFrom(ranges))
-                    })
-                }
-        },
-        [onUpdateAxesInterval]
-    )
-    // don't leave a scheduled notification pointing at an unmounted plot
-    useEffect(
-        () => () => {
-            if (notifyFrameRef.current !== 0) {
-                cancelAnimationFrame(notifyFrameRef.current)
-                notifyFrameRef.current = 0
-            }
-        },
-        []
     )
 
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
@@ -809,17 +816,16 @@ export function ScatterPlot(props: Props): null {
         [shouldSubscribe, subscribe]
     )
 
-    // unregister this plot's draw function on unmount, and, if this component created its
-    // own subscription (i.e., one wasn't handed in via the `subscription` prop), unsubscribe
-    // it so it doesn't keep running (and driving stale draws) after the component is gone
+    // unregister this plot's draw function on unmount, and, unless an external owner has
+    // claimed the subscription (see `subscriptionPropRef` above), unsubscribe it so it doesn't
+    // keep running (and driving stale draws) after the component is gone
     useEffect(
         () => {
-            const ownsSubscription = ownsSubscriptionRef.current
             return () => {
                 if (canvasContext) {
                     canvasContext.unregister(`scatter-plot-${chartId}`)
                 }
-                if (ownsSubscription) {
+                if (subscriptionPropRef.current === undefined) {
                     subscriptionRef.current?.unsubscribe()
                     subscriptionRef.current = undefined
                 }

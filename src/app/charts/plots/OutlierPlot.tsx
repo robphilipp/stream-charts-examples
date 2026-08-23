@@ -227,73 +227,6 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     // index) -- mutually exclusive, so we know when to fire a "leave" before an "over"
     const lastHoveredRef = useRef<{kind: 'band', seriesName: string, bandIndex: number} | {kind: 'outlier', seriesName: string, index: number} | undefined>(undefined)
 
-    useEffect(
-        () => {
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
-        },
-        [xAxesState]
-    )
-
-    const axesForSeries = useMemo(
-        (): Array<string> => axesForSeriesGen<OutlierDatum<M>, ContinuousNumericAxis>(
-            initialData, axisAssignments, xAxesState
-        ),
-        [initialData, axisAssignments, xAxesState]
-    )
-
-    const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
-        if (canvasContext !== null) {
-            onUpdateTimeRef.current(ranges)
-            // keep the single canonical ranges ref in sync, so the pan/zoom handlers (now set up
-            // once, in a separate effect, rather than inside updatePlot itself) always read the
-            // current ranges without updatePlot needing to be recreated whenever ranges change
-            timeRangesRef.current = ranges
-            updatePlotRef.current(canvasContext)
-            // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
-            // so that this doesn't update the application state synchronously from within the
-            // subscription's update
-            notifyIntervalsRef.current(ranges)
-        }
-    }, [canvasContext])
-
-    useEffect(
-        () => {
-            seriesRef.current = new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot(
-                new Map(
-                    Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-                        .map(([id, range]) => {
-                            const [start, end] = range.original.asTuple()
-                            const minTime = (initialData as Array<OutlierSeries<M>>)
-                                .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-                                .reduce(
-                                    (tMin, series) =>
-                                        Math.min(tMin, !series.isEmpty() ? series.data[0].datum.x : tMin),
-                                    Infinity
-                                )
-                            const startTime = minTime === Infinity ? 0 : minTime
-                            return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
-                        })
-                )
-            )
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [initialData]
-    )
-
-    const onPan = useCallback(
-        (x: number, dim: Dimensions, ranges: Map<string, ContinuousAxisRange>) =>
-            panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, dim, ranges),
-        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
-    )
-
-    const onZoom = useCallback(
-        (transform: ZoomTransform, x: number, dim: Dimensions, ranges: Map<string, ContinuousAxisRange>) =>
-            continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, dim, ranges),
-        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
-    )
-
     /**
      * (Re-)registers this plot's draw function with the canvas context and requests a redraw.
      * Replaces the old version, which directly mutated SVG `<path>`/`<circle>` elements bound via
@@ -422,6 +355,116 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         ]
     )
 
+    const updatePlotRef = useRef<(cc: CanvasContext) => void>(updatePlot)
+    useEffect(() => {
+        updatePlotRef.current = updatePlot
+    }, [updatePlot])
+
+    const onUpdateTimeRef = useRef(updateAxisRanges)
+    useEffect(() => {
+        onUpdateTimeRef.current = updateAxisRanges
+    }, [updateAxisRanges])
+
+    // reports the axes' intervals to the code using the chart. this is held in a reference for the
+    // same reason as the functions above -- the zoom and pan handlers are created inside the memoized
+    // `updatePlot` and would otherwise close over a stale callback.
+    //
+    // the notifications are coalesced into (at most) one per animation frame because zoom and pan
+    // fire many events per gesture, and the callback generally updates the application state, which
+    // in turn causes a render. note that coalescing loses nothing: the zoom and pan handlers mutate
+    // the ranges map in place, so the deferred notification reads the map when the frame runs and
+    // always reports the most recent intervals, rather than those of the event that scheduled it.
+    const notifyIntervalsRef = useRef<(ranges: Map<string, ContinuousAxisRange>) => void>(noop)
+    const notifyFrameRef = useRef<number>(0)
+    useEffect(() => {
+        notifyIntervalsRef.current = onUpdateAxesInterval === undefined ?
+            noop :
+            ranges => {
+                // a notification is already scheduled for the next frame, and it will pick up
+                // these intervals when it runs
+                if (notifyFrameRef.current !== 0) return
+                notifyFrameRef.current = requestAnimationFrame(() => {
+                    notifyFrameRef.current = 0
+                    onUpdateAxesInterval(currentIntervalsFrom(ranges))
+                })
+            }
+    }, [onUpdateAxesInterval])
+
+    // don't leave a scheduled notification pointing at an unmounted plot
+    useEffect(() => () => {
+        if (notifyFrameRef.current !== 0) {
+            cancelAnimationFrame(notifyFrameRef.current)
+            notifyFrameRef.current = 0
+        }
+    }, [])
+
+    useEffect(
+        () => {
+            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+        },
+        [xAxesState]
+    )
+
+    const axesForSeries = useMemo(
+        (): Array<string> => axesForSeriesGen<OutlierDatum<M>, ContinuousNumericAxis>(
+            initialData, axisAssignments, xAxesState
+        ),
+        [initialData, axisAssignments, xAxesState]
+    )
+
+    const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
+        if (canvasContext !== null) {
+            onUpdateTimeRef.current(ranges)
+            // keep the single canonical ranges ref in sync, so the pan/zoom handlers (now set up
+            // once, in a separate effect, rather than inside updatePlot itself) always read the
+            // current ranges without updatePlot needing to be recreated whenever ranges change
+            timeRangesRef.current = ranges
+            updatePlotRef.current(canvasContext)
+            // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
+            // so that this doesn't update the application state synchronously from within the
+            // subscription's update
+            notifyIntervalsRef.current(ranges)
+        }
+    }, [canvasContext])
+
+    useEffect(
+        () => {
+            seriesRef.current = new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
+            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+            updateTimingAndPlot(
+                new Map(
+                    Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+                        .map(([id, range]) => {
+                            const [start, end] = range.original.asTuple()
+                            const minTime = (initialData as Array<OutlierSeries<M>>)
+                                .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+                                .reduce(
+                                    (tMin, series) =>
+                                        Math.min(tMin, !series.isEmpty() ? series.data[0].datum.x : tMin),
+                                    Infinity
+                                )
+                            const startTime = minTime === Infinity ? 0 : minTime
+                            return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
+                        })
+                )
+            )
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [initialData]
+    )
+
+    const onPan = useCallback(
+        (x: number, dim: Dimensions, ranges: Map<string, ContinuousAxisRange>) =>
+            panHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(x, dim, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
+    )
+
+    const onZoom = useCallback(
+        (transform: ZoomTransform, x: number, dim: Dimensions, ranges: Map<string, ContinuousAxisRange>) =>
+            continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, dim, ranges),
+        [axesForSeries, margin, setAxisIntervalFor, xAxesState]
+    )
+
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
     // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
@@ -471,52 +514,6 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         },
         [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
     )
-
-    const updatePlotRef = useRef<(cc: CanvasContext) => void>(noop)
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/immutability
-        updatePlotRef.current = updatePlot
-    }, [updatePlot])
-
-    const onUpdateTimeRef = useRef(updateAxisRanges)
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/immutability
-        onUpdateTimeRef.current = updateAxisRanges
-    }, [updateAxisRanges])
-
-    // reports the axes' intervals to the code using the chart. this is held in a reference for the
-    // same reason as the functions above -- the zoom and pan handlers are created inside the memoized
-    // `updatePlot` and would otherwise close over a stale callback.
-    //
-    // the notifications are coalesced into (at most) one per animation frame because zoom and pan
-    // fire many events per gesture, and the callback generally updates the application state, which
-    // in turn causes a render. note that coalescing loses nothing: the zoom and pan handlers mutate
-    // the ranges map in place, so the deferred notification reads the map when the frame runs and
-    // always reports the most recent intervals, rather than those of the event that scheduled it.
-    const notifyIntervalsRef = useRef<(ranges: Map<string, ContinuousAxisRange>) => void>(noop)
-    const notifyFrameRef = useRef<number>(0)
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/immutability
-        notifyIntervalsRef.current = onUpdateAxesInterval === undefined ?
-            noop :
-            ranges => {
-                // a notification is already scheduled for the next frame, and it will pick up
-                // these intervals when it runs
-                if (notifyFrameRef.current !== 0) return
-                notifyFrameRef.current = requestAnimationFrame(() => {
-                    notifyFrameRef.current = 0
-                    onUpdateAxesInterval(currentIntervalsFrom(ranges))
-                })
-            }
-    }, [onUpdateAxesInterval])
-
-    // don't leave a scheduled notification pointing at an unmounted plot
-    useEffect(() => () => {
-        if (notifyFrameRef.current !== 0) {
-            cancelAnimationFrame(notifyFrameRef.current)
-            notifyFrameRef.current = 0
-        }
-    }, [])
 
     // the single source of truth for the axes' ranges. the zoom and pan handlers, the subscription,
     // and the effect below all read and update this same map (in place), so that each range's
