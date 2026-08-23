@@ -10,4 +10,10 @@ export interface OutlierChartData<M extends readonly number[]> extends ChartData
      * Maps the series name to the new outlier datum for that series
      */
     newPoints: Map<string, Array<OutlierDatum<M>>>
+
+    /**
+     * The current time (used with cadence, when the axes should continue to scroll even when no
+     * new data has arrived)
+     */
+    currentTime?: number
 }

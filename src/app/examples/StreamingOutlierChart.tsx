@@ -368,6 +368,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                         bandOpacityStep={0.14}
                         markerRadius={showMarkers ? 2 : 0}
                         outlierMarkerColors={['#f4c542', '#f08a3b', '#d62728']}
+                        withCadenceOf={20}
                     />
                     <Tooltip
                         visible={showTooltip}

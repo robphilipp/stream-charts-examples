@@ -462,6 +462,122 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
     return subscription
 }
 
+/**
+ * **Function has side effects on the Series (for performance).**
+ *
+ * Creates a subscription to the outlier-chart-data observable, merged with a periodic "cadence"
+ * tick, so the visible time-window keeps scrolling (or squeezing) at a fixed interval even when
+ * data arrives slower than that cadence -- mirrors {@link subscriptionTimeSeriesWithCadenceFor},
+ * adapted for {@link OutlierDatum}, where the (x, y) value is nested under `datum`.
+ * @param seriesObservable The observable streaming outlier-chart-data
+ * @param onSubscribe Callback for when the observable is subscribed to
+ * @param windowingTime Buffer interval (ms) before flushing batched data to the chart
+ * @param axisAssignments Map associating each series to its x- and y-axes
+ * @param xAxesState The current state of the x-axis
+ * @param onUpdateData Optional callback fired when new data arrives for a series
+ * @param dropDataAfter Drops series data points older than this many milliseconds
+ * @param updateTimingAndPlot Callback that updates the plot and timing after the time-window changes
+ * @param seriesMap A `map(series_name -> series)` updated in place as new data arrives
+ * @param setCurrentTime Callback that records the current time for an axis
+ * @param cadencePeriod The number of milliseconds between time updates
+ * @return The RxJS subscription
+ */
+export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
+    seriesObservable: Observable<OutlierChartData<M>>,
+    onSubscribe: (subscription: Subscription) => void,
+    windowingTime: number,
+    axisAssignments: Map<string, AxesAssignment>,
+    xAxesState: AxesState<ContinuousNumericAxis>,
+    onUpdateData: ((seriesName: string, data: Array<OutlierDatum<M>>) => void) | undefined,
+    dropDataAfter: number,
+    updateTimingAndPlot: (ranges: Map<string, ContinuousAxisRange>) => void,
+    seriesMap: Map<string, OutlierSeries<M>>,
+    setCurrentTime: (axisId: string, end: number) => void,
+    cadencePeriod: number,
+): Subscription {
+    const maxTime = Array.from(seriesMap.entries())
+        .reduce(
+            (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.datum.x).getOrElse(tMax)),
+            -Infinity
+        )
+    const cadence = interval(cadencePeriod)
+        .pipe(
+            map(value => ({
+                seriesNames: new Set<string>(),
+                newPoints: new Map<string, Array<OutlierDatum<M>>>(),
+                currentTime: value * cadencePeriod,
+            } as OutlierChartData<M>))
+        )
+
+    const subscription = seriesObservable
+        .pipe(
+            mergeWith(cadence),
+            bufferTime(windowingTime),
+            mergeAll(),
+        )
+        .subscribe(data => {
+            // grab the time-windows for the x-axes
+            const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+
+            // advance every x-axis's window on each cadence tick, regardless of whether new data
+            // arrived -- this is what keeps the axes scrolling once the data has reached the
+            // right-hand edge, rather than stalling until the next real datum shows up
+            if (data.currentTime !== undefined) {
+                xAxesState.axisIds().forEach(axisId => {
+                    const range = timesWindows.get(axisId)
+                    if (range !== undefined && data.currentTime !== undefined) {
+                        const [startTime, endTime] = range.current.asTuple()
+                        const timeWindow = endTime - startTime
+                        const timeRange = ContinuousAxisRange.from(
+                            Math.max(0, Math.max(endTime, data.currentTime + maxTime) - timeWindow),
+                            Math.max(Math.max(endTime, data.currentTime + maxTime), timeWindow)
+                        )
+                        timesWindows.set(axisId, timeRange)
+                        setCurrentTime(axisId, data.currentTime + maxTime)
+                    }
+                })
+            }
+
+            if (data.newPoints.size === 0) {
+                updateTimingAndPlot(timesWindows)
+                return
+            }
+
+            // add each new point to its corresponding series, the new points
+            // is a map(series_name -> new_point[])
+            data.newPoints.forEach((newData, name) => {
+                // grab the current series associated with the new data, registering it the first
+                // time a series shows up (seriesRef starts from just the initial data and grows as
+                // the subscription emits new series)
+                const series = seriesMap.get(name) || emptySeries<OutlierDatum<M>>(name) as OutlierSeries<M>
+                if (!seriesMap.has(name)) seriesMap.set(name, series)
+
+                // update the handler with the new data point
+                if (onUpdateData) onUpdateData(name, newData)
+
+                // add the new data to the series
+                series.data.push(...newData)
+
+                const currentAxisTime = Math.max(...newData.map(datum => datum.datum.x), -Infinity)
+
+                if (Number.isFinite(currentAxisTime)) {
+                    // drop data that is older than the max time-window
+                    while (series.data.length > 0 && currentAxisTime - series.data[0].datum.x > dropDataAfter) {
+                        series.data.shift()
+                    }
+                }
+            })
+
+            // update the data
+            updateTimingAndPlot(timesWindows)
+        })
+
+    // provide the subscription to the caller
+    onSubscribe(subscription)
+
+    return subscription
+}
+
 export interface WindowedOrdinalStats extends OrdinalStats {
     /**
      * A map associating each series to stats about that series (e.g. map(series_name -> stats))

@@ -25,7 +25,7 @@ import {
     panHandler,
     type SeriesLineStyle
 } from "../axes/axes"
-import {subscriptionOutlierFor, TimeWindowBehavior} from "../subscriptions/subscriptions"
+import {subscriptionOutlierFor, subscriptionOutlierWithCadenceFor, TimeWindowBehavior} from "../subscriptions/subscriptions"
 import type {OutlierChartData} from "../observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries"
 import {FastShiftArray} from "fast-shift-array";
@@ -64,6 +64,16 @@ export interface Props {
      * Behavior for time windowing. Defaults to TimeWindowBehavior.FIXED.
      */
     timeWindowBehavior?: TimeWindowBehavior
+    /**
+     * When set, uses a cadence with the specified refresh period (in milliseconds). For plots
+     * where the updates are slow (> 100 ms) using a cadence of 10 to 25 ms smooths out the
+     * updates and makes the plot updates look cleaner. When updates are around 25 ms or less,
+     * then setting the cadence period too small will result in poor update performance. Generally
+     * at high update speeds, the cadence is unnecessary. Finally, using cadence, sets the max time
+     * to the current time -- this is what causes the x-axis to keep scrolling once the data
+     * reaches the right-hand edge, even if new data hasn't arrived yet.
+     */
+    withCadenceOf?: number
     /**
      * Base fill-opacity for the outermost (widest) outlier band. Inner (narrower / more
      * confident) bands are rendered with progressively higher opacity, capped at 1.
@@ -183,6 +193,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
         timeWindowBehavior = TimeWindowBehavior.SCROLL,
+        withCadenceOf,
         bandOpacity = 0.15,
         bandOpacityStep = 0.12,
         markerRadius,
@@ -514,6 +525,20 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
 
     const subscribe = useCallback(() => {
         if (seriesObservable === undefined || canvasContext === null) return undefined
+        if (withCadenceOf !== undefined) {
+            return subscriptionOutlierWithCadenceFor<M>(
+                seriesObservable as Observable<OutlierChartData<M>>,
+                onSubscribe,
+                windowingTime,
+                axisAssignments, xAxesState,
+                onUpdateData,
+                dropDataAfter,
+                updateTimingAndPlot,
+                seriesRef.current,
+                (axisId: string, end: number) => currentTimeRef.current.set(axisId, end),
+                withCadenceOf,
+            )
+        }
         return subscriptionOutlierFor<M>(
             seriesObservable as Observable<OutlierChartData<M>>,
             onSubscribe,
@@ -531,7 +556,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         axisAssignments, dropDataAfter, canvasContext,
         onSubscribe, onUpdateData,
         seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
-        initialTimes, timeWindowBehavior
+        initialTimes, timeWindowBehavior, withCadenceOf
     ])
 
     useEffect(() => {
