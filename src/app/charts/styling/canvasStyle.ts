@@ -30,15 +30,15 @@ export function updateStrokeOpacity(current: CanvasStrokeStyle, opacity: number)
 /**
  * Applies a stroke style to the canvas context. Call this immediately before `ctx.stroke()` --
  * unlike the old SVG version, the effect is not persistent.
- * @param ctx The canvas 2D context to apply the style to
+ * @param context The canvas 2D context to apply the style to
  * @param style The (partial) stroke style to apply; unset fields are left untouched on `ctx`
  * @return `ctx`, for chaining
  */
-export function applyStrokeStyle(ctx: CanvasRenderingContext2D, style: Partial<CanvasStrokeStyle>): CanvasRenderingContext2D {
-    if (style.color !== undefined) ctx.strokeStyle = style.color
-    if (style.width !== undefined) ctx.lineWidth = style.width
-    if (style.opacity !== undefined) ctx.globalAlpha = style.opacity
-    return ctx
+export function applyStrokeStyle(context: CanvasRenderingContext2D, style: Partial<CanvasStrokeStyle>): CanvasRenderingContext2D {
+    if (style.color !== undefined) context.strokeStyle = style.color
+    if (style.width !== undefined) context.lineWidth = style.width
+    if (style.opacity !== undefined) context.globalAlpha = style.opacity
+    return context
 }
 
 export interface CanvasFillStyle {
@@ -57,18 +57,18 @@ export function updateFillOpacity(current: CanvasFillStyle, opacity: number): Ca
 /**
  * Applies a fill style to the canvas context. Call this immediately before `ctx.fill()`/
  * `ctx.fillText()`/`ctx.fillRect()` -- unlike the old SVG version, the effect is not persistent.
- * @param ctx The canvas 2D context to apply the style to
+ * @param context The canvas 2D context to apply the style to
  * @param style The (partial) fill style to apply; unset fields are left untouched on `ctx`
  * @return `ctx`, for chaining
  */
-export function applyFillStyle(ctx: CanvasRenderingContext2D, style: Partial<CanvasFillStyle>): CanvasRenderingContext2D {
-    if (style.color !== undefined) ctx.fillStyle = style.color
-    if (style.opacity !== undefined) ctx.globalAlpha = style.opacity
-    return ctx
+export function applyFillStyle(context: CanvasRenderingContext2D, style: Partial<CanvasFillStyle>): CanvasRenderingContext2D {
+    if (style.color !== undefined) context.fillStyle = style.color
+    if (style.opacity !== undefined) context.globalAlpha = style.opacity
+    return context
 }
 
 // lazily-created 1x1 offscreen context used only to resolve named/hex colors to rgb components
-let colorProbeCtx: CanvasRenderingContext2D | null = null
+let colorProbeContext: CanvasRenderingContext2D | null = null
 
 /**
  * Bakes an opacity into a color string by resolving it to `rgba(...)`. Needed because canvas has
@@ -80,16 +80,16 @@ let colorProbeCtx: CanvasRenderingContext2D | null = null
  * @return An `rgba(...)` string equivalent to `color` at the given `opacity`
  */
 export function withAlpha(color: string, opacity: number): string {
-    if (!colorProbeCtx) {
-        colorProbeCtx = document.createElement('canvas').getContext('2d')
+    if (!colorProbeContext) {
+        colorProbeContext = document.createElement('canvas').getContext('2d')
     }
-    if (!colorProbeCtx) {
+    if (!colorProbeContext) {
         // extremely unlikely (no canvas 2d support at all); fall back to the original color
         return color
     }
-    colorProbeCtx.fillStyle = color
+    colorProbeContext.fillStyle = color
     // the browser normalizes whatever we assigned to either "#rrggbb" or "rgba(r, g, b, a)"
-    const resolved = colorProbeCtx.fillStyle as string
+    const resolved = colorProbeContext.fillStyle as string
     if (resolved.startsWith('#')) {
         const r = parseInt(resolved.slice(1, 3), 16)
         const g = parseInt(resolved.slice(3, 5), 16)

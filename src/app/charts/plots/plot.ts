@@ -25,15 +25,15 @@ export function createCanvasContext(
     canvas: HTMLCanvasElement,
     color: string
 ): CanvasContext {
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
+    const context = canvas.getContext('2d')
+    if (!context) {
         throw new Error(`Unable to acquire a 2D rendering context for chart ${chartId}`)
     }
 
     const dpr = window.devicePixelRatio || 1
-    ctx.textBaseline = 'alphabetic'
-    ctx.strokeStyle = color
-    ctx.fillStyle = color
+    context.textBaseline = 'alphabetic'
+    context.strokeStyle = color
+    context.fillStyle = color
 
     const drawFns = new Map<DrawHandle, RegisteredDraw>()
     let animationFrameId: number | null = null
@@ -43,10 +43,10 @@ export function createCanvasContext(
 
         // clear the full backing-store (not just the CSS-pixel size, since the backing store is
         // scaled by devicePixelRatio and the current transform includes that scale)
-        ctx.save()
-        ctx.setTransform(1, 0, 0, 1, 0, 0)
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.restore()
+        context.save()
+        context.setTransform(1, 0, 0, 1, 0, 0)
+        context.clearRect(0, 0, canvas.width, canvas.height)
+        context.restore()
 
         Array.from(drawFns.values())
             .sort((a, b) => a.zIndex - b.zIndex)
@@ -87,7 +87,7 @@ export function createCanvasContext(
     const canvasContext: CanvasContext = {
         chartId,
         canvas,
-        context2D: ctx,
+        context2D: context,
         dpr,
         register: (id, draw, zIndex = 0) => {
             drawFns.set(id, {draw, zIndex})
@@ -113,11 +113,11 @@ export function createCanvasContext(
  * context so that one drawing-unit equals one CSS pixel. Replaces the old SVG `width`/`height`
  * attribute updates. Call this whenever the container's pixel dimensions change, before the next
  * redraw.
- * @param cc The canvas context
+ * @param context The canvas context
  * @param dimensions The new overall (plot + margin) dimensions, in CSS pixels
  */
-export function resizeCanvasTo(cc: CanvasContext, dimensions: Dimensions): void {
-    const {canvas, context2D, dpr} = cc
+export function resizeCanvasTo(context: CanvasContext, dimensions: Dimensions): void {
+    const {canvas, context2D, dpr} = context
     const width = Math.max(0, dimensions.width)
     const height = Math.max(0, dimensions.height)
 
@@ -134,20 +134,20 @@ export function resizeCanvasTo(cc: CanvasContext, dimensions: Dimensions): void 
  * `setClipPathG`/`setClipPath`. Canvas clip regions are stack-based: callers must `ctx.save()`
  * before calling this and `ctx.restore()` once the clipped drawing is done, or the clip will leak
  * into unrelated draw calls later in the same frame.
- * @param cc The canvas context
+ * @param context The canvas context
  * @param dimensions The dimensions of the area to clip to
  * @param origin The top-left corner of the clip area, in canvas drawing coordinates (defaults to
  * `(0, 0)`; pass the margin's `(left, top)` when clipping to the plot area, which is offset from
  * the canvas origin)
  */
 export function clipToArea(
-    cc: CanvasContext,
+    context: CanvasContext,
     dimensions: Dimensions,
     origin: {x: number, y: number} = {x: 0, y: 0}
 ): void {
-    cc.context2D.beginPath()
-    cc.context2D.rect(origin.x, origin.y, Math.max(0, dimensions.width), Math.max(0, dimensions.height))
-    cc.context2D.clip()
+    context.context2D.beginPath()
+    context.context2D.rect(origin.x, origin.y, Math.max(0, dimensions.width), Math.max(0, dimensions.height))
+    context.context2D.clip()
 }
 
 /**

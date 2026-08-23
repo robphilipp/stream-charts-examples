@@ -45,9 +45,9 @@ export const UseOutlierTooltip = createContext<OutlierTooltipContextValue | null
  * {@link OutlierPlotHtmlTooltipContent}.
  */
 export function useOutlierTooltip(): OutlierTooltipContextValue {
-    const ctx = useContext(UseOutlierTooltip)
-    if (ctx === null) {
+    const context = useContext(UseOutlierTooltip)
+    if (context === null) {
         throw new Error('useOutlierTooltip must be used inside OutlierPlotHtmlTooltipContent')
     }
-    return ctx
+    return context
 }

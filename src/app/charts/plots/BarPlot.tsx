@@ -782,30 +782,30 @@ function updateOpacityFor<S extends SvgFillStyle | SvgStrokeStyle>(isVisible: bo
 /**
  * Draws a bar (rectangle) onto the canvas context. Replaces the old `barFor`, which set SVG
  * `<rect>` attributes via a d3 selection.
- * @param ctx The canvas 2D context
+ * @param context The canvas 2D context
  * @param dimensions The bar's dimensions
  * @param style The bar style holding the fill and stroke styles
  */
 function drawBar(
-    ctx: CanvasRenderingContext2D,
+    context: CanvasRenderingContext2D,
     dimensions: BarDimensions,
     style: BarStyle
 ): void {
     if (dimensions.width <= 0 || dimensions.height <= 0) return
 
-    applyFillStyle(ctx, style.fill)
-    ctx.fillRect(dimensions.upperX, dimensions.upperY, dimensions.width, dimensions.height)
+    applyFillStyle(context, style.fill)
+    context.fillRect(dimensions.upperX, dimensions.upperY, dimensions.width, dimensions.height)
 
     if ((style.stroke.width ?? 0) > 0) {
-        applyStrokeStyle(ctx, style.stroke)
-        ctx.strokeRect(dimensions.upperX, dimensions.upperY, dimensions.width, dimensions.height)
+        applyStrokeStyle(context, style.stroke)
+        context.strokeRect(dimensions.upperX, dimensions.upperY, dimensions.width, dimensions.height)
     }
 }
 
 /**
  * Draws a horizontal line segment (used for the value/mean/windowed-mean lines) onto the canvas
  * context. Replaces the old `lineFor`, which set SVG `<line>` attributes via a d3 selection.
- * @param ctx The canvas 2D context
+ * @param context The canvas 2D context
  * @param x1 The line's start x-coordinate
  * @param y1 The line's start y-coordinate
  * @param x2 The line's end x-coordinate
@@ -813,18 +813,18 @@ function drawBar(
  * @param strokeStyle The stroke style
  */
 function drawLine(
-    ctx: CanvasRenderingContext2D,
+    context: CanvasRenderingContext2D,
     x1: number,
     y1: number,
     x2: number,
     y2: number,
     strokeStyle: Partial<SvgStrokeStyle>
 ): void {
-    applyStrokeStyle(ctx, strokeStyle)
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
+    applyStrokeStyle(context, strokeStyle)
+    context.beginPath()
+    context.moveTo(x1, y1)
+    context.lineTo(x2, y2)
+    context.stroke()
 }
 
 /**

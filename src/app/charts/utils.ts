@@ -40,24 +40,24 @@ export function emptyBoundingBox(): BoundingBox {
 /**
  * Canvas replacement for the old SVG `getBBox()`-based `textWidthOf`. Measures the rendered width
  * of `text` in whatever font is currently set on `ctx`.
- * @param ctx The canvas 2D context; its `.font` must already be set to the font to measure with
+ * @param context The canvas 2D context; its `.font` must already be set to the font to measure with
  * @param text The text to measure
  * @return The width, in pixels, that `text` would occupy when drawn with `ctx.fillText`
  */
-export function textWidthOf(ctx: CanvasRenderingContext2D, text: string): number {
-    return ctx.measureText(text).width || 0
+export function textWidthOf(context: CanvasRenderingContext2D, text: string): number {
+    return context.measureText(text).width || 0
 }
 
 /**
  * Canvas replacement for the old SVG `getBBox()`-based `textDimensions`. Measures the width and
  * height of `text` as it would be rendered with the font currently set on `ctx`.
- * @param ctx The canvas 2D context; its `.font` must already be set to the font to measure with
+ * @param context The canvas 2D context; its `.font` must already be set to the font to measure with
  * @param text The text to measure
  * @return The bounding box for the text. `x`/`y` are always `0`; use `ascent`/`descent` (see
  * {@link textMetricsOf}) instead when you need baseline-aware placement.
  */
-export function textDimensions(ctx: CanvasRenderingContext2D, text: string): BoundingBox {
-    const metrics = ctx.measureText(text)
+export function textDimensions(context: CanvasRenderingContext2D, text: string): BoundingBox {
+    const metrics = context.measureText(text)
     const ascent = metrics.actualBoundingBoxAscent ?? metrics.fontBoundingBoxAscent ?? 0
     const descent = metrics.actualBoundingBoxDescent ?? metrics.fontBoundingBoxDescent ?? 0
     return {
@@ -72,11 +72,11 @@ export function textDimensions(ctx: CanvasRenderingContext2D, text: string): Bou
  * Measures `text` as rendered by `ctx`, returning both dimensions and ascent/descent -- useful
  * when you need to position text relative to its own baseline (e.g. vertically centering a tick
  * label, or rotating it about its visual center) rather than just knowing its box size.
- * @param ctx The canvas 2D context; its `.font` must already be set to the font to measure with
+ * @param context The canvas 2D context; its `.font` must already be set to the font to measure with
  * @param text The text to measure
  */
-export function textMetricsOf(ctx: CanvasRenderingContext2D, text: string): {width: number, ascent: number, descent: number} {
-    const metrics = ctx.measureText(text)
+export function textMetricsOf(context: CanvasRenderingContext2D, text: string): {width: number, ascent: number, descent: number} {
+    const metrics = context.measureText(text)
     return {
         width: metrics.width || 0,
         ascent: metrics.actualBoundingBoxAscent ?? metrics.fontBoundingBoxAscent ?? 0,

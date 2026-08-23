@@ -689,13 +689,13 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
  */
 function findHoveredBand<M extends readonly number[]>(
     bands: Array<BandHitRegion<M>>,
-    ctx: CanvasRenderingContext2D,
+    context: CanvasRenderingContext2D,
     localX: number,
     localY: number
 ): {kind: 'band', seriesName: string, bandIndex: number} | undefined {
     for (let i = bands.length - 1; i >= 0; i--) {
         const band = bands[i]
-        if (ctx.isPointInPath(band.path, localX, localY)) {
+        if (context.isPointInPath(band.path, localX, localY)) {
             return {kind: 'band', seriesName: band.seriesName, bandIndex: band.bandIndex}
         }
     }
