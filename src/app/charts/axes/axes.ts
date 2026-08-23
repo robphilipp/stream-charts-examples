@@ -30,7 +30,7 @@ export type AxisTickStyle = {
 
 /**
  * Factory function to create a default AxisTickStyle with the default font,
- * no rotation, and no auto-rotation.
+ * no rotation, and no autorotation.
  */
 export function defaultAxisTickStyle(): AxisTickStyle {
     return {
@@ -102,6 +102,13 @@ export function defaultLineStyle(): SeriesLineStyle {
 export interface BaseAxis {
     axisId: string
     location: AxisLocation
+    /**
+     * True for a placeholder axis added via {@link addEmptyXAxis}/{@link addEmptyYAxis} (just a
+     * line, with no real data domain behind it). Consumers that report a value for the mouse
+     * position -- e.g., the tracker's axis labels -- should skip axes marked this way, since their
+     * scale doesn't reflect anything meaningful.
+     */
+    isEmpty?: boolean
 }
 
 /**
@@ -114,7 +121,8 @@ export interface ContinuousNumericAxis extends BaseAxis {
      */
     scale: ScaleContinuousNumeric<number, number>
     /**
-     * Updates the axis based on the specified domain and plot dimensions, and requests a redraw.
+     * Updates the axis based on the specified domain and plot dimensions and requests the plot
+     * to be redrawn.
      * @param domain The interval representing the domain of the axis.
      * @param plotDimensions The dimensions of the plot (without the margins).
      * @param margin The margins for the plot
@@ -123,7 +131,7 @@ export interface ContinuousNumericAxis extends BaseAxis {
     /**
      * Updates the font (color, size, family, weight) used for ticks and the axis label, without
      * recreating the axis or touching its domain. Used to keep the label color in sync with the
-     * chart's `color` prop (e.g. on a theme change) between full axis updates.
+     * chart's `color` prop (e.g., on a theme change) between full axis updates.
      */
     updateFont: (font: AxesFont) => void
 }
@@ -142,7 +150,7 @@ export interface OrdinalStringAxis extends BaseAxis {
      */
     categorySize: number
     /**
-     * Updates the axis based on the specified range and plot dimensions, and requests a redraw.
+     * Updates the axis based on the specified range and plot dimensions and requests the plot to be redrawn.
      * @param range An interval representing the range of the axis.
      * @param originalRange An interval representing the original range of the axis (before zooming or panning).
      * @param plotDimensions The dimensions of the plot (without the margins).
@@ -151,7 +159,7 @@ export interface OrdinalStringAxis extends BaseAxis {
      */
     update: (range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => number
     /**
-     * Updates the font used for the axis label, without recreating the axis. Tick label color is
+     * Updates the font used for the axis label without recreating the axis. Tick label color is
      * intentionally not touched by this -- it stays fixed at whatever the tick style's font was
      * set to when the axis was created.
      */
@@ -189,7 +197,7 @@ export type AxisLocation = (typeof AxisLocation)[keyof typeof AxisLocation];
  * requires recreating the axis)
  * @param axisLabel The axis label
  * @param axesLabelFont The font for the axis label
- * @param axisTickStyle Styling information for the ticks (font, rotation, etc)
+ * @param axisTickStyle Styling information for the ticks (font, rotation, etc.)
  * @param plotDimensions The dimensions of the plot
  * @param margin The plot margin
  * @param setAxisRangeFor Callback that sets the axis range for the specified axis
@@ -256,24 +264,24 @@ function addOrdinalStringXAxis(
     const drawHandle: DrawHandle = `x-axis-ordinal-${cc.chartId}-${axisId}`
 
     const draw = (context: CanvasContext) => {
-        const {ctx} = context
-        ctx.save()
-        ctx.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
+        const {context2D} = context
+        context2D.save()
+        context2D.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
 
-        ctx.save()
+        context2D.save()
         clipToArea(context, {width: currentDimensions.width, height: currentMargin.bottom}, {x: 0, y: location === AxisLocation.Bottom ? -1 : -currentMargin.top})
 
-        ctx.strokeStyle = currentFont.color
-        ctx.fillStyle = currentFont.color
-        ctx.lineWidth = 1
-        ctx.font = fontStringFor(currentTickStyle.font.size, currentTickStyle.font.family, currentTickStyle.font.weight)
-        ctx.textBaseline = 'middle'
+        context2D.strokeStyle = currentFont.color
+        context2D.fillStyle = currentFont.color
+        context2D.lineWidth = 1
+        context2D.font = fontStringFor(currentTickStyle.font.size, currentTickStyle.font.family, currentTickStyle.font.weight)
+        context2D.textBaseline = 'middle'
 
         // domain line
-        ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.lineTo(currentDimensions.width, 0)
-        ctx.stroke()
+        context2D.beginPath()
+        context2D.moveTo(0, 0)
+        context2D.lineTo(currentDimensions.width, 0)
+        context2D.stroke()
 
         const tickDirection = location === AxisLocation.Bottom ? 1 : -1
         const degrees = location === AxisLocation.Bottom ? -currentTickStyle.rotation : currentTickStyle.rotation
@@ -281,31 +289,31 @@ function addOrdinalStringXAxis(
 
         categories.forEach(category => {
             const x = (scale(category) ?? 0) + scale.bandwidth() / 2
-            ctx.beginPath()
-            ctx.moveTo(x, 0)
-            ctx.lineTo(x, TICK_SIZE * tickDirection)
-            ctx.stroke()
+            context2D.beginPath()
+            context2D.moveTo(x, 0)
+            context2D.lineTo(x, TICK_SIZE * tickDirection)
+            context2D.stroke()
 
-            ctx.save()
-            ctx.translate(x, (TICK_SIZE + TICK_PADDING) * tickDirection)
-            ctx.rotate(radians)
-            ctx.textAlign = radians === 0 ? 'center' : 'end'
-            ctx.fillText(category, 0, 0)
-            ctx.restore()
+            context2D.save()
+            context2D.translate(x, (TICK_SIZE + TICK_PADDING) * tickDirection)
+            context2D.rotate(radians)
+            context2D.textAlign = radians === 0 ? 'center' : 'end'
+            context2D.fillText(category, 0, 0)
+            context2D.restore()
         })
 
-        ctx.restore() // pop the clip
+        context2D.restore() // pop the clip
 
         // axis label (absolute position, not clipped, matches the old behavior)
-        ctx.fillStyle = currentFont.color
-        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
-        ctx.textAlign = 'center'
-        ctx.textBaseline = location === AxisLocation.Top ? 'hanging' : 'alphabetic'
+        context2D.fillStyle = currentFont.color
+        context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        context2D.textAlign = 'center'
+        context2D.textBaseline = location === AxisLocation.Top ? 'hanging' : 'alphabetic'
         const labelX = ordinalLabelXTranslation(location, currentDimensions, currentMargin, currentFont) - currentMargin.left
         const labelY = ordinalLabelYTranslation(location, currentDimensions, currentMargin) - yTranslation(location, currentDimensions, currentMargin)
-        ctx.fillText(axisLabel, labelX, labelY)
+        context2D.fillText(axisLabel, labelX, labelY)
 
-        ctx.restore()
+        context2D.restore()
     }
 
     cc.register(drawHandle, draw, 0)
@@ -363,28 +371,31 @@ function addOrdinalStringYAxis(
     const drawHandle: DrawHandle = `y-axis-ordinal-${cc.chartId}-${axisId}`
 
     const draw = (context: CanvasContext) => {
-        const {ctx} = context
-        ctx.save()
-        ctx.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
+        const {context2D} = context
+        context2D.save()
+        context2D.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
 
-        ctx.save()
+        context2D.save()
         const clipWidth = location === AxisLocation.Left ? currentMargin.left : currentMargin.right
-        clipToArea(context, {width: clipWidth, height: currentDimensions.height}, {x: location === AxisLocation.Left ? -clipWidth : 0, y: 0})
+        // the boundary that abuts the domain line (x=0) is nudged 1px past it (into the plot side),
+        // so the line's 1px-wide stroke -- centered on x=0, spanning -0.5 to +0.5 -- isn't clipped
+        // in half; mirrors the same -1 fudge used for the bottom x-axis's domain line
+        clipToArea(context, {width: clipWidth, height: currentDimensions.height}, {x: location === AxisLocation.Left ? -clipWidth + 1 : -1, y: 0})
 
-        ctx.strokeStyle = currentFont.color
-        ctx.fillStyle = currentFont.color
-        ctx.lineWidth = 1
-        ctx.font = fontStringFor(currentTickStyle.font.size, currentTickStyle.font.family, currentTickStyle.font.weight)
+        context2D.strokeStyle = currentFont.color
+        context2D.fillStyle = currentFont.color
+        context2D.lineWidth = 1
+        context2D.font = fontStringFor(currentTickStyle.font.size, currentTickStyle.font.family, currentTickStyle.font.weight)
         // matches the old SVG version, which forced text-anchor "end" for ordinal ticks
         // regardless of Left/Right location
-        ctx.textAlign = 'end' as CanvasTextAlign
-        ctx.textBaseline = 'middle'
+        context2D.textAlign = 'end' as CanvasTextAlign
+        context2D.textBaseline = 'middle'
 
         // domain line
-        ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.lineTo(0, currentDimensions.height)
-        ctx.stroke()
+        context2D.beginPath()
+        context2D.moveTo(0, 0)
+        context2D.lineTo(0, currentDimensions.height)
+        context2D.stroke()
 
         const degrees = location === AxisLocation.Left ? -currentTickStyle.rotation : currentTickStyle.rotation
         const radians = degrees * Math.PI / 180
@@ -396,34 +407,34 @@ function addOrdinalStringYAxis(
 
         categories.forEach(category => {
             const y = (scale(category) ?? 0) + scale.bandwidth() / 2
-            ctx.beginPath()
-            ctx.moveTo(0, y)
-            ctx.lineTo(TICK_SIZE * tickDirection, y)
-            ctx.stroke()
+            context2D.beginPath()
+            context2D.moveTo(0, y)
+            context2D.lineTo(TICK_SIZE * tickDirection, y)
+            context2D.stroke()
 
-            ctx.save()
-            ctx.translate(xTick, y)
-            ctx.rotate(radians)
-            ctx.fillText(category, 0, 0)
-            ctx.restore()
+            context2D.save()
+            context2D.translate(xTick, y)
+            context2D.rotate(radians)
+            context2D.fillText(category, 0, 0)
+            context2D.restore()
         })
 
-        ctx.restore() // pop the clip
+        context2D.restore() // pop the clip
 
         // axis label, rotated -90deg, matching the old SVG version
-        ctx.save()
+        context2D.save()
         const labelX = ordinalLabelXTranslation(location, currentDimensions, currentMargin, currentFont) - xTranslation(location, currentDimensions, currentMargin)
         const labelY = ordinalLabelYTranslation(location, currentDimensions, currentMargin) - currentMargin.top
-        ctx.translate(labelX, labelY)
-        ctx.rotate(-Math.PI / 2)
-        ctx.fillStyle = currentFont.color
-        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'alphabetic'
-        ctx.fillText(axisLabel, 0, 0)
-        ctx.restore()
+        context2D.translate(labelX, labelY)
+        context2D.rotate(-Math.PI / 2)
+        context2D.fillStyle = currentFont.color
+        context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        context2D.textAlign = 'center'
+        context2D.textBaseline = 'alphabetic'
+        context2D.fillText(axisLabel, 0, 0)
+        context2D.restore()
 
-        ctx.restore()
+        context2D.restore()
     }
 
     cc.register(drawHandle, draw, 0)
@@ -507,7 +518,7 @@ function ordinalLabelYTranslation(
 /**
  * Adds a new, empty x-axis (a line with no ticks or label) to the canvas context. An empty axis
  * is just a line where the axis would be, without any ticks or labels.
- * @param cc The canvas context to register the axis' draw function with
+ * @param canvasContext The canvas context to register the axis' draw function with
  * @param axisId The ID of the axis
  * @param plotDimensions The dimensions of the plot
  * @param location The location of the axis
@@ -519,7 +530,7 @@ function ordinalLabelYTranslation(
  * @return A {@link ContinuousNumericAxis} based on the arguments to this function
  */
 export function addEmptyXAxis(
-    cc: CanvasContext,
+    canvasContext: CanvasContext,
     axisId: string,
     plotDimensions: Dimensions,
     location: typeof AxisLocation.Bottom | typeof AxisLocation.Top,
@@ -535,46 +546,47 @@ export function addEmptyXAxis(
     let currentMargin = margin
     // NOTE: previously this read `ctx.fillStyle` directly, assuming it reflected "the chart's
     // current color". But `ctx` is shared across every draw function registered on the canvas
-    // (all axes, all plots, the tracker), and whichever one last set `fillStyle` before this one
-    // ran left that value behind -- it had nothing to do with this axis' actual color, and never
+    // (all axes, all plots, the tracker). Whichever one last set `fillStyle` before this one
+    // ran left that value behind. It had nothing to do with this axis' actual color and never
     // updated when the chart's `color`/theme changed, since nothing here ever assigned a new
-    // value in response to that. `currentColor` is now explicit, passed in and refreshable via
+    // value in response to that. The `currentColor` is now explicit, passed in and refreshable via
     // `updateFont` below.
     let currentColor = color
 
-    const drawHandle: DrawHandle = `x-axis-empty-${cc.chartId}-${axisId}`
+    const drawHandle: DrawHandle = `x-axis-empty-${canvasContext.chartId}-${axisId}`
 
     const draw = (context: CanvasContext) => {
-        const {ctx} = context
-        ctx.save()
-        ctx.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
-        ctx.strokeStyle = currentColor
-        ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.lineTo(currentDimensions.width, 0)
-        ctx.stroke()
-        ctx.restore()
+        const {context2D} = context
+        context2D.save()
+        context2D.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
+        context2D.strokeStyle = currentColor
+        context2D.beginPath()
+        context2D.moveTo(0, 0)
+        context2D.lineTo(currentDimensions.width, 0)
+        context2D.stroke()
+        context2D.restore()
     }
 
-    cc.register(drawHandle, draw, 0)
+    canvasContext.register(drawHandle, draw, 0)
 
     return {
         axisId,
         location,
+        isEmpty: true,
         scale,
         update: (domain, plotDimensions, margin) => {
             scale.domain(domain.asTuple()).range([0, plotDimensions.width])
             currentDimensions = plotDimensions
             currentMargin = margin
             setAxisRangeFor(axisId, domain)
-            cc.requestRedraw()
+            canvasContext.requestRedraw()
         },
-        // an empty axis has no ticks or label text, but does have a colored line -- reuse
-        // updateFont's color field to keep that line in sync with the chart's color (e.g. on a
+        // an empty axis has no ticks or label text but does have a colored line -- reuse
+        // updateFont's color field to keep that line in sync with the chart's color (e.g., on a
         // theme change), matching the pattern used by the other axis types
         updateFont: (font) => {
             currentColor = font.color
-            cc.requestRedraw()
+            canvasContext.requestRedraw()
         }
     }
 }
@@ -612,15 +624,15 @@ export function addEmptyYAxis(
     const drawHandle: DrawHandle = `y-axis-empty-${cc.chartId}-${axisId}`
 
     const draw = (context: CanvasContext) => {
-        const {ctx} = context
-        ctx.save()
-        ctx.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
-        ctx.strokeStyle = currentColor
-        ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.lineTo(0, currentDimensions.height)
-        ctx.stroke()
-        ctx.restore()
+        const {context2D} = context
+        context2D.save()
+        context2D.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
+        context2D.strokeStyle = currentColor
+        context2D.beginPath()
+        context2D.moveTo(0, 0)
+        context2D.lineTo(0, currentDimensions.height)
+        context2D.stroke()
+        context2D.restore()
     }
 
     cc.register(drawHandle, draw, 0)
@@ -628,6 +640,7 @@ export function addEmptyYAxis(
     return {
         axisId,
         location,
+        isEmpty: true,
         scale,
         update: (domain, plotDimensions, margin) => {
             scale.domain(domain.asTuple()).range([plotDimensions.height, 0])
@@ -636,8 +649,8 @@ export function addEmptyYAxis(
             setAxisRangeFor(axisId, domain)
             cc.requestRedraw()
         },
-        // an empty axis has no ticks or label text, but does have a colored line -- reuse
-        // updateFont's color field to keep that line in sync with the chart's color (e.g. on a
+        // an empty axis has no ticks or label text but does have a colored line -- reuse
+        // updateFont's color field to keep that line in sync with the chart's color (e.g., on a
         // theme change), matching the pattern used by the other axis types
         updateFont: (font) => {
             currentColor = font.color
@@ -676,59 +689,57 @@ export function addContinuousNumericXAxis(
 
     let currentDimensions = plotDimensions
     let currentMargin = margin
-    let currentLabel = axisLabel
+    const currentLabel = axisLabel
     let currentFont = axesLabelFont
 
     const drawHandle: DrawHandle = `x-axis-${cc.chartId}-${axisId}`
 
     const draw = (context: CanvasContext) => {
-        const {ctx} = context
-        ctx.save()
-        ctx.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
+        const {context2D} = context
+        context2D.save()
+        context2D.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
 
-        // clip ticks/labels to the width of the plot (mirrors the old SVG clip-path)
-        ctx.save()
-        clipToArea(context, {width: currentDimensions.width, height: currentMargin.bottom}, {x: 0, y: location === AxisLocation.Bottom ? -1 : -currentMargin.top})
-
-        ctx.strokeStyle = currentFont.color
-        ctx.fillStyle = currentFont.color
-        ctx.lineWidth = 1
-        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
-        ctx.textAlign = 'center'
-        ctx.textBaseline = location === AxisLocation.Bottom ? 'top' : 'bottom'
+        // NOTE: the original SVG version never applied a clip-path to the continuous numeric
+        // axes (only the ordinal/category axes clip), which let the first/last tick labels
+        // overflow into the margin without being cut off. Clipping to exactly the plot width
+        // here would chop those end labels in half, so ticks/labels are intentionally unclipped.
+        context2D.strokeStyle = currentFont.color
+        context2D.fillStyle = currentFont.color
+        context2D.lineWidth = 1
+        context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        context2D.textAlign = 'center'
+        context2D.textBaseline = location === AxisLocation.Bottom ? 'top' : 'bottom'
 
         // domain line
-        ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.lineTo(currentDimensions.width, 0)
-        ctx.stroke()
+        context2D.beginPath()
+        context2D.moveTo(0, 0)
+        context2D.lineTo(currentDimensions.width, 0)
+        context2D.stroke()
 
         // ticks
         const tickDirection = location === AxisLocation.Bottom ? 1 : -1
         scale.ticks().forEach(tickValue => {
             const x = scale(tickValue)
-            ctx.beginPath()
-            ctx.moveTo(x, 0)
-            ctx.lineTo(x, TICK_SIZE * tickDirection)
-            ctx.stroke()
-            ctx.fillText(
+            context2D.beginPath()
+            context2D.moveTo(x, 0)
+            context2D.lineTo(x, TICK_SIZE * tickDirection)
+            context2D.stroke()
+            context2D.fillText(
                 scale.tickFormat()(tickValue),
                 x,
                 (TICK_SIZE + TICK_PADDING) * tickDirection
             )
         })
 
-        ctx.restore() // pop the clip
-
         // axis label (not clipped, matches the old behavior)
-        ctx.fillStyle = currentFont.color
-        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
-        ctx.textAlign = 'center'
-        ctx.textBaseline = location === AxisLocation.Top ? 'hanging' : 'alphabetic'
+        context2D.fillStyle = currentFont.color
+        context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        context2D.textAlign = 'center'
+        context2D.textBaseline = location === AxisLocation.Top ? 'hanging' : 'alphabetic'
         const labelY = continuousLabelYTranslation(location, currentDimensions, currentMargin) - yTranslation(location, currentDimensions, currentMargin)
-        ctx.fillText(currentLabel, currentDimensions.width / 2, labelY)
+        context2D.fillText(currentLabel, currentDimensions.width / 2, labelY)
 
-        ctx.restore()
+        context2D.restore()
     }
 
     cc.register(drawHandle, draw, 0)
@@ -783,63 +794,60 @@ export function addContinuousNumericYAxis(
 
     let currentDimensions = plotDimensions
     let currentMargin = margin
-    let currentLabel = axisLabel
+    const currentLabel = axisLabel
     let currentFont = axesLabelFont
 
     const drawHandle: DrawHandle = `y-axis-${cc.chartId}-${axisId}`
 
     const draw = (context: CanvasContext) => {
-        const {ctx} = context
-        ctx.save()
-        ctx.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
+        const {context2D} = context
+        context2D.save()
+        context2D.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
 
-        ctx.save()
-        const clipWidth = location === AxisLocation.Left ? currentMargin.left : currentMargin.right
-        clipToArea(context, {width: clipWidth, height: currentDimensions.height}, {x: location === AxisLocation.Left ? -clipWidth : 0, y: 0})
-
-        ctx.strokeStyle = currentFont.color
-        ctx.fillStyle = currentFont.color
-        ctx.lineWidth = 1
-        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
-        ctx.textBaseline = 'middle'
-        ctx.textAlign = location === AxisLocation.Left ? 'right' : 'left'
+        // NOTE: unclipped, matching the old SVG version's continuous numeric axes (only the
+        // ordinal/category axes clipped there) -- clipping to exactly the plot height would cut
+        // off the top- and bottom-most tick labels, which straddle y=0 and y=height.
+        context2D.strokeStyle = currentFont.color
+        context2D.fillStyle = currentFont.color
+        context2D.lineWidth = 1
+        context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        context2D.textBaseline = 'middle'
+        context2D.textAlign = location === AxisLocation.Left ? 'right' : 'left'
 
         // domain line
-        ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.lineTo(0, currentDimensions.height)
-        ctx.stroke()
+        context2D.beginPath()
+        context2D.moveTo(0, 0)
+        context2D.lineTo(0, currentDimensions.height)
+        context2D.stroke()
 
         // ticks
         const tickDirection = location === AxisLocation.Left ? -1 : 1
         scale.ticks().forEach(tickValue => {
             const y = scale(tickValue)
-            ctx.beginPath()
-            ctx.moveTo(0, y)
-            ctx.lineTo(TICK_SIZE * tickDirection, y)
-            ctx.stroke()
-            ctx.fillText(
+            context2D.beginPath()
+            context2D.moveTo(0, y)
+            context2D.lineTo(TICK_SIZE * tickDirection, y)
+            context2D.stroke()
+            context2D.fillText(
                 scale.tickFormat()(tickValue),
                 (TICK_SIZE + TICK_PADDING) * tickDirection,
                 y
             )
         })
 
-        ctx.restore() // pop the clip
-
         // axis label, rotated -90deg, matching the old SVG version
-        ctx.save()
+        context2D.save()
         const labelX = continuousLabelXTranslation(location, currentDimensions, currentMargin, currentFont) - xTranslation(location, currentDimensions, currentMargin)
-        ctx.translate(labelX, currentDimensions.height / 2)
-        ctx.rotate(-Math.PI / 2)
-        ctx.fillStyle = currentFont.color
-        ctx.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'alphabetic'
-        ctx.fillText(currentLabel, 0, 0)
-        ctx.restore()
+        context2D.translate(labelX, currentDimensions.height / 2)
+        context2D.rotate(-Math.PI / 2)
+        context2D.fillStyle = currentFont.color
+        context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
+        context2D.textAlign = 'center'
+        context2D.textBaseline = 'alphabetic'
+        context2D.fillText(currentLabel, 0, 0)
+        context2D.restore()
 
-        ctx.restore()
+        context2D.restore()
     }
 
     cc.register(drawHandle, draw, 0)
@@ -863,7 +871,7 @@ export function addContinuousNumericYAxis(
 }
 
 /**
- * Removes an axis' draw function from the canvas context (call on unmount to avoid leaking a
+ * Removes an axis' draw function from the canvas context (called on "unmount" to avoid leaking a
  * draw registration for an axis that's no longer part of the chart).
  */
 export function removeContinuousXAxis(cc: CanvasContext, axisId: string): void {
@@ -912,7 +920,7 @@ export interface ZoomResult<AR extends BaseAxisRange> {
 
 /**
  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
- * at the location of the mouse when the scroll wheel or gesture was applied, while ensure that
+ * at the location of the mouse when the scroll wheel or gesture was applied, while ensuring that
  * the range (start, end) is contained within the constraint (min, max).
  * @param transform The d3 zoom transformation information
  * @param x The x-position of the mouse when the scroll wheel or gesture is used
@@ -1025,7 +1033,7 @@ export function axesForSeriesGen<D, A extends BaseAxis>(
     axesState: AxesState<A>
 ): Array<string> {
     return series.map(srs => srs.name)
-        // grab the x-axis assigned to the series, or use the default x-axis if not
+        // grab the x-axis assigned to the series or use the default x-axis if not
         // assignment has been made
         .map(name => axisAssignments.get(name)?.xAxis || axesState.axisDefaultId().getOrElse(""))
         // de-dup the array of axis IDs so that we don't end up applying the pan or zoom
@@ -1168,7 +1176,7 @@ export function panHandler(
  * to the left or right. After calling the handler function, the plot needs to be updated as well, and this is
  * left for the caller.
  *
- * Please note that the function generated by this function has side effects -- it updates the axes ranges.
+ * Please note that the function generated by this function has side effects -- it updates the axes' ranges.
  *
  * @param axesForSeries The distinct axes that cover all the series
  * @param margin The plot margin
@@ -1211,7 +1219,7 @@ export function ordinalPanHandler(
  * to the left or right. After calling the handler function, the plot needs to be updated as well, and this is
  * left for the caller.
  *
- * Please note that the function generated by this function has side effects -- it updates the axes ranges.
+ * Please note that the function generated by this function has side effects -- it updates the axes' ranges.
  *
  * @param xAxesForSeries The distinct x-axes that cover all the series
  * @param yAxesForSeries The distinct y-axes that cover all the series
@@ -1346,7 +1354,7 @@ function calcOrdinalZoomAndUpdate(
  * function returns a handler function. And this handler function adjusts the range when the plot is zoomed.
  * After calling the handler function, the plot needs to be updated as well, and this is left for the caller.
  *
- * Please note that the function generated by this function has side effects -- it updates the axes ranges.
+ * Please note that the function generated by this function has side effects -- it updates the axes' ranges.
  *
  * @param axesForSeries The distinct axes that cover all the series
  * @param margin The plot margin
@@ -1391,7 +1399,7 @@ export function continuousAxisZoomHandler(
  * function returns a handler function. And this handler function adjusts the range when the plot is zoomed.
  * After calling the handler function, the plot needs to be updated as well, and this is left for the caller.
  *
- * Please note that the function generated by this function has side effects -- it updates the axes ranges.
+ * Please note that the function generated by this function has side effects -- it updates the axes' ranges.
  *
  * @param axesForSeries The distinct axes that cover all the series
  * @param margin The plot margin
@@ -1438,7 +1446,7 @@ export function ordinalAxisZoomHandler(
  * function returns a handler function. And this handler function adjusts the time-range when the plot is zoomed.
  * After calling the handler function, the plot needs to be updated as well, and this is left for the caller.
  *
- * Please note that the function generated by this function has side effects -- it updates the axes ranges.
+ * Please note that the function generated by this function has side effects -- it updates the axes' ranges.
  *
  * @param xAxesForSeries The distinct x-axes that cover all the series
  * @param yAxesForSeries The distinct y-axes that cover all the series
@@ -1490,7 +1498,7 @@ export function axesZoomHandler(
 /**
  * Calculates the axis-ranges for each of the continuous numeric axes in the map
  * @param axes The map containing the axes and their associated IDs
- * @return a map associating the axis IDs to their continuous axis-range
+ * @return a map associating the axis IDs with their continuous axis-range
  */
 export function continuousAxisRanges(axes: Map<string, ContinuousNumericAxis>): Map<string, ContinuousAxisRange> {
     return continuousRange(axes)
@@ -1500,7 +1508,7 @@ export function continuousAxisRanges(axes: Map<string, ContinuousNumericAxis>): 
  * Calculates the axis-ranges for each of the ordinal axes in the map
  * @param axes The map containing the axes and their associated IDs
  * @param originalRange The original range of the axis
- * @return a map associating the axis IDs to their ordinal axis-range
+ * @return a map associating the axis IDs with their ordinal axis-range
  */
 export function ordinalAxisRanges(axes: Map<string, OrdinalStringAxis>, originalRange: AxisInterval): Map<string, OrdinalAxisRange> {
     return ordinalRange(axes, originalRange)

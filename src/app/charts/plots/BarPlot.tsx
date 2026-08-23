@@ -274,7 +274,6 @@ export function BarPlot(props: Props): null {
         // ** not happy about this **
         // only want this effect to run when the initial data is changed, which mean all the
         // other dependencies are recalculated anyway.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [initialData]
     )
 
@@ -334,11 +333,11 @@ export function BarPlot(props: Props): null {
     const updatePlot = useCallback(
         (cc: CanvasContext) => {
             const draw = (context: CanvasContext) => {
-                const {ctx} = context
+                const {context2D} = context
 
-                ctx.save()
+                context2D.save()
                 clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
-                ctx.translate(margin.left, margin.top)
+                context2D.translate(margin.left, margin.top)
 
                 const newGeometry = new Map<string, SeriesGeometry>()
                 const hovered = lastHoveredRef.current
@@ -387,7 +386,7 @@ export function BarPlot(props: Props): null {
                         statsRef.current.valueStatsForSeries.get(series.name)?.max.value || 0,
                         yAxis
                     )
-                    drawBar(ctx, totalBar, barStyleFor(showMinMaxBars, minMaxBarStyle))
+                    drawBar(context2D, totalBar, barStyleFor(showMinMaxBars, minMaxBarStyle))
                     newGeometry.set(`${series.name}::minMax`, {
                         points: [],
                         rects: [{
@@ -409,7 +408,7 @@ export function BarPlot(props: Props): null {
                             seriesWindowedStats.min.value, seriesWindowedStats.max.value,
                             yAxis
                         )
-                        drawBar(ctx, windowedBar, barStyleFor(showWindowedMinMaxBars, windowedBarStyle))
+                        drawBar(context2D, windowedBar, barStyleFor(showWindowedMinMaxBars, windowedBarStyle))
                         newGeometry.set(`${series.name}::windowedMinMax`, {
                             points: [],
                             rects: [{
@@ -425,7 +424,7 @@ export function BarPlot(props: Props): null {
                         // mean line
                         if (showMeanValueLines) {
                             const meanLineY = yAxis.scale(statsRef.current.valueStatsForSeries.get(series.name)?.mean || 0)
-                            drawLine(ctx, lower(x), meanLineY, upper(x), meanLineY, meanValueLineStyle.regular)
+                            drawLine(context2D, lower(x), meanLineY, upper(x), meanLineY, meanValueLineStyle.regular)
                             newGeometry.set(`${series.name}::meanValue`, {
                                 points: [],
                                 segments: [[
@@ -442,7 +441,7 @@ export function BarPlot(props: Props): null {
                             const windowedMeanLineY = yAxis.scale(isNaN(seriesWindowedStats.mean) ? 0 : seriesWindowedStats.mean)
                             const isHovered = hovered?.seriesName === series.name && hovered.elementType === 'windowedMeanValue'
                             const style = isHovered ? windowedMeanLineStyle.highlight : windowedMeanLineStyle.regular
-                            drawLine(ctx, lower(x), windowedMeanLineY, upper(x), windowedMeanLineY, style)
+                            drawLine(context2D, lower(x), windowedMeanLineY, upper(x), windowedMeanLineY, style)
                             newGeometry.set(`${series.name}::windowedMeanValue`, {
                                 points: [],
                                 segments: [[
@@ -461,7 +460,7 @@ export function BarPlot(props: Props): null {
                         const valueLineY = yAxis.scale(datum.value)
                         const isHovered = hovered?.seriesName === series.name && hovered.elementType === 'currentValue'
                         const style = isHovered ? valueLineStyle.highlight : valueLineStyle.regular
-                        drawLine(ctx, lower(x), valueLineY, upper(x), valueLineY, style)
+                        drawLine(context2D, lower(x), valueLineY, upper(x), valueLineY, style)
                         newGeometry.set(`${series.name}::currentValue`, {
                             points: [],
                             segments: [[
@@ -475,7 +474,7 @@ export function BarPlot(props: Props): null {
 
                 geometryRef.current = newGeometry
 
-                ctx.restore()
+                context2D.restore()
             }
 
             cc.register(`bar-plot-${chartId}`, draw, 10)
@@ -602,9 +601,13 @@ export function BarPlot(props: Props): null {
                 // ordinal-range. however, we want to keep the ordinal-ranges to reflect their original scale so that
                 // we can zoom properly (so the updates can't fuck with the scale).
                 if (ordinalAxesRanges.size === 0) {
-                    // when no time-ranges have yet been created, then create them and hold on to a mutable
-                    // reference to them
-                    ordinalRangesRef.current = ordinalAxisRanges(xAxesState.axes, AxisInterval.from(0, plotDimensions.width))
+                    // when no time-ranges have yet been created, then create them and populate the
+                    // existing ref's map in place (rather than replacing it -- reassigning `.current`
+                    // once it's already in play elsewhere, e.g. `updateTimingAndPlot` above, isn't
+                    // allowed by react-hooks/immutability)
+                    ordinalRangesRef.current.clear()
+                    ordinalAxisRanges(xAxesState.axes, AxisInterval.from(0, plotDimensions.width))
+                        .forEach((range, id) => ordinalRangesRef.current.set(id, range))
                 } else {
                     // when the ordinal-ranges already exist, then we want to update the ordinal-ranges for each
                     // existing ordinal-range in a way that maintains the original scale.
@@ -621,7 +624,8 @@ export function BarPlot(props: Props): null {
                                     rangesMap.set(id, range.update(start, end) as OrdinalAxisRange)
                                 })
                         })
-                    ordinalRangesRef.current = ordinalAxesRanges
+                    ordinalRangesRef.current.clear()
+                    ordinalAxesRanges.forEach((range, id) => ordinalRangesRef.current.set(id, range))
                 }
                 updatePlot(canvasContext)
             }

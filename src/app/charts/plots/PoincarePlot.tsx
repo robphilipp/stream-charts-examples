@@ -374,7 +374,7 @@ export function PoincarePlot(props: Props): null {
             onUpdateChartTime(currentTimeRef.current)
 
             const draw = (context: CanvasContext) => {
-                const {ctx} = context
+                const {context2D} = context
 
                 // create a map associating series-names to their time-series.
                 const boundedSeries = new Map<string, IteratePointSeries>(dataRef.current.map(series => {
@@ -392,9 +392,9 @@ export function PoincarePlot(props: Props): null {
                     ]
                 }))
 
-                ctx.save()
+                context2D.save()
                 clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
-                ctx.translate(margin.left, margin.top)
+                context2D.translate(margin.left, margin.top)
 
                 // ---
                 // todo only want to do this once, on the first plot, and then leave it,
@@ -413,12 +413,12 @@ export function PoincarePlot(props: Props): null {
 
                 // the fn = fn+1 diagonal reference line (no hover behavior, matching the old
                 // version's explicitly no-op mouseenter/mouseleave handlers)
-                ctx.strokeStyle = "grey"
-                ctx.lineWidth = 1
-                ctx.beginPath()
-                ctx.moveTo(xAxis.scale(xStart), yAxis.scale(yStart))
-                ctx.lineTo(xAxis.scale(xEnd), yAxis.scale(yEnd))
-                ctx.stroke()
+                context2D.strokeStyle = "grey"
+                context2D.lineWidth = 1
+                context2D.beginPath()
+                context2D.moveTo(xAxis.scale(xStart), yAxis.scale(yStart))
+                context2D.lineTo(xAxis.scale(xEnd), yAxis.scale(yEnd))
+                context2D.stroke()
 
                 const newGeometry = new Map<string, SeriesGeometry>()
                 const newPlotDataBySeries = new Map<string, IteratePointSeries>()
@@ -451,9 +451,9 @@ export function PoincarePlot(props: Props): null {
                             .y(d => yAxis.scale(d.n_1 || 0))
                             .curve(interpolation)
 
-                        ctx.strokeStyle = seriesLineStyle.color
-                        ctx.lineWidth = seriesLineStyle.lineWidth
-                        ctx.stroke(new Path2D(pathGenerator(Array.from(plotData)) ?? ""))
+                        context2D.strokeStyle = seriesLineStyle.color
+                        context2D.lineWidth = seriesLineStyle.lineWidth
+                        context2D.stroke(new Path2D(pathGenerator(Array.from(plotData)) ?? ""))
                     }
 
                     // when specified, show a circle for the actual data point
@@ -473,47 +473,47 @@ export function PoincarePlot(props: Props): null {
                             if (isHoveredPoint) {
                                 // the hovered point itself: enlarged, highlight-colored, no label
                                 // (matches the old version, which only labeled the *neighbors*)
-                                ctx.fillStyle = seriesLineStyle.highlightColor
-                                ctx.beginPath()
-                                ctx.arc(x, y, 5, 0, 2 * Math.PI)
-                                ctx.fill()
+                                context2D.fillStyle = seriesLineStyle.highlightColor
+                                context2D.beginPath()
+                                context2D.arc(x, y, 5, 0, 2 * Math.PI)
+                                context2D.fill()
                             } else if (isNeighborOfHovered) {
                                 // a neighbor of the hovered point: enlarged, brighter fill, stroked,
                                 // with a floating "n = i; t = X ms" label above it
                                 const brighterColor = d3.rgb(seriesLineStyle.highlightColor).brighter(0.7).toString()
-                                ctx.fillStyle = brighterColor
-                                ctx.strokeStyle = seriesLineStyle.color
-                                ctx.lineWidth = seriesLineStyle.lineWidth
-                                ctx.beginPath()
-                                ctx.arc(x, y, 5, 0, 2 * Math.PI)
-                                ctx.fill()
-                                ctx.stroke()
+                                context2D.fillStyle = brighterColor
+                                context2D.strokeStyle = seriesLineStyle.color
+                                context2D.lineWidth = seriesLineStyle.lineWidth
+                                context2D.beginPath()
+                                context2D.arc(x, y, 5, 0, 2 * Math.PI)
+                                context2D.fill()
+                                context2D.stroke()
 
                                 const label = `n = ${d.index}; t = ${formatTime(d.time)} ms`
-                                ctx.font = fontStringFor(11, 'sans-serif', 700)
-                                const {width, height} = textDimensions(ctx, label)
+                                context2D.font = fontStringFor(11, 'sans-serif', 700)
+                                const {width, height} = textDimensions(context2D, label)
                                 const padding = 4
                                 const circleRadius = 5
                                 const circleStroke = seriesLineStyle.lineWidth
 
-                                ctx.fillStyle = backgroundColor
-                                ctx.fillRect(
+                                context2D.fillStyle = backgroundColor
+                                context2D.fillRect(
                                     x - padding / 2 - 8,
                                     y - padding / 2 - circleRadius - circleStroke - height,
                                     width + padding,
                                     height + padding / 2
                                 )
 
-                                ctx.fillStyle = seriesLineStyle.highlightColor
-                                ctx.textAlign = 'left'
-                                ctx.textBaseline = 'alphabetic'
-                                ctx.fillText(label, x - 8, y - circleRadius - circleStroke - padding)
+                                context2D.fillStyle = seriesLineStyle.highlightColor
+                                context2D.textAlign = 'left'
+                                context2D.textBaseline = 'alphabetic'
+                                context2D.fillText(label, x - 8, y - circleRadius - circleStroke - padding)
                             } else {
                                 // normal, unhovered point
-                                ctx.fillStyle = seriesLineStyle.color
-                                ctx.beginPath()
-                                ctx.arc(x, y, 2, 0, 2 * Math.PI)
-                                ctx.fill()
+                                context2D.fillStyle = seriesLineStyle.color
+                                context2D.beginPath()
+                                context2D.arc(x, y, 2, 0, 2 * Math.PI)
+                                context2D.fill()
                             }
                         })
                     }
@@ -523,7 +523,7 @@ export function PoincarePlot(props: Props): null {
                 geometryRef.current = newGeometry
                 plotDataRef.current = newPlotDataBySeries
 
-                ctx.restore()
+                context2D.restore()
             }
 
             cc.register(`poincare-plot-${chartId}`, draw, 10)
@@ -547,10 +547,10 @@ export function PoincarePlot(props: Props): null {
         () => {
             if (!canvasContext) return
             const cc = canvasContext
-            const canvasSelection = d3.select<HTMLCanvasElement, unknown>(cc.canvas)
+            const canvasSelection = d3.select<HTMLCanvasElement, Datum>(cc.canvas)
 
             if (panEnabled) {
-                const drag = d3.drag<HTMLCanvasElement, unknown>()
+                const drag = d3.drag<HTMLCanvasElement, Datum>()
                     .on("start", () => {
                         canvasSelection.style("cursor", "move")
                         // during panning, we need to disable viewing the tooltip to prevent
@@ -580,7 +580,7 @@ export function PoincarePlot(props: Props): null {
             }
 
             if (zoomEnabled) {
-                zoomRef.current = d3.zoom<HTMLCanvasElement, unknown>()
+                zoomRef.current = d3.zoom<HTMLCanvasElement, Datum>()
                     .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
                     .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])

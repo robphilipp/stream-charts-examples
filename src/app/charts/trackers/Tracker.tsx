@@ -84,7 +84,7 @@ export function Tracker(props: Props): null {
         () => {
             if (canvasContext) {
                 if (visible) {
-                    // if a tracker was already registered (e.g. from a prior render with
+                    // if a tracker was already registered (e.g., from a prior render with
                     // different props), tear it down before registering the new one
                     if (trackerCleanupRef.current !== undefined) {
                         trackerCleanupRef.current()
@@ -92,14 +92,16 @@ export function Tracker(props: Props): null {
                     }
 
                     const trackerLabels = new Map<ContinuousNumericAxis, (x: number) => string>(
-                        Array.from(axisRef.current.values()).map(axis => {
-                            const formatter = labelFormatter ??
-                                ((value: number) => labelLocation === TrackerLabelLocation.Nowhere ?
-                                    "" :
-                                    `${d3.format(",.0f")(value)}`
-                                )
-                            return [axis, formatter]
-                        })
+                        Array.from(axisRef.current.values())
+                            .filter(axis => !axis.isEmpty)
+                            .map(axis => {
+                                const formatter = labelFormatter ??
+                                    ((value: number) => labelLocation === TrackerLabelLocation.Nowhere ?
+                                        "" :
+                                        `${d3.format(",.0f")(value)}`
+                                    )
+                                return [axis, formatter]
+                            })
                     )
 
                     trackerCleanupRef.current = trackerControlInstance(

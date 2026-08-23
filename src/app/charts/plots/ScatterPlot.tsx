@@ -18,7 +18,7 @@ import {
 import type {CanvasContext} from "../d3types";
 import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {Observable, Subscription} from "rxjs";
-import {firstIndexAtOrAfter, makeIdSafeForCss, noop} from "../utils";
+import {firstIndexAtOrAfter, noop} from "../utils";
 import type {Dimensions, Margin} from "../styling/margins";
 import {
     subscriptionTimeSeriesFor,
@@ -325,7 +325,7 @@ export function ScatterPlot(props: Props): null {
                 // const __drawStart = performance.now()
                 // let __totalRetained = 0
                 // let __totalProcessed = 0
-                const {ctx} = context
+                const {context2D} = context
 
                 // create a map associating series-names with their time-series.
                 //
@@ -340,9 +340,9 @@ export function ScatterPlot(props: Props): null {
                     series.data
                 ]))
 
-                ctx.save()
+                context2D.save()
                 clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
-                ctx.translate(margin.left, margin.top)
+                context2D.translate(margin.left, margin.top)
 
                 const newGeometry = new Map<string, SeriesGeometry>()
 
@@ -392,7 +392,7 @@ export function ScatterPlot(props: Props): null {
                     let currentSegment: Array<ScreenPoint> = []
                     const screenPoints: Array<[number, number]> = []
 
-                    ctx.fillStyle = isHovered ? highlightColor : seriesColor
+                    context2D.fillStyle = isHovered ? highlightColor : seriesColor
                     for (let i = startIndex; i < plotData.length; i++) {
                         const d = plotData[i]
                         const x = xAxisLinear.scale(d.x)
@@ -417,9 +417,9 @@ export function ScatterPlot(props: Props): null {
                         // because redrawing many circles every frame is more work than a single
                         // line path
                         if (showMarkers) {
-                            ctx.beginPath()
-                            ctx.arc(x, y, markerRadiusResolved, 0, 2 * Math.PI)
-                            ctx.fill()
+                            context2D.beginPath()
+                            context2D.arc(x, y, markerRadiusResolved, 0, 2 * Math.PI)
+                            context2D.fill()
                         }
                     }
                     if (currentSegment.length > 0) segments.push(currentSegment)
@@ -427,13 +427,13 @@ export function ScatterPlot(props: Props): null {
                     // draw the series line (interpolation is applied via a Path2D built through a
                     // d3 line generator so that custom curve factories -- e.g. curveBasis,
                     // curveStep -- keep working exactly as they did with the SVG path)
-                    ctx.strokeStyle = isHovered ? highlightColor : seriesColor
-                    ctx.lineWidth = isHovered ? highlightWidth : lineWidth
+                    context2D.strokeStyle = isHovered ? highlightColor : seriesColor
+                    context2D.lineWidth = isHovered ? highlightWidth : lineWidth
                     segments.forEach(segment => {
                         const path = new Path2D(
                             d3.line().curve(interpolation)(segment) ?? ""
                         )
-                        ctx.stroke(path)
+                        context2D.stroke(path)
                     })
 
                     newGeometry.set(name, {
@@ -466,7 +466,7 @@ export function ScatterPlot(props: Props): null {
                 //     )
                 //     stats.maxMs = 0 // reset max so it reflects the last 50 frames, not the all-time peak
                 // }
-                ctx.restore()
+                context2D.restore()
             }
 
             cc.register(`scatter-plot-${chartId}`, draw, 10)
@@ -624,9 +624,11 @@ export function ScatterPlot(props: Props): null {
                 // interpolation changes, then the update plot changes, and the time-ranges must maintain their
                 // original scale as well.
                 if (timeRangesRef.current.size === 0) {
-                    // when no time-ranges have yet been created, then create them and hold on to a mutable
-                    // reference to them
-                    timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    // when no time-ranges have yet been created, then create them and populate the
+                    // existing ref's map in place (rather than replacing it -- reassigning `.current`
+                    // after it's already been read above isn't allowed by react-hooks/immutability)
+                    continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                        .forEach((range, id) => timeRangesRef.current.set(id, range))
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.

@@ -44,10 +44,11 @@ export interface Props {
     // of the raster chart specifies the axis domain as a tuple-literal, then
     // the bounds will get reset to their original value with each render.
     //
-    // However, for charts that don't scroll, such as the iterates chart, but where
-    // the user would like to change axis-bounds, say for a different iterates
-    // function, we would like the axis bounds to be reset based on a change to
-    // the object ref instead. In this case, we can set this property to false.
+    // For charts that don't scroll, such as the "iterates" chart, we would like
+    // the axis bounds to be reset based on a change to the object ref instead.
+    // This is because the user may want to change axis-bounds, for example, when
+    // for a different "iterates" function is selected. And in such a case, we set
+    // this property to false.
     updateAxisBasedOnDomainValues?: boolean
 }
 
@@ -98,7 +99,7 @@ export function ContinuousAxis(props: Props): null {
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
     // holds on the domain from the original props so that we can determine whether the props changed
-    // or whether the axis change from resizing, zoom, scrolling, etc
+    // or whether the axis changes from resizing, zoom, scrolling, etc
     const domainRef = useRef<AxisInterval>(AxisInterval.as(domain))
     const domainPropRef = useRef<[min: number, max: number]>(domain)
     useEffect(

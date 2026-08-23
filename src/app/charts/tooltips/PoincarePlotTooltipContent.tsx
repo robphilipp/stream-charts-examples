@@ -155,15 +155,17 @@ export function PoincarePlotTooltipContent(props: Props): ReactElement | null {
         // captureTooltipContent from the point's index, regardless of what's passed here. This
         // looks like a latent bug in the original, but the goal here is a faithful port, not an
         // unrequested behavior change.
-        nMinusLagHeader: _nMinusLagHeader = 'f[n-1](x)',
-        nHeader: _nHeader = 'f[n](x)',
-        nPlusLagHeader: _nPlusLagHeader = 'f[n+1](x)',
+        // nMinusLagHeader: _nMinusLagHeader = 'f[n-1](x)',
+        // nHeader: _nHeader = 'f[n](x)',
+        // nPlusLagHeader: _nPlusLagHeader = 'f[n+1](x)',
         xValueFormatter = formatTime,
         yValueFormatter = formatValue,
         style,
     } = props
 
-    const tooltipStyle = useMemo(() => ({...defaultTooltipStyle, ...style}), [style])
+    const tooltipStyle = useMemo(
+        () => ({...defaultTooltipStyle, ...style}), [style]
+    )
 
     const [tooltipContent, setTooltipContent] = useState<PoincareTooltipContent | null>(null)
 

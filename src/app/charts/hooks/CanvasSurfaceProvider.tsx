@@ -55,7 +55,7 @@ export default function CanvasSurfaceProvider(props: Props): JSX.Element {
 
     // create the canvas context (and size the backing store) if it doesn't already exist
     if (!canvasContext && canvas) {
-        const cc = createCanvasContext(chartId, canvas, plotDimensions, color)
+        const cc = createCanvasContext(chartId, canvas, color)
         resizeCanvasTo(cc, {width, height})
         setCanvasContext(cc)
     }

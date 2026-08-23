@@ -17,16 +17,12 @@ interface RegisteredDraw {
  * Replaces the old `createPlotContainer`, which appended the root SVG `<g>`.
  * @param chartId A unique value identifying the chart.
  * @param canvas The `<canvas>` DOM element backing the chart.
- * @param plotDimensions The dimensions of the plot (unused directly here -- kept as a parameter
- * for symmetry with the old signature and because callers should call {@link resizeCanvasTo}
  * immediately after this with the actual container dimensions).
  * @param color The default `color` used for text/strokes when nothing more specific is set.
  */
 export function createCanvasContext(
     chartId: number,
     canvas: HTMLCanvasElement,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    plotDimensions: Dimensions,
     color: string
 ): CanvasContext {
     const ctx = canvas.getContext('2d')
@@ -91,7 +87,7 @@ export function createCanvasContext(
     const canvasContext: CanvasContext = {
         chartId,
         canvas,
-        ctx,
+        context2D: ctx,
         dpr,
         register: (id, draw, zIndex = 0) => {
             drawFns.set(id, {draw, zIndex})
@@ -121,7 +117,7 @@ export function createCanvasContext(
  * @param dimensions The new overall (plot + margin) dimensions, in CSS pixels
  */
 export function resizeCanvasTo(cc: CanvasContext, dimensions: Dimensions): void {
-    const {canvas, ctx, dpr} = cc
+    const {canvas, context2D, dpr} = cc
     const width = Math.max(0, dimensions.width)
     const height = Math.max(0, dimensions.height)
 
@@ -130,7 +126,7 @@ export function resizeCanvasTo(cc: CanvasContext, dimensions: Dimensions): void 
     canvas.width = Math.round(width * dpr)
     canvas.height = Math.round(height * dpr)
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    context2D.setTransform(dpr, 0, 0, dpr, 0, 0)
 }
 
 /**
@@ -149,9 +145,9 @@ export function clipToArea(
     dimensions: Dimensions,
     origin: {x: number, y: number} = {x: 0, y: 0}
 ): void {
-    cc.ctx.beginPath()
-    cc.ctx.rect(origin.x, origin.y, Math.max(0, dimensions.width), Math.max(0, dimensions.height))
-    cc.ctx.clip()
+    cc.context2D.beginPath()
+    cc.context2D.rect(origin.x, origin.y, Math.max(0, dimensions.width), Math.max(0, dimensions.height))
+    cc.context2D.clip()
 }
 
 /**

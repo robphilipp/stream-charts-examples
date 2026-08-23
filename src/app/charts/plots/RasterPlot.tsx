@@ -323,11 +323,11 @@ export function RasterPlot(props: Props): null {
     const updatePlot = useCallback(
         (cc: CanvasContext) => {
             const draw = (context: CanvasContext) => {
-                const {ctx} = context
+                const {context2D} = context
 
-                ctx.save()
+                context2D.save()
                 clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
-                ctx.translate(margin.left, margin.top)
+                context2D.translate(margin.left, margin.top)
 
                 const newGeometry = new Map<string, SeriesGeometry>()
 
@@ -367,16 +367,16 @@ export function RasterPlot(props: Props): null {
                     const y1 = yUpper(y)
                     const y2 = yLower(y)
 
-                    ctx.strokeStyle = strokeColor
-                    ctx.lineWidth = strokeWidth
+                    context2D.strokeStyle = strokeColor
+                    context2D.lineWidth = strokeWidth
 
                     const segments: Array<[[number, number], [number, number]]> = []
                     for (let i = 0; i < plotData.length; i++) {
                         const x = xAxis.scale(plotData[i].x)
-                        ctx.beginPath()
-                        ctx.moveTo(x, y1)
-                        ctx.lineTo(x, y2)
-                        ctx.stroke()
+                        context2D.beginPath()
+                        context2D.moveTo(x, y1)
+                        context2D.lineTo(x, y2)
+                        context2D.stroke()
                         segments.push([[x + margin.left, y1 + margin.top], [x + margin.left, y2 + margin.top]])
                     }
 
@@ -389,7 +389,7 @@ export function RasterPlot(props: Props): null {
 
                 geometryRef.current = newGeometry
 
-                ctx.restore()
+                context2D.restore()
             }
 
             cc.register(`raster-plot-${chartId}`, draw, 10)
@@ -582,9 +582,11 @@ export function RasterPlot(props: Props): null {
                 // interpolation changes, then the update plot changes, and the time-ranges must maintain their
                 // original scale as well.
                 if (timeRangesRef.current.size === 0) {
-                    // when no time-ranges have yet been created, then create them and hold on to a mutable
-                    // reference to them
-                    timeRangesRef.current = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                    // when no time-ranges have yet been created, then create them and populate the
+                    // existing ref's map in place (rather than replacing it -- reassigning `.current`
+                    // after it's already been read above isn't allowed by react-hooks/immutability)
+                    continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+                        .forEach((range, id) => timeRangesRef.current.set(id, range))
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.

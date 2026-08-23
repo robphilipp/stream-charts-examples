@@ -13,7 +13,7 @@ export interface CanvasContext {
     /** the backing `<canvas>` DOM element */
     canvas: HTMLCanvasElement
     /** the 2D drawing context for the canvas (already scaled for devicePixelRatio) */
-    ctx: CanvasRenderingContext2D
+    context2D: CanvasRenderingContext2D
     /** the current device-pixel-ratio scaling applied to the context */
     dpr: number
     /**
@@ -26,11 +26,14 @@ export interface CanvasContext {
      * the tracker drawing on top of the series, which draw on top of the axes.
      */
     register: (id: DrawHandle, draw: DrawFn, zIndex?: number) => void
-    /** Removes a previously registered draw function so it no longer participates in redraws. */
+    /**
+     * Removes a previously registered draw function so it no longer participates when the canvas
+     * is redrawn.
+     */
     unregister: (id: DrawHandle) => void
     /**
-     * Schedules a redraw on the next animation frame. Safe to call many times within the same
-     * frame/tick -- calls are coalesced into a single `requestAnimationFrame`.
+     * Schedules the canvas to be redrawn on the next animation frame. Safe to call many times
+     * within the same frame/tick -- calls are coalesced into a single `requestAnimationFrame`.
      */
     requestRedraw: () => void
 }
@@ -40,16 +43,3 @@ export type DrawFn = (cc: CanvasContext) => void
 
 /** The id used to register/unregister a draw function with a {@link CanvasContext}. */
 export type DrawHandle = string
-
-/**
- * Analogous to the old SVG `getBBox()` result, but derived from `CanvasRenderingContext2D`'s
- * `measureText`. `width`/`height` describe the tight bounding box of the rendered text;
- * `ascent`/`descent` are provided for baseline-aware positioning (e.g. rotated tick labels),
- * since canvas text metrics -- unlike SVG's `getBBox()` -- have no `x`/`y` offset of their own.
- */
-export type TextMetricsBox = {
-    width: number
-    height: number
-    ascent: number
-    descent: number
-}

@@ -120,19 +120,19 @@ function verticalTrackerControlInstance(
 
     const draw = (context: CanvasContext) => {
         if (mouseX === null || mouseY === null) return
-        const {ctx} = context
+        const {context2D} = context
         const dimensions = containerDimensionsFrom(plotDimensions, margin)
         const inPlot = mouseInPlotAreaFor(mouseX, mouseY, margin, dimensions)
 
-        ctx.save()
-        ctx.globalAlpha = inPlot ? 1 : 0
-        ctx.strokeStyle = style.color
-        ctx.lineWidth = style.lineWidth
-        ctx.beginPath()
-        ctx.moveTo(mouseX, margin.top)
-        ctx.lineTo(mouseX, plotDimensions.height + margin.top)
-        ctx.stroke()
-        ctx.restore()
+        context2D.save()
+        context2D.globalAlpha = inPlot ? 1 : 0
+        context2D.strokeStyle = style.color
+        context2D.lineWidth = style.lineWidth
+        context2D.beginPath()
+        context2D.moveTo(mouseX, margin.top)
+        context2D.lineTo(mouseX, plotDimensions.height + margin.top)
+        context2D.stroke()
+        context2D.restore()
 
         const updateInfo: Array<[string, TrackerAxisInfo]> = []
 
@@ -141,9 +141,9 @@ function verticalTrackerControlInstance(
                 const value = axis.scale.invert(mouseX! - margin.left)
                 const text = trackerLabel(value)
 
-                ctx.save()
-                ctx.font = fontStringFor(labelFont.size, labelFont.family, labelFont.weight)
-                const {width: labelWidth, height: labelHeight} = textDimensions(ctx, text)
+                context2D.save()
+                context2D.font = fontStringFor(labelFont.size, labelFont.family, labelFont.weight)
+                const {width: labelWidth, height: labelHeight} = textDimensions(context2D, text)
 
                 const space = 10
                 const labelY = axis.location === AxisLocation.Top ?
@@ -154,25 +154,25 @@ function verticalTrackerControlInstance(
 
                 // label background
                 const padding = 3
-                ctx.globalAlpha = inPlot ? 0.8 : 0
-                ctx.fillStyle = backgroundColor
-                ctx.beginPath()
-                ctx.roundRect(
+                context2D.globalAlpha = inPlot ? 0.8 : 0
+                context2D.fillStyle = backgroundColor
+                context2D.beginPath()
+                context2D.roundRect(
                     labelX - padding,
                     labelY - labelHeight - padding,
                     labelWidth + 2 * padding,
                     labelHeight + 2 * padding,
                     LABEL_BACKGROUND_RADIUS
                 )
-                ctx.fill()
+                context2D.fill()
 
                 // label text
-                ctx.globalAlpha = inPlot ? 1 : 0
-                ctx.fillStyle = labelFont.color
-                ctx.textAlign = 'left'
-                ctx.textBaseline = 'alphabetic'
-                ctx.fillText(text, labelX, labelY)
-                ctx.restore()
+                context2D.globalAlpha = inPlot ? 1 : 0
+                context2D.fillStyle = labelFont.color
+                context2D.textAlign = 'left'
+                context2D.textBaseline = 'alphabetic'
+                context2D.fillText(text, labelX, labelY)
+                context2D.restore()
             }
 
             updateInfo.push([axis.axisId, {
@@ -231,19 +231,19 @@ function horizontalTrackerControlInstance(
 
     const draw = (context: CanvasContext) => {
         if (mouseX === null || mouseY === null) return
-        const {ctx} = context
+        const {context2D} = context
         const dimensions = containerDimensionsFrom(plotDimensions, margin)
         const inPlot = mouseInPlotAreaFor(mouseX, mouseY, margin, dimensions)
 
-        ctx.save()
-        ctx.globalAlpha = inPlot ? 1 : 0
-        ctx.strokeStyle = style.color
-        ctx.lineWidth = style.lineWidth
-        ctx.beginPath()
-        ctx.moveTo(margin.left, mouseY)
-        ctx.lineTo(plotDimensions.width + margin.left, mouseY)
-        ctx.stroke()
-        ctx.restore()
+        context2D.save()
+        context2D.globalAlpha = inPlot ? 1 : 0
+        context2D.strokeStyle = style.color
+        context2D.lineWidth = style.lineWidth
+        context2D.beginPath()
+        context2D.moveTo(margin.left, mouseY)
+        context2D.lineTo(plotDimensions.width + margin.left, mouseY)
+        context2D.stroke()
+        context2D.restore()
 
         type AxisAndLabelInfo = {
             axis: ContinuousNumericAxis
@@ -259,11 +259,11 @@ function horizontalTrackerControlInstance(
         //
         // measure all the labels first, then position them (mirrors the old two-phase SVG approach,
         // where text had to be set before `getBBox()` would return a meaningful size)
-        ctx.font = fontStringFor(labelFont.size, labelFont.family, labelFont.weight)
+        context2D.font = fontStringFor(labelFont.size, labelFont.family, labelFont.weight)
         const boundingBoxes: Map<AxisLocation, AxisAndLabelInfo> = new Map(Array.from(label.entries())
             .map(([axis, trackerLabel]) => {
                 const text = trackerLabel(axis.scale.invert(mouseY! - margin.top))
-                const {width: labelWidth, height: labelHeight} = textDimensions(ctx, text)
+                const {width: labelWidth, height: labelHeight} = textDimensions(context2D, text)
                 return [axis.location, {axis, text, labelWidth, labelHeight}]
             }))
 
@@ -283,26 +283,26 @@ function horizontalTrackerControlInstance(
 
                     // label background
                     const padding = 5
-                    ctx.save()
-                    ctx.globalAlpha = inPlot && labelStyle !== TrackerLabelLocation.Nowhere ? 0.8 : 0
-                    ctx.fillStyle = backgroundColor
-                    ctx.beginPath()
-                    ctx.roundRect(
+                    context2D.save()
+                    context2D.globalAlpha = inPlot ? 0.8 : 0
+                    context2D.fillStyle = backgroundColor
+                    context2D.beginPath()
+                    context2D.roundRect(
                         labelX - padding,
                         labelY - labelHeight - 1,
                         labelWidth + 2 * padding,
                         labelHeight + 2 * padding,
                         LABEL_BACKGROUND_RADIUS
                     )
-                    ctx.fill()
+                    context2D.fill()
 
                     // label text
-                    ctx.globalAlpha = inPlot ? 1 : 0
-                    ctx.fillStyle = labelFont.color
-                    ctx.textAlign = 'left'
-                    ctx.textBaseline = 'alphabetic'
-                    ctx.fillText(text, labelX, labelY)
-                    ctx.restore()
+                    context2D.globalAlpha = inPlot ? 1 : 0
+                    context2D.fillStyle = labelFont.color
+                    context2D.textAlign = 'left'
+                    context2D.textBaseline = 'alphabetic'
+                    context2D.fillText(text, labelX, labelY)
+                    context2D.restore()
                 }
 
                 const trackerInfo: TrackerAxisInfo = {

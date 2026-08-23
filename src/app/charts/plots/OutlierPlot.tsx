@@ -298,11 +298,11 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     const updatePlot = useCallback(
         (cc: CanvasContext) => {
             const draw = (context: CanvasContext) => {
-                const {ctx} = context
+                const {context2D} = context
 
-                ctx.save()
+                context2D.save()
                 clipToArea(context, plotDimensions, {x: margin.left, y: margin.top})
-                ctx.translate(margin.left, margin.top)
+                context2D.translate(margin.left, margin.top)
 
                 const newBands: Array<BandHitRegion<M>> = []
                 const newOutlierGeometry = new Map<string, SeriesGeometry>()
@@ -334,10 +334,10 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                         const lowerMeasure = bandIndex > 0 ? series.measures[bandIndex - 1] : undefined
 
                         const path = new Path2D(areaGen(Array.from(plotData)) ?? "")
-                        ctx.fillStyle = style.color
-                        ctx.globalAlpha = opacity
-                        ctx.fill(path)
-                        ctx.globalAlpha = 1
+                        context2D.fillStyle = style.color
+                        context2D.globalAlpha = opacity
+                        context2D.fill(path)
+                        context2D.globalAlpha = 1
 
                         // pushed in draw order (widest first, narrowest/topmost last); hit-testing
                         // iterates this backwards so the topmost band wins, matching visual stacking
@@ -353,22 +353,22 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                         .y(d => yAxis.scale(d.datum.y) || 0)
                         .curve(interpolation)
 
-                    ctx.strokeStyle = stroke
-                    ctx.lineWidth = strokeWidth
-                    ctx.stroke(new Path2D(lineGen(Array.from(plotData)) ?? ""))
+                    context2D.strokeStyle = stroke
+                    context2D.lineWidth = strokeWidth
+                    context2D.stroke(new Path2D(lineGen(Array.from(plotData)) ?? ""))
 
                     // for the markers, we split the data into two categories: regular and outlier
                     const {regular, outlier} = categorizePoints(plotData, outlierMarkerColors)
 
                     // point markers (one circle per datum) -- decorative only, no hover/tooltip
                     if (markerRadius != null && markerRadius >= 0 && !shouldSubscribe) {
-                        ctx.fillStyle = stroke
+                        context2D.fillStyle = stroke
                         regular.forEach(d => {
                             const x = xAxis.scale(d.datum.x) || 0
                             const y = yAxis.scale(d.datum.y) || 0
-                            ctx.beginPath()
-                            ctx.arc(x, y, markerRadius, 0, 2 * Math.PI)
-                            ctx.fill()
+                            context2D.beginPath()
+                            context2D.arc(x, y, markerRadius, 0, 2 * Math.PI)
+                            context2D.fill()
                         })
                     }
 
@@ -378,10 +378,10 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                     outlier.forEach(o => {
                         const x = xAxis.scale(o.datum.datum.x) || 0
                         const y = yAxis.scale(o.datum.datum.y) || 0
-                        ctx.fillStyle = o.color
-                        ctx.beginPath()
-                        ctx.arc(x, y, 4, 0, 2 * Math.PI)
-                        ctx.fill()
+                        context2D.fillStyle = o.color
+                        context2D.beginPath()
+                        context2D.arc(x, y, 4, 0, 2 * Math.PI)
+                        context2D.fill()
                         outlierPoints.push([x + margin.left, y + margin.top])
                     })
                     newOutlierGeometry.set(`${series.name}::outlier`, {
@@ -395,7 +395,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 outlierGeometryRef.current = newOutlierGeometry
                 outlierDatumsRef.current = newOutlierDatums
 
-                ctx.restore()
+                context2D.restore()
             }
 
             cc.register(`outlier-plot-${chartId}`, draw, 10)
@@ -567,7 +567,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
             if (!canvasContext) return
 
             const canvas = canvasContext.canvas
-            const {ctx} = canvasContext
+            const {context2D} = canvasContext
 
             const handleMove = (event: MouseEvent) => {
                 const [x, y] = canvasLocalPoint(event, canvas)
@@ -580,7 +580,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 const outlierHit = seriesAt(x, y, outlierGeometryRef.current)
                 const current = outlierHit !== undefined ?
                     {kind: 'outlier' as const, seriesName: outlierHit.name.replace(/::outlier$/, ''), index: outlierHit.index} :
-                    findHoveredBand(bandsRef.current, ctx, localX, localY)
+                    findHoveredBand(bandsRef.current, context2D, localX, localY)
 
                 const previous = lastHoveredRef.current
                 const sameAsBefore = previous !== undefined && current !== undefined &&

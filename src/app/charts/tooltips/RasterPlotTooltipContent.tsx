@@ -58,12 +58,12 @@ import type {Dimensions, Margin} from "../styling/margins";
  * formatters.x(x), formatters.y(y)
  * ```
  */
-interface TooltipOptions {
-    formatters: {
-        x: (value: number) => string,
-        y: (value: number) => string,
-    }
-}
+// interface TooltipOptions {
+//     formatters: {
+//         x: (value: number) => string,
+//         y: (value: number) => string,
+//     }
+// }
 
 /**
  * Properties for rendering the tooltip content. The properties are applied as
@@ -147,22 +147,22 @@ export function RasterPlotTooltipContent(props: Props): ReactElement | null {
         () => {
             if (canvas) {
                 // assemble the options for adding the tooltip
-                const options: TooltipOptions = {
-                    formatters: {
-                        x: xFormatter,
-                        y: yFormatter,
-                    }
-                }
+                // const options: TooltipOptions = {
+                //     formatters: {
+                //         x: xFormatter,
+                //         y: yFormatter,
+                //     }
+                // }
 
                 registerTooltipContentProvider(
                     /**
                      * @param seriesName The name of the series
-                     * @param time The mouse time (not used
+                     * @param _time The mouse time (not used
                      * @param tooltipData The tooltip data holding the series and metadata (data about the series)
                      * @param mouseCoords The coordinates of the mouse, in canvas-local coordinates
                      * @return Off-screen dimensions, so the parent <Tooltip>'s own background stays invisible
                      */
-                    (seriesName: string, time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => {
+                    (seriesName: string, _time: number, tooltipData: TooltipData<Datum, NoTooltipMetadata>, mouseCoords: [x: number, y: number]) => {
                         const yAxisId = axisAssignmentsFor(seriesName).yAxis
                         const assignedAxis = yAxesState
                             .axisFor(yAxisId)
@@ -170,7 +170,7 @@ export function RasterPlotTooltipContent(props: Props): ReactElement | null {
                         return captureTooltipContent(
                             seriesName, tooltipData.series[0], mouseCoords,
                             canvas, margin, plotDimensions, tooltipStyle,
-                            assignedAxis, options,
+                            assignedAxis,// options,
                             setTooltipContent
                         )
                     }
@@ -237,7 +237,6 @@ export function RasterPlotTooltipContent(props: Props): ReactElement | null {
  * @param plotDimensions The dimensions of the plot
  * @param tooltipStyle The style properties for the tooltip
  * @param axis The category axis to which the time-series is associated
- * @param options The options passed through the function that adds the tooltip content
  * @param setTooltipContent Setter that stashes the captured content for the component to render
  * @return Off-screen {@link TooltipDimensions}, so the parent <Tooltip>'s own background stays invisible
  */
@@ -250,7 +249,7 @@ function captureTooltipContent(
     plotDimensions: Dimensions,
     tooltipStyle: TooltipStyle,
     axis: OrdinalStringAxis,
-    options: TooltipOptions,
+    // options: TooltipOptions,
     setTooltipContent: (content: RasterTooltipContent) => void,
 ): TooltipDimensions {
     const [x] = mouseCoords
