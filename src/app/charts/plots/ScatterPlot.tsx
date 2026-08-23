@@ -48,7 +48,7 @@ export interface Props {
     interpolation?: d3.CurveFactory
     /**
      * The number of milliseconds of data to hold in memory before dropping it. Defaults to
-     * infinity (i.e. no data is dropped)
+     * infinity (i.e., no data is dropped)
      */
     dropDataAfter?: number
     /**
@@ -73,6 +73,20 @@ export interface Props {
      * to the current time.
      */
     withCadenceOf?: number
+    /**
+     * The time window behavior for the plot. There are two options: `SCROLL` and `SQUEEZE`.
+     * <ol>
+     *     <li>
+     *         <b>SCROLL</b> will scroll the plot window as new data is added whose time
+     *         exceeds the time window.
+     *     </li>
+     *     <li>
+     *         <b>SQUEEZE</b> will compress the time-axes when new data is added whose time
+     *         exceeds the time window.
+     *     </li>
+     * </ol>
+     * The default behavior is to `SCROLL`.
+     */
     timeWindowBehavior?: TimeWindowBehavior
     /**
      * Radius (px) of the circle marker drawn at each datum. When omitted or `undefined`,
@@ -81,10 +95,10 @@ export interface Props {
     markerRadius?: number
 
     /**
-     * Commonly used when the subscription is held by the parent. A common use-case for this
+     * Commonly used when the parent holds the subscription. A common use-case for this
      * is when the application would like to keep a chart running even when a user navigates
      * away from the page. In this use case, the subscription is stored at the application
-     * level (see also the {@link Chart} prop `onSubscribe`), and handed back to the page
+     * level (see the {@link Chart} prop `onSubscribe`) and handed back to the page
      * containing this chart when the user navigates back.
      */
     subscription?: Subscription
@@ -104,16 +118,16 @@ export interface Props {
  *
  * @param props The properties associated with the scatter plot
  * @example
- <ScatterPlot
- interpolation={interpolation}
- axisAssignments={new Map([
- ['test2', assignAxes("x-axis-2", "y-axis-2")],
- ])}
- dropDataAfter={10000}
- panEnabled={true}
- zoomEnabled={true}
- zoomKeyModifiersRequired={true}
- />
+ *  <ScatterPlot
+ *      interpolation={interpolation}
+ *      axisAssignments={new Map([
+ *          ['test2', assignAxes("x-axis-2", "y-axis-2")],
+ *      ])}
+ *      dropDataAfter={10000}
+ *      panEnabled={true}
+ *      zoomEnabled={true}
+ *      zoomKeyModifiersRequired={true}
+ *  />
  */
 export function ScatterPlot(props: Props): null {
     const {
@@ -163,6 +177,7 @@ export function ScatterPlot(props: Props): null {
         withCadenceOf,
         timeWindowBehavior = TimeWindowBehavior.SCROLL,
         markerRadius,
+        subscription = undefined,
     } = props
 
     const initialTimes = useMemo(
@@ -190,7 +205,7 @@ export function ScatterPlot(props: Props): null {
     // used to update the data in the series. When new data enters, it is appended to one or more series.
     //
     // the series in the "dataRef" object are the ones read by the canvas draw function, and so as
-    // these are updated, the next redraw picks up the new data.
+    // these are updated, the new data is picked up the next time the canvas redraws.
     const dataRef = useRef<Array<TimeSeries>>(initialData.slice() as Array<TimeSeries>)
     const seriesRef = useRef<Map<string, TimeSeries>>(new Map(initialData.map(series => [series.name, series as TimeSeries])))
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
@@ -203,11 +218,16 @@ export function ScatterPlot(props: Props): null {
     // fire a "leave" for the old series before firing an "over" for the new one
     const lastHoveredRef = useRef<string | undefined>(undefined)
 
-    const subscriptionRef = useRef<Subscription>(props.subscription)
+    const subscriptionRef = useRef<Subscription>(subscription)
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
-    // eslint-disable-next-line react-hooks/refs
-    const allowTooltip = useRef<boolean>(isSubscriptionClosed())
+    const allowTooltip = useRef<boolean>(subscription === undefined || subscription.closed)
+
+    // whether this component instance created its own subscription (as opposed to one handed
+    // in, and therefore owned, by the parent). only a self-created subscription should be torn
+    // down when this component unmounts -- a parent-owned subscription is expected to keep
+    // running so that it can be handed back in when the user navigates back to this chart.
+    const ownsSubscriptionRef = useRef<boolean>(subscription === undefined)
 
     useEffect(
         () => {
@@ -789,12 +809,19 @@ export function ScatterPlot(props: Props): null {
         [shouldSubscribe, subscribe]
     )
 
-    // unregister this plot's draw function on unmount
+    // unregister this plot's draw function on unmount, and, if this component created its
+    // own subscription (i.e., one wasn't handed in via the `subscription` prop), unsubscribe
+    // it so it doesn't keep running (and driving stale draws) after the component is gone
     useEffect(
         () => {
+            const ownsSubscription = ownsSubscriptionRef.current
             return () => {
                 if (canvasContext) {
                     canvasContext.unregister(`scatter-plot-${chartId}`)
+                }
+                if (ownsSubscription) {
+                    subscriptionRef.current?.unsubscribe()
+                    subscriptionRef.current = undefined
                 }
             }
         },

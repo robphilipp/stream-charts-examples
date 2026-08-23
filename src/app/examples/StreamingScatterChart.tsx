@@ -260,7 +260,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     // seeds the store with the initial data handed in through the props (the store survives
     // remounts, so this only needs to happen when the store hasn't been seeded yet). The ref
     // guard keeps this from looping when the supplied initial data is itself empty.
-    if (!seededInitialDataRef.current && (initialData == null || initialData.length === 0)) {
+    if (!seededInitialDataRef.current && (initialData.length === 0)) {
         seededInitialDataRef.current = true
         setInitialData(initialDataFrom(originalInitialData))
     }
