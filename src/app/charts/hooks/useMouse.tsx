@@ -61,15 +61,17 @@ export type UseMouseValues<D, TM> = {
     mouseLeaveHandlerFor: (handlerId: string, providerId?: string) => ((seriesName: string, providerId?: string) => void) | undefined
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const MouseContext = createContext<UseMouseValues<any, any>>(defaultMouseValues())
+// the context is generic over the same type parameters as `UseMouseValues`, but a context
+// object can't itself carry unbound generics -- `useMouse` below casts it back to the caller's
+// concrete types, which is safe because `<MouseProvider/>` is what actually supplies the value
+export const MouseContext = createContext<unknown>(defaultMouseValues())
 
 /**
  * React hook that sets up the React context for the mouse values.
  * @return The {@link UseMouseValues} held in the React context.
  */
 export function useMouse<D, TM>(): UseMouseValues<D, TM> {
-    const context = useContext<UseMouseValues<D, TM>>(MouseContext)
+    const context = useContext(MouseContext) as UseMouseValues<D, TM>
     const {mouseOverHandlerFor} = context
     if (mouseOverHandlerFor === undefined || mouseOverHandlerFor === null) {
         throw new Error("useMouse can only be used when the parent is a <MouseProvider/>")

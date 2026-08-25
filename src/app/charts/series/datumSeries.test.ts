@@ -1,4 +1,4 @@
-import {emptySeries, seriesFrom} from "./baseSeries";
+import {DEFAULT_COMPACTING_SIZE, emptySeries, seriesFrom} from "./baseSeries";
 import {FastShiftArray} from "fast-shift-array";
 
 describe('should be able to create an empty series', () => {
@@ -56,6 +56,6 @@ describe('should be able to create a series from data', () => {
     });
 
     test('series data should equal original data', () => {
-        expect(series.data).toEqual(FastShiftArray.fromArray(data));
+        expect(series.data).toEqual(FastShiftArray.fromArray(data, true, DEFAULT_COMPACTING_SIZE));
     });
 });

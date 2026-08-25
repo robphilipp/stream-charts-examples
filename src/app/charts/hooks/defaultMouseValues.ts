@@ -6,12 +6,19 @@ import type {UseMouseValues} from "./useMouse";
 const noop = () => {
     /* empty on purpose */
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const defaultMouseValues = (): UseMouseValues<any, any> => ({
-    registerMouseOverHandler: () => '',
-    unregisterMouseOverHandler: noop,
-    mouseOverHandlerFor: () => undefined,
-    registerMouseLeaveHandler: () => '',
-    unregisterMouseLeaveHandler: noop,
-    mouseLeaveHandlerFor: () => undefined,
-})
+/**
+ * The default values for the {@link UseMouseValues}
+ * @return The default values for the {@link UseMouseValues}
+ * @template D The type of the data object for the series
+ * @template TM The type of the metadata object for the series
+ */
+export function defaultMouseValues<D, TM>(): UseMouseValues<D, TM> {
+    return {
+        registerMouseOverHandler: () => '',
+        unregisterMouseOverHandler: noop,
+        mouseOverHandlerFor: () => undefined,
+        registerMouseLeaveHandler: () => '',
+        unregisterMouseLeaveHandler: noop,
+        mouseLeaveHandlerFor: () => undefined,
+    }
+}

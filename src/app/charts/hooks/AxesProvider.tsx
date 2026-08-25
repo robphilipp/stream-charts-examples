@@ -7,7 +7,7 @@ import {AxesState} from "../axes/AxesState";
 import type {AxesAssignment} from "../plots/plot";
 import type {Dimensions} from "../styling/margins";
 import {Optional} from "result-fn";
-import {AxesContext} from "./useAxes";
+import {AxesContext, type UseAxesValues} from "./useAxes";
 
 export type Props = {
     /**y
@@ -147,38 +147,41 @@ export default function AxesProvider<AR extends BaseAxisRange, A extends BaseAxi
         return axesBoundsUpdateHandlersRef.current.set(handlerId, handler)
     }
 
-    return <AxesContext.Provider
-        value={{
-            xAxesState,
-            yAxesState,
-            addXAxis: (axis, id, range: AR) => {
-                setXAxesState(xAxesState.addAxis(axis, id))
-                if (range !== undefined) {
-                    axesRangeRef.current.set(id, range)
-                }
-            },
-            addYAxis: (axis, id, range: AR) => {
-                setYAxesState(yAxesState.addAxis(axis, id))
-                if (range !== undefined) {
-                    axesRangeRef.current.set(id, range)
-                }
-            },
-            setAxisAssignments: assignments => axisAssignmentsRef.current = assignments,
-            axisAssignmentsFor: seriesName => axisAssignmentsFor(seriesName),
-            updateAxisRanges,
-            axesRanges: () => new Map<string, AR>(axesRangeRef.current),
-            axisRangeFor: axisId => Optional.ofNullable(axesRangeRef.current.get(axisId)),
-            setAxesRanges,
-            setAxisRangeFor,
-            setAxisIntervalFor,
-            setOriginalAxisIntervalFor,
-            resetAxesRanges,
-            resetAxisIntervalFor,
-            onUpdateAxesInterval,
-            addAxesRangesUpdateHandler,
-            removeAxesRangesUpdateHandler: handlerId => axesBoundsUpdateHandlersRef.current.delete(handlerId),
-        }}
-    >
+    // the context's `value` prop is typed as `unknown` (see `AxesContext` in `useAxes.tsx`), so
+    // the object literal needs its own explicit type here to give the handler functions below
+    // their parameter types -- otherwise they'd fall back to implicit `any`
+    const value: UseAxesValues<AR, A> = {
+        xAxesState,
+        yAxesState,
+        addXAxis: (axis, id, range) => {
+            setXAxesState(xAxesState.addAxis(axis, id))
+            if (range !== undefined) {
+                axesRangeRef.current.set(id, range)
+            }
+        },
+        addYAxis: (axis, id, range) => {
+            setYAxesState(yAxesState.addAxis(axis, id))
+            if (range !== undefined) {
+                axesRangeRef.current.set(id, range)
+            }
+        },
+        setAxisAssignments: assignments => axisAssignmentsRef.current = assignments,
+        axisAssignmentsFor: seriesName => axisAssignmentsFor(seriesName),
+        updateAxisRanges,
+        axesRanges: () => new Map<string, AR>(axesRangeRef.current),
+        axisRangeFor: axisId => Optional.ofNullable(axesRangeRef.current.get(axisId)),
+        setAxesRanges,
+        setAxisRangeFor,
+        setAxisIntervalFor,
+        setOriginalAxisIntervalFor,
+        resetAxesRanges,
+        resetAxisIntervalFor,
+        onUpdateAxesInterval,
+        addAxesRangesUpdateHandler,
+        removeAxesRangesUpdateHandler: handlerId => axesBoundsUpdateHandlersRef.current.delete(handlerId),
+    }
+
+    return <AxesContext.Provider value={value}>
         {children}
     </AxesContext.Provider>
 }

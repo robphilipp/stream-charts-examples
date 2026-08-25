@@ -612,8 +612,7 @@ export function PoincarePlot(props: Props): null {
                         }
                     )
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                zoomSelectionRef.current = canvasSelection.call(zoomRef.current) as any
+                zoomSelectionRef.current = canvasSelection.call(zoomRef.current)
             }
 
             return () => {

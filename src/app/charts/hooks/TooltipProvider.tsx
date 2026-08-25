@@ -1,5 +1,5 @@
 import {type JSX, useCallback, useRef, useState} from "react";
-import {type TooltipContentProvider, TooltipContext} from "./useTooltip";
+import {type TooltipContentProvider, TooltipContext, type UseTooltipValues} from "./useTooltip";
 
 type Props = {
     children: JSX.Element | Array<JSX.Element>
@@ -21,14 +21,17 @@ export default function TooltipProvider<D, M>(props: Props): JSX.Element {
     const [visibilityState, setVisibilityState] = useState<boolean>(false)
     const visibility = useCallback((visible: boolean) => setVisibilityState(visible), [])
 
-    return <TooltipContext.Provider
-        value={{
-            registerTooltipContentProvider: provider => tooltipContentProviderRef.current = provider,
-            tooltipContentProvider: () => tooltipContentProviderRef.current,
-            setVisibilityState: (visible: boolean) => visibility(visible),
-            visibilityState: visibilityState
-        }}
-    >
+    // the context's `value` prop is typed as `unknown` (see `TooltipContext` in `useTooltip.tsx`),
+    // so the object literal needs its own explicit type here to give the handler functions below
+    // their parameter types -- otherwise they'd fall back to implicit `any`
+    const value: UseTooltipValues<D, M> = {
+        registerTooltipContentProvider: provider => tooltipContentProviderRef.current = provider,
+        tooltipContentProvider: () => tooltipContentProviderRef.current,
+        setVisibilityState: (visible: boolean) => visibility(visible),
+        visibilityState: visibilityState
+    }
+
+    return <TooltipContext.Provider value={value}>
         {children}
     </TooltipContext.Provider>
 }

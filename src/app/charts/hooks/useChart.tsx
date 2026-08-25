@@ -83,8 +83,10 @@ export interface UseChartValues<D, S extends SeriesStyle, TM, AR extends BaseAxi
     setHoveredSeriesName:  Dispatch<SetStateAction<string | null>>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const ChartContext = createContext<UseChartValues<any, any, any, any, any>>(defaultUseChartValues())
+// the context is generic over the same type parameters as `UseChartValues`, but a context
+// object can't itself carry unbound generics -- `useChart` below casts it back to the caller's
+// concrete types, which is safe because `<ChartProvider/>` is what actually supplies the value
+export const ChartContext = createContext<unknown>(defaultUseChartValues())
 
 /**
  * React hook that sets up the React context for the chart values.
@@ -96,7 +98,7 @@ export const ChartContext = createContext<UseChartValues<any, any, any, any, any
  * @template A The type of the axis
  */
 export function useChart<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(): UseChartValues<D, S, TM, AR, A> {
-    const context = useContext<UseChartValues<D, S, TM, AR, A>>(ChartContext)
+    const context = useContext(ChartContext) as UseChartValues<D, S, TM, AR, A>
     const {chartId} = context
     if (isNaN(chartId)) {
         throw new Error("useChart can only be used when the parent is a <ChartProvider/>")

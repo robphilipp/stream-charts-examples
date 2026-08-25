@@ -6,8 +6,7 @@ export interface SvgStyle {
     width?: string | number;
     outline?: string;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [propName: string]: any;
+    [propName: string]: string | number | undefined;
 }
 
 export const initialSvgStyle: SvgStyle = {
@@ -75,12 +74,10 @@ export function updateSvgStrokeOpacity(current: SvgStrokeStyle, opacity: number)
  * @template D The datum type
  * @template The SVG G element
  */
-export function applyStrokeStylesTo<E extends BaseType, D, G extends BaseType = SVGGElement>(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    selection: d3.Selection<E, D, G, any>,
+export function applyStrokeStylesTo<E extends BaseType, D, G extends BaseType = SVGGElement, PD = unknown>(
+    selection: d3.Selection<E, D, G, PD>,
     style: Partial<SvgStrokeStyle>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-):  d3.Selection<E, D, G, any> {
+):  d3.Selection<E, D, G, PD> {
     if (style.color !== undefined) selection.style(STROKE_COLOR, style.color)
     if (style.width !== undefined) selection.style(STROKE_WIDTH, style.width)
     if (style.opacity !== undefined) selection.style(STROKE_OPACITY, style.opacity)
@@ -111,12 +108,10 @@ export function updateSvgFillOpacity(current: SvgFillStyle, opacity: number): Sv
  * @template D The datum type
  * @template The SVG G element
  */
-export function applyFillStylesTo<E extends BaseType, D, G extends BaseType = SVGGElement>(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    selection: d3.Selection<E, D, G, any>,
+export function applyFillStylesTo<E extends BaseType, D, G extends BaseType = SVGGElement, PD = unknown>(
+    selection: d3.Selection<E, D, G, PD>,
     style: Partial<SvgFillStyle>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-):  d3.Selection<E, D, G, any> {
+):  d3.Selection<E, D, G, PD> {
     if (style.color !== undefined) selection.style(FILL_COLOR, style.color)
     if (style.opacity !== undefined) selection.style(FILL_OPACITY, style.opacity)
     return selection

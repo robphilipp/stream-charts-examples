@@ -61,15 +61,17 @@ export type UseTooltipValues<D, M> = {
     visibilityState: boolean
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const TooltipContext = createContext<UseTooltipValues<any, any>>(defaultTooltipValues())
+// the context is generic over the same type parameters as `UseTooltipValues`, but a context
+// object can't itself carry unbound generics -- `useTooltip` below casts it back to the caller's
+// concrete types, which is safe because `<TooltipProvider/>` is what actually supplies the value
+export const TooltipContext = createContext<unknown>(defaultTooltipValues())
 
 /**
  * React hook that sets up the React context for the mouse values.
  * @return The {@link UseTooltipValues} held in the React context.
  */
 export function useTooltip<D, M>(): UseTooltipValues<D, M> {
-    const context = useContext<UseTooltipValues<D, M>>(TooltipContext)
+    const context = useContext(TooltipContext) as UseTooltipValues<D, M>
     const {registerTooltipContentProvider} = context
     if (registerTooltipContentProvider === undefined || registerTooltipContentProvider === null) {
         throw new Error("useTooltip can only be used when the parent is a <TooltipProvider/>")

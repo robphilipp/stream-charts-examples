@@ -50,8 +50,11 @@ export interface UseObservableValues<CD extends ChartData, D> {
     onUpdateChartTime?: (time: number) => void
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const DataObservableContext = createContext<UseObservableValues<any, any>>(defaultObservableValues())
+// the context is generic over the same type parameters as `UseObservableValues`, but a context
+// object can't itself carry unbound generics -- `useDataObservable` below casts it back to the
+// caller's concrete types, which is safe because `<DataObservableProvider/>` is what actually
+// supplies the value
+export const DataObservableContext = createContext<unknown>(defaultObservableValues())
 
 /**
  * React hook that sets up the React context for the chart values.
@@ -60,7 +63,7 @@ export const DataObservableContext = createContext<UseObservableValues<any, any>
  * @template D The type of the data object for the series
  */
 export function useDataObservable<CD extends ChartData, D>(): UseObservableValues<CD, D> {
-    const context = useContext<UseObservableValues<CD, D>>(DataObservableContext)
+    const context = useContext(DataObservableContext) as UseObservableValues<CD, D>
     const {onSubscribe} = context
     if (onSubscribe === undefined) {
         throw new Error("useDataObservable can only be used when the parent is a <DataObservableProvider/>")

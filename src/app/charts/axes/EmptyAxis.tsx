@@ -5,9 +5,10 @@ import {
     defaultAxesFont,
     removeContinuousXAxis,
     removeContinuousYAxis,
-    type ContinuousNumericAxis
+    type ContinuousNumericAxis,
+    type SeriesStyle
 } from "./axes";
-import {useChart} from "../hooks/useChart";
+import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import * as d3 from "d3";
 import type {Margin} from "../styling/margins";
@@ -43,8 +44,7 @@ export function EmptyAxis(props: Props): null {
         canvasContext,
         axes,
         color,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } = useChart<Datum, any, any, ContinuousAxisRange, ContinuousNumericAxis>()
+    } = useChart<Datum, SeriesStyle, NoTooltipMetadata, ContinuousAxisRange, ContinuousNumericAxis>()
 
     const {
         addXAxis,

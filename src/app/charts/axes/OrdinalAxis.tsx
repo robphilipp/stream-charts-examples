@@ -6,10 +6,11 @@ import {
     addOrdinalStringAxis,
     removeOrdinalXAxis,
     removeOrdinalYAxis,
-    type OrdinalStringAxis
+    type OrdinalStringAxis,
+    type SeriesStyle
 } from "./axes"
 import type {ScaleBand} from "d3";
-import {useChart} from "../hooks/useChart";
+import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import {useEffect, useRef} from "react";
 import type {Dimensions} from "../styling/margins";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
@@ -66,8 +67,7 @@ export function OrdinalAxis(props: Props): null {
         canvasContext,
         axes,
         color,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } = useChart<Datum, any, any, OrdinalAxisRange, OrdinalStringAxis>()
+    } = useChart<Datum, SeriesStyle, NoTooltipMetadata, OrdinalAxisRange, OrdinalStringAxis>()
 
     const {
         xAxesState,

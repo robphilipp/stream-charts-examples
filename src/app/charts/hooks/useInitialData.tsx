@@ -24,8 +24,11 @@ export type UseInitialDataValues<CD extends ChartData, D> = {
     asChartData?: (seriesList: Array<BaseSeries<D>>) => CD
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const InitialDataContext = createContext<UseInitialDataValues<any, any>>(defaultInitialDataValues())
+// the context is generic over the same type parameters as `UseInitialDataValues`, but a context
+// object can't itself carry unbound generics -- `useInitialData` below casts it back to the
+// caller's concrete types, which is safe because `<InitialDataProvider/>` is what actually
+// supplies the value
+export const InitialDataContext = createContext<unknown>(defaultInitialDataValues())
 
 /**
  * React hook that sets up the React context for the initial data values.
@@ -34,7 +37,7 @@ export const InitialDataContext = createContext<UseInitialDataValues<any, any>>(
  * @template D The type of the data object for the series
  */
 export function useInitialData<CD extends ChartData, D>(): UseInitialDataValues<CD, D> {
-    const context = useContext<UseInitialDataValues<CD, D>>(InitialDataContext)
+    const context = useContext(InitialDataContext) as UseInitialDataValues<CD, D>
     const {initialData} = context
     if (initialData === undefined) {
         throw new Error("useInitialData can only be used when the parent is a <InitialDataProvider/>")

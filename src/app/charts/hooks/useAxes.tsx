@@ -124,9 +124,10 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
     removeAxesRangesUpdateHandler: (handlerId: string) => void
 }
 
-// the context for axes
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const AxesContext = createContext<UseAxesValues<any, any>>(defaultAxesValues())
+// the context is generic over the same type parameters as `UseAxesValues`, but a context
+// object can't itself carry unbound generics -- `useAxes` below casts it back to the caller's
+// concrete types, which is safe because `<AxesProvider/>` is what actually supplies the value
+export const AxesContext = createContext<unknown>(defaultAxesValues())
 
 /**
  * React hook that sets up the React context for the chart values.
@@ -135,7 +136,7 @@ export const AxesContext = createContext<UseAxesValues<any, any>>(defaultAxesVal
  * @template A The axis type
  */
 export function useAxes<AR extends BaseAxisRange, A extends BaseAxis>(): UseAxesValues<AR, A> {
-    const context = useContext<UseAxesValues<AR, A>>(AxesContext)
+    const context = useContext(AxesContext) as UseAxesValues<AR, A>
     const {xAxesState} = context
     if (xAxesState === undefined || xAxesState === null) {
         throw new Error("useAxes can only be used when the parent is a <AxesProvider/>")
