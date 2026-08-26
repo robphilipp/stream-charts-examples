@@ -81,23 +81,23 @@ export default function CanvasSurfaceProvider(props: Props): JSX.Element {
             if (canvasElement) {
                 setCanvas(canvasElement)
 
-                // build up the container style from the defaults and any style object passed in
-                // as properties. IMPORTANT: width/height are deliberately excluded here. A
-                // unitless number (which is what a bare width/height would be) is invalid CSS and
-                // gets silently ignored by the browser -- sizing is handled exclusively by the
-                // resizeCanvasTo() effect above (via properly `px`-suffixed values) and the
-                // dpr-scaled backing store; letting width/height slip into this string would
-                // overwrite that correct, unitted sizing with an invalid one.
-                const style = Object.getOwnPropertyNames(svgStyle)
+                // apply the style/background/color from the defaults and any style object passed
+                // in as properties, one property at a time, rather than overwriting the whole
+                // `style` attribute. This callback's identity changes whenever color/backgroundColor/
+                // svgStyle change (e.g. a theme toggle), which makes React detach and reattach this
+                // ref -- calling this function again with the *same* canvas element. A wholesale
+                // `setAttribute('style', ...)` here would wipe out the width/height inline styles
+                // that resizeCanvasTo() sets directly via canvas.style.width/height in a separate
+                // effect that this callback's re-invocation does not also re-run, leaving the canvas
+                // sized to its (much larger, dpr-scaled) backing store instead of its intended CSS
+                // size. IMPORTANT: width/height are deliberately excluded here for the same reason --
+                // sizing is handled exclusively by the resizeCanvasTo() effect above.
+                Object.getOwnPropertyNames(svgStyle)
                     .filter(name => name !== 'width' && name !== 'height')
-                    .map(name => `${name}: ${svgStyle[name]}; `)
-                    .join("")
+                    .forEach(name => canvasElement.style.setProperty(name, String(svgStyle[name])))
 
-                const background = backgroundColor !== defaultBackground ?
-                    `background-color: ${backgroundColor}; ` :
-                    ''
-
-                canvasElement.setAttribute('style', style + background + ` color: ${color}`)
+                canvasElement.style.backgroundColor = backgroundColor !== defaultBackground ? backgroundColor : ''
+                canvasElement.style.color = color
             }
         },
         [backgroundColor, color, svgStyle]
