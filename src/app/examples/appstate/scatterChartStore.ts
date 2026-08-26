@@ -56,6 +56,7 @@ type ScatterChartState = {
     filterValue: string
     selectedInterpolationName: string
     dropAfterMs: number
+    numberOfSeries: number
 }
 
 const initialState: ScatterChartState = {
@@ -64,6 +65,7 @@ const initialState: ScatterChartState = {
     filterValue: '',
     selectedInterpolationName: 'curveLinear',
     dropAfterMs: 20_000,
+    numberOfSeries: 10,
 }
 
 type ScatterChartActions = {
@@ -72,6 +74,7 @@ type ScatterChartActions = {
     setFilterValue: (filterValue: string) => void
     setSelectedInterpolationName: (name: string) => void
     setDropAfterMs: (dropAfterMs: number) => void
+    setNumberOfSeries: (numberOfSeries: number) => void
     reset: () => void
 }
 
@@ -101,6 +104,8 @@ export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> = 
         setSelectedInterpolationName: name => set({selectedInterpolationName: name}),
 
         setDropAfterMs: (dropAfterMs: number) => set({dropAfterMs}),
+
+        setNumberOfSeries: (numberOfSeries: number) => set({numberOfSeries}),
 
         reset: () => set({
             ...initialState,

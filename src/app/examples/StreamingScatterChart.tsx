@@ -40,11 +40,13 @@ import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {FilterIcon, InterpolationIcon, LagIcon, MarkersIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
+import {NumberOfSeriesControl} from "./controls/NumberOfSeriesControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {useScatterChartStore} from "./appstate/scatterChartStore.ts";
 import {Optional} from "result-fn";
 import {DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
+import {initialRandomWeightData} from "./dataproviders/randomWeightData.ts";
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
@@ -56,6 +58,29 @@ const AXIS_ASSIGNMENTS = new Map([
     ['Series 2', assignAxes("x-axis-2", "y-axis-2")],
     ['Series 3', assignAxes("x-axis-2", "y-axis-1")],
 ])
+
+// generation parameters matching the initial data generated in routeData.ts, so that changing
+// the number of series produces data consistent with the app's default initial data
+const SERIES_INITIAL_TIME = 10
+const SERIES_INITIAL_VALUE = 500
+const SERIES_UPDATE_PERIOD = 50
+const SERIES_DELTA = 20
+const SERIES_NUM_POINTS = 100
+
+/**
+ * Generates the initial (static) data for the specified number of series, named "Series 0"
+ * through "Series {numberOfSeries - 1}", matching the naming used for the chart's default
+ * initial data.
+ * @param numberOfSeries The number of series for which to generate initial data
+ * @return The generated initial data
+ */
+function initialDataForSeriesCount(numberOfSeries: number): Array<TimeSeries> {
+    const seriesNames = Array.from({length: numberOfSeries}, (_, index) => `Series ${index}`)
+    return initialRandomWeightData(
+        seriesNames, SERIES_INITIAL_TIME, SERIES_INITIAL_VALUE, SERIES_UPDATE_PERIOD, SERIES_DELTA, SERIES_NUM_POINTS
+    )
+}
+
 /**
  * Compiles the filter's regex string into a `RegExp`, falling back to a match-everything
  * regex when the string isn't a valid regular expression. The compiled regex is held in the
@@ -114,6 +139,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     const dropAfterMs = useScatterChartStore(state => state.dropAfterMs)
     const setDropAfterMs = useScatterChartStore(state => state.setDropAfterMs)
 
+    const numberOfSeries = useScatterChartStore(state => state.numberOfSeries)
+    const setNumberOfSeries = useScatterChartStore(state => state.setNumberOfSeries)
+
     const reset = useScatterChartStore(state => state.reset)
     //
     // ----------------------------------------------------------------
@@ -130,7 +158,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         []
     )
     const chartSeriesStyles = useMemo(
-        () => new Map(originalInitialData.map(
+        () => new Map(initialData.map(
             (data, index) => [data.name, {
                 ...defaultLineStyle(),
                 lineWidth: linewidthFor(data.name),
@@ -139,7 +167,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                 highlightColor: colorFor(index, initialData.length, theme.name)
             }])
         ),
-        [originalInitialData, initialData.length, theme.name]
+        [initialData, theme.name]
     )
 
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(
@@ -208,6 +236,16 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     function handleUpdateFilterValue(updatedFilter: string): void {
         // the store compiles the regex from the filter value
         setFilterValue(updatedFilter)
+    }
+
+    /**
+     * Called when the user changes the number of series. Regenerates the initial data so
+     * it has the specified number of series (only available while the chart isn't running).
+     * @param count The number of series
+     */
+    function handleNumberOfSeriesChange(count: number): void {
+        setNumberOfSeries(count)
+        setInitialData(initialDataForSeriesCount(count))
     }
 
     function interpolationFactoryFor(interpolationName: string): Optional<d3.CurveFactory> {
@@ -353,6 +391,12 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 theme={theme}
                                 value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_20_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <NumberOfSeriesControl
+                                theme={theme}
+                                numberOfSeries={numberOfSeries}
+                                handleNumberOfSeriesChange={handleNumberOfSeriesChange}
                                 disabled={running}
                             />
                             <LagDisplay
