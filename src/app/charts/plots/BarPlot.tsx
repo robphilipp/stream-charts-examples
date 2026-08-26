@@ -446,7 +446,6 @@ export function BarPlot(props: Props): null {
         [canvasContext, onUpdateChartTime]
     )
 
-    // todo find better way
     // when the initial data changes, then reset the plot. note that the initial data doesn't change
     // during the normal course of updates from the observable, only when the plot is restarted.
     useEffect(
@@ -456,9 +455,6 @@ export function BarPlot(props: Props): null {
             currentTimeRef.current = 0
             statsRef.current = initialOrdinalStats(dataRef.current)
         },
-        // ** not happy about this **
-        // only want this effect to run when the initial data is changed, which mean all the
-        // other dependencies are recalculated anyway.
         [initialData]
     )
 

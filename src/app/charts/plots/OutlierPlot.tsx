@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef} from 'react'
+import {useCallback, useEffect, useEffectEvent, useMemo, useRef} from 'react'
 import * as d3 from "d3"
 import {ZoomTransform} from "d3"
 import {Observable, Subscription} from "rxjs"
@@ -427,29 +427,37 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         }
     }, [canvasContext])
 
+    // when the initial data changes, then reset the plot. note that the initial data doesn't change
+    // during the normal course of updates from the observable, only when the plot is restarted. the
+    // reset itself should always use the current xAxesState/axisAssignments/updateTimingAndPlot, not
+    // whatever they were when this effect last ran -- that's exactly what an effect event gives us,
+    // without having to (falsely) declare them as dependencies that would re-trigger the reset.
+    const resetPlotForInitialData = useEffectEvent(() => {
+        seriesRef.current = new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
+        currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+        updateTimingAndPlot(
+            new Map(
+                Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+                    .map(([id, range]) => {
+                        const [start, end] = range.original.asTuple()
+                        const minTime = (initialData as Array<OutlierSeries<M>>)
+                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+                            .reduce(
+                                (tMin, series) =>
+                                    Math.min(tMin, !series.isEmpty() ? series.data[0].datum.x : tMin),
+                                Infinity
+                            )
+                        const startTime = minTime === Infinity ? 0 : minTime
+                        return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
+                    })
+            )
+        )
+    })
+
     useEffect(
         () => {
-            seriesRef.current = new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot(
-                new Map(
-                    Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-                        .map(([id, range]) => {
-                            const [start, end] = range.original.asTuple()
-                            const minTime = (initialData as Array<OutlierSeries<M>>)
-                                .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-                                .reduce(
-                                    (tMin, series) =>
-                                        Math.min(tMin, !series.isEmpty() ? series.data[0].datum.x : tMin),
-                                    Infinity
-                                )
-                            const startTime = minTime === Infinity ? 0 : minTime
-                            return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
-                        })
-                )
-            )
+            resetPlotForInitialData()
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [initialData]
     )
 

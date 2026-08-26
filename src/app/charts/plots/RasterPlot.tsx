@@ -3,7 +3,7 @@ import * as d3 from "d3";
 import {type D3DragEvent, type D3ZoomEvent, ZoomTransform} from "d3";
 import {noop} from "../utils";
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
-import {useCallback, useEffect, useMemo, useRef} from "react";
+import {useCallback, useEffect, useEffectEvent, useMemo, useRef} from "react";
 import type {Datum, TimeSeries} from "../series/timeSeries";
 import {
     axesForSeriesGen,
@@ -397,38 +397,40 @@ export function RasterPlot(props: Props): null {
         [canvasContext]
     )
 
-    // todo find better way
     // when the initial data changes, then reset the plot. note that the initial data doesn't change
-    // during the normal course of updates from the observable, only when the plot is restarted.
+    // during the normal course of updates from the observable, only when the plot is restarted. the
+    // reset itself should always use the current xAxesState/axisAssignments/updateTimingAndPlot, not
+    // whatever they were when this effect last ran -- that's exactly what an effect event gives us,
+    // without having to (falsely) declare them as dependencies that would re-trigger the reset.
+    const resetPlotForInitialData = useEffectEvent(() => {
+        dataRef.current = initialData.slice()
+        seriesRef.current = new Map(initialData.map(series => [series.name, series]))
+        currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+        updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+                .map(([id, range]) => {
+                    // grab the current range, then calculate the minimum time from the initial data, and
+                    // set that as the start, and then add the range to it for the end time
+                    const [start, end] = range.original.asTuple()
+                    const minTime = initialData
+                        .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
+                        .reduce(
+                            (tMin: number, series: TimeSeries) => Math.min(
+                                tMin,
+                                !series.isEmpty() ? series.data[0].x : tMin
+                            ),
+                            Infinity
+                        )
+                    const startTime = minTime === Infinity ? 0 : minTime
+                    return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
+                })
+            )
+        )
+    })
+
     useEffect(
         () => {
-            dataRef.current = initialData.slice()
-            seriesRef.current = new Map(initialData.map(series => [series.name, series]))
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
-            updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
-                    .map(([id, range]) => {
-                        // grab the current range, then calculate the minimum time from the initial data, and
-                        // set that as the start, and then add the range to it for the end time
-                        const [start, end] = range.original.asTuple()
-                        const minTime = initialData
-                            .filter(srs => axisAssignments.get(srs.name)?.xAxis === id)
-                            .reduce(
-                                (tMin: number, series: TimeSeries) => Math.min(
-                                    tMin,
-                                    !series.isEmpty() ? series.data[0].x : tMin
-                                ),
-                                Infinity
-                            )
-                        const startTime = minTime === Infinity ? 0 : minTime
-                        return [id, ContinuousAxisRange.from(startTime, startTime + end - start)]
-                    })
-                )
-            )
+            resetPlotForInitialData()
         },
-        // ** not happy about this **
-        // only want this effect to run when the initial data is changed, which mean all the
-        // other dependencies are recalculated anyway.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [initialData]
     )
 

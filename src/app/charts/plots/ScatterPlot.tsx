@@ -503,8 +503,7 @@ export function ScatterPlot(props: Props): null {
     // when the initial data changes, then reset the plot. note that the initial data doesn't change
     // during the normal course of updates from the observable, only when the plot is restarted. the
     // reset itself should always use the current xAxesState/axisAssignments/updateTimingAndPlot, not
-    // whatever they were when this effect last ran -- that's exactly what an effect event gives us,
-    // without having to (falsely) declare them as dependencies that would re-trigger the reset.
+    // whatever they were when this effect last ran
     const resetPlotForInitialData = useEffectEvent(() => {
         dataRef.current = initialData.slice()
         seriesRef.current = new Map(initialData.map(series => [series.name, series]))
