@@ -19,10 +19,15 @@ export type Range = [start: number, end: number]
 /*
     set up the data state
  */
+const DATA_DELTA = 25
+const DATA_MIN = 10
+const DATA_MAX = 1000
+const DEFAULT_DATA_UPDATE_PERIOD = 50
+
 const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
     return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
 }
-const randomDataObservable = randomData(25, 50, 10, 1000)
+const randomDataObservable = randomData(DATA_DELTA, DEFAULT_DATA_UPDATE_PERIOD, DATA_MIN, DATA_MAX)
 
 const initialDataState: DataStateSlice<TimeSeriesChartData, Datum, TimeSeries> = {
     initialData: [],
@@ -57,6 +62,9 @@ type ScatterChartState = {
     selectedInterpolationName: string
     dropAfterMs: number
     numberOfSeries: number
+    windowingTime: number
+    cadence: number
+    dataUpdatePeriod: number
 }
 
 const initialState: ScatterChartState = {
@@ -66,6 +74,9 @@ const initialState: ScatterChartState = {
     selectedInterpolationName: 'curveLinear',
     dropAfterMs: 20_000,
     numberOfSeries: 10,
+    windowingTime: 25,
+    cadence: 0,
+    dataUpdatePeriod: DEFAULT_DATA_UPDATE_PERIOD,
 }
 
 type ScatterChartActions = {
@@ -75,6 +86,9 @@ type ScatterChartActions = {
     setSelectedInterpolationName: (name: string) => void
     setDropAfterMs: (dropAfterMs: number) => void
     setNumberOfSeries: (numberOfSeries: number) => void
+    setWindowingTime: (windowingTime: number) => void
+    setCadence: (cadence: number) => void
+    setDataUpdatePeriod: (dataUpdatePeriod: number) => void
     reset: () => void
 }
 
@@ -106,6 +120,27 @@ export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> = 
         setDropAfterMs: (dropAfterMs: number) => set({dropAfterMs}),
 
         setNumberOfSeries: (numberOfSeries: number) => set({numberOfSeries}),
+
+        setWindowingTime: (windowingTime: number) => set({windowingTime}),
+
+        setCadence: (cadence: number) => set({cadence}),
+
+        // rebuilds the observable at the new update period, using whatever initial data is
+        // currently in the store -- keeps the RxJS stream's data-generation rate in sync with
+        // this setting, since it's baked into the observable at creation time
+        setDataUpdatePeriod: (dataUpdatePeriod: number) => set(state => ({
+            dataUpdatePeriod,
+            observable: randomData(DATA_DELTA, dataUpdatePeriod, DATA_MIN, DATA_MAX)(state.initialData)
+        })),
+
+        // overrides the data slice's default setInitialData (see createDataSlice above) so that
+        // regenerating the initial data (e.g. from a number-of-series change) rebuilds the
+        // observable using the *current* dataUpdatePeriod, rather than always reverting to the
+        // slice's original default period
+        setInitialData: (initialData: Array<TimeSeries>) => set(state => ({
+            initialData,
+            observable: randomData(DATA_DELTA, state.dataUpdatePeriod, DATA_MIN, DATA_MAX)(initialData)
+        })),
 
         reset: () => set({
             ...initialState,

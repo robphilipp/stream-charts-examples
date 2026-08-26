@@ -41,6 +41,9 @@ import {FilterIcon, InterpolationIcon, LagIcon, MarkersIcon, TooltipIcon, Tracke
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {NumberOfSeriesControl} from "./controls/NumberOfSeriesControl.tsx";
+import {DataUpdateRateControl} from "./controls/DataUpdateRateControl.tsx";
+import {BufferingControl} from "./controls/BufferingControl.tsx";
+import {CadenceControl} from "./controls/CadenceControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {useScatterChartStore} from "./appstate/scatterChartStore.ts";
@@ -141,6 +144,15 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     const numberOfSeries = useScatterChartStore(state => state.numberOfSeries)
     const setNumberOfSeries = useScatterChartStore(state => state.setNumberOfSeries)
+
+    const dataUpdatePeriod = useScatterChartStore(state => state.dataUpdatePeriod)
+    const setDataUpdatePeriod = useScatterChartStore(state => state.setDataUpdatePeriod)
+
+    const windowingTime = useScatterChartStore(state => state.windowingTime)
+    const setWindowingTime = useScatterChartStore(state => state.setWindowingTime)
+
+    const cadence = useScatterChartStore(state => state.cadence)
+    const setCadence = useScatterChartStore(state => state.setCadence)
 
     const reset = useScatterChartStore(state => state.reset)
     //
@@ -246,6 +258,35 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     function handleNumberOfSeriesChange(count: number): void {
         setNumberOfSeries(count)
         setInitialData(initialDataForSeriesCount(count))
+    }
+
+    /**
+     * Called when the user changes the data-generation rate -- how often (in milliseconds) the
+     * underlying RxJS observable produces a new data point per series (only available while the
+     * chart isn't running).
+     * @param ms The data-generation period, in milliseconds
+     */
+    function handleDataUpdatePeriodChange(ms: number): void {
+        setDataUpdatePeriod(ms)
+    }
+
+    /**
+     * Called when the user changes the buffering (windowing) time -- how long incoming data is
+     * buffered before updating the chart (only available while the chart isn't running).
+     * @param ms The windowing time, in milliseconds
+     */
+    function handleWindowingTimeChange(ms: number): void {
+        setWindowingTime(ms)
+    }
+
+    /**
+     * Called when the user changes the plot's update-cadence period -- a periodic redraw tick
+     * that keeps the plot scrolling even without new data (only available while the chart isn't
+     * running). A value of `0` disables the cadence.
+     * @param ms The cadence period, in milliseconds (`0` disables it)
+     */
+    function handleCadenceChange(ms: number): void {
+        setCadence(ms)
     }
 
     function interpolationFactoryFor(interpolationName: string): Optional<d3.CurveFactory> {
@@ -399,6 +440,24 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 handleNumberOfSeriesChange={handleNumberOfSeriesChange}
                                 disabled={running}
                             />
+                            <DataUpdateRateControl
+                                theme={theme}
+                                dataUpdatePeriod={dataUpdatePeriod}
+                                handleDataUpdatePeriodChange={handleDataUpdatePeriodChange}
+                                disabled={running}
+                            />
+                            <BufferingControl
+                                theme={theme}
+                                windowingTime={windowingTime}
+                                handleWindowingTimeChange={handleWindowingTimeChange}
+                                disabled={running}
+                            />
+                            <CadenceControl
+                                theme={theme}
+                                cadence={cadence}
+                                handleCadenceChange={handleCadenceChange}
+                                disabled={running}
+                            />
                             <LagDisplay
                                 theme={theme}
                                 lag={elapsed - chartTime}
@@ -473,7 +532,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     shouldSubscribe={running}
                     onSubscribe={setSubscription}
                     onUpdateAxesBounds={handleChartTimeUpdate}
-                    windowingTime={25}
+                    windowingTime={windowingTime}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
@@ -547,7 +606,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         // zoomEnabled={!running}
                         zoomKeyModifiersRequired={true}
                         markerRadius={visibility.markers ? 2 : undefined}
-                        // withCadenceOf={30}
+                        withCadenceOf={cadence > 0 ? cadence : undefined}
                         // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
                         subscription={subscription}
                     />
