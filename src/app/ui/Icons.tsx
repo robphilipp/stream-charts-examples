@@ -141,9 +141,9 @@ export function ResetIcon(props: { color: string }): JSX.Element {
             <path d="M 15,10 A 5,5 0 1 1 15,5"
                   fill="none"
                   stroke={color}
-                  stroke-width={2}
-                  stroke-linecap="round"
-                  marker-end="url(#arrow)"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  markerEnd="url(#arrow)"
             />
         </svg>
     )
@@ -319,8 +319,8 @@ export function TentMapIcon(props: { color: string }): JSX.Element {
     const {color} = props
     return (
         <svg width="15" height="15" style={{display: 'block', flexShrink: 0}}>
-            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+            <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+            <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
             <g id="SVGRepo_iconCarrier" transform="scale(0.03125)">
                 <path
                     fill={color}
