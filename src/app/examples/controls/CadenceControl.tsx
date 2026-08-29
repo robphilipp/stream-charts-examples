@@ -1,4 +1,5 @@
 import {type CSSProperties, type JSX, useState} from "react";
+import Checkbox from "../../ui/Checkbox.tsx";
 import type {Theme} from "../../ui/Themes.ts";
 
 const inputStyle = (theme: Theme, disabled: boolean): CSSProperties => ({
@@ -15,6 +16,10 @@ const inputStyle = (theme: Theme, disabled: boolean): CSSProperties => ({
     width: 40,
 })
 
+// the cadence period (ms) used the first time the checkbox is checked (a value of `0` means
+// the cadence is disabled, so this is the smallest sensible period to start from)
+const DEFAULT_CADENCE = 25
+
 type Props = {
     theme: Theme
     cadence: number
@@ -23,50 +28,65 @@ type Props = {
 }
 
 /**
- * Text field for setting the plot's update-cadence period (`withCadenceOf`, in milliseconds) --
- * a periodic redraw tick that keeps the plot scrolling even when no new data has arrived. A value
- * of `0` disables the cadence (the plot only redraws when new data arrives). Only meant to be
- * changed while the chart isn't running (see the `disabled` prop).
+ * Checkbox for enabling the plot's update-cadence (`withCadenceOf`) -- a periodic redraw tick
+ * that keeps the plot scrolling even when no new data has arrived. When checked, the label
+ * becomes "Cadence (ms)" and a text field for the cadence period (ms) appears to its right,
+ * defaulting to 25; when unchecked, the label reverts to "Cadence", the field is hidden, and the
+ * cadence is disabled (`0`). Only meant to be changed while the chart isn't running (see the
+ * `disabled` prop).
  */
 export function CadenceControl(props: Props): JSX.Element {
     const {theme, cadence, handleCadenceChange, disabled} = props
 
+    const enabled = cadence > 0
+
     // holds the raw text so the field can reflect what's being typed (including transient
     // invalid states, like a temporarily empty field) without immediately reverting
-    const [text, setText] = useState<string>(String(cadence))
+    const [text, setText] = useState<string>(String(enabled ? cadence : DEFAULT_CADENCE))
 
-    // keep the field in sync when the cadence changes from elsewhere (e.g. reset), adjusting
-    // state during render rather than in an effect (see "Adjusting some state when a prop
-    // changes" in the React docs) -- this avoids the extra commit+effect round trip
+    // keep the field in sync when the cadence changes from elsewhere (e.g. reset, or checking
+    // the box, which reports DEFAULT_CADENCE), adjusting state during render rather than in an
+    // effect (see "Adjusting some state when a prop changes" in the React docs) -- this avoids
+    // the extra commit+effect round trip. Ignores the transition to `0` (unchecked) so the field
+    // still shows its last value if the checkbox is unchecked and re-checked without typing.
     const [prevCadence, setPrevCadence] = useState<number>(cadence)
     if (cadence !== prevCadence) {
         setPrevCadence(cadence)
-        setText(String(cadence))
+        if (cadence > 0) setText(String(cadence))
+    }
+
+    function handleToggle(): void {
+        handleCadenceChange(enabled ? 0 : DEFAULT_CADENCE)
     }
 
     function handleChange(value: string): void {
         setText(value)
         const parsed = Number(value)
-        if (Number.isInteger(parsed) && parsed >= 0) {
+        if (Number.isInteger(parsed) && parsed > 0) {
             handleCadenceChange(parsed)
         }
     }
 
     return (
-        <label style={{
-            color: disabled ? theme.disabledColor : theme.color,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-        }}>
-            Cadence (ms)
-            <input
-                type="text"
-                value={text}
-                onChange={event => handleChange(event.currentTarget.value)}
-                style={inputStyle(theme, disabled)}
+        <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8}}>
+            <Checkbox
+                checked={enabled}
                 disabled={disabled}
+                label={enabled ? "Cadence (ms)" : "Cadence"}
+                backgroundColor={theme.backgroundColor}
+                borderColor={theme.color}
+                labelColor={theme.color}
+                onChange={handleToggle}
             />
-        </label>
+            {enabled &&
+                <input
+                    type="text"
+                    value={text}
+                    onChange={event => handleChange(event.currentTarget.value)}
+                    style={inputStyle(theme, disabled)}
+                    disabled={disabled}
+                />
+            }
+        </div>
     )
 }
