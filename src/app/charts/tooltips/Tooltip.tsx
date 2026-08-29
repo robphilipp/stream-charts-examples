@@ -107,6 +107,13 @@ export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, 
                                 mouseCoords: [x: number, y: number],
                                 providerId?: string
                             ) => {
+                                // this handler fires on every mousemove over a hovered series (not
+                                // just once on entry), so the tooltip keeps tracking the mouse as
+                                // it moves -- remove the previous background element first so
+                                // repeated calls update a single element instead of stacking a new
+                                // one on the page every time.
+                                removeTooltip()
+
                                 // create the rounded-rectangle background for the tooltip. This
                                 // replaces the old SVG <rect>; border-radius/background/border are
                                 // now plain CSS instead of SVG attributes. Background and border

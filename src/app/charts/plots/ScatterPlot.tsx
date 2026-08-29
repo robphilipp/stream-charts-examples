@@ -323,8 +323,6 @@ export function ScatterPlot(props: Props): null {
                     // correctly across the boundary.
                     const [domainStart] = xAxisLinear.scale.domain()
                     const startIndex = Math.max(0, firstIndexAtOrAfter(plotData, domainStart, (d: Datum) => d.x) - 1)
-                    // __totalRetained += plotData.length
-                    // __totalProcessed += Math.max(0, plotData.length - startIndex)
 
                     const showMarkers = markerRadius != null && markerRadius >= 0 && (!shouldSubscribe || !hideMarkersWhileRunning)
                     const markerRadiusResolved = isHovered ? markerRadius! + 2 : markerRadius!
@@ -400,19 +398,6 @@ export function ScatterPlot(props: Props): null {
                 })
 
                 geometryRef.current = newGeometry
-                // const __drawMs = performance.now() - __drawStart
-                // if (!(window as any).__drawStats) (window as any).__drawStats = {count: 0, totalMs: 0, maxMs: 0}
-                // const stats = (window as any).__drawStats
-                // stats.count++
-                // stats.totalMs += __drawMs
-                // stats.maxMs = Math.max(stats.maxMs, __drawMs)
-                // if (stats.count % 50 === 0) {
-                //     console.log(
-                //         `draw#${stats.count} thisFrame=${__drawMs.toFixed(2)}ms avg=${(stats.totalMs / stats.count).toFixed(2)}ms max=${stats.maxMs.toFixed(2)}ms ` +
-                //         `retained=${__totalRetained} processed=${__totalProcessed}`
-                //     )
-                //     stats.maxMs = 0 // reset max so it reflects the last 50 frames, not the all-time peak
-                // }
                 context2D.restore()
             }
 
@@ -715,13 +700,19 @@ export function ScatterPlot(props: Props): null {
                     ? (hit.name.endsWith('-markers') ? hit.name.slice(0, -'-markers'.length) : hit.name)
                     : undefined
 
-                if (hitName === lastHoveredRef.current) return
-
-                if (lastHoveredRef.current !== undefined) {
-                    handleMouseLeaveSeries(
-                        lastHoveredRef.current,
-                        mouseLeaveHandlerFor(`tooltip-${chartId}`)
-                    )
+                // only fire enter/leave transitions when the hovered series actually changes --
+                // but always recompute and re-report the tooltip content below for the *current*
+                // mouse position, even while still hovering the same series, so the tooltip keeps
+                // tracking the mouse as it moves across a series instead of freezing at wherever
+                // the hover was first detected.
+                if (hitName !== lastHoveredRef.current) {
+                    if (lastHoveredRef.current !== undefined) {
+                        handleMouseLeaveSeries(
+                            lastHoveredRef.current,
+                            mouseLeaveHandlerFor(`tooltip-${chartId}`)
+                        )
+                    }
+                    lastHoveredRef.current = hitName
                 }
 
                 if (hitName !== undefined) {
@@ -745,8 +736,6 @@ export function ScatterPlot(props: Props): null {
                         }
                     }
                 }
-
-                lastHoveredRef.current = hitName
             }
 
             const handleLeaveCanvas = () => {
