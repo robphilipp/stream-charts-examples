@@ -93,6 +93,12 @@ export interface Props {
      * no markers are rendered.
      */
     markerRadius?: number
+    /**
+     * Whether to hide the markers while the chart is running (streaming), showing them again
+     * once paused. Defaults to `true` (the previous, hard-coded behavior). Set to `false` to
+     * keep markers visible while running.
+     */
+    hideMarkersWhileRunning?: boolean
 
     /**
      * Commonly used when the parent holds the subscription. A common use-case for this
@@ -177,6 +183,7 @@ export function ScatterPlot(props: Props): null {
         withCadenceOf,
         timeWindowBehavior = TimeWindowBehavior.SCROLL,
         markerRadius,
+        hideMarkersWhileRunning = true,
         subscription = undefined,
     } = props
 
@@ -319,7 +326,7 @@ export function ScatterPlot(props: Props): null {
                     // __totalRetained += plotData.length
                     // __totalProcessed += Math.max(0, plotData.length - startIndex)
 
-                    const showMarkers = markerRadius != null && markerRadius >= 0 && !shouldSubscribe
+                    const showMarkers = markerRadius != null && markerRadius >= 0 && (!shouldSubscribe || !hideMarkersWhileRunning)
                     const markerRadiusResolved = isHovered ? markerRadius! + 2 : markerRadius!
 
                     const segments: Array<Array<ScreenPoint>> = []
@@ -337,7 +344,13 @@ export function ScatterPlot(props: Props): null {
                         // the edge should still be hoverable at the boundary
                         screenPoints.push([x + margin.left, y + margin.top])
 
-                        if (x < 0 || x > plotDimensions.width) {
+                        // the first point in this loop is the one deliberately backed up before
+                        // the visible domain (see startIndex above); include it in the segment so
+                        // the interpolated line entering from the left is smoothly clipped by the
+                        // canvas's clip region as the plot scrolls, rather than the line abruptly
+                        // popping into/out of existence right at the boundary
+                        const isLeftEdgeContinuationPoint = i === startIndex && x < 0
+                        if (!isLeftEdgeContinuationPoint && (x < 0 || x > plotDimensions.width)) {
                             if (currentSegment.length > 0) {
                                 segments.push(currentSegment)
                                 currentSegment = []
@@ -411,7 +424,7 @@ export function ScatterPlot(props: Props): null {
             axisAssignments,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
-            hoveredSeriesName, markerRadius, shouldSubscribe
+            hoveredSeriesName, markerRadius, shouldSubscribe, hideMarkersWhileRunning
         ]
     )
 

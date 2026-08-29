@@ -488,16 +488,32 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 labelColor={theme.color}
                                 onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                             />
-                            <Checkbox
-                                key={5}
-                                checked={visibility.markers}
-                                disabled={running}
-                                label="markers"
-                                backgroundColor={theme.backgroundColor}
-                                borderColor={theme.color}
-                                labelColor={theme.color}
-                                onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
-                            />
+                            <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12}}>
+                                <Checkbox
+                                    key={5}
+                                    checked={visibility.markers}
+                                    disabled={running}
+                                    label="markers"
+                                    backgroundColor={theme.backgroundColor}
+                                    borderColor={theme.color}
+                                    labelColor={theme.color}
+                                    onChange={() => setVisibility({...visibility, markers: !visibility.markers})}
+                                />
+                                {visibility.markers &&
+                                    <Checkbox
+                                        key={6}
+                                        checked={visibility.hideMarkersWhileRunning}
+                                        label="hide while running"
+                                        backgroundColor={theme.backgroundColor}
+                                        borderColor={theme.color}
+                                        labelColor={theme.color}
+                                        onChange={() => setVisibility({
+                                            ...visibility,
+                                            hideMarkersWhileRunning: !visibility.hideMarkersWhileRunning
+                                        })}
+                                    />
+                                }
+                            </div>
                             <InterpolationControl
                                 theme={theme}
                                 selectedInterpolationName={selectedInterpolationName}
@@ -606,6 +622,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         // zoomEnabled={!running}
                         zoomKeyModifiersRequired={true}
                         markerRadius={visibility.markers ? 2 : undefined}
+                        hideMarkersWhileRunning={visibility.hideMarkersWhileRunning}
                         withCadenceOf={cadence > 0 ? cadence : undefined}
                         // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
                         subscription={subscription}
