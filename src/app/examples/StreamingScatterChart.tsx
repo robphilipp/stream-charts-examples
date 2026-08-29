@@ -479,6 +479,15 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 onChange={() => setVisibility({...visibility, tooltip: !visibility.tooltip})}
                             />
                             <Checkbox
+                                key={3}
+                                checked={visibility.highlightAxes}
+                                label="highlight axes"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setVisibility({...visibility, highlightAxes: !visibility.highlightAxes})}
+                            />
+                            <Checkbox
                                 key={2}
                                 checked={visibility.tracker && !running}
                                 disabled={running}
@@ -572,7 +581,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         axisId="y-axis-2"
                         location={AxisLocation.Right}
                         scale={d3.scaleLog()}
-                        domain={[100, 1200]}
+                        domain={[10, 1200]}
                         label="Distance (µm)"
                     />
                     <Tracker
@@ -624,6 +633,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         markerRadius={visibility.markers ? 2 : undefined}
                         hideMarkersWhileRunning={visibility.hideMarkersWhileRunning}
                         withCadenceOf={cadence > 0 ? cadence : undefined}
+                        highlightAxesOnMouseOver={visibility.highlightAxes}
                         // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
                         subscription={subscription}
                     />

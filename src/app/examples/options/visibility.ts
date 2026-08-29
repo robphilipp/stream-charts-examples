@@ -4,6 +4,7 @@ export interface Visibility {
     markers: boolean
     hideMarkersWhileRunning: boolean
     legend: boolean;
+    highlightAxes: boolean;
 }
 
 export const createInitialVisibility = (): Visibility => ({
@@ -12,5 +13,6 @@ export const createInitialVisibility = (): Visibility => ({
     markers: false,
     hideMarkersWhileRunning: true,
     legend: false,
+    highlightAxes: false,
 })
 

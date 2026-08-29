@@ -99,6 +99,11 @@ export interface Props {
      * keep markers visible while running.
      */
     hideMarkersWhileRunning?: boolean
+    /**
+     * When true, hovering over a series also highlights the x- and y-axes it is plotted
+     * against (in the series' own highlight color/width). Defaults to `false`.
+     */
+    highlightAxesOnMouseOver?: boolean
 
     /**
      * Commonly used when the parent holds the subscription. A common use-case for this
@@ -184,6 +189,7 @@ export function ScatterPlot(props: Props): null {
         timeWindowBehavior = TimeWindowBehavior.SCROLL,
         markerRadius,
         hideMarkersWhileRunning = true,
+        highlightAxesOnMouseOver = false,
         subscription = undefined,
     } = props
 
@@ -474,6 +480,29 @@ export function ScatterPlot(props: Props): null {
             currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
         },
         [xAxesState]
+    )
+
+    // highlights the x- and y-axes associated with the hovered series (in the series' own
+    // highlight color/width, matching the line highlight above), and un-highlights them again --
+    // via the effect's cleanup -- when the hover moves to a different series or ends
+    useEffect(
+        () => {
+            if (!highlightAxesOnMouseOver || hoveredSeriesName === null) return
+
+            const assignment = axisAssignments.get(hoveredSeriesName)
+            const xAxis = xAxesState.axisFor(assignment?.xAxis || "").getOrUndefined()
+            const yAxis = yAxesState.axisFor(assignment?.yAxis || "").getOrUndefined()
+            const {highlightColor, highlightWidth} = seriesStyles.get(hoveredSeriesName) || defaultLineStyle()
+
+            xAxis?.setHighlighted(true, highlightColor, highlightWidth)
+            yAxis?.setHighlighted(true, highlightColor, highlightWidth)
+
+            return () => {
+                xAxis?.setHighlighted(false)
+                yAxis?.setHighlighted(false)
+            }
+        },
+        [highlightAxesOnMouseOver, hoveredSeriesName, axisAssignments, xAxesState, yAxesState, seriesStyles]
     )
 
     // calculates the distinct series IDs that cover all the series in the plot

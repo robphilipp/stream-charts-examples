@@ -134,6 +134,17 @@ export interface ContinuousNumericAxis extends BaseAxis {
      * chart's `color` prop (e.g., on a theme change) between full axis updates.
      */
     updateFont: (font: AxesFont) => void
+    /**
+     * Highlights (or un-highlights) this axis -- used, for example, to indicate which axis a
+     * currently-hovered series is plotted against. When `highlighted` is true, the axis' domain
+     * line, ticks, and labels are drawn in `color` at `lineWidth` instead of the normal font color
+     * and 1px line; `color`/`lineWidth` are remembered across calls, so a later `setHighlighted(true)`
+     * without them reuses whatever was last passed (or the built-in default on the first call).
+     * @param highlighted Whether the axis should be drawn highlighted
+     * @param color The highlight color
+     * @param lineWidth The highlight line width
+     */
+    setHighlighted: (highlighted: boolean, color?: string, lineWidth?: number) => void
 }
 
 /**
@@ -552,6 +563,9 @@ export function addEmptyXAxis(
     // value in response to that. The `currentColor` is now explicit, passed in and refreshable via
     // `updateFont` below.
     let currentColor = color
+    let highlighted = false
+    let highlightColor = defaultLineStyle().highlightColor
+    let highlightLineWidth = defaultLineStyle().highlightWidth
 
     const drawHandle: DrawHandle = `x-axis-empty-${canvasContext.chartId}-${axisId}`
 
@@ -559,7 +573,8 @@ export function addEmptyXAxis(
         const {context2D} = context
         context2D.save()
         context2D.translate(currentMargin.left, yTranslation(location, currentDimensions, currentMargin))
-        context2D.strokeStyle = currentColor
+        context2D.strokeStyle = highlighted ? highlightColor : currentColor
+        context2D.lineWidth = highlighted ? highlightLineWidth : 1
         context2D.beginPath()
         context2D.moveTo(0, 0)
         context2D.lineTo(currentDimensions.width, 0)
@@ -586,6 +601,12 @@ export function addEmptyXAxis(
         // theme change), matching the pattern used by the other axis types
         updateFont: (font) => {
             currentColor = font.color
+            canvasContext.requestRedraw()
+        },
+        setHighlighted: (isHighlighted, color, lineWidth) => {
+            highlighted = isHighlighted
+            if (color !== undefined) highlightColor = color
+            if (lineWidth !== undefined) highlightLineWidth = lineWidth
             canvasContext.requestRedraw()
         }
     }
@@ -620,6 +641,9 @@ export function addEmptyYAxis(
     let currentDimensions = plotDimensions
     let currentMargin = margin
     let currentColor = color
+    let highlighted = false
+    let highlightColor = defaultLineStyle().highlightColor
+    let highlightLineWidth = defaultLineStyle().highlightWidth
 
     const drawHandle: DrawHandle = `y-axis-empty-${cc.chartId}-${axisId}`
 
@@ -627,7 +651,8 @@ export function addEmptyYAxis(
         const {context2D} = context
         context2D.save()
         context2D.translate(xTranslation(location, currentDimensions, currentMargin), currentMargin.top)
-        context2D.strokeStyle = currentColor
+        context2D.strokeStyle = highlighted ? highlightColor : currentColor
+        context2D.lineWidth = highlighted ? highlightLineWidth : 1
         context2D.beginPath()
         context2D.moveTo(0, 0)
         context2D.lineTo(0, currentDimensions.height)
@@ -654,6 +679,12 @@ export function addEmptyYAxis(
         // theme change), matching the pattern used by the other axis types
         updateFont: (font) => {
             currentColor = font.color
+            cc.requestRedraw()
+        },
+        setHighlighted: (isHighlighted, color, lineWidth) => {
+            highlighted = isHighlighted
+            if (color !== undefined) highlightColor = color
+            if (lineWidth !== undefined) highlightLineWidth = lineWidth
             cc.requestRedraw()
         }
     }
@@ -691,6 +722,9 @@ export function addContinuousNumericXAxis(
     let currentMargin = margin
     const currentLabel = axisLabel
     let currentFont = axesLabelFont
+    let highlighted = false
+    let highlightColor = defaultLineStyle().highlightColor
+    let highlightLineWidth = defaultLineStyle().highlightWidth
 
     const drawHandle: DrawHandle = `x-axis-${cc.chartId}-${axisId}`
 
@@ -703,9 +737,10 @@ export function addContinuousNumericXAxis(
         // axes (only the ordinal/category axes clip), which let the first/last tick labels
         // overflow into the margin without being cut off. Clipping to exactly the plot width
         // here would chop those end labels in half, so ticks/labels are intentionally unclipped.
-        context2D.strokeStyle = currentFont.color
-        context2D.fillStyle = currentFont.color
-        context2D.lineWidth = 1
+        const axisColor = highlighted ? highlightColor : currentFont.color
+        context2D.strokeStyle = axisColor
+        context2D.fillStyle = axisColor
+        context2D.lineWidth = highlighted ? highlightLineWidth : 1
         context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
         context2D.textAlign = 'center'
         context2D.textBaseline = location === AxisLocation.Bottom ? 'top' : 'bottom'
@@ -732,7 +767,7 @@ export function addContinuousNumericXAxis(
         })
 
         // axis label (not clipped, matches the old behavior)
-        context2D.fillStyle = currentFont.color
+        context2D.fillStyle = axisColor
         context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
         context2D.textAlign = 'center'
         context2D.textBaseline = location === AxisLocation.Top ? 'hanging' : 'alphabetic'
@@ -757,6 +792,12 @@ export function addContinuousNumericXAxis(
         },
         updateFont: (font) => {
             currentFont = font
+            cc.requestRedraw()
+        },
+        setHighlighted: (isHighlighted, color, lineWidth) => {
+            highlighted = isHighlighted
+            if (color !== undefined) highlightColor = color
+            if (lineWidth !== undefined) highlightLineWidth = lineWidth
             cc.requestRedraw()
         }
     }
@@ -796,6 +837,9 @@ export function addContinuousNumericYAxis(
     let currentMargin = margin
     const currentLabel = axisLabel
     let currentFont = axesLabelFont
+    let highlighted = false
+    let highlightColor = defaultLineStyle().highlightColor
+    let highlightLineWidth = defaultLineStyle().highlightWidth
 
     const drawHandle: DrawHandle = `y-axis-${cc.chartId}-${axisId}`
 
@@ -807,9 +851,10 @@ export function addContinuousNumericYAxis(
         // NOTE: unclipped, matching the old SVG version's continuous numeric axes (only the
         // ordinal/category axes clipped there) -- clipping to exactly the plot height would cut
         // off the top- and bottom-most tick labels, which straddle y=0 and y=height.
-        context2D.strokeStyle = currentFont.color
-        context2D.fillStyle = currentFont.color
-        context2D.lineWidth = 1
+        const axisColor = highlighted ? highlightColor : currentFont.color
+        context2D.strokeStyle = axisColor
+        context2D.fillStyle = axisColor
+        context2D.lineWidth = highlighted ? highlightLineWidth : 1
         context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
         context2D.textBaseline = 'middle'
         context2D.textAlign = location === AxisLocation.Left ? 'right' : 'left'
@@ -840,7 +885,7 @@ export function addContinuousNumericYAxis(
         const labelX = continuousLabelXTranslation(location, currentDimensions, currentMargin, currentFont) - xTranslation(location, currentDimensions, currentMargin)
         context2D.translate(labelX, currentDimensions.height / 2)
         context2D.rotate(-Math.PI / 2)
-        context2D.fillStyle = currentFont.color
+        context2D.fillStyle = axisColor
         context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
         context2D.textAlign = 'center'
         context2D.textBaseline = 'alphabetic'
@@ -865,6 +910,12 @@ export function addContinuousNumericYAxis(
         },
         updateFont: (font) => {
             currentFont = font
+            cc.requestRedraw()
+        },
+        setHighlighted: (isHighlighted, color, lineWidth) => {
+            highlighted = isHighlighted
+            if (color !== undefined) highlightColor = color
+            if (lineWidth !== undefined) highlightLineWidth = lineWidth
             cc.requestRedraw()
         }
     }
