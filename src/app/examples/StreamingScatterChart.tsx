@@ -501,7 +501,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                                 <Checkbox
                                     key={5}
                                     checked={visibility.markers}
-                                    disabled={running}
+                                    // disabled={running}
                                     label="markers"
                                     backgroundColor={theme.backgroundColor}
                                     borderColor={theme.color}
@@ -551,7 +551,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={chartSeriesStyles}
                     initialData={initialData}
-                    // seriesFilter={filterFrom(filterValue)}
                     seriesFilter={filter}
                     seriesObservable={observable}
                     shouldSubscribe={running}
