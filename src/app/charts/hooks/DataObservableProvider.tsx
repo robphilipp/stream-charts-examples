@@ -23,6 +23,11 @@ export interface Props<CD extends ChartData, D> {
      */
     windowingTime?: number
     /**
+     * The period (ms) at which `seriesObservable` itself emits new data, when known. See
+     * {@link UseObservableValues.dataUpdatePeriod}.
+     */
+    dataUpdatePeriod?: number
+    /**
      * Should subscribe to the observable. When `true` the chart will subscribe to the
      * observable, or if already subscribed, will remain subscribed. When `false` the
      * chart will unsubscribe to the observable if subscribed, or will remain unsubscribed
@@ -66,6 +71,7 @@ export default function DataObservableProvider<CD extends ChartData, D>(props: P
     const {
         seriesObservable,
         windowingTime = defaultObservableValues().windowingTime || 100,
+        dataUpdatePeriod,
         shouldSubscribe,
 
         onSubscribe = noop,
@@ -83,6 +89,7 @@ export default function DataObservableProvider<CD extends ChartData, D>(props: P
         value={{
             seriesObservable: observable,
             windowingTime,
+            dataUpdatePeriod,
             shouldSubscribe,
 
             onSubscribe,

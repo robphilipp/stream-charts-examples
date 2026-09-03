@@ -74,6 +74,12 @@ function mergeSeries(
     min: number,
     max: number
 ): Map<string, Array<Datum>> {
+    // builds a brand-new map (rather than mutating and returning `accum`) so that each emitted
+    // `newPoints` is an independent snapshot. `accum` becomes the previous tick's returned map, so
+    // reusing/mutating that same object here would mean every emission -- including ones already
+    // sitting in an RxJS `bufferTime` buffer, waiting to be read -- aliases the same object, and
+    // would retroactively appear to hold only the latest tick's value once the buffer flushes
+    const merged = new Map<string, Array<Datum>>()
     incoming.forEach((data, name) => {
         const accData = accum.get(name) || [];
         const lastAccum = accData.length > 0 ? accData[accData.length - 1].y : 0;
@@ -81,9 +87,9 @@ function mergeSeries(
             x: datum.x,
             y: index === 0 ? Math.max(min, Math.min(max, lastAccum + datum.y)) : data[index - 1].y + datum.y
         }))
-        accum.set(name, newData);
+        merged.set(name, newData);
     })
-    return accum;
+    return merged;
 }
 
 

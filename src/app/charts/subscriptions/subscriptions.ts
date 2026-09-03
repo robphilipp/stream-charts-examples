@@ -1,4 +1,4 @@
-import {bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
+import {bufferCount, bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
 import {
     continuousAxisRanges,
     type ContinuousNumericAxis,
@@ -62,6 +62,16 @@ export type TimeWindowBehavior = (typeof TimeWindowBehavior)[keyof typeof TimeWi
  * @param setCurrentTime Callback to update the current time based on the streamed data
  * @param timeWindowBehavior Whether to scroll the time axis or squeeze it
  * @param initialTimes The initial times for each axis, a map(axis_id -> initial_time)
+ * @param dataUpdatePeriod The period (ms) at which `seriesObservable` itself emits new data. When
+ * provided (and positive), buffering switches from wall-clock-based (`bufferTime`) to a fixed tick
+ * count (`bufferCount`) derived from `windowingTime / dataUpdatePeriod`. `bufferTime` and the
+ * source's own emission timer are two independent, unsynchronized clocks -- ordinary timer jitter
+ * of just a few ms is enough to shift a tick across a buffer boundary, so the number of ticks
+ * landing in any given flush can vary (e.g. between 1 and 2 when windowingTime is only 2x
+ * dataUpdatePeriod), producing an uneven, jittery scroll once the axis starts auto-scrolling --
+ * visible as time appearing to move forward and backward slightly, even though the underlying
+ * values never actually decrease. `bufferCount` counts emissions directly, so it's immune to that
+ * jitter. When omitted, falls back to the original `bufferTime` behavior.
  * @return A subscription to the observable (for cancelling and the likes)
  */
 export function subscriptionTimeSeriesFor(
@@ -77,9 +87,14 @@ export function subscriptionTimeSeriesFor(
     setCurrentTime: (axisId: string, end: number) => void,
     timeWindowBehavior: TimeWindowBehavior = TimeWindowBehavior.SCROLL,
     initialTimes: Map<string, number> = new Map<string, number>(),
+    dataUpdatePeriod?: number,
 ): Subscription {
+    const buffered = dataUpdatePeriod !== undefined && dataUpdatePeriod > 0 ?
+        bufferCount<TimeSeriesChartData>(Math.max(1, Math.round(windowingTime / dataUpdatePeriod))) :
+        bufferTime<TimeSeriesChartData>(windowingTime)
+
     const subscription = seriesObservable
-        .pipe(bufferTime(windowingTime))
+        .pipe(buffered)
         .subscribe(dataList => {
             dataList.forEach(data => {
                 // grab the time-windows for the x-axes
@@ -170,7 +185,12 @@ export function subscriptionTimeSeriesFor(
  * @param updateTimingAndPlot The callback function to update the plot and timing
  * @param seriesMap The series-name and the associated series
  * @param setCurrentTime Callback to update the current time based on the streamed data
- * @param cadencePeriod The number of milliseconds between time updates
+ * @param cadencePeriod The number of milliseconds between time updates. Cadence ticks -- not data
+ * ticks -- drive the axis scroll in this mode (see the `data.currentTime !== undefined` branch
+ * below), and are deliberately left unbuffered: `windowingTime` still batches the *data* stream
+ * (a lever for reducing per-point overhead), but each cadence tick flows straight through to the
+ * subscriber the moment it fires, so the axis scrolls smoothly at `cadencePeriod`'s own rate
+ * regardless of how large `windowingTime` is.
  * @return A subscription to the observable (for cancelling and the likes)
  */
 export function subscriptionTimeSeriesWithCadenceFor(
@@ -202,30 +222,62 @@ export function subscriptionTimeSeriesWithCadenceFor(
             )
         )
 
-    const subscription = seriesObservable
-        .pipe(
-            mergeWith(cadence),
-            bufferTime(windowingTime),
-            mergeAll(),
-        )
+    // cadence ticks (not data ticks -- see the `data.currentTime !== undefined` branch below) are
+    // what advance the axis window in this mode, and cadence's whole purpose is to make that
+    // advance smooth by ticking at its own fine-grained period, independent of how fast (or
+    // slowly/irregularly) real data arrives. Buffering the data stream is still worthwhile -- it's
+    // a lever for reducing per-point overhead when a lot of data arrives -- but cadence ticks must
+    // NOT be routed through that same buffer: buffering delays delivery until a group of items is
+    // ready, then delivers the whole group at once, so every cadence tick in that group ends up
+    // redrawn in a single burst rather than at its own natural pace. That collapses cadence's
+    // per-tick smoothness down to the buffer's flush rate -- the axis would only visibly scroll
+    // once every `windowingTime` ms (in one bigger jump) instead of once every `cadencePeriod` ms.
+    // Leaving `cadence` unbuffered here means each tick flows straight through to the subscriber
+    // (and triggers its own `updateTimingAndPlot`/redraw) the moment it fires.
+    const bufferedData = seriesObservable.pipe(bufferTime<TimeSeriesChartData>(windowingTime), mergeAll())
+
+    const subscription = bufferedData
+        .pipe(mergeWith(cadence))
         .subscribe(data => {
             // grab the time-windows for the x-axes
             const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
+            // advances the visible window for the specified axis so its right edge sits at
+            // `targetTime`, preserving the window's current width -- but only once `targetTime`
+            // actually exceeds the window's current right edge, exactly like the non-cadence
+            // path's `endTime < currentAxisTime` gate. That gate is what lets a user pan/zoom the
+            // window ahead of the current time and watch the data catch up to it before scrolling
+            // resumes; comparing only against the window's width (rather than its actual current
+            // position) would ignore wherever the window was panned/zoomed to and jump straight to
+            // "now" the moment enough time had elapsed, which is the wrong behavior.
+            //
+            // Shared by both cadence ticks and real data ticks: cadence ticks provide smooth,
+            // frequent advances between data arrivals, but cadence (`interval(cadencePeriod)`) and
+            // the data source (`interval(updatePeriod)`) are two independent timers with no
+            // relationship to each other, and can drift apart over a long-running stream even when
+            // each individually tracks wall-clock time reasonably well. Calling this from the
+            // data-tick branch too means real data is always treated as ground truth: if a data
+            // point's own timestamp is ever ahead of what cadence has computed, the window still
+            // advances to it, so cadence drifting behind the data can't leave the axis permanently
+            // behind.
+            const advanceAxisWindowTo = (axisId: string, targetTime: number): void => {
+                const range = timesWindows.get(axisId)
+                if (range === undefined) return
+                const [startTime, endTime] = range.current.asTuple()
+                if (endTime < targetTime) {
+                    const timeWindow = endTime - startTime
+                    timesWindows.set(
+                        axisId,
+                        ContinuousAxisRange.from(Math.max(0, targetTime - timeWindow), Math.max(targetTime, timeWindow))
+                    )
+                }
+            }
+
             if (data.currentTime !== undefined) {
+                const cadenceTime = data.currentTime + maxTime
                 xAxesState.axisIds().forEach(axisId => {
-                    const range = timesWindows.get(axisId)
-                    if (range !== undefined && data.currentTime !== undefined) {
-                        const [startTime, endTime] = range.current.asTuple()
-                        const timeWindow = endTime - startTime
-                        // const timeWindow = measureOf(range.current)
-                        const timeRange = ContinuousAxisRange.from(
-                            Math.max(0, Math.max(endTime, data.currentTime + maxTime) - timeWindow),
-                            Math.max(Math.max(endTime, data.currentTime + maxTime), timeWindow)
-                        )
-                        timesWindows.set(axisId, timeRange)
-                        setCurrentTime(axisId, data.currentTime + maxTime)
-                    }
+                    advanceAxisWindowTo(axisId, cadenceTime)
+                    setCurrentTime(axisId, cadenceTime)
                 })
             }
 
@@ -261,6 +313,10 @@ export function subscriptionTimeSeriesWithCadenceFor(
                     while (currentAxisTime - series.data[0].x > dropDataAfter) {
                         series.data.shift()
                     }
+                    // re-sync the axis to the data's own ground-truth time -- see
+                    // `advanceAxisWindowTo` above for why this matters even though cadence ticks
+                    // already advance the window
+                    advanceAxisWindowTo(axisId, currentAxisTime)
                 }
             })
 

@@ -113,6 +113,13 @@ export interface Props<CD, D, S extends SeriesStyle> {
      */
     windowingTime?: number
     /**
+     * The period (ms) at which `seriesObservable` itself emits new data, when known. When
+     * provided, buffering switches from wall-clock-based to a fixed tick count derived from
+     * `windowingTime / dataUpdatePeriod`, avoiding a jittery scroll that can otherwise result once
+     * the axis auto-scrolls (see {@link subscriptionTimeSeriesFor}'s `dataUpdatePeriod` param).
+     */
+    dataUpdatePeriod?: number
+    /**
      * When switching to `true` from `false`, subscribes to the {@link seriesObservable}. When switching
      * to `false` from `true`, unsubscribes from the {@link seriesObservable}.
      */
@@ -264,6 +271,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
         seriesFilter = /./,
         seriesObservable,
         windowingTime = 100,
+        dataUpdatePeriod,
         shouldSubscribe = true,
 
         onSubscribe = noop,
@@ -297,6 +305,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                                 <DataObservableProvider<CD, D>
                                     seriesObservable={seriesObservable}
                                     windowingTime={windowingTime}
+                                    dataUpdatePeriod={dataUpdatePeriod}
                                     shouldSubscribe={shouldSubscribe}
 
                                     onSubscribe={onSubscribe}

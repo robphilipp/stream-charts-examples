@@ -557,6 +557,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     onSubscribe={setSubscription}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={windowingTime}
+                    dataUpdatePeriod={dataUpdatePeriod}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"

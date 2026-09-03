@@ -31,6 +31,7 @@ import {useInitialData} from "../hooks/useInitialData";
 import type {TooltipData} from "../hooks/useTooltip";
 import {Optional} from "result-fn";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
+import {AxisInterval} from "../axes/AxisInterval";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import type {FastShiftArray} from "fast-shift-array";
 
@@ -172,6 +173,7 @@ export function ScatterPlot(props: Props): null {
     const {
         seriesObservable,
         windowingTime = 100,
+        dataUpdatePeriod,
         shouldSubscribe,
 
         onSubscribe = noop,
@@ -595,6 +597,58 @@ export function ScatterPlot(props: Props): null {
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
+    // while actively streaming, re-anchors a zoom's right edge to the actual current time, so zoom
+    // only ever changes *how much history is visible* (the window's width), never how far ahead the
+    // window looks. `continuousAxisZoomHandler` above computes the new width correctly (scaling
+    // around the mouse position), but the resulting *position* is an emergent side effect of that
+    // scale-and-anchor transform -- and since the plot's two x-axes cover different time spans over
+    // the same pixel width, the same zoom gesture repositions each axis's right edge by a different,
+    // unrelated amount. Left alone, the auto-scroll subscription's "wait until real time reaches the
+    // window's right edge" logic (see `advanceAxisWindowTo` in subscriptions.ts) then waits on an
+    // essentially arbitrary, per-axis threshold, so the two axes resume scrolling at different,
+    // uncoordinated moments -- which is what shows up as "jumpy" once scrolling resumes. Pan is
+    // deliberately left untouched: dragging the view ahead to watch data catch up to *that* position
+    // is a feature, not the bug zoom had.
+    // snapshots each axis's current right edge -- must be captured *before* a zoom is applied, so
+    // `reanchorZoomToNow` has something to compare against other than the very value the zoom just
+    // (potentially incorrectly) set.
+    const snapshotAxisEndTimes = useCallback(
+        (ranges: Map<string, ContinuousAxisRange>): Map<string, number> =>
+            new Map(Array.from(ranges.entries()).map(([axisId, range]) => [axisId, range.current.end])),
+        []
+    )
+
+    const reanchorZoomToNow = useCallback(
+        (ranges: Map<string, ContinuousAxisRange>, preZoomEndByAxis: Map<string, number>) => {
+            if (!shouldSubscribe) return
+            const latestDataTimeByAxis = new Map<string, number>()
+            seriesRef.current.forEach((series, name) => {
+                if (series.data.length === 0) return
+                const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId().getOrElse("")
+                const latest = series.data[series.data.length - 1].x
+                latestDataTimeByAxis.set(axisId, Math.max(latestDataTimeByAxis.get(axisId) ?? -Infinity, latest))
+            })
+            ranges.forEach((range, axisId) => {
+                const [start, end] = range.current.asTuple()
+                // "now" is never allowed to move backward relative to where the window already was
+                // *before this zoom* -- it's the more recent of the latest actual data point and the
+                // window's own pre-zoom right edge (which, e.g. under cadence, can legitimately be
+                // ahead of the latest real data point). Comparing against `end` here (the already
+                // zoomed-and-mutated value) instead of the pre-zoom snapshot would just keep
+                // whatever inflated value the zoom produced, defeating the whole point.
+                const now = Math.max(latestDataTimeByAxis.get(axisId) ?? -Infinity, preZoomEndByAxis.get(axisId) ?? -Infinity)
+                if (!isFinite(now)) return
+                const newStart = Math.max(0, now - (end - start))
+                if (newStart === start && now === end) return
+                ranges.set(axisId, range.update(newStart, now))
+                xAxesState.axisFor(axisId).ifPresent(
+                    axis => axis.update(AxisInterval.from(newStart, now), plotDimensions, margin)
+                )
+            })
+        },
+        [shouldSubscribe, axisAssignments, xAxesState, plotDimensions, margin]
+    )
+
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
     // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
@@ -642,12 +696,14 @@ export function ScatterPlot(props: Props): null {
                     .scaleExtent([0, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
+                            const preZoomEndByAxis = snapshotAxisEndTimes(timeRangesRef.current)
                             onZoom(
                                 event.transform,
                                 event.sourceEvent.offsetX - margin.left,
                                 plotDimensions,
                                 timeRangesRef.current,
                             )
+                            reanchorZoomToNow(timeRangesRef.current, preZoomEndByAxis)
                             updatePlotRef.current(cc)
                             // the zoom updated the axes' ranges in place, so report the new intervals
                             notifyIntervalsRef.current(timeRangesRef.current)
@@ -665,7 +721,7 @@ export function ScatterPlot(props: Props): null {
                 if (zoomEnabled) canvasSelection.on(".zoom", null)
             }
         },
-        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, reanchorZoomToNow, snapshotAxisEndTimes]
     )
 
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
@@ -819,6 +875,7 @@ export function ScatterPlot(props: Props): null {
                 (axisId, end) => currentTimeRef.current.set(axisId, end),
                 timeWindowBehavior,
                 initialTimes,
+                dataUpdatePeriod,
             )
         },
         [
@@ -826,7 +883,7 @@ export function ScatterPlot(props: Props): null {
             onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
             withCadenceOf,
-            initialTimes, timeWindowBehavior
+            initialTimes, timeWindowBehavior, dataUpdatePeriod
         ]
     )
 

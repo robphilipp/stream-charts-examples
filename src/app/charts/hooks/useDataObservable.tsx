@@ -27,6 +27,15 @@ export interface UseObservableValues<CD extends ChartData, D> {
      * the chart would be updated only once per 10 ms.
      */
     windowingTime?: number
+    /**
+     * The period (ms) at which `seriesObservable` itself emits new data, when known. When
+     * provided, the subscription buffers by a fixed tick count derived from
+     * `windowingTime / dataUpdatePeriod` instead of by wall-clock time, avoiding the jittery
+     * scroll that can result from two independent, unsynchronized timers (the source's own
+     * emission timer and the windowing timer) disagreeing about how many ticks landed in a
+     * given flush.
+     */
+    dataUpdatePeriod?: number
 
     /*
      | USER CALLBACK FUNCTIONS
