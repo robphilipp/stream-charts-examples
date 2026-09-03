@@ -47,6 +47,31 @@ export const TimeWindowBehavior = {
 export type TimeWindowBehavior = (typeof TimeWindowBehavior)[keyof typeof TimeWindowBehavior];
 
 /**
+ * Advances the visible window for the specified axis (in place, within `timesWindows`) so its
+ * right edge sits at `targetTime`, preserving the window's current width -- but only once
+ * `targetTime` actually exceeds the window's current right edge. This gate is what lets a user
+ * pan/zoom the window ahead of the current time and watch the data catch up to it before
+ * scrolling resumes; comparing only against the window's width (rather than its actual current
+ * position) would ignore wherever the window was panned/zoomed to and jump straight to "now" the
+ * moment enough time had elapsed, which is the wrong behavior.
+ * @param timesWindows A `map(axis_id -> range)` updated in place
+ * @param axisId The axis to advance
+ * @param targetTime The time the axis's right edge should advance to (a no-op if it's already there)
+ */
+function advanceAxisRangeInMapTo(timesWindows: Map<string, ContinuousAxisRange>, axisId: string, targetTime: number): void {
+    const range = timesWindows.get(axisId)
+    if (range === undefined) return
+    const [startTime, endTime] = range.current.asTuple()
+    if (endTime < targetTime) {
+        const timeWindow = endTime - startTime
+        timesWindows.set(
+            axisId,
+            ContinuousAxisRange.from(Math.max(0, targetTime - timeWindow), Math.max(targetTime, timeWindow))
+        )
+    }
+}
+
+/**
  * Creates a subscription to the series observable with the data stream. This is common code
  * shared by the plots.
  * @param seriesObservable The series observable holding the stream of chart data
@@ -211,15 +236,28 @@ export function subscriptionTimeSeriesWithCadenceFor(
             (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.x).getOrElse(tMax)),
             -Infinity
         )
+
+    // wall-clock elapsed time since subscribing, rather than `value * cadencePeriod` (i.e.
+    // counting ticks). The two are equivalent under normal conditions, but diverge whenever a
+    // cadence tick is delivered late -- most notably because the tab/window was hidden (see the
+    // `visibilitychange` handling below): the browser throttles `setInterval`/`setTimeout`
+    // (what `interval()` is built on) for hidden pages, so ticks that *do* fire while hidden
+    // still land at their "natural" 1-per-`cadencePeriod` count, undercounting how much real time
+    // actually passed. Reporting elapsed wall-clock time instead means the very first tick after
+    // becoming visible again immediately reports the true current time, rather than a stale value
+    // that would otherwise take many additional ticks to "count up" to reality.
+    const cadenceStartTime = performance.now()
     const cadence = interval(cadencePeriod)
         .pipe(
-            map(value => ({
-                currentTime: value * cadencePeriod,
-                    maxTime: value * cadencePeriod,
+            map(() => {
+                const elapsed = performance.now() - cadenceStartTime
+                return {
+                    currentTime: elapsed,
+                    maxTime: elapsed,
                     maxTimes: new Map(),
                     newPoints: new Map()
-                } as TimeSeriesChartData)
-            )
+                } as TimeSeriesChartData
+            })
         )
 
     // cadence ticks (not data ticks -- see the `data.currentTime !== undefined` branch below) are
@@ -260,18 +298,8 @@ export function subscriptionTimeSeriesWithCadenceFor(
             // point's own timestamp is ever ahead of what cadence has computed, the window still
             // advances to it, so cadence drifting behind the data can't leave the axis permanently
             // behind.
-            const advanceAxisWindowTo = (axisId: string, targetTime: number): void => {
-                const range = timesWindows.get(axisId)
-                if (range === undefined) return
-                const [startTime, endTime] = range.current.asTuple()
-                if (endTime < targetTime) {
-                    const timeWindow = endTime - startTime
-                    timesWindows.set(
-                        axisId,
-                        ContinuousAxisRange.from(Math.max(0, targetTime - timeWindow), Math.max(targetTime, timeWindow))
-                    )
-                }
-            }
+            const advanceAxisWindowTo = (axisId: string, targetTime: number): void =>
+                advanceAxisRangeInMapTo(timesWindows, axisId, targetTime)
 
             if (data.currentTime !== undefined) {
                 const cadenceTime = data.currentTime + maxTime
@@ -323,6 +351,41 @@ export function subscriptionTimeSeriesWithCadenceFor(
             // update the data
             updateTimingAndPlot(timesWindows)
         })
+
+    // Chrome fully pauses `requestAnimationFrame` while the tab/window is hidden -- including
+    // when a macOS Spaces switch occludes the window, not just literal tab-switching -- and
+    // throttles `setInterval`/`setTimeout` (what `cadence` and the underlying data source's own
+    // timer both run on) down to as little as once per second. The two timers are independently
+    // throttled, so they don't necessarily resume in lockstep: whichever one happens to have
+    // ticked more while hidden ends up ahead, and `advanceAxisWindowTo`'s `endTime < targetTime`
+    // gate then leaves the other one's calls as no-ops for that axis until it organically catches
+    // up -- which, immediately after a long hidden stretch, can take a while, showing up as that
+    // axis only advancing on whichever clock's ticks are still getting through (e.g. once every
+    // `windowingTime` from the data side, since cadence is what usually provides the smooth,
+    // frequent advances). Forcing every axis straight to the actual ground-truth time (the latest
+    // real datum received so far) the moment the page becomes visible again closes that gap
+    // immediately, rather than waiting on either clock's next tick.
+    if (typeof document !== 'undefined') {
+        const resyncAxesOnVisible = (): void => {
+            if (document.visibilityState !== 'visible') return
+
+            const groundTruthTime = Array.from(seriesMap.values())
+                .reduce(
+                    (tMax, series) => Math.max(tMax, series.last().map(datum => datum.x).getOrElse(tMax)),
+                    -Infinity
+                )
+            if (!isFinite(groundTruthTime)) return
+
+            const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+            xAxesState.axisIds().forEach(axisId => {
+                advanceAxisRangeInMapTo(timesWindows, axisId, groundTruthTime)
+                setCurrentTime(axisId, groundTruthTime)
+            })
+            updateTimingAndPlot(timesWindows)
+        }
+        document.addEventListener('visibilitychange', resyncAxesOnVisible)
+        subscription.add(() => document.removeEventListener('visibilitychange', resyncAxesOnVisible))
+    }
 
     // provide the subscription to the caller
     onSubscribe(subscription)

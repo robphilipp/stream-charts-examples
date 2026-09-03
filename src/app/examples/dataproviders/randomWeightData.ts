@@ -111,9 +111,20 @@ export function randomWeightDataObservable(
 ): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
     const initialData = initialTimeSeriesChartData(series)
+    // wall-clock elapsed time since subscribing, rather than `(sequence + 1) * updatePeriod` (i.e.
+    // counting ticks). The two track each other closely under normal conditions, but a tick-counted
+    // time permanently falls behind true elapsed time by however many ticks were missed whenever
+    // the underlying `setInterval` is throttled (e.g. the tab/window being hidden) -- it never
+    // catches up on its own, since the count just keeps incrementing by 1 per tick going forward,
+    // not by however many ticks *should* have fired. That matters here because the chart's cadence
+    // (see `subscriptionTimeSeriesWithCadenceFor`) is deliberately wall-clock-based for the same
+    // reason: if the data source stayed tick-counted while cadence corrects itself immediately on
+    // becoming visible again, cadence would race ahead of where the (still-behind) data actually
+    // is, scrolling the axis past all the visible data instead of merely lagging behind it.
+    const startTime = performance.now()
     return interval(updatePeriod).pipe(
-        // convert the number sequence to a time
-        map(sequence => (sequence + 1) * updatePeriod),
+        // convert the tick to an elapsed wall-clock time
+        map(() => performance.now() - startTime),
 
         // create a new (time, value) for each series
         map(time => randomWeightData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
