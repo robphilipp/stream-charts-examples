@@ -114,6 +114,19 @@ export interface Props {
      * containing this chart when the user navigates back.
      */
     subscription?: Subscription
+
+    /**
+     * Called (mirroring `onSubscribe`) whenever this plot (re)creates its zoom behavior, handing
+     * the caller a `resetZoom` function that programmatically clears d3-zoom's own accumulated
+     * scale/pan state back to identity. This exists because d3-zoom keeps that state attached
+     * directly to the canvas element -- entirely separate from (and unaffected by) resetting the
+     * axes' own ranges, e.g. via a "Reset" button that restores the axes' domains to their
+     * defaults. Without calling the handed-back `resetZoom`, the *next* user zoom gesture after
+     * such a reset would compute its new scale against the stale, still-accumulated transform
+     * (from before the reset) rather than starting fresh, producing a sudden, unexpected jump.
+     * Only meaningful (called) while `zoomEnabled` is true.
+     */
+    onZoomReset?: (resetZoom: () => void) => void
 }
 
 /**
@@ -193,6 +206,7 @@ export function ScatterPlot(props: Props): null {
         hideMarkersWhileRunning = true,
         highlightAxesOnMouseOver = false,
         subscription = undefined,
+        onZoomReset = noop,
     } = props
 
     const initialTimes = useMemo(
@@ -696,6 +710,15 @@ export function ScatterPlot(props: Props): null {
                     .scaleExtent([0, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
+                            // a `null` sourceEvent means this "zoom" wasn't a real user gesture but
+                            // a programmatic `.transform(...)` call -- e.g. `resetZoom` below,
+                            // clearing d3-zoom's own accumulated scale/pan state back to identity.
+                            // There's no real mouse position to anchor against in that case, and no
+                            // business logic to run: the axes' own ranges are reset independently
+                            // (by whatever caused the reset in the first place), so this only needs
+                            // to let d3-zoom's internal bookkeeping actually update.
+                            if (event.sourceEvent === null) return
+
                             const preZoomEndByAxis = snapshotAxisEndTimes(timeRangesRef.current)
                             onZoom(
                                 event.transform,
@@ -711,6 +734,13 @@ export function ScatterPlot(props: Props): null {
                     )
 
                 canvasSelection.call(zoom)
+
+                // hands the caller a way to clear d3-zoom's own accumulated scale/pan state (kept
+                // on the canvas element itself, entirely separate from the axes' own ranges) back
+                // to identity -- e.g. so that a "Reset" action which restores the axes' domains to
+                // their defaults doesn't leave the *next* zoom gesture computing its new scale
+                // against the stale, still-accumulated transform from before the reset.
+                onZoomReset(() => canvasSelection.call(zoom.transform, d3.zoomIdentity))
             }
 
             // detach the drag/zoom behaviors' listeners when this effect re-runs (e.g. on
@@ -721,7 +751,7 @@ export function ScatterPlot(props: Props): null {
                 if (zoomEnabled) canvasSelection.on(".zoom", null)
             }
         },
-        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, reanchorZoomToNow, snapshotAxisEndTimes]
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, reanchorZoomToNow, snapshotAxisEndTimes, onZoomReset]
     )
 
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())

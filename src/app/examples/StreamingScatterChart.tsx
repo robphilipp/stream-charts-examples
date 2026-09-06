@@ -1,4 +1,4 @@
-import {type JSX, useLayoutEffect, useMemo, useRef, useState} from "react";
+import {type JSX, useCallback, useLayoutEffect, useMemo, useRef, useState} from "react";
 import Checkbox from "../ui/Checkbox";
 import {
     Grid,
@@ -19,7 +19,7 @@ import {ContinuousAxis} from "../charts/axes/ContinuousAxis";
 import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {ScatterPlotTooltipContent} from "../charts/tooltips/ScatterPlotTooltipContent";
-import {formatNumber} from '../charts/utils';
+import {formatNumber, noop} from '../charts/utils';
 import {ScatterPlot} from "../charts/plots/ScatterPlot";
 import {Legend} from "../charts/legends/Legend";
 import {assignAxes} from "../charts/plots/plot";
@@ -188,6 +188,19 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     // whether the store has already been seeded with the initial data from the props
     const seededInitialDataRef = useRef<boolean>(false)
+
+    // holds the latest `resetZoom` handed back by <ScatterPlot> (see its `onZoomReset` prop),
+    // so that clearing the chart can also clear d3-zoom's own accumulated scale/pan state --
+    // which lives on the canvas element itself, entirely separate from (and unaffected by)
+    // resetting the axes' domains back to their defaults below
+    const resetZoomRef = useRef<() => void>(noop)
+    // stable across renders (empty deps -- it only ever assigns to a ref) so that passing it as
+    // <ScatterPlot onZoomReset={...}> doesn't make that prop a fresh reference every render, which
+    // would otherwise needlessly re-create the zoom behavior (see the effect's own comment on why
+    // that's worth avoiding) on every one of this component's re-renders while streaming
+    const handleZoomReset = useCallback((resetZoom: () => void): void => {
+        resetZoomRef.current = resetZoom
+    }, [])
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
@@ -366,6 +379,11 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         // reset local state to its original state
         setElapsed(0)
         setInterpolation(() => d3.curveLinear)
+
+        // the store reset above already restores the axes' own domains, but d3-zoom keeps its
+        // own accumulated scale/pan state on the canvas element itself -- clear that too, or the
+        // next zoom gesture would compute its new scale against the stale, pre-reset transform
+        resetZoomRef.current()
     }
 
     // the chart time is the end of the x2 axis range
@@ -636,6 +654,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         highlightAxesOnMouseOver={visibility.highlightAxes}
                         // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
                         subscription={subscription}
+                        onZoomReset={handleZoomReset}
                     />
                 </Chart>
             </GridItem>
