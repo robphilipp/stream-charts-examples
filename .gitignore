@@ -47,3 +47,4 @@ dist-ssr
 .ai/
 
 src/app/*.tar.gz
+notes/
