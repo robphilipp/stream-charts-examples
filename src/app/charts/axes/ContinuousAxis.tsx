@@ -179,9 +179,24 @@ export function ContinuousAxis(props: Props): null {
                     ) {
                         domainRef.current = propDomain
                         domainPropRef.current = domain
-                        updateAxisRanges(new Map([
-                            [axisId, ContinuousAxisRange.from(propDomain.start, propDomain.end)]
-                        ]))
+                        // preserve any existing `.original` tracking (e.g. from an in-progress
+                        // zoom) rather than collapsing it to match this new current -- mirrors the
+                        // identical bug fixed in subscriptions.ts's `advanceAxisRangeInMapTo`. A
+                        // domain-prop change here reflects the chart's OWN state being round-tripped
+                        // back in (e.g. a zoom/auto-scroll notifying `onUpdateAxesBounds`, which a
+                        // caller wrote into a store that feeds this same `domain` prop) at least as
+                        // often as it reflects a genuine external reset -- and there's no way to
+                        // tell those apart from here. Using `.from(...)` unconditionally reset
+                        // `scaleFactor` to 1 on every such round-trip, which -- combined with
+                        // ordinary per-frame store updates while streaming -- slowly decayed a
+                        // zoomed-out view back toward its original width over the following
+                        // seconds, even after a zoom gesture's own immediate result was correct. A
+                        // genuine external reset (e.g. the Reset button) already restores the whole
+                        // axis explicitly elsewhere, so this doesn't need to special-case it too.
+                        const updatedRange = axisRangeFor(axisId)
+                            .map(range => range.update(propDomain.start, propDomain.end) as ContinuousAxisRange)
+                            .getOrElse(ContinuousAxisRange.from(propDomain.start, propDomain.end))
+                        updateAxisRanges(new Map([[axisId, updatedRange]]))
                     }
                     // otherwise, if the domain exists, update the current axis
                     else if (currentDomain.isNotEmpty()) {

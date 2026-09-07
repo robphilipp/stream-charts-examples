@@ -64,11 +64,56 @@ function advanceAxisRangeInMapTo(timesWindows: Map<string, ContinuousAxisRange>,
     const [startTime, endTime] = range.current.asTuple()
     if (endTime < targetTime) {
         const timeWindow = endTime - startTime
+        const newStart = Math.max(0, targetTime - timeWindow)
+        const newEnd = Math.max(targetTime, timeWindow)
+        // preserve the axis' current zoom level (the current-width vs. original-width ratio,
+        // i.e. `scaleFactor`) across the advance, by shifting `.original` forward by the same
+        // amount as `.current` -- rather than resetting `.original` to match `.current` (which
+        // snaps scaleFactor back to 1). Zoom math (`ContinuousAxisRange.scaledRange`) divides by
+        // `scaleFactor` fresh on every "zoom" event, and d3-zoom's `transform.k` is *cumulative*
+        // from the start of the gesture -- if an interleaved data/cadence tick reset scaleFactor
+        // to 1 mid-gesture (as the old code did), the next zoom event reapplied the full
+        // cumulative k against an already-scaled width instead of just the incremental change,
+        // compounding into runaway growth every tick: the axis would "expand by a huge amount"
+        // while zooming during streaming, sometimes growing so large the data disappears.
+        const shift = newEnd - endTime
+        const [origStart, origEnd] = range.original.asTuple()
         timesWindows.set(
             axisId,
-            ContinuousAxisRange.from(Math.max(0, targetTime - timeWindow), Math.max(targetTime, timeWindow))
+            ContinuousAxisRange.from(newStart, newEnd, origStart + shift, origEnd + shift)
         )
     }
+}
+
+/**
+ * Same idea as {@link advanceAxisRangeInMapTo} (preserve `scaleFactor` across the advance by
+ * shifting `.original` forward in step with `.current`, rather than collapsing `.original` to
+ * `.current`), but for the SCROLL/SQUEEZE inline advance logic duplicated in
+ * {@link subscriptionTimeSeriesFor} and {@link subscriptionOutlierFor}: those advance a range to
+ * a target time only once new data actually arrives (rather than on every cadence tick), and
+ * SQUEEZE mode pins the window's start to `initialStart` instead of letting it slide forward.
+ * @param range The range to advance
+ * @param targetTime The time the range's right edge should advance to
+ * @param timeWindowBehavior Whether to scroll (both edges advance, width preserved) or squeeze
+ * (start pinned at `initialStart`, so the window widens instead of sliding)
+ * @param initialStart The pinned start time for SQUEEZE mode (ignored for SCROLL)
+ * @return The advanced range, with `.original` shifted by the same amount as `.current.end`
+ */
+function scrollOrSqueezeRangeTo(
+    range: ContinuousAxisRange,
+    targetTime: number,
+    timeWindowBehavior: TimeWindowBehavior,
+    initialStart?: number,
+): ContinuousAxisRange {
+    const [startTime, endTime] = range.current.asTuple()
+    const timeWindow = endTime - startTime
+    const newStart = timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialStart !== undefined ?
+        initialStart :
+        Math.max(0, targetTime - timeWindow)
+    const newEnd = Math.max(targetTime, timeWindow)
+    const shift = newEnd - endTime
+    const [origStart, origEnd] = range.original.asTuple()
+    return ContinuousAxisRange.from(newStart, newEnd, origStart + shift, origEnd + shift)
 }
 
 /**
@@ -118,13 +163,25 @@ export function subscriptionTimeSeriesFor(
         bufferCount<TimeSeriesChartData>(Math.max(1, Math.round(windowingTime / dataUpdatePeriod))) :
         bufferTime<TimeSeriesChartData>(windowingTime)
 
+    // grab the time-windows for the x-axes ONCE, at subscribe time, and mutate/advance this same
+    // map instance across every subsequent tick (rather than rebuilding it fresh from
+    // `axis.scale.domain()` on every emission). `continuousAxisRanges` has no way to recover a
+    // zoom's `.original` reference from the scale alone (the scale only stores the current
+    // domain), so rebuilding fresh every tick silently collapsed `.original` back to `.current`
+    // -- resetting `scaleFactor` to 1 -- possibly in the middle of an active zoom gesture. Since
+    // d3-zoom's `transform.k` is *cumulative* from the start of the gesture, an interleaved data
+    // tick resetting scaleFactor to 1 mid-gesture caused the next zoom event to reapply the full
+    // cumulative k against an already-scaled width, compounding into runaway growth. Building this
+    // map once and mutating it in place also means it becomes (and stays) the exact same object as
+    // the plot's persisted ranges ref once handed back via `updateTimingAndPlot`, so zoom/pan
+    // handlers mutating that ref are mutating this map too, instead of having their changes
+    // silently discarded by the next rebuild.
+    const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>);
+
     const subscription = seriesObservable
         .pipe(buffered)
         .subscribe(dataList => {
             dataList.forEach(data => {
-                // grab the time-windows for the x-axes
-                const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>);
-
                 //
                 // calculate the max times for each x-axis, which is the max time over all the
                 // series assigned to an x-axis
@@ -165,19 +222,14 @@ export function subscriptionTimeSeriesFor(
                         // axis, update the time windows, and call the setCurrentTime
                         // callback to update the current time for the caller
                         const range = timesWindows.get(axisId)
-                        const [startTime, endTime] = Optional.ofNullable(range?.current)
+                        const [, endTime] = Optional.ofNullable(range?.current)
                             .map(interval => interval.asTuple())
                             .getOrElse([0, 0])
                         if (range !== undefined && endTime < currentAxisTime) {
-                            const timeWindow = endTime - startTime
-                            const timeRange = ContinuousAxisRange.from(
-                                // 0,
-                                timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
-                                    initialTimes.get(axisId)! :
-                                    Math.max(0, currentAxisTime - timeWindow),
-                                Math.max(currentAxisTime, timeWindow)
+                            timesWindows.set(
+                                axisId,
+                                scrollOrSqueezeRangeTo(range, currentAxisTime, timeWindowBehavior, initialTimes.get(axisId))
                             )
-                            timesWindows.set(axisId, timeRange)
                             setCurrentTime(axisId, endTime) // callback
                         }
                     }
@@ -274,12 +326,17 @@ export function subscriptionTimeSeriesWithCadenceFor(
     // (and triggers its own `updateTimingAndPlot`/redraw) the moment it fires.
     const bufferedData = seriesObservable.pipe(bufferTime<TimeSeriesChartData>(windowingTime), mergeAll())
 
+    // grab the time-windows for the x-axes ONCE, at subscribe time, and mutate/advance this same
+    // map instance on every subsequent tick (cadence fires every `cadencePeriod`, far more often
+    // than data itself) -- see subscriptionTimeSeriesFor's identical `timesWindows` for the full
+    // explanation: rebuilding fresh from `axis.scale.domain()` on every tick collapses `.original`
+    // back to `.current`, which -- interleaved with an active zoom gesture, whose `transform.k` is
+    // cumulative from the gesture's start -- compounds into runaway axis growth on every tick.
+    const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+
     const subscription = bufferedData
         .pipe(mergeWith(cadence))
         .subscribe(data => {
-            // grab the time-windows for the x-axes
-            const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-
             // advances the visible window for the specified axis so its right edge sits at
             // `targetTime`, preserving the window's current width -- but only once `targetTime`
             // actually exceeds the window's current right edge, exactly like the non-cadence
@@ -376,7 +433,10 @@ export function subscriptionTimeSeriesWithCadenceFor(
                 )
             if (!isFinite(groundTruthTime)) return
 
-            const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+            // mutate the same shared `timesWindows` the main subscription reads/advances (see its
+            // declaration above) rather than building a separate fresh map -- doing the latter
+            // would leave the main subscription mutating a now-stale, orphaned map object while
+            // `updateTimingAndPlot` (and the plot's persisted ranges ref) moved on to this new one.
             xAxesState.axisIds().forEach(axisId => {
                 advanceAxisRangeInMapTo(timesWindows, axisId, groundTruthTime)
                 setCurrentTime(axisId, groundTruthTime)
@@ -534,13 +594,25 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
     setCurrentTime: (axisId: string, end: number) => void,
     timeWindowBehavior: TimeWindowBehavior = TimeWindowBehavior.SCROLL,
     initialTimes: Map<string, number> = new Map<string, number>(),
+    dataUpdatePeriod?: number,
 ): Subscription {
+    // see subscriptionTimeSeriesFor's identical parameter for the full explanation: switches from
+    // wall-clock `bufferTime` to a fixed tick-count `bufferCount` when the source's own emission
+    // period is known, avoiding an uneven, jittery scroll once the axis auto-scrolls.
+    const buffered = dataUpdatePeriod !== undefined && dataUpdatePeriod > 0 ?
+        bufferCount<OutlierChartData<M>>(Math.max(1, Math.round(windowingTime / dataUpdatePeriod))) :
+        bufferTime<OutlierChartData<M>>(windowingTime)
+
+    // see subscriptionTimeSeriesFor's identical `timesWindows` for the full explanation: built
+    // once, here, and mutated/advanced in place across every subsequent tick, rather than rebuilt
+    // fresh from `axis.scale.domain()` each time (which cannot recover a zoom's `.original`
+    // reference and so silently reset `scaleFactor` to 1, corrupting an in-progress zoom gesture).
+    const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+
     const subscription = seriesObservable
-        .pipe(bufferTime(windowingTime))
+        .pipe(buffered)
         .subscribe(dataList => {
             dataList.forEach(data => {
-                const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
-
                 data.newPoints.forEach((newData, name) => {
                     const series = seriesMap.get(name) || emptySeries<OutlierDatum<M>>(name) as OutlierSeries<M>
                     if (!seriesMap.has(name)) seriesMap.set(name, series)
@@ -558,16 +630,12 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
                         }
 
                         const range = timesWindows.get(axisId)
-                        const [startTime, endTime] = range?.current?.asTuple() ?? [0, 0]
+                        const [, endTime] = range?.current?.asTuple() ?? [0, 0]
                         if (range !== undefined && endTime < currentAxisTime) {
-                            const timeWindow = endTime - startTime
-                            const timeRange = ContinuousAxisRange.from(
-                                timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
-                                    initialTimes.get(axisId)! :
-                                    Math.max(0, currentAxisTime - timeWindow),
-                                Math.max(currentAxisTime, timeWindow)
+                            timesWindows.set(
+                                axisId,
+                                scrollOrSqueezeRangeTo(range, currentAxisTime, timeWindowBehavior, initialTimes.get(axisId))
                             )
-                            timesWindows.set(axisId, timeRange)
                             setCurrentTime(axisId, endTime)
                         }
                     }
@@ -617,41 +685,51 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
             (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.datum.x).getOrElse(tMax)),
             -Infinity
         )
+
+    // wall-clock elapsed time since subscribing, rather than `value * cadencePeriod` (i.e.
+    // counting ticks) -- see subscriptionTimeSeriesWithCadenceFor's cadence for the full
+    // explanation: a tick-counted cadence permanently undercounts real elapsed time once the
+    // tab/window is throttled while hidden (e.g. a macOS Spaces switch), since the browser
+    // clamps `setInterval` for hidden pages without "catching up" the ticks it skipped.
+    const cadenceStartTime = performance.now()
     const cadence = interval(cadencePeriod)
         .pipe(
-            map(value => ({
+            map(() => ({
                 seriesNames: new Set<string>(),
                 newPoints: new Map<string, Array<OutlierDatum<M>>>(),
-                currentTime: value * cadencePeriod,
+                currentTime: performance.now() - cadenceStartTime,
             } as OutlierChartData<M>))
         )
 
-    const subscription = seriesObservable
-        .pipe(
-            mergeWith(cadence),
-            bufferTime(windowingTime),
-            mergeAll(),
-        )
-        .subscribe(data => {
-            // grab the time-windows for the x-axes
-            const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+    // cadence ticks (not data ticks) are what advance the axis window smoothly in this mode --
+    // see subscriptionTimeSeriesWithCadenceFor's identical `bufferedData` for the full
+    // explanation. Routing `cadence` through the same `bufferTime(windowingTime)` as the data
+    // (as this used to do) delays every cadence tick until the next buffer flush and delivers a
+    // whole group of them at once, collapsing cadence's per-tick smoothness down to the buffer's
+    // flush rate -- the axis would only visibly scroll once every `windowingTime` ms (in one
+    // bigger jump) instead of once every `cadencePeriod` ms. Buffering only the real data stream,
+    // and merging the unbuffered `cadence` in afterward, means each cadence tick flows straight
+    // through to the subscriber the moment it fires, regardless of how large `windowingTime` is.
+    const bufferedData = seriesObservable.pipe(bufferTime<OutlierChartData<M>>(windowingTime), mergeAll())
 
+    // see subscriptionTimeSeriesWithCadenceFor's identical `timesWindows` for the full
+    // explanation: built once, here, and mutated/advanced in place on every subsequent cadence
+    // tick (every `cadencePeriod`), rather than rebuilt fresh from `axis.scale.domain()` each
+    // time -- which cannot recover a zoom's `.original` reference and so silently reset
+    // `scaleFactor` to 1 on every tick, corrupting any zoom gesture in progress.
+    const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+
+    const subscription = bufferedData
+        .pipe(mergeWith(cadence))
+        .subscribe(data => {
             // advance every x-axis's window on each cadence tick, regardless of whether new data
             // arrived -- this is what keeps the axes scrolling once the data has reached the
             // right-hand edge, rather than stalling until the next real datum shows up
             if (data.currentTime !== undefined) {
+                const cadenceTime = data.currentTime + maxTime
                 xAxesState.axisIds().forEach(axisId => {
-                    const range = timesWindows.get(axisId)
-                    if (range !== undefined && data.currentTime !== undefined) {
-                        const [startTime, endTime] = range.current.asTuple()
-                        const timeWindow = endTime - startTime
-                        const timeRange = ContinuousAxisRange.from(
-                            Math.max(0, Math.max(endTime, data.currentTime + maxTime) - timeWindow),
-                            Math.max(Math.max(endTime, data.currentTime + maxTime), timeWindow)
-                        )
-                        timesWindows.set(axisId, timeRange)
-                        setCurrentTime(axisId, data.currentTime + maxTime)
-                    }
+                    advanceAxisRangeInMapTo(timesWindows, axisId, cadenceTime)
+                    setCurrentTime(axisId, cadenceTime)
                 })
             }
 
@@ -662,6 +740,14 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
 
             // add each new point to its corresponding series, the new points
             // is a map(series_name -> new_point[])
+            //
+            // also track the max real-data time seen in this emission, so that -- once every
+            // series has been updated -- every x-axis can be re-synced to it (see the comment
+            // below for why this matters even though cadence ticks already advance the window).
+            // this function doesn't support per-series axis assignments (unlike
+            // subscriptionTimeSeriesWithCadenceFor), so all axes advance to the same time here,
+            // matching the cadence branch above.
+            let maxRealTime = -Infinity
             data.newPoints.forEach((newData, name) => {
                 // grab the current series associated with the new data, registering it the first
                 // time a series shows up (seriesRef starts from just the initial data and grows as
@@ -682,12 +768,51 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
                     while (series.data.length > 0 && currentAxisTime - series.data[0].datum.x > dropDataAfter) {
                         series.data.shift()
                     }
+                    maxRealTime = Math.max(maxRealTime, currentAxisTime)
                 }
             })
+
+            // re-sync the axes to the data's own ground-truth time -- cadence
+            // (`interval(cadencePeriod)`) and the data source's own timer are two independent
+            // timers that can drift apart over a long-running stream even when each individually
+            // tracks wall-clock time reasonably well; treating real data as ground truth here
+            // means cadence drifting behind the data can't leave the axes permanently behind.
+            if (isFinite(maxRealTime)) {
+                xAxesState.axisIds().forEach(axisId => advanceAxisRangeInMapTo(timesWindows, axisId, maxRealTime))
+            }
 
             // update the data
             updateTimingAndPlot(timesWindows)
         })
+
+    // see subscriptionTimeSeriesWithCadenceFor's identical block for the full explanation: forces
+    // every x-axis straight to the actual ground-truth time (the latest real datum received so
+    // far) the moment the page becomes visible again, rather than waiting on either the cadence
+    // or data timer's next tick to organically catch up after being throttled while hidden.
+    if (typeof document !== 'undefined') {
+        const resyncAxesOnVisible = (): void => {
+            if (document.visibilityState !== 'visible') return
+
+            const groundTruthTime = Array.from(seriesMap.values())
+                .reduce(
+                    (tMax, series) => Math.max(tMax, series.last().map(datum => datum.datum.x).getOrElse(tMax)),
+                    -Infinity
+                )
+            if (!isFinite(groundTruthTime)) return
+
+            // mutate the same shared `timesWindows` the main subscription reads/advances (see its
+            // declaration above) rather than building a separate fresh map -- doing the latter
+            // would leave the main subscription mutating a now-stale, orphaned map object while
+            // `updateTimingAndPlot` (and the plot's persisted ranges ref) moved on to this new one.
+            xAxesState.axisIds().forEach(axisId => {
+                advanceAxisRangeInMapTo(timesWindows, axisId, groundTruthTime)
+                setCurrentTime(axisId, groundTruthTime)
+            })
+            updateTimingAndPlot(timesWindows)
+        }
+        document.addEventListener('visibilitychange', resyncAxesOnVisible)
+        subscription.add(() => document.removeEventListener('visibilitychange', resyncAxesOnVisible))
+    }
 
     // provide the subscription to the caller
     onSubscribe(subscription)
@@ -733,6 +858,7 @@ export function subscriptionOrdinalXFor(
     ordinalStatsRef: RefObject<WindowedOrdinalStats>,
     setCurrentTime: (currentTime: number) => void,
     originalRange: AxisInterval,
+    dataUpdatePeriod?: number,
 ): Subscription {
 
     /**
@@ -782,8 +908,15 @@ export function subscriptionOrdinalXFor(
     //
     // beginning of the subscription function
     //
+    // see subscriptionTimeSeriesFor's identical parameter for the full explanation: switches from
+    // wall-clock `bufferTime` to a fixed tick-count `bufferCount` when the source's own emission
+    // period is known, avoiding an uneven, jittery scroll once the axis auto-scrolls.
+    const buffered = dataUpdatePeriod !== undefined && dataUpdatePeriod > 0 ?
+        bufferCount<OrdinalChartData>(Math.max(1, Math.round(windowingTime / dataUpdatePeriod))) :
+        bufferTime<OrdinalChartData>(windowingTime)
+
     const subscription = seriesObservable
-        .pipe(bufferTime(windowingTime))
+        .pipe(buffered)
         .subscribe(dataList => {
             dataList.forEach((data: OrdinalChartData) => {
                 // grab the axis ranges for the y-axes

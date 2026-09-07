@@ -119,14 +119,21 @@ function mergeOrdinalSeries(
     min: number,
     max: number
 ): Map<string, Array<Datum>> {
+    // builds a brand-new map (rather than mutating and returning `accum`) so that each emitted
+    // `newPoints` is an independent snapshot -- see randomWeightData.ts's `mergeSeries` for the
+    // full explanation of the bug this avoids: reusing/mutating the same object here would mean
+    // every emission -- including ones already sitting in an RxJS `bufferTime` buffer, waiting to
+    // be read -- aliases the same object, and would retroactively appear to hold only the latest
+    // tick's value once the buffer flushes.
+    const merged = new Map<string, Array<Datum>>(accum)
     incoming.forEach((data, name) => {
         const newData = data.map((datum, index) => ({
             x: datum.x,
             y: index === 0 ? Math.max(min, Math.min(max, datum.y)) : data[index - 1].y + datum.y
         }))
-        accum.set(name, newData);
+        merged.set(name, newData);
     })
-    return accum;
+    return merged;
 }
 
 /**

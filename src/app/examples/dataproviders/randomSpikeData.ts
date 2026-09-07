@@ -58,9 +58,15 @@ export function randomSpikeDataObservable(
 ): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
     const initialData = initialTimeSeriesChartData(series)
+    // wall-clock elapsed time since subscribing, rather than `(sequence + 1) * updatePeriod` (i.e.
+    // counting ticks) -- see randomWeightDataObservable for why this matters: a tick-counted time
+    // permanently falls behind true elapsed time by however many ticks were missed whenever the
+    // underlying `setInterval` is throttled (e.g. the tab/window being hidden), which would leave
+    // this generator's own timestamps lagging behind the chart's (wall-clock-based) cadence.
+    const subscribeTime = performance.now()
     return interval(updatePeriod).pipe(
-        // convert the number sequence to a time
-        map(sequence => (sequence + 1) * updatePeriod),
+        // convert the tick to an elapsed wall-clock time
+        map(() => performance.now() - subscribeTime),
         // create a random spike for each series
         map((time) => randomSpikeData(time, seriesNames, initialData.maxTimes, spikeProbability))
     );

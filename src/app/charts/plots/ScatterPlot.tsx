@@ -176,7 +176,6 @@ export function ScatterPlot(props: Props): null {
         setAxisIntervalFor,
         updateAxisRanges = noop,
         onUpdateAxesInterval,
-        axesRanges,
     } = axes
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
@@ -209,15 +208,19 @@ export function ScatterPlot(props: Props): null {
         onZoomReset = noop,
     } = props
 
-    const initialTimes = useMemo(
-        () => {
-            return new Map<string, number>(
-                Array.from<[string, ContinuousAxisRange]>(axesRanges().entries())
-                    .map(([axisId, range]) => ([axisId, range.original.start]))
-            )
-        },
-        [axesRanges]
-    )
+    // the axes' true original (un-zoomed) [start, end] bounds, and each axis' pinned start time
+    // for SQUEEZE mode -- see OutlierPlot's identical refs for the full explanation: these must be
+    // refs populated by `resetPlotForInitialData` below (mount, and every subsequent Run), rather
+    // than a `useMemo` keyed on `axesRanges`. `axesRanges` is a fresh closure on every render of
+    // `AxesProvider` (never memoized there), so such a memo recomputes on essentially every
+    // render, re-sampling `.original` while it's being continuously shifted forward by ordinary
+    // auto-scroll -- capturing "the current un-zoomed baseline, right now" instead of "the bounds
+    // this run started at". This chart's `domain` prop is store-backed and already changes on
+    // reset (which independently restores the scale via `ContinuousAxis`'s own prop-driven
+    // effect), so this is redundant here today -- but kept for defense-in-depth/consistency with
+    // the other plots in case that ever changes to a static domain.
+    const initialTimesRef = useRef<Map<string, number>>(new Map())
+    const initialAxisIntervalsRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
     //
@@ -533,6 +536,17 @@ export function ScatterPlot(props: Props): null {
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
             if (canvasContext !== null) {
                 onUpdateTimeRef.current(ranges)
+                // keep the single canonical ranges ref in sync -- see OutlierPlot's identical
+                // assignment for the full explanation. Without this, `timeRangesRef.current` (what
+                // the zoom/pan handlers below mutate) and the subscription's own internal ranges
+                // map (built once at subscribe time) are two permanently separate objects: the
+                // subscription's per-tick auto-scroll advance would keep overwriting the axis's
+                // actual scale with its own (unzoomed) tracking on literally the next tick after
+                // any zoom event, stomping the zoom's result almost immediately -- visible as the
+                // zoom "mostly working" only while rapid zoom events outpaced the subscription's
+                // tick rate (the stutter), then snapping back the moment the gesture ended and the
+                // subscription's next tick won uncontested.
+                timeRangesRef.current = ranges
                 updatePlotRef.current(canvasContext)
                 // the notification is deferred to the next animation frame (see `notifyIntervalsRef`),
                 // so that this doesn't update the application state synchronously from within the
@@ -551,7 +565,20 @@ export function ScatterPlot(props: Props): null {
         dataRef.current = initialData.slice()
         seriesRef.current = new Map(initialData.map(series => [series.name, series]))
         currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
-        updateTimingAndPlot(new Map(Array.from(continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>).entries())
+
+        const freshRanges = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+
+        // capture the axes' true original bounds at this reset point, for `onZoomReset` (see the
+        // pan/zoom effect below) to restore to later -- see `initialAxisIntervalsRef`'s
+        // declaration above for why this must be captured here rather than via a `useMemo`
+        initialAxisIntervalsRef.current = new Map(
+            Array.from(freshRanges.entries()).map(([id, range]) => [id, range.original.asTuple()])
+        )
+        initialTimesRef.current = new Map(
+            Array.from(freshRanges.entries()).map(([id, range]) => [id, range.original.start])
+        )
+
+        updateTimingAndPlot(new Map(Array.from(freshRanges.entries())
                 .map(([id, range]) => {
                     // grab the current range, then calculate the minimum time from the initial data, and
                     // set that as the start, and then add the range to it for the end time
@@ -594,73 +621,50 @@ export function ScatterPlot(props: Props): null {
     )
 
     /**
-     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out.
      * @param transform The d3 zoom transformation information
-     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param pivotDomainValueFor Given an axis ID and its axis, returns the domain value to pivot
+     * that axis's zoom around -- see the pan/zoom effect below for how this differs depending on
+     * whether the chart is actively streaming.
      * @param plotDimensions The dimensions of the plot
      * @param ranges A map holding the axis ID and its associated time-range
      */
     const onZoom = useCallback(
         (
             transform: ZoomTransform,
-            x: number,
+            pivotDomainValueFor: (axisId: string, axis: ContinuousNumericAxis) => number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, pivotDomainValueFor, plotDimensions, ranges),
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
-    // while actively streaming, re-anchors a zoom's right edge to the actual current time, so zoom
-    // only ever changes *how much history is visible* (the window's width), never how far ahead the
-    // window looks. `continuousAxisZoomHandler` above computes the new width correctly (scaling
-    // around the mouse position), but the resulting *position* is an emergent side effect of that
-    // scale-and-anchor transform -- and since the plot's two x-axes cover different time spans over
-    // the same pixel width, the same zoom gesture repositions each axis's right edge by a different,
-    // unrelated amount. Left alone, the auto-scroll subscription's "wait until real time reaches the
-    // window's right edge" logic (see `advanceAxisWindowTo` in subscriptions.ts) then waits on an
-    // essentially arbitrary, per-axis threshold, so the two axes resume scrolling at different,
-    // uncoordinated moments -- which is what shows up as "jumpy" once scrolling resumes. Pan is
-    // deliberately left untouched: dragging the view ahead to watch data catch up to *that* position
-    // is a feature, not the bug zoom had.
-    // snapshots each axis's current right edge -- must be captured *before* a zoom is applied, so
-    // `reanchorZoomToNow` has something to compare against other than the very value the zoom just
-    // (potentially incorrectly) set.
-    const snapshotAxisEndTimes = useCallback(
-        (ranges: Map<string, ContinuousAxisRange>): Map<string, number> =>
-            new Map(Array.from(ranges.entries()).map(([axisId, range]) => [axisId, range.current.end])),
-        []
-    )
-
-    const reanchorZoomToNow = useCallback(
-        (ranges: Map<string, ContinuousAxisRange>, preZoomEndByAxis: Map<string, number>) => {
-            if (!shouldSubscribe) return
-            const latestDataTimeByAxis = new Map<string, number>()
-            seriesRef.current.forEach((series, name) => {
-                if (series.data.length === 0) return
-                const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId().getOrElse("")
-                const latest = series.data[series.data.length - 1].x
-                latestDataTimeByAxis.set(axisId, Math.max(latestDataTimeByAxis.get(axisId) ?? -Infinity, latest))
-            })
-            ranges.forEach((range, axisId) => {
-                const [start, end] = range.current.asTuple()
-                // "now" is never allowed to move backward relative to where the window already was
-                // *before this zoom* -- it's the more recent of the latest actual data point and the
-                // window's own pre-zoom right edge (which, e.g. under cadence, can legitimately be
-                // ahead of the latest real data point). Comparing against `end` here (the already
-                // zoomed-and-mutated value) instead of the pre-zoom snapshot would just keep
-                // whatever inflated value the zoom produced, defeating the whole point.
-                const now = Math.max(latestDataTimeByAxis.get(axisId) ?? -Infinity, preZoomEndByAxis.get(axisId) ?? -Infinity)
-                if (!isFinite(now)) return
-                const newStart = Math.max(0, now - (end - start))
-                if (newStart === start && now === end) return
-                ranges.set(axisId, range.update(newStart, now))
-                xAxesState.axisFor(axisId).ifPresent(
-                    axis => axis.update(AxisInterval.from(newStart, now), plotDimensions, margin)
-                )
-            })
-        },
-        [shouldSubscribe, axisAssignments, xAxesState, plotDimensions, margin]
+    // The zoom pivot -- the domain value that stays fixed on screen while the window widens or
+    // narrows around it -- depends on whether the chart is actively streaming:
+    //
+    // - While running, pivot on the axis's own "now" (`currentTimeRef`, updated on every
+    //   auto-scroll tick regardless of zoom activity) instead of the mouse position. This is what
+    //   keeps "now" fixed on screen throughout the whole gesture: zooming out reveals more history
+    //   to the *left* of "now" (which itself never moves), and zooming in trims history away while
+    //   "now" stays put -- exactly whether or not the window has started auto-scrolling yet (before
+    //   that point "now" just isn't at the window's right edge, it's wherever real/cadence time
+    //   currently sits within the still-static initial view). This replaces the previous design
+    //   (pivot on the mouse position, then separately try to correct the result back towards "now"
+    //   after the fact via `reanchorZoomToNow`) -- that correction step was fighting the gesture's
+    //   own in-progress math every time it ran mid-gesture (visible as stutter), and produced a
+    //   stale, snapped-back result when only run once at the gesture's end (using a "now" snapshot
+    //   that ages throughout the gesture). Pivoting on "now" directly, continuously, on every
+    //   "zoom" event needs no separate correction step at all -- the result is already correct on
+    //   every single tick.
+    // - While paused, pivot on the mouse position as usual: there's no "now" moving target to chase,
+    //   so zooming in on whatever's under the cursor is the more useful (and expected) behavior for
+    //   inspecting a frozen view.
+    const zoomPivotFor = useCallback(
+        (offsetX: number): (axisId: string, axis: ContinuousNumericAxis) => number =>
+            shouldSubscribe ?
+                (axisId, axis) => currentTimeRef.current.get(axisId) ?? axis.scale.domain()[1] :
+                (_axisId, axis) => axis.scale.invert(offsetX - margin.left),
+        [shouldSubscribe, margin]
     )
 
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
@@ -706,7 +710,12 @@ export function ScatterPlot(props: Props): null {
 
             if (zoomEnabled) {
                 const zoom = d3.zoom<HTMLCanvasElement, unknown>()
-                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    // restricted to wheel events -- see RasterPlot's identical `.filter()` for
+                    // the full explanation: without this, d3-zoom's own built-in mousedown-drag
+                    // handling (which it still has, separate from this app's dedicated pan
+                    // `d3.drag()`) would ALSO fire "zoom" events for a shift/ctrl-held drag,
+                    // double-handling the same gesture.
+                    .filter(event => event.type === 'wheel' && (!zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey))
                     .scaleExtent([0, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
@@ -719,14 +728,12 @@ export function ScatterPlot(props: Props): null {
                             // to let d3-zoom's internal bookkeeping actually update.
                             if (event.sourceEvent === null) return
 
-                            const preZoomEndByAxis = snapshotAxisEndTimes(timeRangesRef.current)
                             onZoom(
                                 event.transform,
-                                event.sourceEvent.offsetX - margin.left,
+                                zoomPivotFor(event.sourceEvent.offsetX),
                                 plotDimensions,
                                 timeRangesRef.current,
                             )
-                            reanchorZoomToNow(timeRangesRef.current, preZoomEndByAxis)
                             updatePlotRef.current(cc)
                             // the zoom updated the axes' ranges in place, so report the new intervals
                             notifyIntervalsRef.current(timeRangesRef.current)
@@ -739,8 +746,31 @@ export function ScatterPlot(props: Props): null {
                 // on the canvas element itself, entirely separate from the axes' own ranges) back
                 // to identity -- e.g. so that a "Reset" action which restores the axes' domains to
                 // their defaults doesn't leave the *next* zoom gesture computing its new scale
-                // against the stale, still-accumulated transform from before the reset.
-                onZoomReset(() => canvasSelection.call(zoom.transform, d3.zoomIdentity))
+                // against the stale, still-accumulated transform from before the reset. Also
+                // explicitly restores each axis's scale to its true original bounds -- redundant
+                // with this chart's own store-backed domain-prop reset today, but kept consistent
+                // with the other plots (see OutlierPlot's identical `initialAxisIntervalsRef`).
+                onZoomReset(() => {
+                    canvasSelection.call(zoom.transform, d3.zoomIdentity)
+                    initialAxisIntervalsRef.current.forEach(([start, end], axisId) => {
+                        timeRangesRef.current.set(axisId, ContinuousAxisRange.from(start, end))
+                        xAxesState.axisFor(axisId).ifPresent(
+                            axis => axis.update(AxisInterval.from(start, end), plotDimensions, margin)
+                        )
+                    })
+                    // full sync (via `updateTimingAndPlot`, not just `updatePlotRef`/
+                    // `notifyIntervalsRef` below) so AxesProvider's own separate ranges ref also
+                    // picks up the freshly-reset `.original` immediately -- `axis.update()` above
+                    // only ever *preserves* whatever `.original` that ref already had (via
+                    // `setAxisIntervalFor`'s `range.update(...)`), so without this, a reset while
+                    // paused (no more subscription ticks left to eventually resync it) leaves that
+                    // ref's `.original` stuck at its pre-reset (zoomed) value. This chart's `domain`
+                    // prop is store-backed, so `ContinuousAxis`'s own prop-driven effect reads
+                    // exactly that stale `.original` back out once the store round-trips the reset
+                    // -- preserving it (per the fix in `ContinuousAxis.tsx`) right back onto the
+                    // axis, silently undoing this reset a moment later.
+                    updateTimingAndPlot(timeRangesRef.current)
+                })
             }
 
             // detach the drag/zoom behaviors' listeners when this effect re-runs (e.g. on
@@ -751,7 +781,7 @@ export function ScatterPlot(props: Props): null {
                 if (zoomEnabled) canvasSelection.on(".zoom", null)
             }
         },
-        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, reanchorZoomToNow, snapshotAxisEndTimes, onZoomReset]
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, zoomPivotFor, onZoomReset, xAxesState, updateTimingAndPlot]
     )
 
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
@@ -904,7 +934,7 @@ export function ScatterPlot(props: Props): null {
                 seriesRef.current,
                 (axisId, end) => currentTimeRef.current.set(axisId, end),
                 timeWindowBehavior,
-                initialTimes,
+                initialTimesRef.current,
                 dataUpdatePeriod,
             )
         },
@@ -913,7 +943,7 @@ export function ScatterPlot(props: Props): null {
             onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
             withCadenceOf,
-            initialTimes, timeWindowBehavior, dataUpdatePeriod
+            timeWindowBehavior, dataUpdatePeriod
         ]
     )
 

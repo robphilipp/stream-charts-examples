@@ -1,4 +1,4 @@
-import {type JSX, useRef, useState} from "react"
+import {type JSX, useCallback, useRef, useState} from "react"
 import {Observable} from "rxjs"
 import {
     Grid,
@@ -43,6 +43,10 @@ import {Divider} from "../ui/Divider.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DEFAULT_DROP_AFTER_20, DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {VerticalDivider} from "../ui/VerticalDivider.tsx";
+import {CadenceControl} from "./controls/CadenceControl.tsx";
+import {BufferingControl} from "./controls/BufferingControl.tsx";
+import {DataUpdateRateControl} from "./controls/DataUpdateRateControl.tsx";
+import {noop} from "../charts/utils";
 
 // 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
 const MEASURES = [0.68, 0.95, 0.997] as const
@@ -114,13 +118,21 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
             : defaultInitialOutlierData()
     )
 
+    // tunable streaming settings -- declared before buildObservable since it reads dataUpdatePeriod
+    const [windowingTime, setWindowingTime] = useState<number>(25)
+    // 0 means disabled (unchecked); CadenceControl's own default of 25ms is what appears once
+    // the checkbox is checked, matching the previous hardcoded `withCadenceOf={20}` value's
+    // intent without enabling cadence by default
+    const [cadence, setCadence] = useState<number>(0)
+    const [dataUpdatePeriod, setDataUpdatePeriod] = useState<number>(UPDATE_PERIOD)
+
     const buildObservable = (initData: Array<OutlierSeries<Measures>>): Observable<OutlierChartData<Measures>> =>
         randomOutlierDataObservable<Measures>(
             SERIES_NAME,
             baseDataFnFactory(),
             MEASURES,
             NOISE_SIGMA,
-            UPDATE_PERIOD,
+            dataUpdatePeriod,
             lastTimeIn(initData),
         )
 
@@ -137,10 +149,19 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     const [showMarkers, setShowMarkers] = useState<boolean>(true)
     const [showTooltip, setShowTooltip] = useState<boolean>(true)
     const [tooltipType, setTooltipType] = useState<'html' | 'svg'>('html')
+    const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
 
     const startTimeRef = useRef<number>(new Date().valueOf())
     const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
+
+    // holds the latest `resetZoom` handed back by <OutlierPlot> (see its `onZoomReset` prop), so
+    // that clearing the chart can also clear d3-zoom's own accumulated scale/pan state -- see
+    // StreamingScatterChart's identical usage for the full explanation
+    const resetZoomRef = useRef<() => void>(noop)
+    const handleZoomReset = useCallback((resetZoom: () => void): void => {
+        resetZoomRef.current = resetZoom
+    }, [])
     const [chartTime, setChartTime] = useState<number>(0)
 
     function handleToggleTooltipType(status: ToggleStatus): void {
@@ -166,6 +187,18 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
+    function handleWindowingTimeChange(ms: number): void {
+        setWindowingTime(ms)
+    }
+
+    function handleCadenceChange(ms: number): void {
+        setCadence(ms)
+    }
+
+    function handleDataUpdatePeriodChange(ms: number): void {
+        setDataUpdatePeriod(ms)
+    }
+
     function handleRunPauseClick(): void {
         if (!running) {
             setObservable(buildObservable(initialData))
@@ -186,6 +219,11 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
         setInitialData(freshCopyOf(seededInitialData))
         setElapsed(0)
         setChartTime(0)
+
+        // the axes reset via initialData above, but d3-zoom keeps its own accumulated scale/pan
+        // state on the canvas element itself -- clear that too, or the next zoom gesture would
+        // compute its new scale against the stale, pre-reset transform
+        resetZoomRef.current()
     }
 
     return (
@@ -251,6 +289,24 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />
+                            <DataUpdateRateControl
+                                theme={theme}
+                                dataUpdatePeriod={dataUpdatePeriod}
+                                handleDataUpdatePeriodChange={handleDataUpdatePeriodChange}
+                                disabled={running}
+                            />
+                            <BufferingControl
+                                theme={theme}
+                                windowingTime={windowingTime}
+                                handleWindowingTimeChange={handleWindowingTimeChange}
+                                disabled={running}
+                            />
+                            <CadenceControl
+                                theme={theme}
+                                cadence={cadence}
+                                handleCadenceChange={handleCadenceChange}
+                                disabled={running}
+                            />
                             <LagDisplay
                                 theme={theme}
                                 lag={elapsed - chartTime}
@@ -312,6 +368,15 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                                 labelColor={theme.color}
                                 onChange={() => setShowMarkers(!showMarkers)}
                             />
+                            <Checkbox
+                                key={6}
+                                checked={highlightAxes}
+                                label="highlight axes"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setHighlightAxes(!highlightAxes)}
+                            />
                             <Divider theme={theme}/>
                             <InterpolationControl
                                 theme={theme}
@@ -344,7 +409,8 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                     seriesObservable={observable}
                     shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
-                    windowingTime={25}
+                    windowingTime={windowingTime}
+                    dataUpdatePeriod={dataUpdatePeriod}
                 >
                     <ContinuousAxis
                         axisId="x-axis-1"
@@ -368,7 +434,9 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                         bandOpacityStep={0.14}
                         markerRadius={showMarkers ? 2 : 0}
                         outlierMarkerColors={['#f4c542', '#f08a3b', '#d62728']}
-                        withCadenceOf={20}
+                        withCadenceOf={cadence > 0 ? cadence : undefined}
+                        highlightAxesOnMouseOver={highlightAxes}
+                        onZoomReset={handleZoomReset}
                     />
                     <Tooltip
                         visible={showTooltip}

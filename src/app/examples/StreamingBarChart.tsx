@@ -59,6 +59,8 @@ import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {ChartControls} from "./controls/ChartControls.tsx";
 import {VerticalDivider} from "../ui/VerticalDivider.tsx";
+import {BufferingControl} from "./controls/BufferingControl.tsx";
+import {DataUpdateRateControl} from "./controls/DataUpdateRateControl.tsx";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -126,8 +128,13 @@ export function StreamingBarChart(props: Props): JSX.Element {
 
     // const chartId = useRef<number>(CHART_ID)
 
+    // tunable streaming settings
+    const [windowingTime, setWindowingTime] = useState<number>(25)
+    const [dataUpdatePeriod, setDataUpdatePeriod] = useState<number>(UPDATE_PERIOD)
+    const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
+
     const [initialData, setInitialData] = useState<Array<BaseSeries<OrdinalDatum>>>(initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const [observable, setObservable] = useState<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialData, UPDATE_PERIOD)));
+    const [observable, setObservable] = useState<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialData, dataUpdatePeriod)));
     const [running, setRunning] = useState<boolean>(false)
 
     const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_10[1])
@@ -194,9 +201,17 @@ export function StreamingBarChart(props: Props): JSX.Element {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
+    function handleWindowingTimeChange(ms: number): void {
+        setWindowingTime(ms)
+    }
+
+    function handleDataUpdatePeriodChange(ms: number): void {
+        setDataUpdatePeriod(ms)
+    }
+
     function handleRunPauseClick(): void {
         if (!running) {
-            setObservable(ordinalsObservable(barDanceDataObservable(initialData, UPDATE_PERIOD)))
+            setObservable(ordinalsObservable(barDanceDataObservable(initialData, dataUpdatePeriod)))
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -288,6 +303,18 @@ export function StreamingBarChart(props: Props): JSX.Element {
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />
+                            <DataUpdateRateControl
+                                theme={theme}
+                                dataUpdatePeriod={dataUpdatePeriod}
+                                handleDataUpdatePeriodChange={handleDataUpdatePeriodChange}
+                                disabled={running}
+                            />
+                            <BufferingControl
+                                theme={theme}
+                                windowingTime={windowingTime}
+                                handleWindowingTimeChange={handleWindowingTimeChange}
+                                disabled={running}
+                            />
                             <LagDisplay
                                 theme={theme}
                                 lag={elapsed - chartTime}
@@ -317,6 +344,15 @@ export function StreamingBarChart(props: Props): JSX.Element {
                                 borderColor={theme.color}
                                 labelColor={theme.color}
                                 onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
+                            />
+                            <Checkbox
+                                key={8}
+                                checked={highlightAxes}
+                                label="highlight axes"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setHighlightAxes(!highlightAxes)}
                             />
                         </CommonControls>
                     </ExpandableControlBar>
@@ -438,7 +474,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     shouldSubscribe={running}
                     onUpdateChartTime={handleChartTimeUpdate}
                     onUpdateAxesBounds={handleChartRangeUpdate}
-                    windowingTime={25}
+                    windowingTime={windowingTime}
+                    dataUpdatePeriod={dataUpdatePeriod}
                 >
                     <OrdinalAxis
                         axisId="x-axis-1"
@@ -507,6 +544,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         showMeanValueLines={showMean}
                         showWindowedMinMaxBars={showWinMinMax}
                         showWindowedMeanValueLines={showWinMean}
+                        highlightAxesOnMouseOver={highlightAxes}
                     />
                 </Chart>
             </GridItem>

@@ -175,6 +175,16 @@ export interface OrdinalStringAxis extends BaseAxis {
      * set to when the axis was created.
      */
     updateFont: (font: AxesFont) => void
+    /**
+     * Highlights (or un-highlights) this axis -- see {@link ContinuousNumericAxis.setHighlighted}
+     * for the full explanation. `color`/`lineWidth` are remembered across calls, so a later
+     * `setHighlighted(true)` without them reuses whatever was last passed (or the built-in
+     * default on the first call).
+     * @param highlighted Whether the axis should be drawn highlighted
+     * @param color The highlight color
+     * @param lineWidth The highlight line width
+     */
+    setHighlighted: (highlighted: boolean, color?: string, lineWidth?: number) => void
 }
 
 /**
@@ -271,6 +281,9 @@ function addOrdinalStringXAxis(
     let currentMargin = margin
     let currentFont = axesLabelFont
     const currentTickStyle = axisTickStyle
+    let highlighted = false
+    let highlightColor = defaultLineStyle().highlightColor
+    let highlightLineWidth = defaultLineStyle().highlightWidth
 
     const drawHandle: DrawHandle = `x-axis-ordinal-${cc.chartId}-${axisId}`
 
@@ -282,9 +295,10 @@ function addOrdinalStringXAxis(
         context2D.save()
         clipToArea(context, {width: currentDimensions.width, height: currentMargin.bottom}, {x: 0, y: location === AxisLocation.Bottom ? -1 : -currentMargin.top})
 
-        context2D.strokeStyle = currentFont.color
-        context2D.fillStyle = currentFont.color
-        context2D.lineWidth = 1
+        const axisColor = highlighted ? highlightColor : currentFont.color
+        context2D.strokeStyle = axisColor
+        context2D.fillStyle = axisColor
+        context2D.lineWidth = highlighted ? highlightLineWidth : 1
         context2D.font = fontStringFor(currentTickStyle.font.size, currentTickStyle.font.family, currentTickStyle.font.weight)
         context2D.textBaseline = 'middle'
 
@@ -316,7 +330,7 @@ function addOrdinalStringXAxis(
         context2D.restore() // pop the clip
 
         // axis label (absolute position, not clipped, matches the old behavior)
-        context2D.fillStyle = currentFont.color
+        context2D.fillStyle = axisColor
         context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
         context2D.textAlign = 'center'
         context2D.textBaseline = location === AxisLocation.Top ? 'hanging' : 'alphabetic'
@@ -349,6 +363,12 @@ function addOrdinalStringXAxis(
             cc.requestRedraw()
             return categorySize()
         },
+        setHighlighted: (isHighlighted, color, lineWidth) => {
+            highlighted = isHighlighted
+            if (color !== undefined) highlightColor = color
+            if (lineWidth !== undefined) highlightLineWidth = lineWidth
+            cc.requestRedraw()
+        },
         updateFont: (font) => {
             // matches the original SVG version: only the axis *label's* fill was ever updated
             // dynamically (via svg.select('#label').attr('fill', color)); tick color stays fixed
@@ -378,6 +398,9 @@ function addOrdinalStringYAxis(
     let currentMargin = margin
     let currentFont = axesLabelFont
     const currentTickStyle = axisTickStyle
+    let highlighted = false
+    let highlightColor = defaultLineStyle().highlightColor
+    let highlightLineWidth = defaultLineStyle().highlightWidth
 
     const drawHandle: DrawHandle = `y-axis-ordinal-${cc.chartId}-${axisId}`
 
@@ -393,9 +416,10 @@ function addOrdinalStringYAxis(
         // in half; mirrors the same -1 fudge used for the bottom x-axis's domain line
         clipToArea(context, {width: clipWidth, height: currentDimensions.height}, {x: location === AxisLocation.Left ? -clipWidth + 1 : -1, y: 0})
 
-        context2D.strokeStyle = currentFont.color
-        context2D.fillStyle = currentFont.color
-        context2D.lineWidth = 1
+        const axisColor = highlighted ? highlightColor : currentFont.color
+        context2D.strokeStyle = axisColor
+        context2D.fillStyle = axisColor
+        context2D.lineWidth = highlighted ? highlightLineWidth : 1
         context2D.font = fontStringFor(currentTickStyle.font.size, currentTickStyle.font.family, currentTickStyle.font.weight)
         // matches the old SVG version, which forced text-anchor "end" for ordinal ticks
         // regardless of Left/Right location
@@ -438,7 +462,7 @@ function addOrdinalStringYAxis(
         const labelY = ordinalLabelYTranslation(location, currentDimensions, currentMargin) - currentMargin.top
         context2D.translate(labelX, labelY)
         context2D.rotate(-Math.PI / 2)
-        context2D.fillStyle = currentFont.color
+        context2D.fillStyle = axisColor
         context2D.font = fontStringFor(currentFont.size, currentFont.family, currentFont.weight)
         context2D.textAlign = 'center'
         context2D.textBaseline = 'alphabetic'
@@ -469,6 +493,12 @@ function addOrdinalStringYAxis(
             setOriginalAxisRangeFor(axisId, originalRange)
             cc.requestRedraw()
             return categorySize()
+        },
+        setHighlighted: (isHighlighted, color, lineWidth) => {
+            highlighted = isHighlighted
+            if (color !== undefined) highlightColor = color
+            if (lineWidth !== undefined) highlightLineWidth = lineWidth
+            cc.requestRedraw()
         },
         updateFont: (font) => {
             // matches the original SVG version: only the axis *label's* fill was ever updated
@@ -971,26 +1001,23 @@ export interface ZoomResult<AR extends BaseAxisRange> {
 
 /**
  * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
- * at the location of the mouse when the scroll wheel or gesture was applied, while ensuring that
- * the range (start, end) is contained within the constraint (min, max).
+ * around the specified domain value (the pivot), while ensuring that the range (start, end) is
+ * contained within the constraint (min, max). The pivot is a domain value rather than a pixel
+ * position -- while streaming, callers pin it to the axis's current "now" rather than to wherever
+ * the mouse happens to be (see `calcZoomAndUpdate`'s `pivotDomainValueFor`), which is what keeps
+ * "now" fixed on screen as the zoom widens/narrows the window around it.
  * @param transform The d3 zoom transformation information
- * @param x The x-position of the mouse when the scroll wheel or gesture is used
- * @param axis The axis being zoomed
+ * @param domainValue The domain value to zoom around (the pivot)
  * @param range The current range for the axis being zoomed
  * @param constraint The minimum and maximum value the scaled range can have
  * @return The updated range and the new zoom factor
  */
 export function calculateConstrainedZoomFor(
     transform: ZoomTransform,
-    x: number,
-    axis: ContinuousNumericAxis,
+    domainValue: number,
     range: ContinuousAxisRange,
     constraint: [min: number, max: number],
 ): ZoomResult<ContinuousAxisRange> {
-    // was: axis.generator.scale<ScaleLinear<number, number>>().invert(x) -- the old d3 axis
-    // generator's underlying scale. Canvas axes expose `scale` directly, so we can invert it
-    // without going through a generator.
-    const domainValue = (axis.scale as ScaleLinear<number, number>).invert(x);
     return {
         range: range.constrainedScale(transform.k, domainValue, constraint),
         zoomFactor: transform.k
@@ -1317,7 +1344,11 @@ export function panHandler2D(
 
 /**
  * Calculates the zoom for the specified axis and updates the axis and the axis ranges
- * @param value The x- or y-coordinate of the mouse
+ * @param pivotDomainValueFor Given the axis being zoomed, returns the domain value to pivot the
+ * zoom around. Callers pass a function (rather than a fixed value) because the right pivot
+ * depends on the axis's *own* domain/scale (e.g. inverting a shared mouse pixel position through
+ * each axis's own scale, or reading each axis's own "now" tracking) -- there's no single value
+ * that's correct for every axis when a plot has more than one (e.g. Scatter's dual x-axes).
  * @param axisId The id of the axis to zoom
  * @param margin The plot margin
  * @param setRangeFor Function for setting the new time-range for a specific axis
@@ -1328,7 +1359,7 @@ export function panHandler2D(
  * @param plotDimensions The dimensions of the plot
  */
 function calcZoomAndUpdate(
-    value: number,
+    pivotDomainValueFor: (axis: ContinuousNumericAxis) => number,
     axisId: string,
     margin: Margin,
     setRangeFor: (axisId: string, range: AxisInterval) => void,
@@ -1349,7 +1380,7 @@ function calcZoomAndUpdate(
                 [range.original.start * zoomMax, range.original.end * zoomMax] :
                 [0, Infinity]
 
-            const zoom = calculateConstrainedZoomFor(transform, value, axis, range, constraint)
+            const zoom = calculateConstrainedZoomFor(transform, pivotDomainValueFor(axis), range, constraint)
 
             // update the axis range
             ranges.set(axisId, zoom.range)
@@ -1422,23 +1453,28 @@ export function continuousAxisZoomHandler(
     scaleExtent: [min: number, max: number] = [0, Infinity],
 ): (
     transform: ZoomTransform,
-    x: number,
+    pivotDomainValueFor: (axisId: string, axis: ContinuousNumericAxis) => number,
     plotDimensions: Dimensions,
     ranges: Map<string, ContinuousAxisRange>,
 ) => void {
 
     /**
-     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
-     * at the location of the mouse when the scroll wheel or gesture was applied.
+     * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out.
      * @param transform The d3 zoom transformation information
-     * @param x The x-position of the mouse when the scroll wheel or gesture is used
+     * @param pivotDomainValueFor Given an axis ID and its axis, returns the domain value to pivot
+     * that axis's zoom around -- e.g. the mouse position inverted through that axis's own scale,
+     * or (while streaming) that axis's own "now" tracking, so "now" stays fixed on screen as the
+     * zoom widens/narrows the window around it instead of drifting with wherever the mouse is.
      * @param plotDimensions The dimensions of the plot
      * @param ranges A map holding the axis ID and its associated time-range
      */
-    return (transform, x, plotDimensions, ranges) => {
+    return (transform, pivotDomainValueFor, plotDimensions, ranges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         axesForSeries.forEach(axisId =>
-            calcZoomAndUpdate(x, axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
+            calcZoomAndUpdate(
+                axis => pivotDomainValueFor(axisId, axis),
+                axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions
+            )
         )
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }
@@ -1537,10 +1573,16 @@ export function axesZoomHandler(
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         const [x, y] = mousePosition
         xAxesForSeries.forEach(id =>
-            calcZoomAndUpdate(x, id, margin, setRangeFor, xAxesState, xRanges, scaleExtent, transform, plotDimensions)
+            calcZoomAndUpdate(
+                axis => (axis.scale as ScaleLinear<number, number>).invert(x),
+                id, margin, setRangeFor, xAxesState, xRanges, scaleExtent, transform, plotDimensions
+            )
         )
         yAxesForSeries.forEach(id =>
-            calcZoomAndUpdate(y, id, margin, setRangeFor, yAxesState, yRanges, scaleExtent, transform, plotDimensions)
+            calcZoomAndUpdate(
+                axis => (axis.scale as ScaleLinear<number, number>).invert(y),
+                id, margin, setRangeFor, yAxesState, yRanges, scaleExtent, transform, plotDimensions
+            )
         )
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }

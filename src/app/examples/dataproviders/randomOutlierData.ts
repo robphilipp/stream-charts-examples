@@ -20,8 +20,14 @@ export function randomOutlierDataObservable<M extends readonly number[]>(
     startTime: number = 0,
 ): Observable<OutlierChartData<M>> {
     const seriesNames = new Set<string>([seriesName])
+    // wall-clock elapsed time since subscribing, rather than `(sequence + 1) * updatePeriod` (i.e.
+    // counting ticks) -- see randomWeightDataObservable for why this matters: a tick-counted time
+    // permanently falls behind true elapsed time by however many ticks were missed whenever the
+    // underlying `setInterval` is throttled (e.g. the tab/window being hidden), which would leave
+    // this generator's own timestamps lagging behind the chart's (wall-clock-based) cadence.
+    const subscribeTime = performance.now()
     return interval(updatePeriod).pipe(
-        map(sequence => startTime + (sequence + 1) * updatePeriod),
+        map(() => startTime + (performance.now() - subscribeTime)),
         map(time => ({
             seriesNames,
             newPoints: new Map([[seriesName, [baseFunction(time, sigmaNoise, measures)]]])

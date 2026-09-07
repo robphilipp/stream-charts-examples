@@ -90,6 +90,11 @@ export interface Props {
      * to the current time.
      */
     withCadenceOf?: number
+    /**
+     * When true, hovering over a point also highlights the (single, shared) x- and y-axes it is
+     * plotted against, in the series' own highlight color/width. Defaults to `false`.
+     */
+    highlightAxesOnMouseOver?: boolean
 }
 
 /**
@@ -177,6 +182,7 @@ export function PoincarePlot(props: Props): null {
         zoomKeyModifiersRequired = true,
         zoomMinScaleFactor = 0,
         zoomMaxScaleFactor = 1,
+        highlightAxesOnMouseOver = false,
     } = props
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
@@ -592,7 +598,12 @@ export function PoincarePlot(props: Props): null {
 
             if (zoomEnabled) {
                 zoomRef.current = d3.zoom<HTMLCanvasElement, Datum>()
-                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    // restricted to wheel events -- see RasterPlot's identical `.filter()` for
+                    // the full explanation: without this, d3-zoom's own built-in mousedown-drag
+                    // handling (which it still has, separate from this app's dedicated pan
+                    // `d3.drag()`) would ALSO fire "zoom" events for a shift/ctrl-held drag,
+                    // double-handling the same gesture.
+                    .filter(event => event.type === 'wheel' && (!zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey))
                     .scaleExtent([zoomMinScaleFactor, zoomMaxScaleFactor])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", event => {
@@ -686,6 +697,20 @@ export function PoincarePlot(props: Props): null {
 
             const canvas = canvasContext.canvas
 
+            // highlights (or un-highlights) the shared x- and y-axes -- keyed on the series name
+            // alone (not the specific hovered point index), so moving the mouse between a
+            // series' own points doesn't flicker the highlight off and on
+            const highlightAxesFor = (seriesName: string, isHighlighted: boolean): void => {
+                if (!highlightAxesOnMouseOver) return
+                const [xAxis, yAxis] = axesFor(
+                    axisId => xAxesState.axisFor(axisId).getOrUndefined(),
+                    axisId => yAxesState.axisFor(axisId).getOrUndefined(),
+                )
+                const {highlightColor, highlightWidth} = seriesStyles.get(seriesName) || defaultLineStyle()
+                xAxis?.setHighlighted(isHighlighted, highlightColor, highlightWidth)
+                yAxis?.setHighlighted(isHighlighted, highlightColor, highlightWidth)
+            }
+
             const handleMove = (event: MouseEvent) => {
                 if (!allowTooltip.current || !tooltipVisible) return
 
@@ -694,6 +719,12 @@ export function PoincarePlot(props: Props): null {
                 const hitSeriesName = hit?.name.replace(/::points$/, '')
 
                 const previous = hoveredPointRef.current
+
+                if (previous?.seriesName !== hitSeriesName) {
+                    if (previous !== undefined) highlightAxesFor(previous.seriesName, false)
+                    if (hitSeriesName !== undefined) highlightAxesFor(hitSeriesName, true)
+                }
+
                 const sameAsBefore = previous !== undefined && hit !== undefined &&
                     previous.seriesName === hitSeriesName && previous.index === hit.index
 
@@ -728,6 +759,7 @@ export function PoincarePlot(props: Props): null {
                 const previous = hoveredPointRef.current
                 if (previous !== undefined) {
                     handleMouseLeavePoint(previous.seriesName, mouseLeaveHandlerFor(`tooltip-${chartId}`))
+                    highlightAxesFor(previous.seriesName, false)
                     hoveredPointRef.current = undefined
                     canvasContext.requestRedraw()
                 }
@@ -740,7 +772,10 @@ export function PoincarePlot(props: Props): null {
                 canvas.removeEventListener('mouseleave', handleLeaveCanvas)
             }
         },
-        [canvasContext, chartId, mouseOverHandlerFor, mouseLeaveHandlerFor, tooltipVisible]
+        [
+            canvasContext, chartId, mouseOverHandlerFor, mouseLeaveHandlerFor, tooltipVisible,
+            highlightAxesOnMouseOver, xAxesState, yAxesState, seriesStyles
+        ]
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`

@@ -151,6 +151,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const [running, setRunning] = useState<boolean>(false)
 
     const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
+    const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
 
     //
     // header bar information
@@ -380,6 +381,15 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                                 labelColor={theme.color}
                                 onChange={() => setVisibility({...visibility, tracker: !visibility.tracker})}
                             />
+                            <Checkbox
+                                key={3}
+                                checked={highlightAxes}
+                                label="highlight axes"
+                                backgroundColor={theme.backgroundColor}
+                                borderColor={theme.color}
+                                labelColor={theme.color}
+                                onChange={() => setHighlightAxes(!highlightAxes)}
+                            />
                             <InterpolationControl
                                 theme={theme}
                                 selectedInterpolationName={selectedInterpolationName}
@@ -542,6 +552,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
                         // withCadenceOf={30}
+                        highlightAxesOnMouseOver={highlightAxes}
                     />
                 </Chart>
             </GridItem>

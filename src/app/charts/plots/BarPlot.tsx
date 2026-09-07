@@ -82,6 +82,13 @@ export interface Props {
      * The (optional) default style for the bar series that are used if no other styles are specified
      */
     barSeriesStyle?: BarSeriesStyle
+    /**
+     * When true, hovering over any element (bar, line) of a series also highlights the x- and
+     * y-axes it is plotted against, using the axis' own default highlight color/width (bar series
+     * styles don't carry a single flat highlight color/width the way line-series styles do, so
+     * this doesn't attempt to match a specific element's highlight style). Defaults to `false`.
+     */
+    highlightAxesOnMouseOver?: boolean
 }
 
 /**
@@ -159,6 +166,7 @@ export function BarPlot(props: Props): null {
     const {
         seriesObservable,
         windowingTime = 100,
+        dataUpdatePeriod,
         shouldSubscribe,
 
         onSubscribe = noop,
@@ -180,7 +188,8 @@ export function BarPlot(props: Props): null {
         showMeanValueLines = true,
         showWindowedMeanValueLines = true,
         barMargin = 2,
-        barSeriesStyle = defaultBarSeriesStyle()
+        barSeriesStyle = defaultBarSeriesStyle(),
+        highlightAxesOnMouseOver = false,
     } = props
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
@@ -533,7 +542,12 @@ export function BarPlot(props: Props): null {
 
             if (zoomEnabled) {
                 const zoom = d3.zoom<HTMLCanvasElement, unknown>()
-                    .filter(event => !zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey)
+                    // restricted to wheel events -- see RasterPlot's identical `.filter()` for
+                    // the full explanation: without this, d3-zoom's own built-in mousedown-drag
+                    // handling (which it still has, separate from this app's dedicated pan
+                    // `d3.drag()`) would ALSO fire "zoom" events for a shift/ctrl-held drag,
+                    // double-handling the same gesture.
+                    .filter(event => event.type === 'wheel' && (!zoomKeyModifiersRequired || event.shiftKey || event.ctrlKey))
                     .scaleExtent([1, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", event => {
@@ -576,14 +590,15 @@ export function BarPlot(props: Props): null {
                 seriesRef.current,
                 statsRef,
                 (currentTime: number) => currentTimeRef.current = currentTime,
-                AxisInterval.from(0, plotDimensions.width)
+                AxisInterval.from(0, plotDimensions.width),
+                dataUpdatePeriod,
             )
         },
         [
             axisAssignments, dropDataAfter, canvasContext,
             onSubscribe, onUpdateData,
             seriesObservable, updateTimingAndPlot, windowingTime, yAxesState,
-            plotDimensions.width
+            plotDimensions.width, dataUpdatePeriod
         ]
     )
 
@@ -638,6 +653,24 @@ export function BarPlot(props: Props): null {
 
             const canvas = canvasContext.canvas
 
+            // highlights (or un-highlights) the x- and y-axes a series is plotted against --
+            // keyed on the series name alone (not the specific hovered element type), so moving
+            // the mouse between a series' own bar/lines doesn't flicker the highlight off and on.
+            // Unlike Scatter/Outlier, bar series styles don't carry a single flat highlight
+            // color/width (they're nested per element type), so this uses the axis' own default
+            // highlight styling rather than trying to match a specific element's highlight style.
+            const highlightAxesFor = (seriesName: string, isHighlighted: boolean): void => {
+                if (!highlightAxesOnMouseOver) return
+                const [xAxis, yAxis] = axesFor(
+                    seriesName,
+                    axisAssignments,
+                    axisId => xAxesState.axisFor(axisId).getOrUndefined(),
+                    axisId => yAxesState.axisFor(axisId).getOrUndefined()
+                )
+                xAxis?.setHighlighted(isHighlighted)
+                yAxis?.setHighlighted(isHighlighted)
+            }
+
             const handleMove = (event: MouseEvent) => {
                 const [x, y] = canvasLocalPoint(event, canvas)
                 const hit = seriesAt(x, y, geometryRef.current)
@@ -646,6 +679,11 @@ export function BarPlot(props: Props): null {
 
                 const previous = lastHoveredRef.current
                 const sameAsBefore = previous !== undefined && hitSeriesName === previous.seriesName && hitElementType === previous.elementType
+
+                if (previous?.seriesName !== hitSeriesName) {
+                    if (previous !== undefined) highlightAxesFor(previous.seriesName, false)
+                    if (hitSeriesName !== undefined) highlightAxesFor(hitSeriesName, true)
+                }
 
                 if (!sameAsBefore) {
                     if (previous !== undefined) {
@@ -696,6 +734,7 @@ export function BarPlot(props: Props): null {
                 const previous = lastHoveredRef.current
                 if (previous !== undefined) {
                     handleMouseLeaveSeries(previous.seriesName, mouseLeaveHandlerFor(`tooltip-${chartId}`, PROVIDER_ID_FOR_ELEMENT_TYPE[previous.elementType]))
+                    highlightAxesFor(previous.seriesName, false)
                     lastHoveredRef.current = undefined
                     canvasContext.requestRedraw()
                 }
@@ -711,7 +750,8 @@ export function BarPlot(props: Props): null {
         [
             canvasContext, chartId, margin, axisAssignments, xAxesState, yAxesState,
             mouseOverHandlerFor, mouseLeaveHandlerFor,
-            showMinMaxBars, showWindowedMinMaxBars, showMeanValueLines, showWindowedMeanValueLines, showValueLines
+            showMinMaxBars, showWindowedMinMaxBars, showMeanValueLines, showWindowedMeanValueLines, showValueLines,
+            highlightAxesOnMouseOver
         ]
     )
 
