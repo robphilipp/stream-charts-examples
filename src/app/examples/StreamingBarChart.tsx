@@ -281,6 +281,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         borderColor={theme.disabledBackgroundColor}
                         borderRadius={10}
                         minHeight={55}
+                        autoExpandOnMouseEnter={false}
                     >
                         <CommonExecutionControls
                             theme={theme}
@@ -362,6 +363,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         borderColor={theme.disabledBackgroundColor}
                         borderRadius={10}
                         minHeight={55}
+                        autoExpandOnMouseEnter={false}
                     >
                         <ChartControlsHeader type={"header"} theme={theme}>
                             <div style={{paddingRight: 10}} >Stats Controls</div>

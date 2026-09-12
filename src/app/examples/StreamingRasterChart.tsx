@@ -270,6 +270,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         borderColor={theme.disabledBackgroundColor}
                         borderRadius={10}
                         minHeight={55}
+                        autoExpandOnMouseEnter={false}
                     >
                         <CommonExecutionControls
                             theme={theme}

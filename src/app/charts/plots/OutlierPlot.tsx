@@ -429,7 +429,10 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
 
     useEffect(
         () => {
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+            // clear to empty, not to a 0 for each axis -- see ScatterPlot's identical reset for why:
+            // 0 is a legitimate (non-nullish) map value, so `zoomPivotFor`'s `?? axis.scale.domain()[1]`
+            // fallback wouldn't kick in, and the next zoom would pivot on 0 until the first tick lands.
+            currentTimeRef.current = new Map()
         },
         [xAxesState]
     )
@@ -463,7 +466,8 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     // without having to (falsely) declare them as dependencies that would re-trigger the reset.
     const resetPlotForInitialData = useEffectEvent(() => {
         seriesRef.current = new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
-        currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+        // see the identical `currentTimeRef` reset above for why this is an empty map, not a 0 per axis
+        currentTimeRef.current = new Map()
 
         const freshRanges = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
@@ -671,7 +675,6 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
             (axisId: string, end: number) => currentTimeRef.current.set(axisId, end),
             timeWindowBehavior,
             initialTimesRef.current,
-            dataUpdatePeriod,
         )
     }, [
         axisAssignments, dropDataAfter, canvasContext,

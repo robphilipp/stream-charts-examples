@@ -591,7 +591,6 @@ export function BarPlot(props: Props): null {
                 statsRef,
                 (currentTime: number) => currentTimeRef.current = currentTime,
                 AxisInterval.from(0, plotDimensions.width),
-                dataUpdatePeriod,
             )
         },
         [

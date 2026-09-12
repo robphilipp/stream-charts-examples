@@ -1,5 +1,5 @@
 import {interval, Observable} from "rxjs";
-import {map, scan} from "rxjs/operators";
+import {map, scan, shareReplay} from "rxjs/operators";
 import type {Datum, TimeSeries} from "../../charts/series/timeSeries.ts";
 import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
 import {type BaseSeries, seriesFrom} from "../../charts/series/baseSeries.ts";
@@ -130,7 +130,20 @@ export function randomWeightDataObservable(
         map(time => randomWeightData(time, seriesNames, initialData.maxTimes, updatePeriod, delta)),
 
         // add the random value to the previous random value in succession to create a random walk for each series
-        scan((acc, value) => accumulateChartData(acc, value, min, max), initialData)
+        scan((acc, value) => accumulateChartData(acc, value, min, max), initialData),
+
+        // Share one running `interval`/`scan` pipeline across however many times this observable
+        // gets (re-)subscribed, rather than letting each subscribe start its own from scratch.
+        // This matters because Scatter tears down and re-creates its subscription to this same
+        // observable on every remount (see `ScatterPlot`'s inherited-subscription teardown, added
+        // so a remounted plot owns a fresh axis time-window instead of fighting a stale one) --
+        // without sharing, RxJS would treat that as a brand-new subscription to a cold observable
+        // and restart `scan` from `initialData`, snapping every series' plotted value back to its
+        // seed and producing a visible jump each time you navigate away and back. `refCount:
+        // false` keeps the shared pipeline alive (interval still ticking, scan still
+        // accumulating) through the brief zero-subscriber gap between the old subscription's
+        // teardown and the new one's subscribe, instead of tearing the shared pipeline down too.
+        shareReplay({bufferSize: 1, refCount: false}),
     )
 }
 

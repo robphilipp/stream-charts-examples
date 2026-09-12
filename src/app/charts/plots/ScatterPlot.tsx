@@ -496,7 +496,12 @@ export function ScatterPlot(props: Props): null {
 
     useEffect(
         () => {
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+            // clear to empty, not to a 0 for each axis -- `zoomPivotFor`'s `?? axis.scale.domain()[1]`
+            // fallback only kicks in on a missing entry, and 0 is a legitimate (non-nullish) map value.
+            // A store-backed domain (e.g. Scatter's, restored from `x1axisRange`/`x2axisRange` on
+            // remount) can already be far from 0 the moment this effect runs, so an explicit 0 here
+            // would make the very next zoom pivot on a wildly wrong point until the first tick lands.
+            currentTimeRef.current = new Map()
         },
         [xAxesState]
     )
@@ -535,6 +540,7 @@ export function ScatterPlot(props: Props): null {
     // functions.
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
             if (canvasContext !== null) {
+                console.log('[ZOOM-DEBUG] updateTimingAndPlot', 'x-axis-1 =', ranges.get('x-axis-1')?.current.asTuple(), 'sameObjAsTimeRangesRef =', ranges === timeRangesRef.current)
                 onUpdateTimeRef.current(ranges)
                 // keep the single canonical ranges ref in sync -- see OutlierPlot's identical
                 // assignment for the full explanation. Without this, `timeRangesRef.current` (what
@@ -564,7 +570,8 @@ export function ScatterPlot(props: Props): null {
     const resetPlotForInitialData = useEffectEvent(() => {
         dataRef.current = initialData.slice()
         seriesRef.current = new Map(initialData.map(series => [series.name, series]))
-        currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+        // see the identical `currentTimeRef` reset above for why this is an empty map, not a 0 per axis
+        currentTimeRef.current = new Map()
 
         const freshRanges = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
@@ -734,6 +741,7 @@ export function ScatterPlot(props: Props): null {
                                 plotDimensions,
                                 timeRangesRef.current,
                             )
+                            console.log('[ZOOM-DEBUG] onZoom', 'k =', event.transform.k, 'x-axis-1 =', timeRangesRef.current.get('x-axis-1')?.current.asTuple())
                             updatePlotRef.current(cc)
                             // the zoom updated the axes' ranges in place, so report the new intervals
                             notifyIntervalsRef.current(timeRangesRef.current)
@@ -800,10 +808,12 @@ export function ScatterPlot(props: Props): null {
                     // after it's already been read above isn't allowed by react-hooks/immutability)
                     continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                         .forEach((range, id) => timeRangesRef.current.set(id, range))
+                    console.log('[ZOOM-DEBUG] resync-effect BUILD', 'x-axis-1 =', timeRangesRef.current.get('x-axis-1')?.current.asTuple())
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
                     const intervals = continuousAxisIntervals(xAxesState.axes)
+                    console.log('[ZOOM-DEBUG] resync-effect UPDATE', 'x-axis-1 before =', timeRangesRef.current.get('x-axis-1')?.current.asTuple(), 'fromAxesScale =', intervals.get('x-axis-1')?.asTuple())
                     timeRangesRef.current
                         .forEach((range, id, rangesMap) => {
                             const [start, end] = Optional.ofNullable(intervals.get(id))
@@ -945,6 +955,30 @@ export function ScatterPlot(props: Props): null {
             withCadenceOf,
             timeWindowBehavior, dataUpdatePeriod
         ]
+    )
+
+    // If this instance mounted holding a subscription inherited from a previous instance
+    // (stashed in the store to survive a route change -- see `StreamingScatterChart`), it
+    // cannot actually be re-adopted here: its RxJS callback was bound once, at creation, to
+    // the now-unmounted instance's `updateTimingAndPlot`/`notifyIntervalsRef`/
+    // `handleChartTimeUpdate`. Left running, that orphaned subscription keeps advancing its
+    // own copy of the axis time-window and writing it into the store on every tick, which
+    // stomps this instance's zoom/pan a frame after every gesture (the window snaps back to
+    // wherever it was when you navigated away). So tear it down on mount and let the
+    // subscribe effect below create a fresh one that *this* instance owns. The visible
+    // window doesn't jump: the fresh subscription seeds its time-window from the axes, whose
+    // domains `<ContinuousAxis>` has already restored from the store-persisted
+    // `x1axisRange`/`x2axisRange` on this same mount, and the data observable is wall-clock
+    // based so its next emission lands at "now" rather than restarting at zero.
+    useEffect(
+        () => {
+            const inherited = subscriptionRef.current
+            if (inherited !== undefined) {
+                if (!inherited.closed) inherited.unsubscribe()
+                subscriptionRef.current = undefined
+            }
+        },
+        []
     )
 
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`

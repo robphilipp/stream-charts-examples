@@ -167,6 +167,10 @@ export function ContinuousAxis(props: Props): null {
                     // convert the domain from the props to an axis interval for easier comparison
                     const propDomain = AxisInterval.as(domain)
 
+                    if (axisId === 'x-axis-1') {
+                        console.log('[ZOOM-DEBUG] ContinuousAxis effect fired', axisId, 'propDomain =', propDomain.asTuple(), 'domainRef.current =', domainRef.current.asTuple(), 'currentDomain(axesProvider) =', currentDomain.asTuple())
+                    }
+
                     // select whether to update based on whether we have specified that we update the axis
                     // range when the domain from the props changes. If the conditions of the first if
                     // statement are met, then we do a full update of the axis (we update the current, original
@@ -196,10 +200,16 @@ export function ContinuousAxis(props: Props): null {
                         const updatedRange = axisRangeFor(axisId)
                             .map(range => range.update(propDomain.start, propDomain.end) as ContinuousAxisRange)
                             .getOrElse(ContinuousAxisRange.from(propDomain.start, propDomain.end))
+                        if (axisId === 'x-axis-1') {
+                            console.log('[ZOOM-DEBUG] ContinuousAxis PROP-BRANCH (writes back to axis!)', axisId, 'propDomain =', propDomain.asTuple(), 'updatedRange.current =', updatedRange.current.asTuple())
+                        }
                         updateAxisRanges(new Map([[axisId, updatedRange]]))
                     }
                     // otherwise, if the domain exists, update the current axis
                     else if (currentDomain.isNotEmpty()) {
+                        if (axisId === 'x-axis-1') {
+                            console.log('[ZOOM-DEBUG] ContinuousAxis CURRENT-BRANCH', axisId, 'currentDomain =', currentDomain.asTuple())
+                        }
                         axisRef.current.update(currentDomain, plotDimensions, margin)
                     }
 

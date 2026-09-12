@@ -283,11 +283,31 @@ export function subscriptionTimeSeriesWithCadenceFor(
     setCurrentTime: (axisId: string, end: number) => void,
     cadencePeriod: number
 ): Subscription {
-    const maxTime = Array.from(seriesMap.entries())
+    // The best-known "real" stream time, and the `performance.now()` moment it was measured --
+    // together they let a cadence tick convert its own elapsed-since-subscribe into an absolute
+    // stream time (`knownTime + (performance.now() - knownTimeMeasuredAt)`). Seeded here from
+    // `seriesMap`'s latest datum, same as the original one-shot `maxTime` this replaces, but now
+    // *corrected* by every real data tick below rather than staying fixed for the subscription's
+    // whole life. That correction matters because `seriesMap` only reflects real stream progress
+    // on a subscribe that's actually tracking the data from the start -- on a subscribe that
+    // inherits a remounted plot (see `ScatterPlot`'s inherited-subscription teardown), `seriesMap`
+    // has just been reseeded back to the chart's tiny seed data by `resetPlotForInitialData`,
+    // while the real stream (and the axis window restored from the store) is far ahead. Without
+    // the correction, every cadence tick computes a stream time permanently behind the axis's
+    // already-advanced window, so `advanceAxisWindowTo`'s "don't move backward" gate silently
+    // no-ops it forever -- only the buffered real-data ticks (every `windowingTime`) end up moving
+    // the axis, which looks exactly like cadence "was dropped" after navigating away and back.
+    let knownTime = Array.from(seriesMap.entries())
         .reduce(
             (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.x).getOrElse(tMax)),
             -Infinity
         )
+    let knownTimeMeasuredAt = performance.now()
+    // the absolute stream time `knownTime`/`knownTimeMeasuredAt` currently project, i.e. what the
+    // very next cadence tick would compute -- used both to produce a cadence tick's own
+    // `cadenceTime` and (see the real-data branch below) to decide whether a real data tick's
+    // `currentAxisTime` is worth correcting the anchor to.
+    const cadenceTimeNow = (): number => knownTime + (performance.now() - knownTimeMeasuredAt)
 
     // wall-clock elapsed time since subscribing, rather than `value * cadencePeriod` (i.e.
     // counting ticks). The two are equivalent under normal conditions, but diverge whenever a
@@ -334,6 +354,28 @@ export function subscriptionTimeSeriesWithCadenceFor(
     // cumulative from the gesture's start -- compounds into runaway axis growth on every tick.
     const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
+    // Catch the axis up to the best-known current time (`knownTime`) *synchronously, right here*
+    // -- rather than leaving it exactly where it was restored to and passively waiting for the
+    // first RxJS tick (`cadence` or a `bufferedData` flush) to arrive and perform this same
+    // catch-up. On a remount (see `ScatterPlot`'s inherited-subscription teardown) the axis
+    // window is restored from the store to wherever it was when the user navigated away, but
+    // real time has kept moving in the background (the shared observable never stopped -- see
+    // `randomWeightDataObservable`'s `shareReplay`). Until some tick arrives, the axis sits
+    // completely frozen at that stale position; how long that takes is bounded by
+    // `windowingTime`/`cadencePeriod` in the best case, but ordinary browser timer scheduling
+    // (especially right after a route change, while React is still committing the new tree) can
+    // push it well past that -- and because `advanceAxisRangeInMapTo` sets the window straight to
+    // its target rather than easing in, whatever delay there is shows up as "the plot pauses,
+    // then suddenly jumps forward" rather than a smooth resumption. Performing the catch-up here
+    // needs no new "current time" source: `knownTime` already *is* the best-known current time (it's
+    // exactly what the first cadence tick would compute anyway), just available one RxJS round-trip
+    // earlier. Harmless when there's nothing to catch up to (a fresh, non-remounted subscribe):
+    // `knownTime` then matches the axis's own fresh domain, so this is a no-op.
+    if (isFinite(knownTime)) {
+        xAxesState.axisIds().forEach(axisId => advanceAxisRangeInMapTo(timesWindows, axisId, knownTime))
+        updateTimingAndPlot(timesWindows)
+    }
+
     const subscription = bufferedData
         .pipe(mergeWith(cadence))
         .subscribe(data => {
@@ -359,7 +401,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
                 advanceAxisRangeInMapTo(timesWindows, axisId, targetTime)
 
             if (data.currentTime !== undefined) {
-                const cadenceTime = data.currentTime + maxTime
+                const cadenceTime = cadenceTimeNow()
                 xAxesState.axisIds().forEach(axisId => {
                     advanceAxisWindowTo(axisId, cadenceTime)
                     setCurrentTime(axisId, cadenceTime)
@@ -402,6 +444,27 @@ export function subscriptionTimeSeriesWithCadenceFor(
                     // `advanceAxisWindowTo` above for why this matters even though cadence ticks
                     // already advance the window
                     advanceAxisWindowTo(axisId, currentAxisTime)
+                    // Correct cadence's anchor -- but only when real data has actually overtaken
+                    // it (`cadenceTimeNow()`, what cadence itself projects *right now*), not
+                    // merely whenever `currentAxisTime` exceeds the anchor's last-set value. Every
+                    // real data tick arrives with some processing latency behind wall-clock (it's
+                    // waited out a `bufferTime(windowingTime)` buffer, run through `scan`, etc.),
+                    // so `currentAxisTime` is normally a little *behind* where cadence's own
+                    // continuous tracking already is by the time this callback runs -- comparing
+                    // against the stale, only-updated-at-the-last-correction `knownTime` instead
+                    // of the live projection missed that, so this correction fired on essentially
+                    // every real data tick and snapped the anchor backward by that same processing
+                    // latency each time, producing a small but real backward jump in cadenceTime
+                    // (visible as a brief stall/stutter) every `windowingTime`, even during
+                    // ordinary steady-state streaming with no remount involved. Comparing against
+                    // `cadenceTimeNow()` means this only corrects the anchor when cadence has
+                    // genuinely fallen behind the data (e.g. right after a remount, or if cadence
+                    // ticks were ever throttled/delayed) -- which is the only case this needs to
+                    // handle at all -- and otherwise leaves cadence's smooth tracking undisturbed.
+                    if (currentAxisTime > cadenceTimeNow()) {
+                        knownTime = currentAxisTime
+                        knownTimeMeasuredAt = performance.now()
+                    }
                 }
             })
 
@@ -446,6 +509,25 @@ export function subscriptionTimeSeriesWithCadenceFor(
         document.addEventListener('visibilitychange', resyncAxesOnVisible)
         subscription.add(() => document.removeEventListener('visibilitychange', resyncAxesOnVisible))
     }
+
+    // One more catch-up, one animation frame later -- narrows the residual gap between the
+    // synchronous catch-up above (accurate as of the moment this function was called) and
+    // whenever the first real `cadence`/`bufferedData` tick actually arrives to confirm/advance
+    // it further. `requestAnimationFrame` reliably fires on the very next paint (about 16 ms) for
+    // a visible, foregrounded tab, regardless of how long `interval(cadencePeriod)` or
+    // `bufferTime(windowingTime)` take to schedule their own first callback -- which, right after
+    // a route change, while React is still committing/painting the whole new component tree, can
+    // measurably lag behind a single frame (observed live: ~600 ms in one remount, vs. this
+    // function's own synchronous catch-up landing within a few ms). This isn't a special case: it
+    // computes exactly the same `cadenceTimeNow()` a real cadence tick would, just once, earlier;
+    // if real data has already moved further by the time it runs, the usual gate
+    // (`endTime < targetTime`) simply lets that larger value win, same as any other tick.
+    const catchUpFrame = requestAnimationFrame(() => {
+        const cadenceTime = cadenceTimeNow()
+        xAxesState.axisIds().forEach(axisId => advanceAxisRangeInMapTo(timesWindows, axisId, cadenceTime))
+        updateTimingAndPlot(timesWindows)
+    })
+    subscription.add(() => cancelAnimationFrame(catchUpFrame))
 
     // provide the subscription to the caller
     onSubscribe(subscription)
@@ -680,11 +762,23 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
     setCurrentTime: (axisId: string, end: number) => void,
     cadencePeriod: number,
 ): Subscription {
-    const maxTime = Array.from(seriesMap.entries())
+    // see subscriptionTimeSeriesWithCadenceFor's identical `knownTime`/`knownTimeMeasuredAt` for
+    // the full explanation: seeded from `seriesMap` here, then corrected by every real data tick
+    // below, so a cadence tick's absolute time doesn't stay pinned to a stale/small seed value
+    // (e.g. after `seriesMap` gets reseeded by a remount) while the axis window it's compared
+    // against has already been restored much further ahead.
+    let knownTime = Array.from(seriesMap.entries())
         .reduce(
             (tMax, [, series]) => Math.max(tMax, series.last().map(datum => datum.datum.x).getOrElse(tMax)),
             -Infinity
         )
+    let knownTimeMeasuredAt = performance.now()
+    // see subscriptionTimeSeriesWithCadenceFor's identical `cadenceTimeNow` for the full
+    // explanation: comparing a real data tick's time against this live projection (rather than
+    // the stale, only-updated-at-the-last-correction `knownTime`) is what keeps the anchor
+    // correction from firing -- and snapping cadence backward by its own processing latency --
+    // on essentially every real data tick during ordinary steady-state streaming.
+    const cadenceTimeNow = (): number => knownTime + (performance.now() - knownTimeMeasuredAt)
 
     // wall-clock elapsed time since subscribing, rather than `value * cadencePeriod` (i.e.
     // counting ticks) -- see subscriptionTimeSeriesWithCadenceFor's cadence for the full
@@ -719,6 +813,16 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
     // `scaleFactor` to 1 on every tick, corrupting any zoom gesture in progress.
     const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
+    // see subscriptionTimeSeriesWithCadenceFor's identical synchronous catch-up for the full
+    // explanation: performs the first tick's catch-up immediately, rather than leaving the axis
+    // frozen at its remount-restored position until whatever RxJS timer fires first actually
+    // does it -- which is what turns any scheduling delay right after a route change into a
+    // visible "pause, then sudden jump".
+    if (isFinite(knownTime)) {
+        xAxesState.axisIds().forEach(axisId => advanceAxisRangeInMapTo(timesWindows, axisId, knownTime))
+        updateTimingAndPlot(timesWindows)
+    }
+
     const subscription = bufferedData
         .pipe(mergeWith(cadence))
         .subscribe(data => {
@@ -726,7 +830,7 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
             // arrived -- this is what keeps the axes scrolling once the data has reached the
             // right-hand edge, rather than stalling until the next real datum shows up
             if (data.currentTime !== undefined) {
-                const cadenceTime = data.currentTime + maxTime
+                const cadenceTime = cadenceTimeNow()
                 xAxesState.axisIds().forEach(axisId => {
                     advanceAxisRangeInMapTo(timesWindows, axisId, cadenceTime)
                     setCurrentTime(axisId, cadenceTime)
@@ -779,6 +883,13 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
             // means cadence drifting behind the data can't leave the axes permanently behind.
             if (isFinite(maxRealTime)) {
                 xAxesState.axisIds().forEach(axisId => advanceAxisRangeInMapTo(timesWindows, axisId, maxRealTime))
+                // correct cadence's anchor only if real data has overtaken cadence's own live
+                // projection -- see subscriptionTimeSeriesWithCadenceFor's identical correction
+                // for why comparing against `cadenceTimeNow()` (not the stale `knownTime`) matters
+                if (maxRealTime > cadenceTimeNow()) {
+                    knownTime = maxRealTime
+                    knownTimeMeasuredAt = performance.now()
+                }
             }
 
             // update the data
@@ -813,6 +924,17 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
         document.addEventListener('visibilitychange', resyncAxesOnVisible)
         subscription.add(() => document.removeEventListener('visibilitychange', resyncAxesOnVisible))
     }
+
+    // see subscriptionTimeSeriesWithCadenceFor's identical `catchUpFrame` for the full
+    // explanation: narrows the residual gap between the synchronous catch-up above and whenever
+    // the first real tick arrives, by re-confirming on the very next paint frame instead of
+    // waiting on `interval`/`bufferTime`'s own scheduling.
+    const catchUpFrame = requestAnimationFrame(() => {
+        const cadenceTime = cadenceTimeNow()
+        xAxesState.axisIds().forEach(axisId => advanceAxisRangeInMapTo(timesWindows, axisId, cadenceTime))
+        updateTimingAndPlot(timesWindows)
+    })
+    subscription.add(() => cancelAnimationFrame(catchUpFrame))
 
     // provide the subscription to the caller
     onSubscribe(subscription)

@@ -378,7 +378,10 @@ export function RasterPlot(props: Props): null {
 
     useEffect(
         () => {
-            currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+            // clear to empty, not to a 0 for each axis -- see ScatterPlot's identical reset for why:
+            // 0 is a legitimate (non-nullish) map value, so `zoomPivotFor`'s `?? axis.scale.domain()[1]`
+            // fallback wouldn't kick in, and the next zoom would pivot on 0 until the first tick lands.
+            currentTimeRef.current = new Map()
         },
         [xAxesState]
     )
@@ -443,7 +446,8 @@ export function RasterPlot(props: Props): null {
     const resetPlotForInitialData = useEffectEvent(() => {
         dataRef.current = initialData.slice()
         seriesRef.current = new Map(initialData.map(series => [series.name, series]))
-        currentTimeRef.current = new Map(Array.from<string>(xAxesState.axes.keys()).map(id => [id, 0]))
+        // see the identical `currentTimeRef` reset above for why this is an empty map, not a 0 per axis
+        currentTimeRef.current = new Map()
 
         const freshRanges = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
