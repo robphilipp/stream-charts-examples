@@ -44,6 +44,10 @@ export interface Props<CD extends ChartData, D> {
      */
     onSubscribe?: (subscription: Subscription) => void
     /**
+     * Callback function that is called when the chart unsubscribes from the observable.
+     */
+    onUnsubscribe?: () => void
+    /**
      * Callback function that is called when new data arrives to the chart.
      * @param seriesName The name of the series for which new data arrived
      * @param data The new data that arrived in the windowing tine
@@ -75,6 +79,7 @@ export default function DataObservableProvider<CD extends ChartData, D>(props: P
         shouldSubscribe,
 
         onSubscribe = noop,
+        onUnsubscribe = noop,
         onUpdateData = noop,
         onUpdateChartTime = noop,
     } = props
@@ -93,6 +98,7 @@ export default function DataObservableProvider<CD extends ChartData, D>(props: P
             shouldSubscribe,
 
             onSubscribe,
+            onUnsubscribe,
             onUpdateData,
             onUpdateChartTime,
         }}

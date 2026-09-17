@@ -21,5 +21,6 @@ export function defaultObservableValues<CD extends ChartData, D>(): UseObservabl
 
         // user callbacks
         onSubscribe: noop,
+        onUnsubscribe: noop,
     }
 }

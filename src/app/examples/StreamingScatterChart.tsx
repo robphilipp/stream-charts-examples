@@ -121,6 +121,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     const subscription = useScatterChartStore(state => state.subscription)
     const setSubscription = useScatterChartStore(state => state.setSubscription)
+    const clearSubscription = useScatterChartStore(state => state.clearSubscription)
 
     const running = useScatterChartStore(state => state.running)
     const setRunning = useScatterChartStore(state => state.setRunning)
@@ -574,6 +575,7 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     seriesObservable={observable}
                     shouldSubscribe={running}
                     onSubscribe={setSubscription}
+                    onUnsubscribe={clearSubscription}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={windowingTime}
                     dataUpdatePeriod={dataUpdatePeriod}

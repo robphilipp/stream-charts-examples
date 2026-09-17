@@ -42,6 +42,7 @@ const defaultBackground = '#202020';
  * @param shouldSubscribe When switching to `true` from `false`, subscribes to the {@link seriesObservable}. When switching
  * to `false` from `true`, unsubscribes from the {@link seriesObservable}.
  * @param onSubscribe Callback when the chart subscribes to the {@link ChartData} observable
+ * @param onUnsubscribe Callback when the chart unsubscribes from the {@link ChartData} observable
  * @param onUpdateAxesBounds Callback when the time range changes. This is generally used by plots where the
  * x-axis starts to scroll as the data streams in past the end of the current time
  * @param onUpdateChartTime Callback for updating the current chart time. This is generally used by plots
@@ -129,6 +130,10 @@ export interface Props<CD, D, S extends SeriesStyle> {
      * @param subscription The RxJS subscription
      */
     onSubscribe?: (subscription: Subscription) => void
+    /**
+     * Callback when the chart unsubscribes from the {@link ChartData} observable.
+     */
+    onUnsubscribe?: () => void
     /**
      * Callback when the time range changes. This is generally used by plots where the
      * x-axis starts to scroll as the data streams in past the end of the current time
@@ -275,6 +280,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
         shouldSubscribe = true,
 
         onSubscribe = noop,
+        onUnsubscribe = noop,
         onUpdateAxesBounds = noop,
         onUpdateChartTime = noop,
         onUpdateData = noop,
@@ -309,6 +315,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                                     shouldSubscribe={shouldSubscribe}
 
                                     onSubscribe={onSubscribe}
+                                    onUnsubscribe={onUnsubscribe}
                                     onUpdateData={onUpdateData}
                                     onUpdateChartTime={onUpdateChartTime}
                                 >

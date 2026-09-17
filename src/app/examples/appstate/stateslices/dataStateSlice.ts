@@ -38,6 +38,10 @@ export type DataActionSlice<D extends Datum, S extends BaseSeries<D>> = {
      * @param subscription - The subscription to be set.
      */
     setSubscription: (subscription: Subscription) => void
+    /**
+     * Clears the subscription (sets it back to `undefined`), e.g. once it has been unsubscribed.
+     */
+    clearSubscription: () => void
 }
 
 /**
@@ -68,5 +72,6 @@ export function dataSliceStateCreator<O extends ChartData, D extends Datum, S ex
             observable: observableGen(initialData)
         }),
         setSubscription: (subscription: Subscription) => set({subscription}),
+        clearSubscription: () => set({subscription: undefined}),
     })
 }

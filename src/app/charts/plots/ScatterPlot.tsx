@@ -108,10 +108,12 @@ export interface Props {
 
     /**
      * Commonly used when the parent holds the subscription. A common use-case for this
-     * is when the application would like to keep a chart running even when a user navigates
-     * away from the page. In this use case, the subscription is stored at the application
-     * level (see the {@link Chart} prop `onSubscribe`) and handed back to the page
-     * containing this chart when the user navigates back.
+     * is when the application would like to keep a chart's data accumulating even while the
+     * component itself is unmounted -- e.g. when the user navigates away and back. In this use
+     * case, the subscription is stored at the application level (see the {@link Chart} prop
+     * `onSubscribe`) and handed back to this component when it remounts, purely so the mount-time
+     * effect below can find and tear down that orphaned subscription (never to resume rendering
+     * with it -- see that effect's comment).
      */
     subscription?: Subscription
 
@@ -189,6 +191,7 @@ export function ScatterPlot(props: Props): null {
         shouldSubscribe,
 
         onSubscribe = noop,
+        onUnsubscribe = noop,
         onUpdateData,
     } = useDataObservable()
 
@@ -250,25 +253,56 @@ export function ScatterPlot(props: Props): null {
     // fire a "leave" for the old series before firing an "over" for the new one
     const lastHoveredRef = useRef<string | undefined>(undefined)
 
-    const subscriptionRef = useRef<Subscription>(subscription)
+    // seeded from the incoming `subscription` prop so this instance can detect (and, in the
+    // mount-time effect below, kill) a subscription inherited from a prior instance -- never to
+    // adopt/reuse it for rendering (its tick callback is bound to a different instance's refs,
+    // and would stomp this instance's zoom -- see bug #9 in zoom-pan-architecture-pitfalls). Kept
+    // as a ref (not derived from the `onSubscribe`-reported store value) because it must be
+    // readable synchronously, within the same effect/handler that might be about to create or
+    // check it -- the store round-trip that `onSubscribe` feeds is only visible on a subsequent
+    // render.
+    const subscriptionRef = useRef<Subscription | undefined>(subscription)
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     const allowTooltip = useRef<boolean>(subscription === undefined || subscription.closed)
 
     // tracks the latest `subscription` prop value, so the unmount cleanup (below) can tell
-    // whether an external owner has since claimed this subscription -- even if `subscription`
-    // was undefined when this very instance mounted and created it itself. that's the normal
-    // case: this instance creates the subscription, hands it to the parent via `onSubscribe`,
-    // and the parent (if it wants the subscription to survive navigation) feeds it back in as
-    // this prop on the next render, all while this same instance is still mounted. a plain
-    // `useRef(subscription)` would freeze the value from that first render and never see the
-    // hand-off; this ref is kept in sync every render instead.
+    // whether an inherited/orphaned subscription is still meant to be kept alive to bridge a
+    // route change -- even though the effect that reads it at unmount only runs once (deps
+    // `[canvasContext, chartId]`), so its closure would otherwise see a stale value from mount
+    // time. A prior version of this file called this "vestigial" and removed it, on the theory
+    // that the store round-trip only exists to be immediately destroyed by the next mount anyway
+    // -- true for *rendering* purposes, but wrong: leaving an orphaned subscription running
+    // (rather than killing it at this instance's own unmount) is precisely what lets it keep
+    // accumulating real data into `seriesRef.current`/the store's `initialData` (the same,
+    // aliased, mutable arrays) for the entire time the user is away on another route. Killing it
+    // unconditionally at unmount instead (as that removal did) leaves nothing listening to
+    // `seriesObservable` during that gap -- `shareReplay`'s `bufferSize: 1` only remembers the
+    // single latest value, not a history, so every point generated while away is lost, producing
+    // a visible straight-line gap in the plotted data on return. Confirmed live 2026-09-17.
     const subscriptionPropRef = useRef(subscription)
     useEffect(
         () => {
             subscriptionPropRef.current = subscription
         },
         [subscription]
+    )
+
+    // tears down this instance's own subscription: unsubscribes the real RxJS subscription
+    // (the only thing that actually stops it -- see the note on `onUnsubscribe` in
+    // useDataObservable.tsx for why that stays a plot responsibility rather than the
+    // callback's), clears the local ref, and reports the teardown to whoever's listening
+    // (e.g. the store, to keep `state.subscription` from holding a stale/closed reference).
+    // A no-op if nothing is currently subscribed. Memoized (rather than a plain function) so
+    // the effects below that call it can name it in their own dependency arrays without
+    // re-running on every render.
+    const teardownSubscription = useCallback(
+        () => {
+            subscriptionRef.current?.unsubscribe()
+            subscriptionRef.current = undefined
+            onUnsubscribe()
+        },
+        [onUnsubscribe]
     )
 
     const updatePlot = useCallback(
@@ -961,23 +995,26 @@ export function ScatterPlot(props: Props): null {
     // (stashed in the store to survive a route change -- see `StreamingScatterChart`), it
     // cannot actually be re-adopted here: its RxJS callback was bound once, at creation, to
     // the now-unmounted instance's `updateTimingAndPlot`/`notifyIntervalsRef`/
-    // `handleChartTimeUpdate`. Left running, that orphaned subscription keeps advancing its
-    // own copy of the axis time-window and writing it into the store on every tick, which
-    // stomps this instance's zoom/pan a frame after every gesture (the window snaps back to
-    // wherever it was when you navigated away). So tear it down on mount and let the
-    // subscribe effect below create a fresh one that *this* instance owns. The visible
-    // window doesn't jump: the fresh subscription seeds its time-window from the axes, whose
-    // domains `<ContinuousAxis>` has already restored from the store-persisted
-    // `x1axisRange`/`x2axisRange` on this same mount, and the data observable is wall-clock
-    // based so its next emission lands at "now" rather than restarting at zero.
+    // `handleChartTimeUpdate`. Left running *and rendering*, that orphaned subscription would
+    // keep advancing its own copy of the axis time-window and writing it into the store on every
+    // tick, stomping this instance's zoom/pan a frame after every gesture -- see bug #9 in
+    // zoom-pan-architecture-pitfalls. So tear it down here and let the subscribe effect below
+    // create a fresh one that *this* instance owns for rendering. Until this moment, though, that
+    // orphaned subscription was still the only thing accumulating real data into
+    // `seriesRef.current`/the store's `initialData` while this component was unmounted -- see
+    // `subscriptionPropRef`'s comment above for why killing it any earlier (e.g. unconditionally
+    // at the *previous* instance's own unmount) loses data instead.
     useEffect(
         () => {
-            const inherited = subscriptionRef.current
-            if (inherited !== undefined) {
-                if (!inherited.closed) inherited.unsubscribe()
-                subscriptionRef.current = undefined
+            if (subscriptionRef.current !== undefined) {
+                teardownSubscription()
             }
         },
+        // deliberately mount-only (must run exactly once, before the subscribe effect below) --
+        // `teardownSubscription` is stable as long as `onUnsubscribe` (a store action) is, so
+        // reading whatever it is at mount time is correct here regardless of later identity
+        // changes
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         []
     )
 
@@ -991,30 +1028,29 @@ export function ScatterPlot(props: Props): null {
                 subscriptionRef.current = subscribe()
                 allowTooltip.current = false
             } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
-                subscriptionRef.current?.unsubscribe()
-                subscriptionRef.current = undefined
+                teardownSubscription()
                 allowTooltip.current = true
             }
         },
-        [shouldSubscribe, subscribe]
+        [shouldSubscribe, subscribe, teardownSubscription]
     )
 
     // unregister this plot's draw function on unmount, and, unless an external owner has
-    // claimed the subscription (see `subscriptionPropRef` above), unsubscribe it so it doesn't
-    // keep running (and driving stale draws) after the component is gone
+    // claimed the subscription (see `subscriptionPropRef` above) -- meaning it should be left
+    // running to keep accumulating data until the *next* mount's effect above tears it down --
+    // unsubscribe it so it doesn't keep driving stale draws after the component is gone
     useEffect(
         () => {
             return () => {
                 if (canvasContext) {
                     canvasContext.unregister(`scatter-plot-${chartId}`)
                 }
-                if (subscriptionPropRef.current === undefined) {
-                    subscriptionRef.current?.unsubscribe()
-                    subscriptionRef.current = undefined
+                if (subscriptionPropRef.current === undefined && subscriptionRef.current !== undefined) {
+                    teardownSubscription()
                 }
             }
         },
-        [canvasContext, chartId]
+        [canvasContext, chartId, teardownSubscription]
     )
 
     return null

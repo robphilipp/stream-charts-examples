@@ -46,6 +46,15 @@ export interface UseObservableValues<CD extends ChartData, D> {
      */
     onSubscribe: (subscription: Subscription) => void
     /**
+     * Callback function that is called after the chart unsubscribes from the observable
+     * (e.g. when `shouldSubscribe` becomes `false`, or on unmount). Mirrors `onSubscribe` as a
+     * pure notification -- the chart itself always performs the actual `unsubscribe()` and
+     * calls this afterward to report it (e.g. so a store can clear a stashed subscription
+     * reference); it is not this callback's job to unsubscribe anything itself, and it is safe
+     * to leave unimplemented (defaults to a no-op).
+     */
+    onUnsubscribe?: () => void
+    /**
      * Callback function that is called when new data arrives to the chart.
      * @param seriesName The name of the series for which new data arrived
      * @param data The new data that arrived in the windowing tine
