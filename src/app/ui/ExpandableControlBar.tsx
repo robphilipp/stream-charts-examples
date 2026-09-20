@@ -13,6 +13,8 @@ type Props = {
     minHeight?: CSSProperties["minHeight"]
     defaultExpanded?: boolean
     autoExpandOnMouseEnter?: boolean
+    autoCollapseOnMouseLeave?: boolean
+    autoCollapseDelay?: number
     children: JSX.Element | Array<JSX.Element>
 }
 
@@ -25,6 +27,8 @@ export function ExpandableControlBar(props: Props): JSX.Element {
         width = 'max-content',
         defaultExpanded = false,
         autoExpandOnMouseEnter = true,
+        autoCollapseOnMouseLeave = true,
+        autoCollapseDelay = 500,
         expandButtonStyle,
         children
     } = props
@@ -77,15 +81,32 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                     clearTimeout(collapseTimeoutRef.current)
                     collapseTimeoutRef.current = null
                 }
-                setExpanded(autoExpandOnMouseEnter)
-                // setExpanded(true)
+                // when auto-expand is set to true, then expand the control bar (but don't collapse)
+                if (autoExpandOnMouseEnter) setExpanded(true)
                 setExpandButtonColor(expandButtonStyle.color || borderColor)
             }}
-            onMouseLeave={() => {
+            onMouseLeave={(event) => {
+                // always change the expand-button color to reflect whether the mouse is over the control bar
                 setExpandButtonColor(borderColor)
+
+                // when not auto-collapsing, then don't collapse the control bar
+                if (!autoCollapseOnMouseLeave) return;
+
+                // for native select (for example) don't collapse the control bar when in the
+                // native element
+                const nextTarget = event.relatedTarget as Node | null;
+
+                // check if the mouse moved to something inside our container or if the mouse
+                // moved to null (often indicates native dropdown interaction)
+                if (contentRef.current?.contains(nextTarget) || nextTarget === null) {
+                    return;
+                }
+
+                // ok, so now collapse the control bar after a set delay
                 collapseTimeoutRef.current = setTimeout(() => {
+                    collapseTimeoutRef.current = null
                     setExpanded(false)
-                }, 500)
+                }, autoCollapseDelay)
             }}
         >
             <div style={{
