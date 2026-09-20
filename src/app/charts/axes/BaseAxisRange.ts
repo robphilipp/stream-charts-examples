@@ -45,42 +45,45 @@ export abstract class BaseAxisRange {
     }
 
     /**
-     * The ratio between the current and original distance.
-     */
-    get scaleFactor(): number {
-        return this.currentDistance / this.originalDistance
-    }
-
-    /**
-     * Scales the range using the current scale-factor (closure on `scaleFactor`)
-     * @param factor The factor used to update the range
+     * Scales the range by the specified *incremental* factor -- i.e. relative to `.current`, not
+     * relative to `.original`. d3-zoom's own `transform.k` is cumulative from wherever `__zoom` was
+     * last reset to identity, so callers must first convert it to an incremental factor (this
+     * event's `k` divided by the previously-applied `k`, tracked in a ref that survives across
+     * zoom events -- see e.g. `ScatterPlot`'s `lastZoomKRef`) before calling this. Scaling relative
+     * to `.current` this way means `.original` no longer needs to be preserved/shifted for the
+     * zoom math to stay correct -- unlike the previous design, where `factor` was the *cumulative*
+     * `transform.k` applied against `.original`, which broke the moment anything (e.g. a fresh
+     * subscription on Run) rebuilt `.original` to match a since-zoomed `.current` mid-session.
+     * @param factor The incremental scale factor (this event's change in scale, not the cumulative
+     * scale since the axis was last at identity)
      * @param value The current value being scaled
      * @return The new range, represented by an array holding the start and end value
      */
     protected scaledRange(factor: number, value: number): AxisInterval {
         const dtStart = value - this.current.start
         const dtEnd = this.current.end - value
-        const start = value - dtStart * factor / this.scaleFactor
-        const end = value + dtEnd * factor / this.scaleFactor
+        const start = value - dtStart * factor
+        const end = value + dtEnd * factor
         return AxisInterval.from(start, end)
     }
 
     /**
-     *
-     * Scales the axis-range by the specified scale factor from the specified {@link value}. The equations
-     * are written so that the zooming (scaling) occurs at the specified {@link value}, and expands/contracts equally
-     * from that {@link value}.
-     * @param factor The scale factor
+     * Scales the axis-range by the specified *incremental* factor from the specified {@link value}
+     * (see {@link scaledRange} for what "incremental" means here). The equations are written so
+     * that the zooming (scaling) occurs at the specified {@link value}, and expands/contracts
+     * equally from that {@link value}.
+     * @param factor The incremental scale factor
      * @param value The time from which to scale the interval
      * @return A new continuous-axis range with updated values
      */
     abstract scale(factor: number, value: number): BaseAxisRange
 
     /**
-     * Scales the axis-range by the specified scale factor, but constrains the range to the specified
-     * {@link constraint} min and max. The equations are written so that the zooming (scaling) occurs
-     * at the specified {@link value}, and expands/contracts equally from that {@link value}.
-     * @param factor The scale factor
+     * Scales the axis-range by the specified *incremental* factor (see {@link scaledRange} for what
+     * "incremental" means here), but constrains the range to the specified {@link constraint} min
+     * and max. The equations are written so that the zooming (scaling) occurs at the specified
+     * {@link value}, and expands/contracts equally from that {@link value}.
+     * @param factor The incremental scale factor
      * @param value The value at which the zoom is initiated
      * @param constraint The min and max range
      * @return A new continuous-axis range with updated values

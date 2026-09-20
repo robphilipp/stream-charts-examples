@@ -1,6 +1,5 @@
 import {useCallback, useEffect, useEffectEvent, useMemo, useRef} from 'react'
 import * as d3 from "d3"
-import {ZoomTransform} from "d3"
 import {Observable, Subscription} from "rxjs"
 import {Optional} from "result-fn"
 
@@ -537,8 +536,8 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     )
 
     const onZoom = useCallback(
-        (transform: ZoomTransform, pivotDomainValueFor: (axisId: string, axis: ContinuousNumericAxis) => number, dim: Dimensions, ranges: Map<string, ContinuousAxisRange>) =>
-            continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, pivotDomainValueFor, dim, ranges),
+        (zoomFactor: number, pivotDomainValueFor: (axisId: string, axis: ContinuousNumericAxis) => number, dim: Dimensions, ranges: Map<string, ContinuousAxisRange>) =>
+            continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(zoomFactor, pivotDomainValueFor, dim, ranges),
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
@@ -557,6 +556,13 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 (_axisId, axis) => axis.scale.invert(offsetX - margin.left),
         [shouldSubscribe, margin]
     )
+
+    // the last d3-zoom `event.transform.k` this plot applied -- see ScatterPlot's identical
+    // `lastZoomKRef` for the full explanation: d3-zoom's `k` is cumulative, but the zoom math is
+    // incremental, so each event's `k` must be divided by this ref (then this ref updated to that
+    // `k`) before being passed to `onZoom`. Reset to 1 wherever d3-zoom's own transform is reset to
+    // identity (see `onZoomReset` below).
+    const lastZoomKRef = useRef<number>(1)
 
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
@@ -598,8 +604,13 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                         // real mouse position to anchor against, and no business logic to run here
                         if (event.sourceEvent === null) return
 
+                        // convert d3-zoom's cumulative `k` to the incremental factor this event
+                        // represents -- see `lastZoomKRef`'s declaration above
+                        const zoomFactor = event.transform.k / lastZoomKRef.current
+                        lastZoomKRef.current = event.transform.k
+
                         onZoom(
-                            event.transform,
+                            zoomFactor,
                             zoomPivotFor(event.sourceEvent.offsetX),
                             plotDimensions,
                             timeRangesRef.current,
@@ -618,6 +629,9 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 // starting view on reset.
                 onZoomReset(() => {
                     canvasSelection.call(zoom.transform, d3.zoomIdentity)
+                    // d3-zoom's own `k` is back at identity (1) -- see ScatterPlot's identical
+                    // reset for why `lastZoomKRef` must follow it back to 1
+                    lastZoomKRef.current = 1
                     initialAxisIntervalsRef.current.forEach(([start, end], axisId) => {
                         timeRangesRef.current.set(axisId, ContinuousAxisRange.from(start, end))
                         xAxesState.axisFor(axisId).ifPresent(

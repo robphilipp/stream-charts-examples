@@ -338,7 +338,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         if (x1AxisInterval) {
             const [start, end] = x1AxisInterval.asTuple()
             if (start !== x1axisRange[0] || end !== x1axisRange[1]) {
-                console.log('[ZOOM-DEBUG] handleChartTimeUpdate -> setX1axisRange', [start, end], 'was', x1axisRange)
                 setX1axisRange([start, end])
             }
         }

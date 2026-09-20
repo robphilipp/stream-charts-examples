@@ -54,6 +54,12 @@ export type TimeWindowBehavior = (typeof TimeWindowBehavior)[keyof typeof TimeWi
  * scrolling resumes; comparing only against the window's width (rather than its actual current
  * position) would ignore wherever the window was panned/zoomed to and jump straight to "now" the
  * moment enough time had elapsed, which is the wrong behavior.
+ *
+ * Leaves `.original` untouched: zoom math is incremental (each plot tracks its own last-applied
+ * d3-zoom `k` and scales `.current` directly -- see e.g. `ScatterPlot`'s `lastZoomKRef` -- rather
+ * than deriving width from `.original`), so there's no `scaleFactor` left to preserve across the
+ * advance. `.update(...)` (unlike `ContinuousAxisRange.from(...)`) already keeps `.original`
+ * whatever it was, which is exactly what's wanted here.
  * @param timesWindows A `map(axis_id -> range)` updated in place
  * @param axisId The axis to advance
  * @param targetTime The time the axis's right edge should advance to (a no-op if it's already there)
@@ -66,29 +72,13 @@ function advanceAxisRangeInMapTo(timesWindows: Map<string, ContinuousAxisRange>,
         const timeWindow = endTime - startTime
         const newStart = Math.max(0, targetTime - timeWindow)
         const newEnd = Math.max(targetTime, timeWindow)
-        // preserve the axis' current zoom level (the current-width vs. original-width ratio,
-        // i.e. `scaleFactor`) across the advance, by shifting `.original` forward by the same
-        // amount as `.current` -- rather than resetting `.original` to match `.current` (which
-        // snaps scaleFactor back to 1). Zoom math (`ContinuousAxisRange.scaledRange`) divides by
-        // `scaleFactor` fresh on every "zoom" event, and d3-zoom's `transform.k` is *cumulative*
-        // from the start of the gesture -- if an interleaved data/cadence tick reset scaleFactor
-        // to 1 mid-gesture (as the old code did), the next zoom event reapplied the full
-        // cumulative k against an already-scaled width instead of just the incremental change,
-        // compounding into runaway growth every tick: the axis would "expand by a huge amount"
-        // while zooming during streaming, sometimes growing so large the data disappears.
-        const shift = newEnd - endTime
-        const [origStart, origEnd] = range.original.asTuple()
-        timesWindows.set(
-            axisId,
-            ContinuousAxisRange.from(newStart, newEnd, origStart + shift, origEnd + shift)
-        )
+        timesWindows.set(axisId, range.update(newStart, newEnd))
     }
 }
 
 /**
- * Same idea as {@link advanceAxisRangeInMapTo} (preserve `scaleFactor` across the advance by
- * shifting `.original` forward in step with `.current`, rather than collapsing `.original` to
- * `.current`), but for the SCROLL/SQUEEZE inline advance logic duplicated in
+ * Same idea as {@link advanceAxisRangeInMapTo} (advance `.current` and leave `.original`
+ * untouched), but for the SCROLL/SQUEEZE inline advance logic duplicated in
  * {@link subscriptionTimeSeriesFor} and {@link subscriptionOutlierFor}: those advance a range to
  * a target time only once new data actually arrives (rather than on every cadence tick), and
  * SQUEEZE mode pins the window's start to `initialStart` instead of letting it slide forward.
@@ -97,7 +87,7 @@ function advanceAxisRangeInMapTo(timesWindows: Map<string, ContinuousAxisRange>,
  * @param timeWindowBehavior Whether to scroll (both edges advance, width preserved) or squeeze
  * (start pinned at `initialStart`, so the window widens instead of sliding)
  * @param initialStart The pinned start time for SQUEEZE mode (ignored for SCROLL)
- * @return The advanced range, with `.original` shifted by the same amount as `.current.end`
+ * @return The advanced range, with `.original` unchanged
  */
 function scrollOrSqueezeRangeTo(
     range: ContinuousAxisRange,
@@ -111,9 +101,7 @@ function scrollOrSqueezeRangeTo(
         initialStart :
         Math.max(0, targetTime - timeWindow)
     const newEnd = Math.max(targetTime, timeWindow)
-    const shift = newEnd - endTime
-    const [origStart, origEnd] = range.original.asTuple()
-    return ContinuousAxisRange.from(newStart, newEnd, origStart + shift, origEnd + shift)
+    return range.update(newStart, newEnd)
 }
 
 /**
@@ -165,17 +153,13 @@ export function subscriptionTimeSeriesFor(
 
     // grab the time-windows for the x-axes ONCE, at subscribe time, and mutate/advance this same
     // map instance across every subsequent tick (rather than rebuilding it fresh from
-    // `axis.scale.domain()` on every emission). `continuousAxisRanges` has no way to recover a
-    // zoom's `.original` reference from the scale alone (the scale only stores the current
-    // domain), so rebuilding fresh every tick silently collapsed `.original` back to `.current`
-    // -- resetting `scaleFactor` to 1 -- possibly in the middle of an active zoom gesture. Since
-    // d3-zoom's `transform.k` is *cumulative* from the start of the gesture, an interleaved data
-    // tick resetting scaleFactor to 1 mid-gesture caused the next zoom event to reapply the full
-    // cumulative k against an already-scaled width, compounding into runaway growth. Building this
-    // map once and mutating it in place also means it becomes (and stays) the exact same object as
-    // the plot's persisted ranges ref once handed back via `updateTimingAndPlot`, so zoom/pan
-    // handlers mutating that ref are mutating this map too, instead of having their changes
-    // silently discarded by the next rebuild.
+    // `axis.scale.domain()` on every emission). Zoom math is incremental (each plot tracks its own
+    // last-applied d3-zoom `k` and scales `.current` directly -- see e.g. `ScatterPlot`'s
+    // `lastZoomKRef` -- rather than deriving width from `.original`), so rebuilding `.original`
+    // here on every subscribe (e.g. every Run) is harmless. What still matters is that this map
+    // stays the exact same object as the plot's persisted ranges ref once handed back via
+    // `updateTimingAndPlot`, so zoom/pan handlers mutating that ref are mutating this map too,
+    // instead of having their changes silently discarded by the next rebuild.
     const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>);
 
     const subscription = seriesObservable
@@ -348,10 +332,10 @@ export function subscriptionTimeSeriesWithCadenceFor(
 
     // grab the time-windows for the x-axes ONCE, at subscribe time, and mutate/advance this same
     // map instance on every subsequent tick (cadence fires every `cadencePeriod`, far more often
-    // than data itself) -- see subscriptionTimeSeriesFor's identical `timesWindows` for the full
-    // explanation: rebuilding fresh from `axis.scale.domain()` on every tick collapses `.original`
-    // back to `.current`, which -- interleaved with an active zoom gesture, whose `transform.k` is
-    // cumulative from the gesture's start -- compounds into runaway axis growth on every tick.
+    // than data itself) -- see subscriptionTimeSeriesFor's identical `timesWindows` for why this
+    // still matters even though zoom math no longer depends on `.original`: it keeps this map the
+    // same object as the plot's persisted ranges ref, so zoom/pan mutations aren't discarded by a
+    // later rebuild.
     const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
     // Catch the axis up to the best-known current time (`knownTime`) *synchronously, right here*
@@ -686,9 +670,8 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
         bufferTime<OutlierChartData<M>>(windowingTime)
 
     // see subscriptionTimeSeriesFor's identical `timesWindows` for the full explanation: built
-    // once, here, and mutated/advanced in place across every subsequent tick, rather than rebuilt
-    // fresh from `axis.scale.domain()` each time (which cannot recover a zoom's `.original`
-    // reference and so silently reset `scaleFactor` to 1, corrupting an in-progress zoom gesture).
+    // once, here, and mutated/advanced in place across every subsequent tick, so it stays the same
+    // object as the plot's persisted ranges ref (zoom/pan mutations on that ref land here too).
     const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
     const subscription = seriesObservable
@@ -808,9 +791,8 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
 
     // see subscriptionTimeSeriesWithCadenceFor's identical `timesWindows` for the full
     // explanation: built once, here, and mutated/advanced in place on every subsequent cadence
-    // tick (every `cadencePeriod`), rather than rebuilt fresh from `axis.scale.domain()` each
-    // time -- which cannot recover a zoom's `.original` reference and so silently reset
-    // `scaleFactor` to 1 on every tick, corrupting any zoom gesture in progress.
+    // tick (every `cadencePeriod`), so it stays the same object as the plot's persisted ranges ref
+    // (zoom/pan mutations on that ref land here too).
     const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
 
     // see subscriptionTimeSeriesWithCadenceFor's identical synchronous catch-up for the full

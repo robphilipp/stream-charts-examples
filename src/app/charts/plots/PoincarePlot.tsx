@@ -1,7 +1,6 @@
 import {useCallback, useEffect, useMemo, useRef} from 'react'
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
-import {ZoomTransform} from "d3";
 import {clipToArea} from "./plot";
 import {type Datum} from "../series/timeSeries";
 import {
@@ -218,6 +217,13 @@ export function PoincarePlot(props: Props): null {
     // and the zoom-selection so that we can reset the transform to the identity
     const zoomRef = useRef<d3.ZoomBehavior<HTMLCanvasElement, Datum>>(undefined)
     const zoomSelectionRef = useRef<d3.Selection<HTMLCanvasElement, Datum, null, undefined>>(undefined)
+
+    // the last d3-zoom `event.transform.k` this plot applied -- see ScatterPlot's identical
+    // `lastZoomKRef` for the full explanation: d3-zoom's `k` is cumulative, but the zoom math is
+    // incremental, so each event's `k` must be divided by this ref (then this ref updated to that
+    // `k`) before being passed to `onZoom`. Reset to 1 wherever d3-zoom's own transform is reset to
+    // identity (see `updatedBoundsHandler` below).
+    const lastZoomKRef = useRef<number>(1)
 
     // the last-drawn geometry for each series' points, in canvas coordinates, used for
     // hit-testing mouse hover on `mousemove` (see the effect below that wires up the listener).
@@ -477,6 +483,9 @@ export function PoincarePlot(props: Props): null {
             })
             if (zoomEnabled && zoomSelectionRef.current !== undefined && zoomRef.current !== undefined) {
                 zoomSelectionRef.current.call(zoomRef.current.transform, d3.zoomIdentity)
+                // d3-zoom's own `k` is back at identity (1) -- see ScatterPlot's identical reset
+                // for why `lastZoomKRef` must follow it back to 1
+                lastZoomKRef.current = 1
             }
         },
         [zoomEnabled]
@@ -533,7 +542,9 @@ export function PoincarePlot(props: Props): null {
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied. Unlike time-series
      * plots, the iterates plot zooms the x- and y-axis at the same rate.
-     * @param transform The d3 zoom transformation information
+     * @param zoomFactor The *incremental* zoom scale factor for this event -- see the pan/zoom
+     * effect below (`lastZoomKRef`) for how d3-zoom's own cumulative `event.transform.k` is
+     * converted to this incremental form before this is called.
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param y The y-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
@@ -542,7 +553,7 @@ export function PoincarePlot(props: Props): null {
      */
     const onZoom = useCallback(
         (
-            transform: ZoomTransform,
+            zoomFactor: number,
             x: number,
             y: number,
             plotDimensions: Dimensions,
@@ -550,7 +561,7 @@ export function PoincarePlot(props: Props): null {
             yRanges: Map<string, ContinuousAxisRange>
         ) => axesZoomHandler(
             xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, [zoomMinScaleFactor, zoomMaxScaleFactor]
-        )(transform, [x, y], plotDimensions, xRanges, yRanges),
+        )(zoomFactor, [x, y], plotDimensions, xRanges, yRanges),
         [xAxesForSeries, yAxesForSeries, margin, setAxisIntervalFor, xAxesState, yAxesState, zoomMinScaleFactor, zoomMaxScaleFactor]
     )
 
@@ -609,8 +620,13 @@ export function PoincarePlot(props: Props): null {
                     .on("zoom", event => {
                             allowTooltip.current = false
                             if (event.sourceEvent !== null) {
+                                // convert d3-zoom's cumulative `k` to the incremental factor this
+                                // event represents -- see `lastZoomKRef`'s declaration above
+                                const zoomFactor = event.transform.k / lastZoomKRef.current
+                                lastZoomKRef.current = event.transform.k
+
                                 onZoom(
-                                    event.transform,
+                                    zoomFactor,
                                     event.sourceEvent.offsetX - margin.left,
                                     event.sourceEvent.offsetY - margin.top,
                                     plotDimensions,

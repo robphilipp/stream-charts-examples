@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useEffectEvent, useMemo, useRef} from 'react'
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
-import {type D3ZoomEvent, ZoomTransform} from "d3";
+import {type D3ZoomEvent} from "d3";
 import {type AxesAssignment, clipToArea, currentIntervalsFrom, type Series} from "./plot";
 import type {Datum, TimeSeries} from "../series/timeSeries";
 import {
@@ -574,7 +574,6 @@ export function ScatterPlot(props: Props): null {
     // functions.
     const updateTimingAndPlot = useCallback((ranges: Map<string, ContinuousAxisRange>): void => {
             if (canvasContext !== null) {
-                console.log('[ZOOM-DEBUG] updateTimingAndPlot', 'x-axis-1 =', ranges.get('x-axis-1')?.current.asTuple(), 'sameObjAsTimeRangesRef =', ranges === timeRangesRef.current)
                 onUpdateTimeRef.current(ranges)
                 // keep the single canonical ranges ref in sync -- see OutlierPlot's identical
                 // assignment for the full explanation. Without this, `timeRangesRef.current` (what
@@ -663,7 +662,9 @@ export function ScatterPlot(props: Props): null {
 
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out.
-     * @param transform The d3 zoom transformation information
+     * @param zoomFactor The *incremental* zoom scale factor for this event -- see the pan/zoom
+     * effect below (`lastZoomKRef`) for how d3-zoom's own cumulative `event.transform.k` is
+     * converted to this incremental form before this is called.
      * @param pivotDomainValueFor Given an axis ID and its axis, returns the domain value to pivot
      * that axis's zoom around -- see the pan/zoom effect below for how this differs depending on
      * whether the chart is actively streaming.
@@ -672,11 +673,11 @@ export function ScatterPlot(props: Props): null {
      */
     const onZoom = useCallback(
         (
-            transform: ZoomTransform,
+            zoomFactor: number,
             pivotDomainValueFor: (axisId: string, axis: ContinuousNumericAxis) => number,
             plotDimensions: Dimensions,
             ranges: Map<string, ContinuousAxisRange>,
-        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(transform, pivotDomainValueFor, plotDimensions, ranges),
+        ) => continuousAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, xAxesState)(zoomFactor, pivotDomainValueFor, plotDimensions, ranges),
         [axesForSeries, margin, setAxisIntervalFor, xAxesState]
     )
 
@@ -707,6 +708,16 @@ export function ScatterPlot(props: Props): null {
                 (_axisId, axis) => axis.scale.invert(offsetX - margin.left),
         [shouldSubscribe, margin]
     )
+
+    // the last d3-zoom `event.transform.k` this plot applied -- d3-zoom's own `k` is cumulative
+    // from wherever the canvas's `__zoom` was last at identity, but the zoom math below (see
+    // `ContinuousAxisRange.constrainedScale`) is incremental, scaling `.current` directly rather
+    // than deriving width from `.original`. Dividing each event's `k` by this ref converts it to
+    // the incremental factor the math needs; this ref must then be updated to that event's `k`
+    // so the next event's division is against the right baseline. Reset to 1 wherever d3-zoom's
+    // own transform is reset to identity (see `onZoomReset` below) -- otherwise the first zoom
+    // after a reset would divide by a stale, pre-reset `k`.
+    const lastZoomKRef = useRef<number>(1)
 
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
@@ -769,13 +780,17 @@ export function ScatterPlot(props: Props): null {
                             // to let d3-zoom's internal bookkeeping actually update.
                             if (event.sourceEvent === null) return
 
+                            // convert d3-zoom's cumulative `k` to the incremental factor this
+                            // event represents -- see `lastZoomKRef`'s declaration above
+                            const zoomFactor = event.transform.k / lastZoomKRef.current
+                            lastZoomKRef.current = event.transform.k
+
                             onZoom(
-                                event.transform,
+                                zoomFactor,
                                 zoomPivotFor(event.sourceEvent.offsetX),
                                 plotDimensions,
                                 timeRangesRef.current,
                             )
-                            console.log('[ZOOM-DEBUG] onZoom', 'k =', event.transform.k, 'x-axis-1 =', timeRangesRef.current.get('x-axis-1')?.current.asTuple())
                             updatePlotRef.current(cc)
                             // the zoom updated the axes' ranges in place, so report the new intervals
                             notifyIntervalsRef.current(timeRangesRef.current)
@@ -794,6 +809,10 @@ export function ScatterPlot(props: Props): null {
                 // with the other plots (see OutlierPlot's identical `initialAxisIntervalsRef`).
                 onZoomReset(() => {
                     canvasSelection.call(zoom.transform, d3.zoomIdentity)
+                    // d3-zoom's own `k` is back at identity (1), so the next zoom event's
+                    // incremental-factor division (see `lastZoomKRef`'s declaration above) must be
+                    // against 1 too -- otherwise it would divide by the stale, pre-reset `k`.
+                    lastZoomKRef.current = 1
                     initialAxisIntervalsRef.current.forEach(([start, end], axisId) => {
                         timeRangesRef.current.set(axisId, ContinuousAxisRange.from(start, end))
                         xAxesState.axisFor(axisId).ifPresent(
@@ -842,12 +861,10 @@ export function ScatterPlot(props: Props): null {
                     // after it's already been read above isn't allowed by react-hooks/immutability)
                     continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
                         .forEach((range, id) => timeRangesRef.current.set(id, range))
-                    console.log('[ZOOM-DEBUG] resync-effect BUILD', 'x-axis-1 =', timeRangesRef.current.get('x-axis-1')?.current.asTuple())
                 } else {
                     // when the time-ranges already exist, then we want to update the time-ranges for each
                     // existing time-range in a way that maintains the original scale.
                     const intervals = continuousAxisIntervals(xAxesState.axes)
-                    console.log('[ZOOM-DEBUG] resync-effect UPDATE', 'x-axis-1 before =', timeRangesRef.current.get('x-axis-1')?.current.asTuple(), 'fromAxesScale =', intervals.get('x-axis-1')?.asTuple())
                     timeRangesRef.current
                         .forEach((range, id, rangesMap) => {
                             const [start, end] = Optional.ofNullable(intervals.get(id))

@@ -1,6 +1,5 @@
 import {type AxesAssignment, clipToArea} from "./plot";
 import * as d3 from "d3";
-import {ZoomTransform} from "d3";
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
 import {useCallback, useEffect, useMemo, useRef} from "react";
@@ -486,18 +485,20 @@ export function BarPlot(props: Props): null {
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param transform The d3 zoom transformation information
+     * @param zoomFactor The *incremental* zoom scale factor for this event -- see the pan/zoom
+     * effect below (`lastZoomKRef`) for how d3-zoom's own cumulative `event.transform.k` is
+     * converted to this incremental form before this is called.
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
      * @param ranges A map holding the axis ID and its associated time-range
      */
     const onZoom = useCallback(
         (
-            transform: ZoomTransform,
+            zoomFactor: number,
             x: number,
             plotDimensions: Dimensions,
             ranges: Map<string, OrdinalAxisRange>,
-        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState)(transform, x, plotDimensions, ranges),
+        ) => ordinalAxisZoomHandler(axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState)(zoomFactor, x, plotDimensions, ranges),
         [axesForSeries, margin, setAxisIntervalFor, setOriginalAxisIntervalFor, xAxesState]
     )
 
@@ -507,6 +508,12 @@ export function BarPlot(props: Props): null {
     // itself) can always read the current ranges without needing `updatePlot` to be recreated
     // every time the ranges change.
     const ordinalRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
+
+    // the last d3-zoom `event.transform.k` this plot applied -- see ScatterPlot's identical
+    // `lastZoomKRef` for the full explanation: d3-zoom's `k` is cumulative, but the zoom math is
+    // incremental, so each event's `k` must be divided by this ref (then this ref updated to that
+    // `k`) before being passed to `onZoom`.
+    const lastZoomKRef = useRef<number>(1)
 
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
@@ -551,8 +558,13 @@ export function BarPlot(props: Props): null {
                     .scaleExtent([1, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", event => {
+                            // convert d3-zoom's cumulative `k` to the incremental factor this
+                            // event represents -- see `lastZoomKRef`'s declaration above
+                            const zoomFactor = event.transform.k / lastZoomKRef.current
+                            lastZoomKRef.current = event.transform.k
+
                             onZoom(
-                                event.transform,
+                                zoomFactor,
                                 event.sourceEvent.offsetX - margin.left,
                                 plotDimensions,
                                 ordinalRangesRef.current,

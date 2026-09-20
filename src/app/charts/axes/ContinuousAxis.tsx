@@ -167,10 +167,6 @@ export function ContinuousAxis(props: Props): null {
                     // convert the domain from the props to an axis interval for easier comparison
                     const propDomain = AxisInterval.as(domain)
 
-                    if (axisId === 'x-axis-1') {
-                        console.log('[ZOOM-DEBUG] ContinuousAxis effect fired', axisId, 'propDomain =', propDomain.asTuple(), 'domainRef.current =', domainRef.current.asTuple(), 'currentDomain(axesProvider) =', currentDomain.asTuple())
-                    }
-
                     // select whether to update based on whether we have specified that we update the axis
                     // range when the domain from the props changes. If the conditions of the first if
                     // statement are met, then we do a full update of the axis (we update the current, original
@@ -184,32 +180,24 @@ export function ContinuousAxis(props: Props): null {
                         domainRef.current = propDomain
                         domainPropRef.current = domain
                         // preserve any existing `.original` tracking (e.g. from an in-progress
-                        // zoom) rather than collapsing it to match this new current -- mirrors the
-                        // identical bug fixed in subscriptions.ts's `advanceAxisRangeInMapTo`. A
-                        // domain-prop change here reflects the chart's OWN state being round-tripped
-                        // back in (e.g. a zoom/auto-scroll notifying `onUpdateAxesBounds`, which a
-                        // caller wrote into a store that feeds this same `domain` prop) at least as
-                        // often as it reflects a genuine external reset -- and there's no way to
-                        // tell those apart from here. Using `.from(...)` unconditionally reset
-                        // `scaleFactor` to 1 on every such round-trip, which -- combined with
-                        // ordinary per-frame store updates while streaming -- slowly decayed a
-                        // zoomed-out view back toward its original width over the following
-                        // seconds, even after a zoom gesture's own immediate result was correct. A
-                        // genuine external reset (e.g. the Reset button) already restores the whole
-                        // axis explicitly elsewhere, so this doesn't need to special-case it too.
+                        // zoom) rather than collapsing it to match this new current. A domain-prop
+                        // change here reflects the chart's OWN state being round-tripped back in
+                        // (e.g. a zoom/auto-scroll notifying `onUpdateAxesBounds`, which a caller
+                        // wrote into a store that feeds this same `domain` prop) at least as often
+                        // as it reflects a genuine external reset -- and there's no way to tell
+                        // those apart from here. Zoom math is now incremental (see
+                        // `ContinuousAxisRange.scaledRange`), so preserving `.original` isn't
+                        // required for zoom correctness anymore, but it's still the more accurate
+                        // value to carry forward on an ordinary round-trip. A genuine external reset
+                        // (e.g. the Reset button) already restores the whole axis explicitly
+                        // elsewhere, so this doesn't need to special-case it too.
                         const updatedRange = axisRangeFor(axisId)
                             .map(range => range.update(propDomain.start, propDomain.end) as ContinuousAxisRange)
                             .getOrElse(ContinuousAxisRange.from(propDomain.start, propDomain.end))
-                        if (axisId === 'x-axis-1') {
-                            console.log('[ZOOM-DEBUG] ContinuousAxis PROP-BRANCH (writes back to axis!)', axisId, 'propDomain =', propDomain.asTuple(), 'updatedRange.current =', updatedRange.current.asTuple())
-                        }
                         updateAxisRanges(new Map([[axisId, updatedRange]]))
                     }
                     // otherwise, if the domain exists, update the current axis
                     else if (currentDomain.isNotEmpty()) {
-                        if (axisId === 'x-axis-1') {
-                            console.log('[ZOOM-DEBUG] ContinuousAxis CURRENT-BRANCH', axisId, 'currentDomain =', currentDomain.asTuple())
-                        }
                         axisRef.current.update(currentDomain, plotDimensions, margin)
                     }
 

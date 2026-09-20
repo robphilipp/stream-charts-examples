@@ -1,7 +1,7 @@
 import type {Dimensions, Margin} from "../styling/margins";
 import {ContinuousAxisRange} from "./ContinuousAxisRange";
 import * as d3 from "d3";
-import {type ScaleBand, type ScaleContinuousNumeric, type ScaleLinear, ZoomTransform} from "d3";
+import {type ScaleBand, type ScaleContinuousNumeric, type ScaleLinear} from "d3";
 import type {CanvasContext, DrawHandle} from "../d3types";
 import {AxesState} from "./AxesState";
 import type {AxesAssignment} from "../plots/plot";
@@ -996,7 +996,6 @@ function continuousLabelXTranslation(location: typeof AxisLocation.Left | typeof
  */
 export interface ZoomResult<AR extends BaseAxisRange> {
     range: AR
-    zoomFactor: number
 }
 
 /**
@@ -1006,44 +1005,47 @@ export interface ZoomResult<AR extends BaseAxisRange> {
  * position -- while streaming, callers pin it to the axis's current "now" rather than to wherever
  * the mouse happens to be (see `calcZoomAndUpdate`'s `pivotDomainValueFor`), which is what keeps
  * "now" fixed on screen as the zoom widens/narrows the window around it.
- * @param transform The d3 zoom transformation information
+ *
+ * `zoomFactor` is *incremental* (relative to the range's `.current`, not its `.original`) -- see
+ * {@link BaseAxisRange.scaledRange}. d3-zoom's own `transform.k` is cumulative from wherever
+ * `__zoom` was last reset to identity, so callers must convert it to an incremental factor (this
+ * event's `k` divided by the previously-applied `k`) before calling this -- see e.g.
+ * `ScatterPlot`'s `lastZoomKRef`.
+ * @param zoomFactor The incremental zoom scale factor for this event
  * @param domainValue The domain value to zoom around (the pivot)
  * @param range The current range for the axis being zoomed
  * @param constraint The minimum and maximum value the scaled range can have
- * @return The updated range and the new zoom factor
+ * @return The updated range
  */
 export function calculateConstrainedZoomFor(
-    transform: ZoomTransform,
+    zoomFactor: number,
     domainValue: number,
     range: ContinuousAxisRange,
     constraint: [min: number, max: number],
 ): ZoomResult<ContinuousAxisRange> {
     return {
-        range: range.constrainedScale(transform.k, domainValue, constraint),
-        zoomFactor: transform.k
-    } as ZoomResult<ContinuousAxisRange>
+        range: range.constrainedScale(zoomFactor, domainValue, constraint),
+    }
 }
 
 /**
- * Calculates the zoom for an ordinal axis.
- * @param transform The d3 zoom transformation information
+ * Calculates the zoom for an ordinal axis. `zoomFactor` is *incremental* -- see
+ * {@link calculateConstrainedZoomFor} for the full explanation.
+ * @param zoomFactor The incremental zoom scale factor for this event
  * @param x The x-position of the mouse when the scroll wheel or gesture is used
  * @param range The current range for the axis being zoomed
  * @param constraint The minimum and maximum value the scaled range can have
- * @return A ZoomResult holding the updated range and the new zoom factor
+ * @return A ZoomResult holding the updated range
  */
 export function calculateOrdinalConstrainedZoomFor(
-    transform: ZoomTransform,
+    zoomFactor: number,
     x: number,
     range: OrdinalAxisRange,
     constraint: [min: number, max: number],
 ): ZoomResult<OrdinalAxisRange> {
-    const updatedRange = range.constrainedScale(transform.k, x, constraint) as OrdinalAxisRange
-    const k = range.original.equals(updatedRange.original)  ? 1 : transform.k
     return {
-        range: updatedRange,
-        zoomFactor: k
-    } as ZoomResult<OrdinalAxisRange>
+        range: range.constrainedScale(zoomFactor, x, constraint) as OrdinalAxisRange,
+    }
 }
 
 /*
@@ -1355,7 +1357,8 @@ export function panHandler2D(
  * @param axesState The current state of the x- or y-axes
  * @param ranges A map associating axis IDs with axis ranges
  * @param scaleExtent The smallest and largest scale factors allowed
- * @param transform The d3 zoom transformation information
+ * @param zoomFactor The incremental zoom scale factor for this event -- see
+ * {@link calculateConstrainedZoomFor} for what "incremental" means here
  * @param plotDimensions The dimensions of the plot
  */
 function calcZoomAndUpdate(
@@ -1366,7 +1369,7 @@ function calcZoomAndUpdate(
     axesState: AxesState<ContinuousNumericAxis>,
     ranges: Map<string, ContinuousAxisRange>,
     scaleExtent: [min: number, max: number],
-    transform: ZoomTransform,
+    zoomFactor: number,
     plotDimensions: Dimensions,
 ): void {
     const [, zoomMax] = scaleExtent
@@ -1380,7 +1383,7 @@ function calcZoomAndUpdate(
                 [range.original.start * zoomMax, range.original.end * zoomMax] :
                 [0, Infinity]
 
-            const zoom = calculateConstrainedZoomFor(transform, pivotDomainValueFor(axis), range, constraint)
+            const zoom = calculateConstrainedZoomFor(zoomFactor, pivotDomainValueFor(axis), range, constraint)
 
             // update the axis range
             ranges.set(axisId, zoom.range)
@@ -1402,7 +1405,7 @@ function calcOrdinalZoomAndUpdate(
     axesState: AxesState<OrdinalStringAxis>,
     ranges: Map<string, OrdinalAxisRange>,
     scaleExtent: [min: number, max: number],
-    transform: ZoomTransform,
+    zoomFactor: number,
     plotDimensions: Dimensions,
 ): void {
     const [, zoomMax] = scaleExtent
@@ -1415,7 +1418,7 @@ function calcOrdinalZoomAndUpdate(
                 [range.original.start * zoomMax, range.original.end * zoomMax] :
                 [range.original.start, range.original.end]
 
-            const zoom = calculateOrdinalConstrainedZoomFor(transform, value, range, constraint)
+            const zoom = calculateOrdinalConstrainedZoomFor(zoomFactor, value, range, constraint)
 
             // update the axis range
             ranges.set(axisId, zoom.range)
@@ -1452,7 +1455,7 @@ export function continuousAxisZoomHandler(
     axesState: AxesState<ContinuousNumericAxis>,
     scaleExtent: [min: number, max: number] = [0, Infinity],
 ): (
-    transform: ZoomTransform,
+    zoomFactor: number,
     pivotDomainValueFor: (axisId: string, axis: ContinuousNumericAxis) => number,
     plotDimensions: Dimensions,
     ranges: Map<string, ContinuousAxisRange>,
@@ -1460,7 +1463,10 @@ export function continuousAxisZoomHandler(
 
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out.
-     * @param transform The d3 zoom transformation information
+     * @param zoomFactor The *incremental* zoom scale factor for this event -- relative to each
+     * axis's `.current`, not its `.original` (see {@link calculateConstrainedZoomFor}). Callers
+     * must convert d3-zoom's cumulative `event.transform.k` to this incremental form themselves
+     * (this event's `k` divided by the previously-applied `k`) before calling this handler.
      * @param pivotDomainValueFor Given an axis ID and its axis, returns the domain value to pivot
      * that axis's zoom around -- e.g. the mouse position inverted through that axis's own scale,
      * or (while streaming) that axis's own "now" tracking, so "now" stays fixed on screen as the
@@ -1468,12 +1474,12 @@ export function continuousAxisZoomHandler(
      * @param plotDimensions The dimensions of the plot
      * @param ranges A map holding the axis ID and its associated time-range
      */
-    return (transform, pivotDomainValueFor, plotDimensions, ranges) => {
+    return (zoomFactor, pivotDomainValueFor, plotDimensions, ranges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         axesForSeries.forEach(axisId =>
             calcZoomAndUpdate(
                 axis => pivotDomainValueFor(axisId, axis),
-                axisId, margin, setRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions
+                axisId, margin, setRangeFor, axesState, ranges, scaleExtent, zoomFactor, plotDimensions
             )
         )
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
@@ -1504,7 +1510,7 @@ export function ordinalAxisZoomHandler(
     axesState: AxesState<OrdinalStringAxis>,
     scaleExtent: [min: number, max: number] = [0, Infinity],
 ): (
-    transform: ZoomTransform,
+    zoomFactor: number,
     x: number,
     plotDimensions: Dimensions,
     ranges: Map<string, OrdinalAxisRange>,
@@ -1513,15 +1519,17 @@ export function ordinalAxisZoomHandler(
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param transform The d3 zoom transformation information
+     * @param zoomFactor The *incremental* zoom scale factor for this event -- see
+     * {@link continuousAxisZoomHandler} for the full explanation of why this must already be
+     * incremental (not d3-zoom's raw, cumulative `event.transform.k`)
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
      * @param ranges A map holding the axis ID and its associated time-range
      */
-    return (transform, x, plotDimensions, ranges) => {
+    return (zoomFactor, x, plotDimensions, ranges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         axesForSeries.forEach(axisId =>
-            calcOrdinalZoomAndUpdate(x, axisId, margin, setRangeFor, setOriginalRangeFor, axesState, ranges, scaleExtent, transform, plotDimensions)
+            calcOrdinalZoomAndUpdate(x, axisId, margin, setRangeFor, setOriginalRangeFor, axesState, ranges, scaleExtent, zoomFactor, plotDimensions)
         )
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)
     }
@@ -1553,7 +1561,7 @@ export function axesZoomHandler(
     yAxesState: AxesState<ContinuousNumericAxis>,
     scaleExtent: [min: number, max: number],
 ): (
-    transform: ZoomTransform,
+    zoomFactor: number,
     mousePosition: [x: number, y: number],
     plotDimensions: Dimensions,
     xRanges: Map<string, ContinuousAxisRange>,
@@ -1563,25 +1571,27 @@ export function axesZoomHandler(
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param transform The d3 zoom transformation information
+     * @param zoomFactor The *incremental* zoom scale factor for this event -- see
+     * {@link continuousAxisZoomHandler} for the full explanation of why this must already be
+     * incremental (not d3-zoom's raw, cumulative `event.transform.k`)
      * @param mousePosition The position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
      * @param xRanges A map holding the x-axis ID and its associated time-range
      * @param yRanges A map holding the y-axis ID and its associated time-range
      */
-    return (transform, mousePosition, plotDimensions, xRanges, yRanges) => {
+    return (zoomFactor, mousePosition, plotDimensions, xRanges, yRanges) => {
         // run through the axis IDs, adjust their domain, and update the time-range set for that axis
         const [x, y] = mousePosition
         xAxesForSeries.forEach(id =>
             calcZoomAndUpdate(
                 axis => (axis.scale as ScaleLinear<number, number>).invert(x),
-                id, margin, setRangeFor, xAxesState, xRanges, scaleExtent, transform, plotDimensions
+                id, margin, setRangeFor, xAxesState, xRanges, scaleExtent, zoomFactor, plotDimensions
             )
         )
         yAxesForSeries.forEach(id =>
             calcZoomAndUpdate(
                 axis => (axis.scale as ScaleLinear<number, number>).invert(y),
-                id, margin, setRangeFor, yAxesState, yRanges, scaleExtent, transform, plotDimensions
+                id, margin, setRangeFor, yAxesState, yRanges, scaleExtent, zoomFactor, plotDimensions
             )
         )
         // hey, don't forget to update the plot with the new time-ranges in the code calling this... :)

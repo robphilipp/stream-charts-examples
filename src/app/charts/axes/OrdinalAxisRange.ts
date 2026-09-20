@@ -25,10 +25,11 @@ export class OrdinalAxisRange extends BaseAxisRange {
     }
 
     /**
-     * Scales the axis-range by the specified scale factor from the specified value. The equations
-     * are written so that the zooming (scaling) occurs at the specified value, and expands/contracts equally
-     * from that value. This operation does not modify the original range.
-     * @param factor The scale factor
+     * Scales the axis-range by the specified *incremental* scale factor (relative to `.current`,
+     * not `.original` -- see {@link BaseAxisRange.scaledRange}) from the specified value. The
+     * equations are written so that the zooming (scaling) occurs at the specified value, and
+     * expands/contracts equally from that value. This operation does not modify the original range.
+     * @param factor The incremental scale factor
      * @param value The value from which to scale the interval
      * @return A new continuous-axis range with updated values
      */
@@ -38,10 +39,11 @@ export class OrdinalAxisRange extends BaseAxisRange {
     }
 
     /**
-     * Scales the axis-range by the specified scale factor from the specified value, while keeping
-     * the range within the constraints (start, end). The equations are written so that the zooming
-     * (scaling) occurs at the specified value, and expands/contracts equally from that value.
-     * @param factor The scale factor
+     * Scales the axis-range by the specified *incremental* scale factor (relative to `.current`,
+     * not `.original` -- see {@link BaseAxisRange.scaledRange}) from the specified value, while
+     * keeping the range within the constraints (start, end). The equations are written so that the
+     * zooming (scaling) occurs at the specified value, and expands/contracts equally from that value.
+     * @param factor The incremental scale factor
      * @param value The value from which to scale the interval
      * @param constraint The minimum and maximum values that range bounds can be
      * @return A new continuous-axis range with updated values
