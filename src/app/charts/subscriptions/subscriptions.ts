@@ -27,7 +27,6 @@ import {
 import type {ChartData} from "../observables/ChartData";
 import type {OrdinalDatum} from "../series/ordinalSeries";
 import type {RefObject} from "react";
-import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
@@ -196,8 +195,12 @@ export function subscriptionTimeSeriesFor(
                         ) || data.maxTime
 
                     if (currentAxisTime !== undefined) {
-                        // drop data that is older than the max time-window
-                        while (currentAxisTime - series.data[0].x > dropDataAfter) {
+                        // drop data that is older than the max time-window -- guarded on
+                        // series.data.length so a sibling series on the same (often default)
+                        // x-axis advancing currentAxisTime past every point this series holds
+                        // (e.g. this series stalls/updates slower) can't shift it down to empty
+                        // and then throw on series.data[0].x below
+                        while (series.data.length > 0 && currentAxisTime - series.data[0].x > dropDataAfter) {
                             series.data.shift()
                         }
 
@@ -420,8 +423,9 @@ export function subscriptionTimeSeriesWithCadenceFor(
                         -Infinity
                     ) || data.maxTime
                 if (currentAxisTime !== undefined) {
-                    // drop data that is older than the max time-window
-                    while (currentAxisTime - series.data[0].x > dropDataAfter) {
+                    // drop data that is older than the max time-window -- guarded on
+                    // series.data.length; see subscriptionTimeSeriesFor's identical guard for why
+                    while (series.data.length > 0 && currentAxisTime - series.data[0].x > dropDataAfter) {
                         series.data.shift()
                     }
                     // re-sync the axis to the data's own ground-truth time -- see
@@ -606,8 +610,9 @@ export function subscriptionIteratesFor(
 
                     updateCurrentTime(currentTime)
 
-                    // drop data that is older than the max time-window
-                    while (currentTime - series.data[0].time > dropDataAfter) {
+                    // drop data that is older than the max time-window -- guarded on
+                    // series.data.length; see subscriptionTimeSeriesFor's identical guard for why
+                    while (series.data.length > 0 && currentTime - series.data[0].time > dropDataAfter) {
                         series.data.shift()
                     }
 
@@ -946,7 +951,7 @@ export interface WindowedOrdinalStats extends OrdinalStats {
  * @param seriesMap The series-name and the associated series
  * @param ordinalStatsRef The statistics about the data in the chart and about each series
  * @param setCurrentTime Callback to update the current time based on the streamed data
- * @param originalRange The original range of the axes
+ * @param dataUpdatePeriod The average period between data points
  * @return A subscription to the observable (for cancelling and the likes)
  */
 export function subscriptionOrdinalXFor(
@@ -961,7 +966,6 @@ export function subscriptionOrdinalXFor(
     seriesMap: Map<string, BaseSeries<OrdinalDatum>>,
     ordinalStatsRef: RefObject<WindowedOrdinalStats>,
     setCurrentTime: (currentTime: number) => void,
-    originalRange: AxisInterval,
     dataUpdatePeriod?: number,
 ): Subscription {
 
@@ -1024,10 +1028,7 @@ export function subscriptionOrdinalXFor(
         .subscribe(dataList => {
             dataList.forEach((data: OrdinalChartData) => {
                 // grab the axis ranges for the y-axes
-                const yAxisRanges = ordinalAxisRanges(
-                    yAxesState.axes as Map<string, OrdinalStringAxis>,
-                    originalRange
-                );
+                const yAxisRanges = ordinalAxisRanges(yAxesState.axes as Map<string, OrdinalStringAxis>)
 
                 //
                 // calculate the max times for each x-axis, which is the max time over all the
@@ -1079,8 +1080,11 @@ export function subscriptionOrdinalXFor(
 
                     if (currentTime !== undefined) {
                         // drop data that is older than the max time-window, holding on to the dropped ones
+                        // -- guarded on series.data.length; see subscriptionTimeSeriesFor's identical
+                        // guard for why (this function's currentTime is the max across ALL series, not
+                        // just this axis's, so a single lagging series is especially exposed)
                         const droppedData: Array<OrdinalDatum> = []
-                        while (currentTime - series.data[0].time > dropDataAfter) {
+                        while (series.data.length > 0 && currentTime - series.data[0].time > dropDataAfter) {
                             const dropped = series.data.shift()
                             if (dropped !== undefined) {
                                 droppedData.push(dropped)

@@ -22,7 +22,15 @@ export type OutlierTooltipContentFormatters = {
      */
     bandFormatter?: (lower: number, upper: number) => string | JSX.Element
     /**
-     * Formatter for the measure description
+     * Formatter for the measure description. Renders as a single JSX/text blob (this is the
+     * HTML-flavored tooltip, which supports arbitrary JSX -- see `datumFormatter`/`bandFormatter`
+     * above, both `string | JSX.Element` too). Contrast with {@link OutlierPlotTooltipContent}'s
+     * own, differently-shaped `measureFormatter` (`(innerProb, outerProb) => Array<string>`,
+     * rendered as one `<div>` per array element) -- that's the plain-string, multi-line
+     * SVG-flavored sibling tooltip, a separate component never composed with this one. The two
+     * `measureFormatter`s share a name and concept but intentionally differ in shape to match
+     * each tooltip flavor's own rendering strategy; this isn't an oversight to "fix" by unifying
+     * the types.
      * @param innerProb Probability of points being within this band
      * @param outerProb Probability of points being outside this band
      * @return a human-readable description of the band

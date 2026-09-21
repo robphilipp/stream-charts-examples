@@ -77,6 +77,7 @@ export function ContinuousAxis(props: Props): null {
         setAxisIntervalFor,
         updateAxisRanges,
         addAxesRangesUpdateHandler,
+        removeAxesRangesUpdateHandler,
     } = axes
 
     const {
@@ -95,6 +96,9 @@ export function ContinuousAxis(props: Props): null {
 
     const axisRef = useRef<ContinuousNumericAxis>(undefined)
     const rangeUpdateHandlerIdRef = useRef<string>(undefined)
+    // the axisId this axis was actually created under, so the main effect below can tell "axisId
+    // changed since I last ran" apart from "first run" -- see its use for why this matters
+    const createdAxisIdRef = useRef<string | undefined>(undefined)
 
     const axisIdRef = useRef<string>(axisId)
     const marginRef = useRef<Margin>(margin)
@@ -113,6 +117,22 @@ export function ContinuousAxis(props: Props): null {
     useEffect(
         () => {
             if (canvasContext) {
+                // a changed axisId prop means axisRef.current (and its range-update handler) were
+                // created under the OLD id -- the separate unmount-cleanup effect below (also keyed
+                // on axisId) already unregistered the OLD id's canvas draw handle by the time this
+                // runs (React fires that cleanup, closing over the previous axisId, before this
+                // effect re-runs). Without resetting axisRef.current here too, the `else` branch
+                // below would run instead of re-creating the axis, silently leaving it undrawn
+                // under the new id forever -- this mount-once guard otherwise never resets on its
+                // own.
+                if (createdAxisIdRef.current !== undefined && createdAxisIdRef.current !== axisId) {
+                    if (rangeUpdateHandlerIdRef.current) {
+                        removeAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current)
+                        rangeUpdateHandlerIdRef.current = undefined
+                    }
+                    axisRef.current = undefined
+                }
+
                 const font: AxesFont = {...defaultAxesFont(), color, ...props.font}
 
                 const handleRangeUpdates = (updates: Map<string, ContinuousAxisRange>, plotDim: Dimensions): void => {
@@ -125,6 +145,7 @@ export function ContinuousAxis(props: Props): null {
                 }
 
                 if (axisRef.current === undefined) {
+                    createdAxisIdRef.current = axisId
                     switch (location) {
                         case AxisLocation.Bottom:
                         case AxisLocation.Top: {
@@ -212,6 +233,7 @@ export function ContinuousAxis(props: Props): null {
             scale, canvasContext, margin, plotDimensions, setAxisIntervalFor,
             axisRangeFor,
             addAxesRangesUpdateHandler,
+            removeAxesRangesUpdateHandler,
             updateAxisRanges,
             color, updateAxisBasedOnDomainValues
         ]

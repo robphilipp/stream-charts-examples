@@ -29,11 +29,19 @@ export interface Props {
      */
     bandFormatter?: (lower: number, upper: number) => string
     /**
-     * Formatter for the measure description
+     * Formatter for the measure description. Returns one plain string per rendered line (this
+     * component's `explanationLines.map((line, index) => <div key={index}>{line}</div>)` below);
+     * matches this component's own `datumFormatter`/`bandFormatter` above, both plain `string`
+     * (no JSX) since this is the SVG-flavored tooltip. Contrast with the HTML-flavored sibling
+     * {@link useOutlierTooltip}'s own, differently-shaped `measureFormatter`
+     * (`(innerProb, outerProb) => string | JSX.Element`, rendered as a single flowing blob) --
+     * that's a separate component never composed with this one. The two `measureFormatter`s share
+     * a name and concept but intentionally differ in shape to match each tooltip flavor's own
+     * rendering strategy; this isn't an oversight to "fix" by unifying the types.
      * @param innerProb Probability of points being within this band where the band is defined by
      * the lower and upper bounds.
      * @param outerProb Probability of points being outside this band (greater than the upper bound)
-     * @return a human-readable description of the band
+     * @return a human-readable description of the band, one string per rendered line
      */
     measureFormatter?: (innerProb: number, outerProb: number) => Array<string>
 }

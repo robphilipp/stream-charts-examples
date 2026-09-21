@@ -85,6 +85,13 @@ export class OrdinalAxisRange extends BaseAxisRange {
      * the dimensions.
      */
     zoom(beforeDimension: number, afterDimension: number): OrdinalAxisRange {
+        // a zero `beforeDimension` (e.g. a chart mounted inside a collapsed/hidden container that
+        // later becomes visible) would otherwise divide by zero below, producing a NaN/Infinity
+        // range that corrupts this axis until remount. There's no proportional "before" range to
+        // scale from in that case, so just take the new dimension as the fresh, un-zoomed range.
+        if (beforeDimension === 0) {
+            return new OrdinalAxisRange(0, afterDimension, 0, afterDimension)
+        }
         const [start, end] = this.current.asTuple()
         const delta = (end - start ) * (afterDimension - beforeDimension) / beforeDimension
         const lowerBound = start / (end - start) * delta + start

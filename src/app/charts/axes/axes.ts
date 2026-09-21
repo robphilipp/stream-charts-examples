@@ -1608,13 +1608,13 @@ export function continuousAxisRanges(axes: Map<string, ContinuousNumericAxis>): 
 }
 
 /**
- * Calculates the axis-ranges for each of the ordinal axes in the map
+ * Calculates the axis-ranges for each of the ordinal axes in the map, read from each axis's own
+ * scale range.
  * @param axes The map containing the axes and their associated IDs
- * @param originalRange The original range of the axis
  * @return a map associating the axis IDs with their ordinal axis-range
  */
-export function ordinalAxisRanges(axes: Map<string, OrdinalStringAxis>, originalRange: AxisInterval): Map<string, OrdinalAxisRange> {
-    return ordinalRange(axes, originalRange)
+export function ordinalAxisRanges(axes: Map<string, OrdinalStringAxis>): Map<string, OrdinalAxisRange> {
+    return ordinalRange(axes)
 }
 
 /**
@@ -1657,15 +1657,22 @@ export function continuousRange(axes: Map<string, ContinuousNumericAxis>): Map<s
 }
 
 /**
- * Returns the bounds on the specified continuous numeric axes
+ * Returns the bounds on the specified ordinal axes, read from each axis's own scale range.
+ *
+ * Previously mapped every axis ID to one shared, caller-supplied `originalRange`, discarding the
+ * axis object entirely (`[id, ]`) -- harmless today only because there's no per-axis margin/offset
+ * mechanism anywhere in this codebase, so every ordinal axis in a chart is architecturally
+ * guaranteed to span the same pixel range already. Reading each axis's own `.scale.range()`
+ * instead (mirroring {@link ordinalAxisIntervals}, which already does this correctly) removes that
+ * latent footgun for a chart with multiple category axes whose ranges genuinely differ.
  * @param axes A map associating an axis ID with a {@link OrdinalStringAxis}
- * @param originalRange The original range of the axis
  * @return A map associating each specified axis ID with the interval covered (bounds) by the axis
  */
-export function ordinalRange(axes: Map<string, OrdinalStringAxis>, originalRange: AxisInterval): Map<string, OrdinalAxisRange> {
+export function ordinalRange(axes: Map<string, OrdinalStringAxis>): Map<string, OrdinalAxisRange> {
     return new Map(Array.from(axes.entries())
-        .map(([id, ]) =>
-            [id, OrdinalAxisRange.from(originalRange.start, originalRange.end)]
-        )
+        .map(([id, axis]) => {
+            const [start, end] = axis.scale.range()
+            return [id, OrdinalAxisRange.from(start, end)]
+        })
     )
 }

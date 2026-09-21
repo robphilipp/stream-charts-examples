@@ -20,3 +20,17 @@ describe('adjusted dimension should correct for margins', () => {
         expect(containerHeight).toBe(height);
     })
 })
+
+describe('plot dimensions should never go negative', () => {
+    test('should floor width at zero when margins exceed the container width', () => {
+        const margins: Margin = {top: 0, bottom: 0, left: 60, right: 60};
+        const dimensions = plotDimensionsFrom(100, 200, margins);
+        expect(dimensions.width).toBe(0);
+    });
+
+    test('should floor height at zero when margins exceed the container height', () => {
+        const margins: Margin = {top: 60, bottom: 60, left: 0, right: 0};
+        const dimensions = plotDimensionsFrom(100, 100, margins);
+        expect(dimensions.height).toBe(0);
+    });
+})

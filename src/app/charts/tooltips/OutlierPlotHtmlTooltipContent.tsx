@@ -1,14 +1,15 @@
 import React, {type CSSProperties, type JSX, type ReactElement, useEffect, useMemo, useState} from "react"
 import {createPortal} from "react-dom"
-import * as d3 from "d3"
 import {useChart} from "../hooks/useChart"
 import {usePlotDimensions} from "../hooks/usePlotDimensions"
 import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes"
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange"
-import {defaultTooltipStyle, type TooltipDimensions, type TooltipStyle} from "./tooltipUtils"
+import {defaultTooltipStyle, type TooltipDimensions, type TooltipStyle, tooltipX, tooltipY} from "./tooltipUtils"
+import {withAlpha} from "../styling/canvasStyle"
 import type {TooltipData} from "../hooks/useTooltip"
 import type {OutlierBandTooltipMetadata} from "../plots/OutlierPlot"
 import type {OutlierDatum} from "../series/outlierSeries"
+import type {Dimensions, Margin} from "../styling/margins"
 import {DefaultOutlierHtmlTooltipContent} from "./DefaultOutlierHtmlTooltipContent.tsx"
 import {
     UseOutlierTooltip,
@@ -101,7 +102,7 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
                         mouseCoords: [x: number, y: number]
                     ) => buildTooltipContent(
                         seriesName, tooltipData.metadata, mouseCoords,
-                        canvas,
+                        canvas, margin, plotDimensions, tooltipStyle,
                         setTooltipContent
                     )
                 )
@@ -123,21 +124,12 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
 
     if (tooltipContent === null) return null
 
-    const bg = d3.color(tooltipStyle.backgroundColor) as d3.RGBColor | null
-    const bgColor = bg
-        ? `rgba(${bg.r},${bg.g},${bg.b},${tooltipStyle.backgroundOpacity})`
-        : tooltipStyle.backgroundColor
-    const bc = d3.color(tooltipStyle.borderColor) as d3.RGBColor | null
-    const borderColor = bc
-        ? `rgba(${bc.r},${bc.g},${bc.b},${tooltipStyle.borderOpacity})`
-        : tooltipStyle.borderColor
-
     const divStyle: CSSProperties = {
         position: 'fixed',
         left: tooltipContent.left,
         top: tooltipContent.top,
-        backgroundColor: bgColor,
-        border: `${tooltipStyle.borderWidth}px solid ${borderColor}`,
+        backgroundColor: withAlpha(tooltipStyle.backgroundColor, tooltipStyle.backgroundOpacity),
+        border: `${tooltipStyle.borderWidth}px solid ${withAlpha(tooltipStyle.borderColor, tooltipStyle.borderOpacity)}`,
         borderRadius: tooltipStyle.borderRadius,
         padding: `${tooltipStyle.paddingTop}px ${tooltipStyle.paddingRight}px ${tooltipStyle.paddingBottom}px ${tooltipStyle.paddingLeft}px`,
         fontFamily: tooltipStyle.fontFamily,
@@ -163,11 +155,19 @@ export function OutlierPlotHtmlTooltipContent(props: Props): React.ReactElement 
     )
 }
 
+/** A generous estimate of the tooltip's rendered width, used to keep it from running off the right edge of the viewport. */
+const ESTIMATED_WIDTH = 350
+/** A generous estimate of the tooltip's rendered height, used to keep it from running off the bottom edge of the plot. */
+const ESTIMATED_HEIGHT = 140
+
 function buildTooltipContent(
     seriesName: string,
     metadata: OutlierBandTooltipMetadata,
     mouseCoords: [x: number, y: number],
     canvas: HTMLCanvasElement,
+    margin: Margin,
+    plotDimensions: Dimensions,
+    tooltipStyle: TooltipStyle,
     setTooltipContent: (content: TooltipContent) => void,
 ): TooltipDimensions {
     const {
@@ -177,10 +177,18 @@ function buildTooltipContent(
         pointsInBand,
     } = metadata
 
+    // clamp against the *plot* (via the same tooltipX/tooltipY helpers OutlierPlotTooltipContent's
+    // SVG-flavored sibling already uses), not just the browser viewport -- the previous
+    // `Math.min(..., window.innerWidth - ESTIMATED_WIDTH)` clamp went negative (pushing the
+    // tooltip off-screen to the *left*) on any viewport narrower than ESTIMATED_WIDTH, and there
+    // was no vertical clamp at all, letting the tooltip run off the bottom of the plot
+    const [x, y] = mouseCoords
+    const xCoord = tooltipX(x, ESTIMATED_WIDTH, plotDimensions, tooltipStyle, margin)
+    const yCoord = tooltipY(y, ESTIMATED_HEIGHT, plotDimensions, tooltipStyle, margin)
+
     const canvasRect = canvas.getBoundingClientRect()
-    const ESTIMATED_WIDTH = 350
-    const left = Math.min(canvasRect.left + mouseCoords[0] + 12, window.innerWidth - ESTIMATED_WIDTH)
-    const top = canvasRect.top + mouseCoords[1] + 12
+    const left = canvasRect.left + xCoord
+    const top = canvasRect.top + yCoord
 
     setTooltipContent({bandIndex: 0, seriesName, datum, upperMeasure, lowerMeasure, pointsInBand, left, top})
 

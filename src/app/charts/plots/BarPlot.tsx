@@ -29,7 +29,6 @@ import type {SvgFillStyle, SvgStrokeStyle} from "../styling/svgStyle";
 import {type BarSeriesStyle, type BarStyle, defaultBarSeriesStyle} from "../styling/barPlotStyle";
 import type {TooltipData} from "../hooks/useTooltip";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
-import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
 import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "./constants.ts";
 
@@ -602,14 +601,12 @@ export function BarPlot(props: Props): null {
                 seriesRef.current,
                 statsRef,
                 (currentTime: number) => currentTimeRef.current = currentTime,
-                AxisInterval.from(0, plotDimensions.width),
             )
         },
         [
             axisAssignments, dropDataAfter, canvasContext,
             onSubscribe, onUpdateData,
-            seriesObservable, updateTimingAndPlot, windowingTime, yAxesState,
-            plotDimensions.width, dataUpdatePeriod
+            seriesObservable, updateTimingAndPlot, windowingTime, yAxesState
         ]
     )
 
@@ -627,7 +624,7 @@ export function BarPlot(props: Props): null {
                     // once it's already in play elsewhere, e.g. `updateTimingAndPlot` above, isn't
                     // allowed by react-hooks/immutability)
                     ordinalRangesRef.current.clear()
-                    ordinalAxisRanges(xAxesState.axes, AxisInterval.from(0, plotDimensions.width))
+                    ordinalAxisRanges(xAxesState.axes)
                         .forEach((range, id) => ordinalRangesRef.current.set(id, range))
                 } else {
                     // when the ordinal-ranges already exist, then we want to update the ordinal-ranges for each

@@ -127,6 +127,11 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
 // the context is generic over the same type parameters as `UseAxesValues`, but a context
 // object can't itself carry unbound generics -- `useAxes` below casts it back to the caller's
 // concrete types, which is safe because `<AxesProvider/>` is what actually supplies the value
+//
+// IMPORTANT: as with `ChartContext` (see its identical note in useChart.tsx), this is NOT
+// statically enforced across the component tree -- each consumer casts to its own hardcoded
+// AR/A, independent of whatever `<AxesProvider<AR, A>>` ancestor actually supplied. A mismatched
+// axis-range/axis kind only fails at runtime, not at compile time.
 export const AxesContext = createContext<unknown>(defaultAxesValues())
 
 /**

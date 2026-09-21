@@ -28,9 +28,15 @@ export interface Dimensions {
  * @see containerDimensionsFrom
  */
 export function plotDimensionsFrom(containerWidth: number, containerHeight: number, plotMargins: Margin): Dimensions {
+    // floor at zero -- margins larger than the container would otherwise produce negative
+    // width/height, which propagates into D3 scale ranges, tracker/tooltip clamping math, and
+    // canvas draw coordinates as silent garbage. Mirrors the same Math.max(0, ...) convention
+    // already used defensively at some (but not all) points of use, e.g. plot.ts's
+    // resizeCanvasTo/clipToArea -- clamping here makes Dimensions a non-negative invariant for
+    // every downstream consumer instead of relying on each one to remember to clamp itself.
     return {
-        width: containerWidth - plotMargins.left - plotMargins.right,
-        height: containerHeight - plotMargins.top - plotMargins.bottom
+        width: Math.max(0, containerWidth - plotMargins.left - plotMargins.right),
+        height: Math.max(0, containerHeight - plotMargins.top - plotMargins.bottom)
     }
 }
 

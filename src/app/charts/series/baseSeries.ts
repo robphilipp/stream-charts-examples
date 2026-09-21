@@ -53,11 +53,15 @@ export function seriesFrom<D>(
     // by reference rather than copying, so reading `data.length` directly (the old behavior) read
     // the raw backing array's physical length, which `shift()` never shrinks -- it only advances
     // an internal headIndex.
-    const backing: FastShiftArray<D> = data instanceof Array ? FastShiftArray.fromArray<D>(data, true, compactingSize) : data
+    const backing: FastShiftArray<D> = data instanceof Array ?
+        FastShiftArray.fromArray<D>(data, true, compactingSize) :
+        data
     return {
         name: name,
         data: backing,
-        last: () => backing.length > 0 ? successResult<D, string>(backing[backing.length - 1]) : failureResult<D, string>("Data is empty"),
+        last: () => backing.length > 0 ?
+            successResult<D, string>(backing[backing.length - 1]) :
+            failureResult<D, string>("Data is empty"),
         length: () => backing.length,
         isEmpty: () => backing.length === 0
     }

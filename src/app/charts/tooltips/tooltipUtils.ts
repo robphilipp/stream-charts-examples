@@ -190,6 +190,12 @@ function boundingPointsIndex<D>(data: Series<D>, value: number, xFrom: (value: D
  * is `[NaN, NaN]`. If the mouse is before the first point, then the "before" point is `[NaN, NaN]`.
  */
 export function boundingPoints<D>(data: Series<D>, value: number, xFrom: (value: D) => number, emptyDatum: () => D): [D, D] {
+    // an empty series has no bounding points at all -- guard here (not just inside
+    // boundingPointsIndex) since this function's own upperIndex<=0/>=data.length fallbacks below
+    // also read data[0]/data[data.length-1], which are just as undefined on an empty array
+    if (data.length === 0) {
+        return [emptyDatum(), emptyDatum()]
+    }
     const upperIndex = boundingPointsIndex<D>(data, value, xFrom)
     if (upperIndex <= 0) {
         return [emptyDatum(), data[0]]

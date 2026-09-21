@@ -242,7 +242,7 @@ export function RasterPlotTooltipContent(props: Props): ReactElement | null {
  */
 function captureTooltipContent(
     seriesName: string,
-    selected: Datum,
+    selected: Datum | undefined,
     mouseCoords: [x: number, y: number],
     canvas: HTMLCanvasElement,
     margin: Margin,
@@ -250,8 +250,18 @@ function captureTooltipContent(
     tooltipStyle: TooltipStyle,
     axis: OrdinalStringAxis,
     // options: TooltipOptions,
-    setTooltipContent: (content: RasterTooltipContent) => void,
+    setTooltipContent: (content: RasterTooltipContent | null) => void,
 ): TooltipDimensions {
+    // `selected` comes from the caller's `tooltipData.series[0]` -- this component is a public,
+    // independently-usable tooltip-content provider, and `TooltipData.series: Series<D>` permits
+    // an empty array, so guard here rather than relying on every caller to have already checked
+    // (RasterPlot.tsx's own mousemove handler does today, but that shouldn't be the only thing
+    // standing between an empty series and a destructuring crash below)
+    if (selected === undefined) {
+        setTooltipContent(null)
+        return {x: -99999, y: -99999, contentWidth: 0, contentHeight: 0}
+    }
+
     const [x] = mouseCoords
     const {x: spikeTime, y} = selected
 

@@ -9,6 +9,8 @@
 // stroke and fill opacity in the same draw call, bake the opacity into the color string with
 // `withAlpha(...)` instead of relying on `globalAlpha` for one of them.
 
+import * as d3 from "d3"
+
 export interface CanvasStrokeStyle {
     readonly color: string
     readonly width: number
@@ -67,39 +69,32 @@ export function applyFillStyle(context: CanvasRenderingContext2D, style: Partial
     return context
 }
 
-// lazily-created 1x1 offscreen context used only to resolve named/hex colors to rgb components
-let colorProbeContext: CanvasRenderingContext2D | null = null
-
 /**
  * Bakes an opacity into a color string by resolving it to `rgba(...)`. Needed because canvas has
  * a single `globalAlpha` shared between stroke and fill (see the module-level note above); when a
  * shape needs independent stroke and fill opacity, use this to bake opacity into the color passed
  * to {@link applyStrokeStyle}/{@link applyFillStyle} instead of setting `opacity` on both.
+ *
+ * Uses `d3.color(...)` (already the project's convention for this elsewhere -- see `Legend.tsx`,
+ * `barPlotStyle.ts`) rather than the previous approach of assigning `color` to a single
+ * module-level, lazily-created `<canvas>` context's `fillStyle` and reading back the browser's
+ * normalized value: assigning an unparseable CSS string to `fillStyle` is a silent no-op per the
+ * Canvas 2D spec, so an invalid `color` would have silently resolved to whatever the *previous,
+ * unrelated* `withAlpha` call (from any chart/tooltip/legend on the page, since the context was a
+ * single shared singleton) happened to leave `fillStyle` at -- order-dependent and effectively
+ * nondeterministic. `d3.color` instead returns `null` for unparseable input, so an invalid color
+ * falls through to the same "fall back to the original string" behavior this always had for the
+ * "no canvas 2d support" case, deterministically, with no shared state at all.
  * @param color Any valid CSS color string (named, hex, rgb, rgba, hsl, etc)
  * @param opacity The opacity to bake in, from 0 (transparent) to 1 (opaque)
  * @return An `rgba(...)` string equivalent to `color` at the given `opacity`
  */
 export function withAlpha(color: string, opacity: number): string {
-    if (!colorProbeContext) {
-        colorProbeContext = document.createElement('canvas').getContext('2d')
-    }
-    if (!colorProbeContext) {
-        // extremely unlikely (no canvas 2d support at all); fall back to the original color
+    const parsed = d3.color(color)
+    if (parsed === null) {
+        // unparseable color string; nothing sensible to bake an opacity into
         return color
     }
-    colorProbeContext.fillStyle = color
-    // the browser normalizes whatever we assigned to either "#rrggbb" or "rgba(r, g, b, a)"
-    const resolved = colorProbeContext.fillStyle as string
-    if (resolved.startsWith('#')) {
-        const r = parseInt(resolved.slice(1, 3), 16)
-        const g = parseInt(resolved.slice(3, 5), 16)
-        const b = parseInt(resolved.slice(5, 7), 16)
-        return `rgba(${r}, ${g}, ${b}, ${opacity})`
-    }
-    const match = resolved.match(/rgba?\(([^)]+)\)/)
-    if (match) {
-        const [r, g, b] = match[1].split(',').map(part => part.trim())
-        return `rgba(${r}, ${g}, ${b}, ${opacity})`
-    }
-    return resolved
+    const {r, g, b} = parsed.rgb()
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`
 }

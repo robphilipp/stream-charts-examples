@@ -17,3 +17,15 @@ export function regexFilter(regexString: string): Result<RegExp, string> {
         )
     }
 }
+
+/**
+ * Builds a regex that matches `text` literally, for callers (e.g. a series-name filter input)
+ * who want to search for plain text without regex metacharacters (`.`, `*`, `+`, `(`, etc.) in it
+ * being given unintended regex semantics. Escapes those metacharacters before handing the result
+ * to {@link regexFilter}, so it shares the same `Result`-wrapped, never-throws contract.
+ * @param text The literal text to match
+ * @return The regular expression (`RegExp`) wrapped in an option, matching `text` literally
+ */
+export function literalFilter(text: string): Result<RegExp, string> {
+    return regexFilter(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+}

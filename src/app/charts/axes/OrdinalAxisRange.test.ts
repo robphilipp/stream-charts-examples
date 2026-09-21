@@ -52,4 +52,15 @@ describe('scaleOrdinalBounds', () => {
         const zoomedRange = range.zoom(100, 500)
         validateRanges(zoomedRange, expectedRange)
     })
+
+    it('should not divide by zero when the before-dimension is zero (e.g. a chart mounted while hidden)', () => {
+        const range = OrdinalAxisRange.from(0, 100, 0, 100)
+        const zoomedRange = range.zoom(0, 300)
+        expect(Number.isFinite(zoomedRange.current.start)).toBe(true)
+        expect(Number.isFinite(zoomedRange.current.end)).toBe(true)
+        expect(Number.isFinite(zoomedRange.original.start)).toBe(true)
+        expect(Number.isFinite(zoomedRange.original.end)).toBe(true)
+        expect(zoomedRange.current.start).toBe(0)
+        expect(zoomedRange.current.end).toBe(300)
+    })
 });

@@ -86,6 +86,18 @@ export interface UseChartValues<D, S extends SeriesStyle, TM, AR extends BaseAxi
 // the context is generic over the same type parameters as `UseChartValues`, but a context
 // object can't itself carry unbound generics -- `useChart` below casts it back to the caller's
 // concrete types, which is safe because `<ChartProvider/>` is what actually supplies the value
+//
+// IMPORTANT: this is NOT statically enforced across the component tree. `<Chart<CD, D, S, TM, AR,
+// A>>`'s AR/A are never referenced by its own Props type, so they can't even be inferred from
+// JSX; and every descendant (each axis component) calls `useChart<...>()` with its OWN hardcoded
+// generic arguments, entirely independent of whatever the ancestor `<Chart<...>>` was
+// instantiated with. Nothing at the type level stops e.g. a `<Chart<..., ContinuousAxisRange,
+// ContinuousNumericAxis>>` from having an `<OrdinalAxis>` child that casts this same context to
+// `UseChartValues<..., OrdinalAxisRange, OrdinalStringAxis>` internally -- a real mismatch here
+// only fails at runtime (a bad cast surfacing as a confusing error deeper in axis/plot code), not
+// at compile time. Making this a real compile-time guarantee would need a per-instantiation-typed
+// context (e.g. a context factory called once per concrete AR/A pairing) -- a broader refactor
+// than the type parameters alone might suggest, and not something to casually "fix" locally.
 export const ChartContext = createContext<unknown>(defaultUseChartValues())
 
 /**

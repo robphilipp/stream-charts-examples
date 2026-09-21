@@ -1,4 +1,4 @@
-import {type JSX, useEffect, useRef, useState} from "react";
+import {type JSX, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {type Dimensions, dimensionsNotEqual, type Margin, plotDimensionsFrom} from "../styling/margins";
 import {defaultPlotDimensions} from "./defaultPlotDimensions";
 import {type PlotDimensionChangeHandler, PlotDimensionsContext} from "./usePlotDimensions";
@@ -42,48 +42,66 @@ export default function PlotDimensionsProvider(props: Props): JSX.Element {
     )
 
     /**
-     * Updates the plot dimensions and fires any registered change handlers.
+     * Updates the plot dimensions and fires any registered change handlers. Wrapped in
+     * `useCallback` (empty deps -- closes only over refs and the stable `setDimensions` setter) so
+     * its identity is stable across renders, which in turn lets the context `value` below be
+     * memoized instead of being a fresh object on every render.
      * @param newDimensions The new plot dimensions.
      */
-    function updateDimensions(newDimensions: Dimensions) {
-        if (dimensionsNotEqual(dimensionsRef.current, newDimensions)) {
-            for (const handler of plotDimensionChangeHandlersRef.current.values()) {
-                handler(dimensionsRef.current, newDimensions)
+    const updateDimensions = useCallback(
+        (newDimensions: Dimensions) => {
+            if (dimensionsNotEqual(dimensionsRef.current, newDimensions)) {
+                for (const handler of plotDimensionChangeHandlersRef.current.values()) {
+                    handler(dimensionsRef.current, newDimensions)
+                }
+                dimensionsRef.current = newDimensions
+                setDimensions(newDimensions)
             }
-            dimensionsRef.current = newDimensions
-            setDimensions(newDimensions)
-        }
-    }
+        },
+        []
+    )
 
     /**
      * Registers a plot dimension change handler.
      * @param handler The handler to register.
      * @returns The handler ID.
      */
-    function registerPlotDimensionChangeHandler(handler: PlotDimensionChangeHandler) {
-        const handlerId = crypto.randomUUID()
-        plotDimensionChangeHandlersRef.current.set(handlerId, handler)
-        return handlerId
-    }
+    const registerPlotDimensionChangeHandler = useCallback(
+        (handler: PlotDimensionChangeHandler) => {
+            const handlerId = crypto.randomUUID()
+            plotDimensionChangeHandlersRef.current.set(handlerId, handler)
+            return handlerId
+        },
+        []
+    )
 
     /**
      * Unregisters a plot dimension change handler.
      * @param handlerId The handler ID.
      * @returns True if the handler was unregistered, false if it was not found.
      */
-    function unregisterPlotDimensionChangeHandler(handlerId: string): boolean {
-        return plotDimensionChangeHandlersRef.current.delete(handlerId)
-    }
+    const unregisterPlotDimensionChangeHandler = useCallback(
+        (handlerId: string): boolean => plotDimensionChangeHandlersRef.current.delete(handlerId),
+        []
+    )
 
-    return <PlotDimensionsContext.Provider
-        value={{
+    // memoized so consumers relying on context value identity (e.g. a useMemo/effect keyed on this
+    // context's value) don't re-run on every render of anything above this provider -- previously
+    // a fresh object literal every render, which is exactly the same class of bug already
+    // documented/worked-around for AxesProvider's context value (see e.g. ScatterPlot.tsx's note
+    // on `axesRanges` never being memoized there).
+    const value = useMemo(
+        () => ({
             plotDimensions: dimensions,
             margin,
             updateDimensions,
             registerPlotDimensionChangeHandler,
             unregisterPlotDimensionChangeHandler
-        }}
-    >
+        }),
+        [dimensions, margin, updateDimensions, registerPlotDimensionChangeHandler, unregisterPlotDimensionChangeHandler]
+    )
+
+    return <PlotDimensionsContext.Provider value={value}>
         {children}
     </PlotDimensionsContext.Provider>
 }
