@@ -730,17 +730,29 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
             if (!canvasContext) return
 
             const canvas = canvasContext.canvas
-            const {context2D} = canvasContext
+            const {context2D, dpr} = canvasContext
 
             const handleMove = (event: MouseEvent) => {
                 const [x, y] = canvasLocalPoint(event, canvas)
-                // hit-test coordinates need to be in the same (margin-translated) space the
-                // geometry/paths were captured in
-                const localX = x - margin.left
-                const localY = y - margin.top
 
                 // check outlier markers first (drawn on top of the bands)
                 const outlierHit = seriesAt(x, y, outlierGeometryRef.current)
+                // The band's `Path2D` is built from raw (pre-margin) local coordinates -- the same
+                // space `x - margin.left, y - margin.top` (the "local" point) is in -- but
+                // `ctx.isPointInPath` only reported correct hits once that local point was ALSO
+                // scaled by `dpr`. (An earlier version of this instead dropped the margin
+                // subtraction and scaled the raw canvas-relative point by `dpr` -- that's wrong:
+                // verified against the actual rendered band, rigorously, by isolating a single
+                // band layer's on-screen pixels via `getImageData` and testing candidate query
+                // points against the real `Path2D` object captured from a live hover. Dropping the
+                // margin subtraction was close enough to pass a single, less careful spot-check,
+                // but consistently mislocated the hit region by `margin.left`/`margin.top`, which
+                // is what produced "hover ~margin-worth of pixels to the side of the band" in
+                // practice.) The exact reason `dpr` needs to be reapplied here, on top of a
+                // transform that already includes it, isn't fully pinned down -- this is the
+                // empirically-verified formula, not a re-derivation from the Canvas 2D spec.
+                const localX = (x - margin.left) * dpr
+                const localY = (y - margin.top) * dpr
                 const current = outlierHit !== undefined ?
                     {kind: 'outlier' as const, seriesName: outlierHit.name.replace(/::outlier$/, ''), index: outlierHit.index} :
                     findHoveredBand(bandsRef.current, context2D, localX, localY)
