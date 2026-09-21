@@ -47,12 +47,19 @@ export function seriesFrom<D>(
     data: Array<D> | FastShiftArray<D> = [],
     compactingSize: number = DEFAULT_COMPACTING_SIZE
 ): BaseSeries<D> {
+    // `backing` is the single source of truth stored in `.data` below -- `last`/`length`/`isEmpty`
+    // must close over this (not the original `data` param) so they go through FastShiftArray's own
+    // headIndex-aware accessors. When `data` is a plain array, `FastShiftArray.fromArray` wraps it
+    // by reference rather than copying, so reading `data.length` directly (the old behavior) read
+    // the raw backing array's physical length, which `shift()` never shrinks -- it only advances
+    // an internal headIndex.
+    const backing: FastShiftArray<D> = data instanceof Array ? FastShiftArray.fromArray<D>(data, true, compactingSize) : data
     return {
         name: name,
-        data: data instanceof Array ? FastShiftArray.fromArray<D>(data, true, compactingSize) : data,
-        last: () => data ? (data.length > 0 ? successResult<D, string>(data[data.length - 1]) : failureResult<D, string>("Data is empty")) : failureResult<D, string>("Data is not defined"),
-        length: () => data ? data.length : 0,
-        isEmpty: () => data ? data.length === 0 : true
+        data: backing,
+        last: () => backing.length > 0 ? successResult<D, string>(backing[backing.length - 1]) : failureResult<D, string>("Data is empty"),
+        length: () => backing.length,
+        isEmpty: () => backing.length === 0
     }
 }
 
