@@ -74,7 +74,7 @@ const initialState: ScatterChartState = {
     selectedInterpolationName: 'curveLinear',
     dropAfterMs: 20_000,
     numberOfSeries: 10,
-    windowingTime: 25,
+    windowingTime: 50,
     cadence: 0,
     dataUpdatePeriod: DEFAULT_DATA_UPDATE_PERIOD,
 }

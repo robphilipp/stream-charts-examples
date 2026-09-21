@@ -59,3 +59,5 @@ export function dropDataOptionForMs(ms: number): Optional<DropAfterOptions> {
 
 export const DEFAULT_DROP_AFTER_10: [name: string, value: number] = Array.from(DROP_DATA_AFTER_MS.entries())[0]
 export const DEFAULT_DROP_AFTER_20: [name: string, value: number] = Array.from(DROP_DATA_AFTER_MS.entries())[1]
+export const DEFAULT_DROP_AFTER_50: [name: string, value: number] = Array.from(DROP_DATA_AFTER_MS.entries())[2]
+export const DEFAULT_DROP_AFTER_100: [name: string, value: number] = Array.from(DROP_DATA_AFTER_MS.entries())[3]

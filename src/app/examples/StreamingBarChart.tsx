@@ -105,7 +105,7 @@ interface Props {
     plotWidth?: number
 }
 
-const UPDATE_PERIOD = 75
+const UPDATE_PERIOD = 50
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 
@@ -129,7 +129,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
     // const chartId = useRef<number>(CHART_ID)
 
     // tunable streaming settings
-    const [windowingTime, setWindowingTime] = useState<number>(25)
+    const [windowingTime, setWindowingTime] = useState<number>(50)
     const [dataUpdatePeriod, setDataUpdatePeriod] = useState<number>(UPDATE_PERIOD)
     const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
 

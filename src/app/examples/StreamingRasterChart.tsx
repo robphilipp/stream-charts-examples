@@ -106,8 +106,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     } = props
 
     // tunable streaming settings
-    const [windowingTime, setWindowingTime] = useState<number>(25)
-    const [cadence, setCadence] = useState<number>(50)
+    const [windowingTime, setWindowingTime] = useState<number>(50)
+    const [cadence, setCadence] = useState<number>(25)
     const [dataUpdatePeriod, setDataUpdatePeriod] = useState<number>(50)
     const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
 

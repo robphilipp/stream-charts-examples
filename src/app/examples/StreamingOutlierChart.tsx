@@ -14,7 +14,11 @@ import {
 } from "react-resizable-grid-layout"
 import * as d3 from "d3"
 
-import {initialOutlierData, periodicWithSeveralBandsFn, randomOutlierDataObservable} from "./dataproviders/randomOutlierData.ts"
+import {
+    initialOutlierData,
+    periodicWithSeveralBandsFn,
+    randomOutlierDataObservable
+} from "./dataproviders/randomOutlierData.ts"
 import {Chart} from "../charts/Chart"
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis"
 import {AxisLocation, defaultLineStyle} from "../charts/axes/axes"
@@ -41,7 +45,7 @@ import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
-import {DEFAULT_DROP_AFTER_20, DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
+import {DEFAULT_DROP_AFTER_100, DROP_AFTER_100_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {VerticalDivider} from "../ui/VerticalDivider.tsx";
 import {CadenceControl} from "./controls/CadenceControl.tsx";
 import {BufferingControl} from "./controls/BufferingControl.tsx";
@@ -142,7 +146,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
 
     const [filterValue, setFilterValue] = useState<string>('')
     const [filter, setFilter] = useState<RegExp>(new RegExp(''))
-    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
+    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_100[1])
 
     const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
     const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
@@ -286,7 +290,7 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                         <CommonControls>
                             <DropDataControl
                                 theme={theme}
-                                value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_20_SEC)}
+                                value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_100_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
                                 disabled={running}
                             />
