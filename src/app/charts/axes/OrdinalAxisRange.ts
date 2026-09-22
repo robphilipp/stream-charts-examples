@@ -25,31 +25,83 @@ export class OrdinalAxisRange extends BaseAxisRange {
     }
 
     /**
-     * Scales the axis-range by the specified *incremental* scale factor (relative to `.current`,
-     * not `.original` -- see {@link BaseAxisRange.scaledRange}) from the specified value. The
-     * equations are written so that the zooming (scaling) occurs at the specified value, and
-     * expands/contracts equally from that value. This operation does not modify the original range.
-     * @param factor The incremental scale factor
+     * Scales the axis-range by the specified *cumulative* scale factor (d3-zoom's own
+     * `event.transform.k`, taken as-is -- NOT converted to an incremental, relative-to-the-
+     * previous-event factor), pivoting on `value`.
+     *
+     * Two cases, because neither a purely incremental nor a purely cumulative-from-`.original`
+     * formula is correct on its own for a bounded ordinal domain:
+     *
+     * - `factor === 1` (fully zoomed out): returns `.original` directly, bypassing the pivot math
+     *   entirely. An ordinal axis's domain (the fixed set of categories) is bounded, so "zoomed all
+     *   the way back out" has exactly one correct answer -- `.current` must equal `.original`
+     *   *exactly*, regardless of how many different pivots were used to get there. d3-zoom's own
+     *   `.scaleExtent` clamps `k` to *exactly* 1 at the zoom floor (not just asymptotically close),
+     *   so this equality check reliably detects that boundary.
+     * - Otherwise: scales from `.current` using the *incremental* step implied by the cumulative
+     *   factor (`factor` divided by the range's own current/original width ratio) -- the same
+     *   pivot-preserving composition `ContinuousAxisRange` uses (see `BaseAxisRange.scaledRange`).
+     *   This composes correctly across any sequence of differing pivots without jumping.
+     *
+     * Why not just always scale from `.original` by the cumulative factor (a prior version of this
+     * method did exactly that)? Composing pivot-preserving zooms at *different* pivots is not
+     * itself position-preserving -- zooming in at one spot and back out at another nets a
+     * translation, same as any pinch-zoom or map UI, verified live: zoom in at pivot A to k=5, then
+     * zoom out at a different pivot B to k=1, lands `.current` at `[400, 1400]` instead of
+     * `[0, 1000]` even under the mathematically-correct incremental composition. Scaling
+     * `.original` directly by the raw cumulative factor "fixes" that only by recomputing the
+     * *entire* zoom from scratch at the current pivot on every single event -- which is correct
+     * only when the pivot never changes since the last identity reset, and otherwise discards all
+     * zoom history, producing a visible jump the moment the pivot changes at any *non-identity* zoom
+     * level (confirmed live: continuing to zoom in from k=5 at pivot A to k=6 at a different pivot B
+     * jumped from the correct, continuous `[-1600, 4400]` to `[-4000, 2000]`). The `factor === 1`
+     * special case gets the position-preserving guarantee only where it's actually needed -- the
+     * one canonical "fully zoomed out" state -- without sacrificing composability everywhere else.
+     * A continuous/scrolling axis (`ContinuousAxisRange`) never needs the equivalent of this special
+     * case, since it has no fixed domain edge for translational drift to visibly clip against.
+     * @param factor The cumulative scale factor (`event.transform.k`, unmodified)
+     * @param value The value from which to scale the interval
+     * @return The new range, as a plain {start, end} pair
+     */
+    private scaledCumulative(factor: number, value: number): {start: number, end: number} {
+        if (factor === 1) {
+            return {start: this.original.start, end: this.original.end}
+        }
+        const scaleFactor = this.current.measure() / this.original.measure()
+        const incrementalFactor = factor / scaleFactor
+        const dtStart = value - this.current.start
+        const dtEnd = this.current.end - value
+        return {start: value - dtStart * incrementalFactor, end: value + dtEnd * incrementalFactor}
+    }
+
+    /**
+     * Scales the axis-range by the specified *cumulative* scale factor (see
+     * {@link scaledCumulative} for why this must be cumulative, not incremental) from the
+     * specified value. The equations are written so that the zooming (scaling) occurs at the
+     * specified value, and expands/contracts equally from that value. This operation does not
+     * modify the original range.
+     * @param factor The cumulative scale factor
      * @param value The value from which to scale the interval
      * @return A new continuous-axis range with updated values
      */
     scale(factor: number, value: number): OrdinalAxisRange {
-        const scaledInterval = this.scaledRange(factor, value)
+        const scaledInterval = this.scaledCumulative(factor, value)
         return new OrdinalAxisRange(scaledInterval.start, scaledInterval.end, this.original.start, this.original.end)
     }
 
     /**
-     * Scales the axis-range by the specified *incremental* scale factor (relative to `.current`,
-     * not `.original` -- see {@link BaseAxisRange.scaledRange}) from the specified value, while
-     * keeping the range within the constraints (start, end). The equations are written so that the
-     * zooming (scaling) occurs at the specified value, and expands/contracts equally from that value.
-     * @param factor The incremental scale factor
+     * Scales the axis-range by the specified *cumulative* scale factor (see
+     * {@link scaledCumulative} for why this must be cumulative, not incremental) from the
+     * specified value, while keeping the range within the constraints (start, end). The equations
+     * are written so that the zooming (scaling) occurs at the specified value, and
+     * expands/contracts equally from that value.
+     * @param factor The cumulative scale factor
      * @param value The value from which to scale the interval
      * @param constraint The minimum and maximum values that range bounds can be
      * @return A new continuous-axis range with updated values
      */
     constrainedScale(factor: number, value: number, constraint: [min: number, max: number]): OrdinalAxisRange {
-        const scaledInterval = this.scaledRange(factor, value)
+        const scaledInterval = this.scaledCumulative(factor, value)
         const [min, max] = constraint
         return new OrdinalAxisRange(
             Math.min(min, scaledInterval.start),

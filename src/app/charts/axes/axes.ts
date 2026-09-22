@@ -1029,9 +1029,12 @@ export function calculateConstrainedZoomFor(
 }
 
 /**
- * Calculates the zoom for an ordinal axis. `zoomFactor` is *incremental* -- see
- * {@link calculateConstrainedZoomFor} for the full explanation.
- * @param zoomFactor The incremental zoom scale factor for this event
+ * Calculates the zoom for an ordinal axis. Unlike {@link calculateConstrainedZoomFor}'s continuous
+ * axis, `zoomFactor` here is *cumulative* (d3-zoom's own `event.transform.k`, passed through
+ * unmodified) -- see {@link OrdinalAxisRange.scaledFromOriginal} for why an ordinal axis's bounded
+ * domain requires scaling from `.original` by the cumulative factor, rather than incrementally
+ * from `.current` the way a continuous axis does.
+ * @param zoomFactor The cumulative zoom scale factor for this event
  * @param x The x-position of the mouse when the scroll wheel or gesture is used
  * @param range The current range for the axis being zoomed
  * @param constraint The minimum and maximum value the scaled range can have
@@ -1519,9 +1522,11 @@ export function ordinalAxisZoomHandler(
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param zoomFactor The *incremental* zoom scale factor for this event -- see
-     * {@link continuousAxisZoomHandler} for the full explanation of why this must already be
-     * incremental (not d3-zoom's raw, cumulative `event.transform.k`)
+     * @param zoomFactor The *cumulative* zoom scale factor for this event -- d3-zoom's own
+     * `event.transform.k`, passed through unmodified. Unlike {@link continuousAxisZoomHandler},
+     * this must NOT be converted to an incremental factor -- see
+     * {@link OrdinalAxisRange.scaledFromOriginal} for why an ordinal axis's bounded domain needs
+     * the raw cumulative factor instead.
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
      * @param ranges A map holding the axis ID and its associated time-range

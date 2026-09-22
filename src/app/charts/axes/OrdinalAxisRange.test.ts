@@ -64,3 +64,55 @@ describe('scaleOrdinalBounds', () => {
         expect(zoomedRange.current.end).toBe(300)
     })
 });
+
+describe('scale and constrainedScale should be immune to pivot drift', () => {
+    /**
+     * Zooming in at one pivot and back out (cumulative factor returning to 1) at a *different*
+     * pivot must land exactly back on `.original`, regardless of the pivots used along the way --
+     * this is the bug reported against BarPlot where zooming in at one location and back out at
+     * another left categories permanently clipped off one edge.
+     */
+    it('should return exactly to the original range after zooming in at one pivot and back out at a different pivot', () => {
+        const original = OrdinalAxisRange.from(0, 1000)
+
+        const zoomedIn = original.scale(5, 300)
+        const zoomedOut = zoomedIn.scale(1, 800)
+
+        expect(zoomedOut.current.start).toBe(original.original.start)
+        expect(zoomedOut.current.end).toBe(original.original.end)
+    })
+
+    it('should return exactly to the original range via constrainedScale as well', () => {
+        const original = OrdinalAxisRange.from(0, 1000)
+        // matches real usage (see `calcOrdinalZoomAndUpdate`): the constraint is the original
+        // bounds, which `constrainedScale` widens the result to include if the scaled interval
+        // would otherwise be narrower.
+        const constraint: [min: number, max: number] = [original.original.start, original.original.end]
+
+        const zoomedIn = original.constrainedScale(5, 300, constraint)
+        const zoomedOut = zoomedIn.constrainedScale(1, 800, constraint)
+
+        expect(zoomedOut.current.start).toBe(original.original.start)
+        expect(zoomedOut.current.end).toBe(original.original.end)
+    })
+
+    /**
+     * Continuing to zoom (not returning to the k=1 floor) at a *different* pivot than a prior zoom
+     * event must compose smoothly from `.current` -- not jump. A naive "always scale `.original` by
+     * the cumulative factor" fix for the pivot-drift bug above breaks this: it recomputes the whole
+     * zoom from scratch at the new pivot every event, discarding history, which is only equivalent
+     * to the correct composition when the pivot never changes.
+     */
+    it('should compose smoothly (no jump) when continuing to zoom at a different pivot without returning to k=1', () => {
+        const original = OrdinalAxisRange.from(0, 1000)
+
+        const afterFirstZoom = original.scale(5, 300)
+        const afterSecondZoom = afterFirstZoom.scale(6, 800)
+
+        // correct incremental composition: from current=[-1200,3800] (k=5), stepping to k=6 is an
+        // incremental factor of 6/5 pivoting at 800 -- dtStart=2000, dtEnd=3000
+        // start = 800 - 2000*(6/5) = -1600; end = 800 + 3000*(6/5) = 4400
+        expect(afterSecondZoom.current.start).toBeCloseTo(-1600)
+        expect(afterSecondZoom.current.end).toBeCloseTo(4400)
+    })
+})

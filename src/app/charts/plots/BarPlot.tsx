@@ -164,7 +164,6 @@ export function BarPlot(props: Props): null {
     const {
         seriesObservable,
         windowingTime = 100,
-        dataUpdatePeriod,
         shouldSubscribe,
 
         onSubscribe = noop,
@@ -484,9 +483,10 @@ export function BarPlot(props: Props): null {
     /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
-     * @param zoomFactor The *incremental* zoom scale factor for this event -- see the pan/zoom
-     * effect below (`lastZoomKRef`) for how d3-zoom's own cumulative `event.transform.k` is
-     * converted to this incremental form before this is called.
+     * @param zoomFactor The *cumulative* zoom scale factor for this event -- d3-zoom's own
+     * `event.transform.k`, passed through unmodified. See {@link OrdinalAxisRange.scaledFromOriginal}
+     * for why the ordinal x-axis needs this cumulative factor (scaled from `.original`) rather than
+     * an incremental one relative to `.current`.
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
      * @param ranges A map holding the axis ID and its associated time-range
@@ -507,12 +507,6 @@ export function BarPlot(props: Props): null {
     // itself) can always read the current ranges without needing `updatePlot` to be recreated
     // every time the ranges change.
     const ordinalRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
-
-    // the last d3-zoom `event.transform.k` this plot applied -- see ScatterPlot's identical
-    // `lastZoomKRef` for the full explanation: d3-zoom's `k` is cumulative, but the zoom math is
-    // incremental, so each event's `k` must be divided by this ref (then this ref updated to that
-    // `k`) before being passed to `onZoom`.
-    const lastZoomKRef = useRef<number>(1)
 
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
@@ -557,13 +551,11 @@ export function BarPlot(props: Props): null {
                     .scaleExtent([1, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", event => {
-                            // convert d3-zoom's cumulative `k` to the incremental factor this
-                            // event represents -- see `lastZoomKRef`'s declaration above
-                            const zoomFactor = event.transform.k / lastZoomKRef.current
-                            lastZoomKRef.current = event.transform.k
-
                             onZoom(
-                                zoomFactor,
+                                // d3-zoom's own cumulative `k`, passed through unmodified -- see
+                                // `onZoom`'s JSDoc above for why the ordinal x-axis needs this
+                                // cumulative factor rather than an incremental one.
+                                event.transform.k,
                                 event.sourceEvent.offsetX - margin.left,
                                 plotDimensions,
                                 ordinalRangesRef.current,
