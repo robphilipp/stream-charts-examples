@@ -484,7 +484,7 @@ export function BarPlot(props: Props): null {
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied.
      * @param zoomFactor The *cumulative* zoom scale factor for this event -- d3-zoom's own
-     * `event.transform.k`, passed through unmodified. See {@link OrdinalAxisRange.scaledFromOriginal}
+     * `event.transform.k`, passed through unmodified. See {@link OrdinalAxisRange.scaledCumulative}
      * for why the ordinal x-axis needs this cumulative factor (scaled from `.original`) rather than
      * an incremental one relative to `.current`.
      * @param x The x-position of the mouse when the scroll wheel or gesture is used

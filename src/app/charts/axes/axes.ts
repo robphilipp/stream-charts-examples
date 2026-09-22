@@ -1031,7 +1031,7 @@ export function calculateConstrainedZoomFor(
 /**
  * Calculates the zoom for an ordinal axis. Unlike {@link calculateConstrainedZoomFor}'s continuous
  * axis, `zoomFactor` here is *cumulative* (d3-zoom's own `event.transform.k`, passed through
- * unmodified) -- see {@link OrdinalAxisRange.scaledFromOriginal} for why an ordinal axis's bounded
+ * unmodified) -- see {@link OrdinalAxisRange.scaledCumulative} for why an ordinal axis's bounded
  * domain requires scaling from `.original` by the cumulative factor, rather than incrementally
  * from `.current` the way a continuous axis does.
  * @param zoomFactor The cumulative zoom scale factor for this event
@@ -1525,7 +1525,7 @@ export function ordinalAxisZoomHandler(
      * @param zoomFactor The *cumulative* zoom scale factor for this event -- d3-zoom's own
      * `event.transform.k`, passed through unmodified. Unlike {@link continuousAxisZoomHandler},
      * this must NOT be converted to an incremental factor -- see
-     * {@link OrdinalAxisRange.scaledFromOriginal} for why an ordinal axis's bounded domain needs
+     * {@link OrdinalAxisRange.scaledCumulative} for why an ordinal axis's bounded domain needs
      * the raw cumulative factor instead.
      * @param x The x-position of the mouse when the scroll wheel or gesture is used
      * @param plotDimensions The dimensions of the plot
