@@ -1,7 +1,6 @@
 import type {Series} from "../plots/plot";
 import type {TooltipDimensions} from "../tooltips/tooltipUtils";
 import {createContext, useContext} from "react";
-import {defaultTooltipValues} from "./defaultTooltipValues";
 
 /**
  * Base interface for tooltip data that is passed through to the tooltip content provider
@@ -64,17 +63,16 @@ export type UseTooltipValues<D, M> = {
 // the context is generic over the same type parameters as `UseTooltipValues`, but a context
 // object can't itself carry unbound generics -- `useTooltip` below casts it back to the caller's
 // concrete types, which is safe because `<TooltipProvider/>` is what actually supplies the value
-export const TooltipContext = createContext<unknown>(defaultTooltipValues())
+export const TooltipContext = createContext<unknown>(undefined)
 
 /**
  * React hook that sets up the React context for the mouse values.
  * @return The {@link UseTooltipValues} held in the React context.
  */
 export function useTooltip<D, M>(): UseTooltipValues<D, M> {
-    const context = useContext(TooltipContext) as UseTooltipValues<D, M>
-    const {registerTooltipContentProvider} = context
-    if (registerTooltipContentProvider === undefined || registerTooltipContentProvider === null) {
+    const context = useContext(TooltipContext)
+    if (context === undefined) {
         throw new Error("useTooltip can only be used when the parent is a <TooltipProvider/>")
     }
-    return context
+    return context as UseTooltipValues<D, M>
 }

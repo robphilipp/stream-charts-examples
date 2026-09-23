@@ -6,7 +6,6 @@ import type {Dimensions} from "../styling/margins";
 import {BaseAxisRange} from "../axes/BaseAxisRange";
 import {AxisInterval} from "../axes/AxisInterval";
 import {Optional} from "result-fn";
-import {defaultAxesValues} from "./defaultAxesValues";
 
 /**
  * The values exposed by the hook
@@ -132,7 +131,7 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
 // statically enforced across the component tree -- each consumer casts to its own hardcoded
 // AR/A, independent of whatever `<AxesProvider<AR, A>>` ancestor actually supplied. A mismatched
 // axis-range/axis kind only fails at runtime, not at compile time.
-export const AxesContext = createContext<unknown>(defaultAxesValues())
+export const AxesContext = createContext<unknown>(undefined)
 
 /**
  * React hook that sets up the React context for the chart values.
@@ -141,10 +140,9 @@ export const AxesContext = createContext<unknown>(defaultAxesValues())
  * @template A The axis type
  */
 export function useAxes<AR extends BaseAxisRange, A extends BaseAxis>(): UseAxesValues<AR, A> {
-    const context = useContext(AxesContext) as UseAxesValues<AR, A>
-    const {xAxesState} = context
-    if (xAxesState === undefined || xAxesState === null) {
+    const context = useContext(AxesContext)
+    if (context === undefined) {
         throw new Error("useAxes can only be used when the parent is a <AxesProvider/>")
     }
-    return context
+    return context as UseAxesValues<AR, A>
 }

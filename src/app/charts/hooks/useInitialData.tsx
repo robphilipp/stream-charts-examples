@@ -1,7 +1,6 @@
 import {createContext, useContext} from "react";
 import type {BaseSeries} from "../series/baseSeries";
 import type {ChartData} from "../observables/ChartData";
-import {defaultInitialDataValues} from "./defaultInitialDataValues";
 
 /**
  * The values exposed through the {@link useInitialData} react hook
@@ -28,7 +27,7 @@ export type UseInitialDataValues<CD extends ChartData, D> = {
 // object can't itself carry unbound generics -- `useInitialData` below casts it back to the
 // caller's concrete types, which is safe because `<InitialDataProvider/>` is what actually
 // supplies the value
-export const InitialDataContext = createContext<unknown>(defaultInitialDataValues())
+export const InitialDataContext = createContext<unknown>(undefined)
 
 /**
  * React hook that sets up the React context for the initial data values.
@@ -37,10 +36,9 @@ export const InitialDataContext = createContext<unknown>(defaultInitialDataValue
  * @template D The type of the data object for the series
  */
 export function useInitialData<CD extends ChartData, D>(): UseInitialDataValues<CD, D> {
-    const context = useContext(InitialDataContext) as UseInitialDataValues<CD, D>
-    const {initialData} = context
-    if (initialData === undefined) {
+    const context = useContext(InitialDataContext)
+    if (context === undefined) {
         throw new Error("useInitialData can only be used when the parent is a <InitialDataProvider/>")
     }
-    return context
+    return context as UseInitialDataValues<CD, D>
 }

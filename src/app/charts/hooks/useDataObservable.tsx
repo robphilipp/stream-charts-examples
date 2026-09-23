@@ -1,7 +1,6 @@
 import {createContext, useContext} from "react";
 import {Observable, Subscription} from "rxjs";
 import type {ChartData} from "../observables/ChartData";
-import {defaultObservableValues} from "./defaultObservableValues";
 
 /**
  * The values exposed through the {@link useDataObservable} react hook
@@ -72,7 +71,7 @@ export interface UseObservableValues<CD extends ChartData, D> {
 // object can't itself carry unbound generics -- `useDataObservable` below casts it back to the
 // caller's concrete types, which is safe because `<DataObservableProvider/>` is what actually
 // supplies the value
-export const DataObservableContext = createContext<unknown>(defaultObservableValues())
+export const DataObservableContext = createContext<unknown>(undefined)
 
 /**
  * React hook that sets up the React context for the chart values.
@@ -81,10 +80,9 @@ export const DataObservableContext = createContext<unknown>(defaultObservableVal
  * @template D The type of the data object for the series
  */
 export function useDataObservable<CD extends ChartData, D>(): UseObservableValues<CD, D> {
-    const context = useContext(DataObservableContext) as UseObservableValues<CD, D>
-    const {onSubscribe} = context
-    if (onSubscribe === undefined) {
+    const context = useContext(DataObservableContext)
+    if (context === undefined) {
         throw new Error("useDataObservable can only be used when the parent is a <DataObservableProvider/>")
     }
-    return context
+    return context as UseObservableValues<CD, D>
 }

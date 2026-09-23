@@ -1,6 +1,5 @@
 import {createContext, useContext} from "react";
 import type {TooltipData} from "./useTooltip";
-import {defaultMouseValues} from "./defaultMouseValues";
 
 export type TooltipMouseOverHandlerFn<D, TM> = (
     seriesName: string,
@@ -64,17 +63,16 @@ export type UseMouseValues<D, TM> = {
 // the context is generic over the same type parameters as `UseMouseValues`, but a context
 // object can't itself carry unbound generics -- `useMouse` below casts it back to the caller's
 // concrete types, which is safe because `<MouseProvider/>` is what actually supplies the value
-export const MouseContext = createContext<unknown>(defaultMouseValues())
+export const MouseContext = createContext<unknown>(undefined)
 
 /**
  * React hook that sets up the React context for the mouse values.
  * @return The {@link UseMouseValues} held in the React context.
  */
 export function useMouse<D, TM>(): UseMouseValues<D, TM> {
-    const context = useContext(MouseContext) as UseMouseValues<D, TM>
-    const {mouseOverHandlerFor} = context
-    if (mouseOverHandlerFor === undefined || mouseOverHandlerFor === null) {
+    const context = useContext(MouseContext)
+    if (context === undefined) {
         throw new Error("useMouse can only be used when the parent is a <MouseProvider/>")
     }
-    return context
+    return context as UseMouseValues<D, TM>
 }
