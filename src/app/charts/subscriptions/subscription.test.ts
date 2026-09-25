@@ -1,8 +1,12 @@
 import {filter, map, scan} from 'rxjs/operators';
-import {Observable, range} from 'rxjs';
+import {NEVER, Observable, range} from 'rxjs';
 import {type IterateChartData, iteratesObservable as iterateObservable} from '../observables/iterates'
 import {type TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {datumOf} from "../series/timeSeries";
+import {subscriptionIteratesFor} from "./subscriptions";
+import {AxesState} from "../axes/AxesState";
+import type {ContinuousNumericAxis} from "../axes/axes";
+import type {IterateSeries} from "../series/iterateSeries";
 
 
 type Point = {
@@ -496,4 +500,63 @@ describe('when calculating tent-map 1-iterates with two new data points for each
         expect(results[4].newPoints.get("test2")![1].iterateN).toBeCloseTo(0.07, 4)
         expect(results[4].newPoints.get("test2")![1].iterateN_1).toBeCloseTo(0.035, 4)
     });
+})
+
+// exercises the actual exported subscription-creating functions (previously untested -- see the
+// adversarial review's H7/coverage-gap finding), specifically the new double-subscribe guard
+// added for H6. `subscriptionIteratesFor` is used as the vehicle since it needs the least setup;
+// the guard itself is shared code exercised identically by all 6 `subscriptionXFor` functions.
+describe('guards against double-subscribing the same series map', () => {
+    // every subscription created via `subscribeOnce` below, so it can be torn down after each
+    // test -- `subscriptionIteratesFor` uses `bufferTime`, which schedules a real timer that
+    // would otherwise keep running (and keep the test process alive) past the end of the test
+    let liveSubscriptions: Array<{unsubscribe: () => void}> = []
+
+    afterEach(() => {
+        liveSubscriptions.forEach(subscription => subscription.unsubscribe())
+        liveSubscriptions = []
+    })
+
+    function subscribeOnce(seriesMap: Map<string, IterateSeries>) {
+        const subscription = subscriptionIteratesFor(
+            NEVER as Observable<IterateChartData>,
+            () => {
+            },
+            100,
+            AxesState.empty<ContinuousNumericAxis>(),
+            AxesState.empty<ContinuousNumericAxis>(),
+            undefined,
+            1000,
+            () => {
+            },
+            seriesMap,
+            () => {
+            },
+        )
+        liveSubscriptions.push(subscription)
+        return subscription
+    }
+
+    it('allows a normal subscribe -> unsubscribe -> subscribe-again sequence (e.g. Run -> Pause -> Run)', () => {
+        const seriesMap = new Map<string, IterateSeries>()
+        const first = subscribeOnce(seriesMap)
+        first.unsubscribe()
+        expect(() => subscribeOnce(seriesMap)).not.toThrow()
+    })
+
+    it('throws when subscribing a second time against the same series map before unsubscribing, and cleans up the rejected subscription', () => {
+        const seriesMap = new Map<string, IterateSeries>()
+        subscribeOnce(seriesMap)
+        expect(() => subscribeOnce(seriesMap)).toThrow(/already active/)
+        // the first, legitimately-active subscription must still be registered -- rejecting the
+        // second attempt must not have cleared it, so a third attempt is rejected too
+        expect(() => subscribeOnce(seriesMap)).toThrow(/already active/)
+    })
+
+    it('does not throw when subscribing against a different series map', () => {
+        const seriesMapA = new Map<string, IterateSeries>()
+        const seriesMapB = new Map<string, IterateSeries>()
+        subscribeOnce(seriesMapA)
+        expect(() => subscribeOnce(seriesMapB)).not.toThrow()
+    })
 })

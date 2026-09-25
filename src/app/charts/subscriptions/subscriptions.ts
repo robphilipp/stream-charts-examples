@@ -46,6 +46,43 @@ export const TimeWindowBehavior = {
 export type TimeWindowBehavior = (typeof TimeWindowBehavior)[keyof typeof TimeWindowBehavior];
 
 /**
+ * Tracks which `seriesMap`s (the `Map<string, ...Series>` each `subscriptionXFor` function below
+ * mutates in place, per data tick) currently have a live subscription writing into them. Keyed on
+ * the `seriesMap` object itself, so unrelated chart instances (each with their own `seriesMap`)
+ * never contend with each other.
+ */
+const activeSubscriptions = new WeakSet<Map<string, BaseSeries<unknown>>>()
+
+/**
+ * Registers `subscription` as the active subscription for `seriesMap`, throwing if one is already
+ * active -- two live subscriptions against the same `seriesMap` would double-mutate it (duplicate
+ * points, doubled axis-range advances) without either side ever finding out. The registration is
+ * released automatically when `subscription` is unsubscribed, so a normal
+ * subscribe -> unsubscribe -> subscribe-again sequence (e.g. Run -> Pause -> Run) is unaffected;
+ * this only trips for a genuine *overlapping* double-subscribe.
+ *
+ * By the time this runs, `subscription` already exists and has already subscribed to its source
+ * (each `subscriptionXFor` function creates it, e.g. via `.pipe(...).subscribe(...)`, before
+ * calling this) -- so on the reject path, this unsubscribes it itself before throwing. Otherwise
+ * the rejected subscription -- and anything it scheduled, e.g. `bufferTime`'s internal timer --
+ * would keep running forever with no handle ever reaching the caller to tear it down.
+ * @param seriesMap The series map the new subscription is about to start mutating
+ * @param subscription The subscription being registered
+ */
+function guardAgainstDoubleSubscribe<D>(seriesMap: Map<string, BaseSeries<D>>, subscription: Subscription): void {
+    if (activeSubscriptions.has(seriesMap)) {
+        subscription.unsubscribe()
+        throw new Error(
+            "A subscription is already active for this series map -- unsubscribe the previous " +
+            "Subscription before creating a new one, or the two subscriptions will double-mutate " +
+            "the same series data."
+        )
+    }
+    activeSubscriptions.add(seriesMap)
+    subscription.add(() => activeSubscriptions.delete(seriesMap))
+}
+
+/**
  * Advances the visible window for the specified axis (in place, within `timesWindows`) so its
  * right edge sits at `targetTime`, preserving the window's current width -- but only once
  * `targetTime` actually exceeds the window's current right edge. This gate is what lets a user
@@ -159,7 +196,7 @@ export function subscriptionTimeSeriesFor(
     // stays the exact same object as the plot's persisted ranges ref once handed back via
     // `updateTimingAndPlot`, so zoom/pan handlers mutating that ref are mutating this map too,
     // instead of having their changes silently discarded by the next rebuild.
-    const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>);
+    const timesWindows = continuousAxisRanges(xAxesState.axes);
 
     const subscription = seriesObservable
         .pipe(buffered)
@@ -226,6 +263,8 @@ export function subscriptionTimeSeriesFor(
                 updateTimingAndPlot(timesWindows)  // callback
             })
         })
+
+    guardAgainstDoubleSubscribe(seriesMap, subscription)
 
     // provide the subscription to the caller
     onSubscribe(subscription)   // callback
@@ -339,7 +378,7 @@ export function subscriptionTimeSeriesWithCadenceFor(
     // still matters even though zoom math no longer depends on `.original`: it keeps this map the
     // same object as the plot's persisted ranges ref, so zoom/pan mutations aren't discarded by a
     // later rebuild.
-    const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+    const timesWindows = continuousAxisRanges(xAxesState.axes)
 
     // Catch the axis up to the best-known current time (`knownTime`) *synchronously, right here*
     // -- rather than leaving it exactly where it was restored to and passively waiting for the
@@ -517,6 +556,8 @@ export function subscriptionTimeSeriesWithCadenceFor(
     })
     subscription.add(() => cancelAnimationFrame(catchUpFrame))
 
+    guardAgainstDoubleSubscribe(seriesMap, subscription)
+
     // provide the subscription to the caller
     onSubscribe(subscription)
 
@@ -554,12 +595,12 @@ export function subscriptionIteratesFor(
     // maintains the x and y-axis ranges based on the original domain of the axes
     const xAxesRanges = new Map<string, ContinuousAxisRange>(Array.from(xAxesState.axes.entries())
         .map(([id, axis]) => {
-            const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
+            const [start, end] = axis.scale.domain()
             return [id, ContinuousAxisRange.from(start, end)]
         }))
     const yAxesRanges = new Map<string, ContinuousAxisRange>(Array.from(yAxesState.axes.entries())
         .map(([id, axis]) => {
-            const [start, end] = (axis as ContinuousNumericAxis).scale.domain()
+            const [start, end] = axis.scale.domain()
             return [id, ContinuousAxisRange.from(start, end)]
         }))
 
@@ -582,8 +623,8 @@ export function subscriptionIteratesFor(
         .subscribe(dataList => {
             dataList.forEach(data => {
                 // calculate the bounds for each of the x- and y-axes
-                updateRange(xAxesRanges, xAxesState.axes  as Map<string, ContinuousNumericAxis>)
-                updateRange(yAxesRanges, yAxesState.axes  as Map<string, ContinuousNumericAxis>)
+                updateRange(xAxesRanges, xAxesState.axes)
+                updateRange(yAxesRanges, yAxesState.axes)
 
                 // add each new point to its corresponding series, the newPoints object
                 // is a map(series_name -> new_point[])
@@ -627,6 +668,8 @@ export function subscriptionIteratesFor(
             })
         })
 
+    guardAgainstDoubleSubscribe(seriesMap, subscription)
+
     // provide the subscription to the caller
     onSubscribe(subscription)
 
@@ -650,6 +693,7 @@ export function subscriptionIteratesFor(
  * @param setCurrentTime Callback that records the current time for an axis
  * @param timeWindowBehavior Whether the time-axis scrolls or squeezes when data passes the end
  * @param initialTimes Initial start-times for each axis (used by the squeeze behavior)
+ * @param dataUpdatePeriod The data update period.
  * @return The RxJS subscription
  */
 export function subscriptionOutlierFor<M extends readonly number[]>(
@@ -677,7 +721,7 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
     // see subscriptionTimeSeriesFor's identical `timesWindows` for the full explanation: built
     // once, here, and mutated/advanced in place across every subsequent tick, so it stays the same
     // object as the plot's persisted ranges ref (zoom/pan mutations on that ref land here too).
-    const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+    const timesWindows = continuousAxisRanges(xAxesState.axes)
 
     const subscription = seriesObservable
         .pipe(buffered)
@@ -714,6 +758,8 @@ export function subscriptionOutlierFor<M extends readonly number[]>(
                 updateTimingAndPlot(timesWindows)
             })
         })
+
+    guardAgainstDoubleSubscribe(seriesMap, subscription)
 
     onSubscribe(subscription)
     return subscription
@@ -798,7 +844,7 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
     // explanation: built once, here, and mutated/advanced in place on every subsequent cadence
     // tick (every `cadencePeriod`), so it stays the same object as the plot's persisted ranges ref
     // (zoom/pan mutations on that ref land here too).
-    const timesWindows = continuousAxisRanges(xAxesState.axes as Map<string, ContinuousNumericAxis>)
+    const timesWindows = continuousAxisRanges(xAxesState.axes)
 
     // see subscriptionTimeSeriesWithCadenceFor's identical synchronous catch-up for the full
     // explanation: performs the first tick's catch-up immediately, rather than leaving the axis
@@ -922,6 +968,8 @@ export function subscriptionOutlierWithCadenceFor<M extends readonly number[]>(
         updateTimingAndPlot(timesWindows)
     })
     subscription.add(() => cancelAnimationFrame(catchUpFrame))
+
+    guardAgainstDoubleSubscribe(seriesMap, subscription)
 
     // provide the subscription to the caller
     onSubscribe(subscription)
@@ -1098,36 +1146,15 @@ export function subscriptionOrdinalXFor(
                                 updateWindowedValueStatsForDroppedData(droppedData, windowedValueStats, series)
                             )
                         }
-
-                        // // update the time range for the x-axis, and if the time range
-                        // // needs to be updated, then recalculate the time range for the
-                        // // axis, update the time windows, and call the setCurrentTime
-                        // // callback to update the current time for the caller
-                        // const range = yAxisRanges.get(axisId)
-                        // if (range !== undefined && range.end < currentAxisTime) {
-                        //     const timeWindow = range.end - range.start
-                        //     const timeRange = continuousAxisRangeFor(
-                        //         // 0,
-                        //         timeWindowBehavior === TimeWindowBehavior.SQUEEZE && initialTimes.get(axisId) !== undefined ?
-                        //             initialTimes.get(axisId)! :
-                        //             Math.max(0, currentAxisTime - timeWindow),
-                        //         Math.max(currentAxisTime, timeWindow)
-                        //     )
-                        //     yAxisRanges.set(axisId, timeRange)
-                        //     setCurrentTime(axisId, timeRange.end) // callback
-                        // }
                     }
                 })
-
-                // // grab the stats
-                // ordinalStatsRef.current.minDatum = copyOrdinalDatumExtremum(data.stats.minDatum)
-                // ordinalStatsRef.current.maxDatum = copyOrdinalDatumExtremum(data.stats.maxDatum)
-                // ordinalStatsRef.current.valueStatsForSeries = copyValueStatsForSeries(data.stats.valueStatsForSeries)
 
                 // update the data
                 updateTimingAndPlot(yAxisRanges)  // callback
             })
         })
+
+    guardAgainstDoubleSubscribe(seriesMap, subscription)
 
     // provide the subscription to the caller
     onSubscribe(subscription)   // callback
