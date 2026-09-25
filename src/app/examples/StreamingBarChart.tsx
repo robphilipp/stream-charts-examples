@@ -538,7 +538,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         // to have the upper axis zoom when the series zoom, we must have at
                         // least one series assigned to this axis.
                         axisAssignments={new Map([
-                            ['neuron1', assignAxes("x-axis-2", "y-axis-2")],
+                            ['HC 1', assignAxes("x-axis-2", "y-axis-2")],
                         ])}
 
                         showMinMaxBars={showMinMax}
