@@ -79,11 +79,23 @@ export abstract class BaseAxisRange {
     abstract scale(factor: number, value: number): BaseAxisRange
 
     /**
-     * Scales the axis-range by the specified *incremental* factor (see {@link scaledRange} for what
-     * "incremental" means here), but constrains the range to the specified {@link constraint} min
-     * and max. The equations are written so that the zooming (scaling) occurs at the specified
-     * {@link value}, and expands/contracts equally from that {@link value}.
-     * @param factor The incremental scale factor
+     * Scales the axis-range from the specified {@link value}, honoring the specified
+     * {@link constraint} min and max. The equations are written so that the zooming (scaling)
+     * occurs at the specified {@link value}, and expands/contracts equally from that
+     * {@link value}.
+     *
+     * IMPORTANT: the two concrete subclasses give `constraint` opposite meanings, and neither
+     * uses the same kind of `factor` -- this base signature is shared for convenience, not
+     * because the implementations are interchangeable:
+     * - {@link ContinuousAxisRange.constrainedScale} takes an *incremental* factor and *clamps*
+     *   the result to stay inside `constraint` -- `constraint` is a hard viewport edge the range
+     *   is not allowed to scroll/zoom past.
+     * - {@link OrdinalAxisRange.constrainedScale} takes a *cumulative* factor and *widens* the
+     *   result to guarantee it fully covers `constraint` -- `constraint` is the domain that must
+     *   be entirely visible once zoomed all the way out, and widening (rather than clamping) is
+     *   what fixes the pivot-drift bug documented on {@link OrdinalAxisRange.scaledCumulative}.
+     * Do not port logic between the two without re-reading both subclasses' own doc comments.
+     * @param factor The scale factor -- incremental or cumulative, depending on the concrete subclass
      * @param value The value at which the zoom is initiated
      * @param constraint The min and max range
      * @return A new continuous-axis range with updated values

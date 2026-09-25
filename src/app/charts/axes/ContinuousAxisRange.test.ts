@@ -51,6 +51,27 @@ test('translating a time-range', () => {
     expect(timeRange.matchesOriginal(0, 100)).toBe(true);
 });
 
+// `constrainedScale` deliberately clamps *inward* -- the opposite direction from
+// `OrdinalAxisRange.constrainedScale`, which widens outward (see its own tests). These two tests
+// pin down the continuous side of that intentional divergence so it isn't "fixed" into matching
+// the ordinal side by mistake -- see the cross-referencing doc comments on both methods.
+test('constrainedScale clamps a scaled range that exceeds the constraint back inside it', () => {
+    const original = ContinuousAxisRange.from(0, 100);
+    // scaling by 2 from the midpoint would produce {start: -50, end: 150} (see the plain `.scale`
+    // test above) -- well outside the [0, 100] constraint, so the clamp narrows it back to fit
+    const clamped = original.constrainedScale(2, 50, [0, 100]);
+    expect(clamped.current).toEqual({start: 0, end: 100});
+});
+
+test('constrainedScale does not widen a scaled range that is already narrower than the constraint', () => {
+    const original = ContinuousAxisRange.from(0, 100);
+    // scaling by 0.5 from the midpoint produces {start: 25, end: 75} -- already inside the
+    // [0, 100] constraint, so it must be left as-is, not widened out to fill the constraint
+    // (that widening behavior belongs only to `OrdinalAxisRange.constrainedScale`)
+    const unwidened = original.constrainedScale(0.5, 50, [0, 100]);
+    expect(unwidened.current).toEqual({start: 25, end: 75});
+});
+
 test('scaling and translating', () => {
     const original = ContinuousAxisRange.from(0, 100);
     const scaled = original.scale(2, 50);

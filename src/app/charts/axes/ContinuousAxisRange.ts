@@ -43,6 +43,13 @@ export class ContinuousAxisRange extends BaseAxisRange {
      * not `.original` -- see {@link BaseAxisRange.scaledRange}) from the specified value, while
      * keeping the range within the constraints (start, end). The equations are written so that the
      * zooming (scaling) occurs at the specified value, and expands/contracts equally from that value.
+     *
+     * Clamps the scaled result to stay *inside* `constraint` (shrinks toward it, never past it) --
+     * `constraint` is a hard viewport edge (e.g. the data domain) that the visible range must not
+     * scroll or zoom beyond. This is the opposite direction from
+     * {@link OrdinalAxisRange.constrainedScale}, which *widens* its result to guarantee coverage
+     * of `constraint` instead -- see that method's doc comment for why an ordinal axis needs the
+     * opposite behavior. Do not "fix" this difference without reading both.
      * @param factor The incremental scale factor
      * @param value The value from which to scale the interval
      * @param constraint The minimum and maximum values that range bounds can be

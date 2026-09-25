@@ -95,6 +95,15 @@ export class OrdinalAxisRange extends BaseAxisRange {
      * specified value, while keeping the range within the constraints (start, end). The equations
      * are written so that the zooming (scaling) occurs at the specified value, and
      * expands/contracts equally from that value.
+     *
+     * Widens the scaled result to *cover* `constraint` (never narrower than it) -- `constraint`
+     * is the domain that must be fully visible once zoomed all the way out, and widening rather
+     * than clamping is exactly what fixes the pivot-drift bug described on
+     * {@link scaledCumulative} (zooming in at one pivot and back out at another must never leave
+     * part of the domain clipped). This is the opposite direction from
+     * {@link ContinuousAxisRange.constrainedScale}, which *clamps* its result inside `constraint`
+     * instead -- see that method's doc comment for why a continuous axis needs the opposite
+     * behavior. Do not "fix" this difference without reading both.
      * @param factor The cumulative scale factor
      * @param value The value from which to scale the interval
      * @param constraint The minimum and maximum values that range bounds can be
