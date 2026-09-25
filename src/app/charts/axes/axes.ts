@@ -1057,6 +1057,7 @@ export function calculateOrdinalConstrainedZoomFor(
 
 /**
  * Adjusts the range and updates the plot when the plot is dragged to the left or right
+ * (x-axis) or up or down (y-axis).
  * @param delta The amount that the plot is dragged
  * @param axis The axis being zoomed
  * @param range The current range for the axis being zoomed
@@ -1084,18 +1085,32 @@ export function calculatePanFor(
     return range
 }
 
+/**
+ * Adjusts the ordinal axis range when the plot is dragged to the left or right (x-axis) or up or down (y-axis).
+ * @param delta The amount to pan the axis by.
+ * @param range The current axis range.
+ * @param plotDimensions The dimensions of the plot.
+ * @param location The location of the axis.
+ * @param constrainToOriginalRange Whether to constrain the pan to the original range.
+ * @returns The new axis range.
+ */
 export function calculateOrdinalPanFor(
     delta: number,
     range: OrdinalAxisRange,
     plotDimensions: Dimensions,
+    location: AxisLocation,
     constrainToOriginalRange: boolean = false
 ): OrdinalAxisRange {
     const constraint: [start: number, end: number] = constrainToOriginalRange ?
         range.original.asTuple() :
         [-Infinity, Infinity]
-    // only allow panning if the plot dimensions (i.e. [0, width]) is in the current axis range
-    // todo deal with the fact that this could be a pan of the y-axis
-    if (range.current.start + delta > 0 || range.current.end + delta < plotDimensions.width) {
+    // the axis's pixel extent depends on its location: a top/bottom (x) axis spans the plot's
+    // width, while a left/right (y) axis spans the plot's height
+    const extent = location === AxisLocation.Top || location === AxisLocation.Bottom ?
+        plotDimensions.width :
+        plotDimensions.height
+    // only allow panning if the plot dimensions (i.e. [0, extent]) is in the current axis range
+    if (range.current.start + delta > 0 || range.current.end + delta < extent) {
         return range
     }
     return range.translate(delta, constraint) as OrdinalAxisRange
@@ -1197,7 +1212,7 @@ function ordinalPanAxes(
             const currentRange = ranges.get(axisId)
             if (currentRange && axis) {
                 // calculate the change in the axis-range based on the pixel change from the drag event
-                const range = calculateOrdinalPanFor(delta, currentRange, plotDimensions, constrainToOriginalRange)
+                const range = calculateOrdinalPanFor(delta, currentRange, plotDimensions, axis.location, constrainToOriginalRange)
 
                 // update the time-range for the axis
                 ranges.set(axisId, range)
@@ -1427,7 +1442,12 @@ function calcOrdinalZoomAndUpdate(
             ranges.set(axisId, zoom.range)
 
             setRangeFor(axisId, zoom.range.current)
-            const origRange = AxisInterval.from(0, plotDimensions.width)
+            // the axis's pixel extent depends on its location: a top/bottom (x) axis spans the
+            // plot's width, while a left/right (y) axis spans the plot's height
+            const extent = axis.location === AxisLocation.Top || axis.location === AxisLocation.Bottom ?
+                plotDimensions.width :
+                plotDimensions.height
+            const origRange = AxisInterval.from(0, extent)
             setOriginalRangeFor(axisId, origRange)
 
             // update the axis' range
