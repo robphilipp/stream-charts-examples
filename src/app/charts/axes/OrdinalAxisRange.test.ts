@@ -63,6 +63,24 @@ describe('scaleOrdinalBounds', () => {
         expect(zoomedRange.current.start).toBe(0)
         expect(zoomedRange.current.end).toBe(300)
     })
+
+    it('should not divide by zero when scaling a range whose original is degenerate (e.g. a plot laid out with 0 width/height)', () => {
+        const range = OrdinalAxisRange.from(0, 0, 0, 0)
+        const scaled = range.scale(2, 0)
+        expect(Number.isFinite(scaled.current.start)).toBe(true)
+        expect(Number.isFinite(scaled.current.end)).toBe(true)
+        // no meaningful scale factor can be derived from a zero-measure original, so the range
+        // is left unchanged rather than corrupted to NaN/Infinity
+        expect(scaled.current.start).toBe(0)
+        expect(scaled.current.end).toBe(0)
+    })
+
+    it('should not divide by zero when constrained-scaling a range whose original is degenerate', () => {
+        const range = OrdinalAxisRange.from(0, 0, 0, 0)
+        const scaled = range.constrainedScale(2, 0, [0, 0])
+        expect(Number.isFinite(scaled.current.start)).toBe(true)
+        expect(Number.isFinite(scaled.current.end)).toBe(true)
+    })
 });
 
 describe('scale and constrainedScale should be immune to pivot drift', () => {

@@ -64,7 +64,8 @@ export class OrdinalAxisRange extends BaseAxisRange {
      * @return The new range, as a plain {start, end} pair
      */
     private scaledCumulative(factor: number, value: number): {start: number, end: number} {
-        if (factor === 1) {
+        // when the factor is 1 or the original measure is 0, return the original range
+        if (factor === 1 || this.original.measure() === 0) {
             return {start: this.original.start, end: this.original.end}
         }
         const scaleFactor = this.current.measure() / this.original.measure()
