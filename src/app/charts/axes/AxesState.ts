@@ -67,16 +67,20 @@ export class AxesState<A extends BaseAxis> {
     }
 
     /**
-     * Attempts to retrieve the x-axis for the specified ID
-     * @param axisId The unique ID of the axis
-     * @return The axis, or undefined if no axis with the specified ID is found
+     * Attempts to retrieve the axis for the specified ID.
+     * @param axisId The unique ID of the axis, or `""` to request the default axis (the
+     * convention used throughout this library wherever a series has no explicit axis
+     * assignment -- see e.g. each plot component's own `axesFor` helper).
+     * @return The axis matching `axisId`; the default axis (see {@link defaultAxis}) if
+     * `axisId` is `""` and at least one axis exists; otherwise an empty `Optional`. A non-empty
+     * `axisId` that doesn't match any axis is deliberately treated as "not found" rather than
+     * silently substituting an unrelated axis -- that used to happen for *any* unmatched ID,
+     * which masked stale/mistyped axis IDs as if they'd resolved correctly.
      */
     axisFor(axisId: string): Optional<A> {
         const axis = this.axes.get(axisId)
-        // when there is no axis for the specified ID and there is at least
-        // one axis, then just use that...it is the default axis
-        if (axis === undefined && this.axes.size >= 1) {
-            return Optional.of(Array.from(this.axes.values())[0])
+        if (axis === undefined && axisId === "" && this.axes.size >= 1) {
+            return this.defaultAxis()
         }
         return Optional.ofNullable(axis)
     }

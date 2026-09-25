@@ -28,4 +28,35 @@ describe('AxesState', () => {
             expect(updatedAxesState.isEmpty()).toBe(false);
         })
     })
+
+    describe('axisFor', () => {
+        const axisOne: BaseAxis = {axisId: 'axis-one', location: AxisLocation.Bottom}
+        const axisTwo: BaseAxis = {axisId: 'axis-two', location: AxisLocation.Bottom}
+        const axesState = AxesState.from<BaseAxis>(new Map([
+            ['axis-one', axisOne],
+            ['axis-two', axisTwo],
+        ]))
+
+        it('should return the axis that matches the specified ID exactly', () => {
+            expect(axesState.axisFor('axis-two').getOrUndefined()).toBe(axisTwo)
+        })
+
+        it('should return the default axis for the "" sentinel ID (no explicit assignment)', () => {
+            // "" is the convention used throughout the plot layer for "no axis was explicitly
+            // assigned to this series" -- see e.g. each plot component's own `axesFor` helper
+            expect(axesState.axisFor('').getOrUndefined()).toBe(axesState.defaultAxis().getOrUndefined())
+        })
+
+        it('should return empty for an unknown, non-empty ID rather than substituting an unrelated axis', () => {
+            // a real but stale/mistyped axis ID must surface as "not found", not silently
+            // resolve to some other, unrelated axis
+            expect(axesState.axisFor('no-such-axis').isEmpty()).toBe(true)
+        })
+
+        it('should return empty for any ID, including "", when there are no axes at all', () => {
+            const empty = AxesState.empty<BaseAxis>()
+            expect(empty.axisFor('').isEmpty()).toBe(true)
+            expect(empty.axisFor('anything').isEmpty()).toBe(true)
+        })
+    })
 })
