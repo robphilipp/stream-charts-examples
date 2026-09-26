@@ -1,7 +1,7 @@
-import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
+import {emptyTimeSeriesChartData, type TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {type Datum, datumOf, type TimeSeries} from "../series/timeSeries";
 import {seriesFrom} from "../series/baseSeries";
-import {Observable, range} from "rxjs";
+import {Observable, of, range} from "rxjs";
 import {map} from "rxjs/operators";
 import {type OrdinalChartData, ordinalsObservable} from "./ordinals";
 
@@ -49,6 +49,50 @@ describe('when generating ordinal series', () => {
 
     })
 
+})
+
+/**
+ * Builds a single-tick {@link TimeSeriesChartData} with one series holding one (x, y) datum, used
+ * to drive {@link ordinalsObservable}'s internal `scan` accumulator one point at a time.
+ */
+function tick(seriesName: string, x: number, y: number): TimeSeriesChartData {
+    return {
+        ...emptyTimeSeriesChartData([seriesName]),
+        maxTime: x,
+        maxTimes: new Map([[seriesName, x]]),
+        newPoints: new Map([[seriesName, [{x, y}]]]),
+    }
+}
+
+describe('min/max time and value tracking', () => {
+    // guards against a regression of M10: the reducer used `if (x < min) {...} else if (x > max)
+    // {...}`, so a single datum could only ever update min OR max, never both. Since min/max start
+    // at +-Infinity, a single data point (which is trivially both the min and the max so far) or a
+    // decreasing sequence of points left the other bound frozen at its +-Infinity sentinel forever
+    it('sets both min and max to a single data point, which is trivially both', () => {
+        const results: Array<OrdinalChartData> = []
+        ordinalsObservable(of(tick('s1', 10, 5))).subscribe(chartData => results.push(chartData))
+
+        expect(results).toHaveLength(1)
+        const {stats} = results[0]
+        expect(stats.minDatum.time.time).toBe(10)
+        expect(stats.maxDatum.time.time).toBe(10)
+        expect(stats.minDatum.value.value).toBe(5)
+        expect(stats.maxDatum.value.value).toBe(5)
+    })
+
+    it('tracks the max across a decreasing time/value sequence instead of freezing at the sentinel', () => {
+        const results: Array<OrdinalChartData> = []
+        ordinalsObservable(of(tick('s1', 10, 8), tick('s1', 5, 3)))
+            .subscribe(chartData => results.push(chartData))
+
+        expect(results).toHaveLength(2)
+        const {stats} = results[1]
+        expect(stats.minDatum.time.time).toBe(5)
+        expect(stats.maxDatum.time.time).toBe(10)
+        expect(stats.minDatum.value.value).toBe(3)
+        expect(stats.maxDatum.value.value).toBe(8)
+    })
 })
 
 /**

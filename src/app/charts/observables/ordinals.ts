@@ -195,13 +195,15 @@ export function ordinalsObservable(
                             // calculate the min and max times over all series
                             if (x < accum.stats.minDatum.time.time) {
                                 accum.stats.minDatum.time = ordinalDatumOf(x, name, y)
-                            } else if (x > accum.stats.maxDatum.time.time) {
+                            }
+                            if (x > accum.stats.maxDatum.time.time) {
                                 accum.stats.maxDatum.time = ordinalDatumOf(x, name, y)
                             }
                             // calculate the min and max values over all series
                             if (y < accum.stats.minDatum.value.value) {
                                 accum.stats.minDatum.value = ordinalDatumOf(x, name, y)
-                            } else if (y > accum.stats.maxDatum.value.value) {
+                            }
+                            if (y > accum.stats.maxDatum.value.value) {
                                 accum.stats.maxDatum.value = ordinalDatumOf(x, name, y)
                             }
 
