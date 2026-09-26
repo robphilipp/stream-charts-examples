@@ -3,8 +3,8 @@ import {concat, from, Observable, Subscription} from "rxjs";
 import type {BaseSeries} from "../series/baseSeries";
 import type {JSX} from "react";
 import {useInitialData} from "./useInitialData";
-import {defaultObservableValues} from "./defaultObservableValues.tsx";
-import {noop} from "stream-charts";
+import {defaultObservableValues} from "./defaultObservableValues";
+import {noop} from "../utils";
 import { DataObservableContext } from "./useDataObservable";
 
 /**
