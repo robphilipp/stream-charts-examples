@@ -140,20 +140,20 @@ export function calculateOrdinalStats(seriesList: Array<OrdinalSeries>): Ordinal
     const minTimeDatum: OrdinalDatum = seriesList.reduce(
         (globalMin: OrdinalDatum, series: OrdinalSeries) => {
             const seriesMin = series.data.reduce(
-                (min, datum) =>  datum.value < min.value ? datum : min,
+                (min, datum) =>  datum.time < min.time ? datum : min,
                 globalMin
             )
-            return seriesMin.value < globalMin.value ? seriesMin : globalMin
+            return seriesMin.time < globalMin.time ? seriesMin : globalMin
         },
         initialMinTimeDatum()
     )
     const maxTimeDatum: OrdinalDatum = seriesList.reduce(
         (globalMax: OrdinalDatum, series: OrdinalSeries) => {
             const seriesMax = series.data.reduce(
-                (max, datum) =>  datum.value > max.value ? datum : max,
+                (max, datum) =>  datum.time > max.time ? datum : max,
                 globalMax
             )
-            return seriesMax.value > globalMax.value ? seriesMax : globalMax
+            return seriesMax.time > globalMax.time ? seriesMax : globalMax
         },
         initialMaxTimeDatum()
     )
