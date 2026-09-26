@@ -13,15 +13,15 @@ import {AxesState} from "../axes/AxesState";
 import {AxisLocation, type ContinuousNumericAxis, type OrdinalStringAxis} from "../axes/axes";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
-import {type AxesAssignment, assignAxes} from "../plots/plot";
-import {datumOf} from "../series/timeSeries";
+import {assignAxes, type AxesAssignment} from "../plots/plot";
 import type {TimeSeries} from "../series/timeSeries";
+import {datumOf} from "../series/timeSeries";
 import {type BaseSeries, seriesFrom} from "../series/baseSeries";
 import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries";
 import type {OutlierChartData} from "../observables/outliers";
 import {defaultOrdinalStats, defaultOrdinalValueStats, type OrdinalChartData} from "../observables/ordinals";
-import {ordinalDatumOf, type OrdinalDatum} from "../series/ordinalSeries";
+import {type OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
 
 /**
  * Exercises the actual exported subscription-creating functions that {@link subscription.test.ts}
@@ -212,12 +212,12 @@ describe('subscriptionTimeSeriesFor', () => {
  * polyfill. Built on `setTimeout` so it still advances deterministically under `jest.useFakeTimers()`.
  */
 function installRafPolyfill(): void {
-    const g = global as unknown as {
+    const g = globalThis as unknown as {
         requestAnimationFrame: (cb: (t: number) => void) => number
         cancelAnimationFrame: (id: number) => void
     }
     g.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 0) as unknown as number
-    g.cancelAnimationFrame = (id) => clearTimeout(id as unknown as NodeJS.Timeout)
+    g.cancelAnimationFrame = (id) => clearTimeout(id)
 }
 
 /**
@@ -230,7 +230,7 @@ function installRafPolyfill(): void {
 function installDocumentStub(): {getVisibilityChangeListener: () => (() => void) | undefined, setVisible: (visible: boolean) => void} {
     let listener: (() => void) | undefined
     let visible = true
-    const g = global as unknown as {document: unknown}
+    const g = globalThis as unknown as {document: unknown}
     g.document = {
         get visibilityState() {
             return visible ? 'visible' : 'hidden'
@@ -251,7 +251,7 @@ function installDocumentStub(): {getVisibilityChangeListener: () => (() => void)
 }
 
 function uninstallGlobalStubs(): void {
-    const g = global as unknown as {document?: unknown, requestAnimationFrame?: unknown, cancelAnimationFrame?: unknown}
+    const g = globalThis as unknown as {document?: unknown, requestAnimationFrame?: unknown, cancelAnimationFrame?: unknown}
     delete g.document
     delete g.requestAnimationFrame
     delete g.cancelAnimationFrame
