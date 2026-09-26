@@ -40,18 +40,6 @@ export class AxesState<A extends BaseAxis> {
     }
 
     /**
-     * Creates a deep copy of the current axes state.
-     * @return A deep copy of the current axes state.
-     */
-    copy(): AxesState<A> {
-        return new AxesState<A>(
-            new Map<string, A>(Array.from(this.axes.entries())
-                .map(([id, axis]) => [id, {...axis}])
-            )
-        )
-    }
-
-    /**
      * Adds an axis to the current axis state and returns a new axis state. This is an internal state
      * management function. This should generally not be used. Instead, use the {@link UseAxesValues.addXAxis}
      * and {@link UseAxesValues.addYAxis} functions to add axes.
