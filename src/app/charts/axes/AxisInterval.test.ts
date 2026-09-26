@@ -42,6 +42,49 @@ describe('AxisInterval', () => {
         })
     })
 
+    // guards against a regression of M6: a single NaN endpoint used to collapse silently into the
+    // same (NaN, NaN) representation as a deliberate empty interval, discarding which of the two
+    // inputs was actually bad -- these confirm the warning added for that mixed case fires only
+    // for it, with the returned value unchanged in every case (so existing callers are unaffected)
+    describe('single-NaN endpoint diagnostic', () => {
+        let warnSpy: jest.SpyInstance
+
+        beforeEach(() => {
+            warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+        })
+
+        afterEach(() => {
+            warnSpy.mockRestore()
+        })
+
+        it('warns when only start is NaN, and still collapses to the empty representation', () => {
+            const interval = AxisInterval.from(NaN, 5);
+            expect(interval.start).toBeNaN()
+            expect(interval.end).toBeNaN()
+            expect(warnSpy).toHaveBeenCalledTimes(1)
+            expect(warnSpy.mock.calls[0][0]).toContain('start: NaN, end: 5')
+        })
+
+        it('warns when only end is NaN, and still collapses to the empty representation', () => {
+            const interval = AxisInterval.from(5, NaN);
+            expect(interval.start).toBeNaN()
+            expect(interval.end).toBeNaN()
+            expect(warnSpy).toHaveBeenCalledTimes(1)
+            expect(warnSpy.mock.calls[0][0]).toContain('start: 5, end: NaN')
+        })
+
+        it('does not warn when both endpoints are NaN (the deliberate empty-interval case)', () => {
+            AxisInterval.from(NaN, NaN);
+            expect(warnSpy).not.toHaveBeenCalled()
+        })
+
+        it('does not warn for ordinary, non-NaN input, including a reversed order', () => {
+            AxisInterval.from(1, 5);
+            AxisInterval.from(5, 1);
+            expect(warnSpy).not.toHaveBeenCalled()
+        })
+    })
+
     describe('AxisInterval comparison', () => {
         const interval1 = AxisInterval.from(1, 5);
         const interval2 = AxisInterval.from(1, 5);

@@ -13,12 +13,30 @@ export class AxisInterval {
     }
 
     /**
-     * Creates an axis interval from the specified start and end values
+     * Creates an axis interval from the specified start and end values. The values are normalized
+     * so that `start <= end` regardless of the order they're passed in -- callers never need to
+     * worry about which endpoint ended up larger (e.g. after a pan/zoom delta pushes one endpoint
+     * past the other).
+     *
+     * If exactly one of `start`/`end` is `NaN`, both endpoints of the result collapse to `NaN`
+     * (`Math.min`/`Math.max` propagate `NaN` unconditionally) -- the same representation as an
+     * intentionally-empty interval (see {@link empty}). That's indistinguishable from genuinely
+     * wanting an empty interval, and silently discards which of the two inputs was actually bad,
+     * so this logs a warning for that specific mixed case (one real number, one `NaN`) to surface
+     * what's almost always an upstream computation error -- `from(NaN, NaN)` (a deliberate empty
+     * interval) is not warned about.
      * @param start The axis-range start value
      * @param end The axis-range end value
      * @return The axis-interval
      */
     static from(start: number, end: number): AxisInterval {
+        if ((isNaN(start) || isNaN(end)) && !(isNaN(start) && isNaN(end))) {
+            console.warn(
+                `AxisInterval.from received exactly one NaN endpoint -- this usually indicates an ` +
+                `upstream computation error, not an intentional empty interval (use AxisInterval.empty() ` +
+                `for that); start: ${start}, end: ${end}`
+            )
+        }
         return new AxisInterval(Math.min(start, end), Math.max(start, end))
     }
 
