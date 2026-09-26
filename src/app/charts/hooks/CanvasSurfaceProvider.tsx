@@ -1,4 +1,4 @@
-import {type JSX, useCallback, useEffect, useMemo, useState} from "react";
+import {type JSX, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {usePlotDimensions} from "./usePlotDimensions";
 import {createCanvasContext, resizeCanvasTo} from "../plots/plot";
 import type {CanvasContext} from "../d3types";
@@ -53,12 +53,12 @@ export default function CanvasSurfaceProvider(props: Props): JSX.Element {
     const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
     const [canvasContext, setCanvasContext] = useState<CanvasContext | null>(null)
 
-    // create the canvas context (and size the backing store) if it doesn't already exist
-    if (!canvasContext && canvas) {
-        const cc = createCanvasContext(chartId, canvas, color)
-        resizeCanvasTo(cc, {width, height})
-        setCanvasContext(cc)
-    }
+    // captures the dimensions active at the exact moment this component first renders
+    const initialDimensionsRef = useRef({width, height})
+
+    // a plain ref latch, not `canvasContext` state, guards the one-time canvas-context creation
+    // below
+    const hasCreatedCanvasContext = useRef(false)
 
     // keep the canvas's backing store in sync with the plot dimensions, however they change
     // (prop-driven container resize, or a direct updateDimensions(...) call)
@@ -81,17 +81,18 @@ export default function CanvasSurfaceProvider(props: Props): JSX.Element {
             if (canvasElement) {
                 setCanvas(canvasElement)
 
+                // create the canvas context (and do its initial sizing) exactly once, the moment
+                // the canvas element first attaches.
+                if (!hasCreatedCanvasContext.current) {
+                    hasCreatedCanvasContext.current = true
+                    const cc = createCanvasContext(chartId, canvasElement, color)
+                    resizeCanvasTo(cc, initialDimensionsRef.current)
+                    setCanvasContext(cc)
+                }
+
                 // apply the style/background/color from the defaults and any style object passed
                 // in as properties, one property at a time, rather than overwriting the whole
-                // `style` attribute. This callback's identity changes whenever color/backgroundColor/
-                // svgStyle change (e.g. a theme toggle), which makes React detach and reattach this
-                // ref -- calling this function again with the *same* canvas element. A wholesale
-                // `setAttribute('style', ...)` here would wipe out the width/height inline styles
-                // that resizeCanvasTo() sets directly via canvas.style.width/height in a separate
-                // effect that this callback's re-invocation does not also re-run, leaving the canvas
-                // sized to its (much larger, dpr-scaled) backing store instead of its intended CSS
-                // size. IMPORTANT: width/height are deliberately excluded here for the same reason --
-                // sizing is handled exclusively by the resizeCanvasTo() effect above.
+                // `style` attribute
                 Object.getOwnPropertyNames(svgStyle)
                     .filter(name => name !== 'width' && name !== 'height')
                     .forEach(name => canvasElement.style.setProperty(name, String(svgStyle[name])))
@@ -100,7 +101,7 @@ export default function CanvasSurfaceProvider(props: Props): JSX.Element {
                 canvasElement.style.color = color
             }
         },
-        [backgroundColor, color, svgStyle]
+        [backgroundColor, chartId, color, svgStyle]
     )
 
     return (
