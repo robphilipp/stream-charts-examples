@@ -8,7 +8,6 @@ import {FastShiftArray} from "fast-shift-array";
 export interface BaseSeries<D> {
     readonly name: string;
     data: FastShiftArray<D>;
-    // data: Array<D>;
     readonly last: () => Result<D, string>;
     readonly length: () => number;
     readonly isEmpty: () => boolean;
@@ -32,6 +31,16 @@ export const DEFAULT_COMPACTING_SIZE = 10_000
 
 /**
  * Creates a series from the name and the optional array of `Datum`.
+ *
+ * **Ownership warning:** when `data` is a plain array (or already a {@link FastShiftArray}), it is
+ * wrapped **by reference**, not copied -- the returned series' backing storage *is* that same
+ * array/`FastShiftArray`. As the chart streams in new data and ages old data out, the library calls
+ * `shift()` on it (clearing the head slot, and periodically `splice`-ing it during compaction),
+ * mutating it in place. If you keep your own reference to the array you pass in (to reuse,
+ * snapshot, or compare later), you will see it change out from under you. If you need an
+ * independent copy, pass `data.slice()` instead -- see e.g. `StreamingBarChart.tsx`,
+ * `StreamingRasterChart.tsx`, and `StreamingPoincareChart.tsx`, which all do this when re-deriving
+ * initial series from data they still hold a reference to elsewhere.
  * @param name The name of the series (i.e. neuron)
  * @param data The array of datum, which could be `(t, f(t))`, or `(f[n](x), f[n+1](x))`
  * @param compactingSize The number of shifts the series' backing array accumulates before it's

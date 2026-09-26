@@ -161,6 +161,11 @@ export function outlierSeriesFor<M extends readonly number[]>(
 
 /**
  * Creates an outlier series for the data and measures
+ *
+ * **Ownership warning:** `outlierData` is forwarded directly to {@link seriesFrom}, which wraps a
+ * plain array (or `FastShiftArray`) **by reference**, not a copy -- see {@link seriesFrom}'s own
+ * ownership warning for the full explanation. If you keep your own reference to `outlierData`,
+ * pass `outlierData.slice()` instead if you need an independent copy.
  * @param name The name of the series
  * @param outlierData The data for the series
  * @param measures The measure defining the outlier bands
