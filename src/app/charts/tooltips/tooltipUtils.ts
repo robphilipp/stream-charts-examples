@@ -78,12 +78,19 @@ export interface TooltipDimensions {
 }
 
 /**
- * Removes the tooltip when the mouse has moved away from the spike. Tooltips are now always
+ * Removes the tooltip when the mouse has moved away from the data point. Tooltips are now always
  * plain HTML overlay elements (see `Tooltip.tsx`) rather than SVG elements appended to the chart's
  * SVG root, so this no longer needs to special-case SVG vs. HTML removal the way the old version did.
+ *
+ * `scope` is required (no default falling back to `document`) so a caller can't accidentally
+ * remove every `.tooltip` element on the page -- pass the specific chart instance's own overlay
+ * container (`canvas.parentElement`, see `Tooltip.tsx`) so this only ever touches that chart's own
+ * tooltip, never another chart instance's, or an unrelated host-app element that happens to also
+ * use the `tooltip` class.
+ * @param scope The DOM node to search within (e.g. this chart instance's overlay container)
  */
-export function removeTooltip() {
-    document.querySelectorAll('.tooltip').forEach(element => element.remove())
+export function removeTooltip(scope: ParentNode): void {
+    scope.querySelectorAll('.tooltip').forEach(element => element.remove())
 }
 
 /**

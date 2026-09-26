@@ -112,7 +112,7 @@ export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, 
                                 // it moves -- remove the previous background element first so
                                 // repeated calls update a single element instead of stacking a new
                                 // one on the page every time.
-                                removeTooltip()
+                                removeTooltip(overlayContainer)
 
                                 // create the rounded-rectangle background for the tooltip. This
                                 // replaces the old SVG <rect>; border-radius/background/border are
@@ -149,13 +149,18 @@ export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, 
                         )
                     )
 
-                    registerMouseLeaveHandler(handlerId, () => removeTooltip())
+                    registerMouseLeaveHandler(handlerId, () => removeTooltip(overlayContainer))
                 }
             }
             return () => {
                 unregisterMouseOverHandler(handlerId)
                 unregisterMouseLeaveHandler(handlerId)
-                removeTooltip()
+                // overlayContainer may be null here if canvas became unavailable before this
+                // cleanup ran (e.g. during unmount) -- fall back to document so a tooltip this
+                // instance created still gets removed even in that edge case (matches H10's
+                // "always clean up on unmount" guarantee); every other call site above always has
+                // a real, non-null overlayContainer, so this is the only place this fallback fires
+                removeTooltip(overlayContainer ?? document)
             }
         },
         [
