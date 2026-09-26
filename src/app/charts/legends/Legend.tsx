@@ -3,7 +3,7 @@ import {BaseAxisRange} from "../axes/BaseAxisRange";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useChart} from "../hooks/useChart";
 import {useInitialData} from "../hooks/useInitialData";
-import React, {useCallback, useEffect, useMemo} from "react";
+import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {createPortal} from "react-dom";
 import * as d3 from "d3";
 import type {ChartData} from "../observables/ChartData.ts";
@@ -160,6 +160,36 @@ export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR ex
     const visibleSeriesNames = useMemo<Array<string>>(
         () => initialData.map(s => s.name).filter(name => seriesFilter.test(name)),
         [initialData, seriesFilter]
+    )
+
+    // A `container` prop that never resolves to a mounted element is a caller-attributable
+    // misconfiguration (unlike a not-yet-attached `canvas`, which is normal/transient on first
+    // mount) -- surface it once, rather than silently rendering nothing forever with no clue why.
+    // Gated on `visible && visibleSeriesNames.length > 0` -- i.e. only when we'd actually attempt
+    // to render -- since a container legitimately un-mounted alongside `visible: false` (a common
+    // pattern: hide the legend and its container together) is not a misconfiguration and shouldn't
+    // warn. Depending on `canvas` too (not just `externalContainer`, whose identity is otherwise
+    // stable across renders) gives this a few extra chances to reassess as the chart's own canvas
+    // surface settles, before concluding the ref is genuinely never going to attach.
+    const hasWarnedMissingContainerRef = useRef(false)
+    useEffect(
+        () => {
+            if (
+                visible &&
+                visibleSeriesNames.length > 0 &&
+                externalContainer &&
+                externalContainer.current === null &&
+                !hasWarnedMissingContainerRef.current
+            ) {
+                console.warn(
+                    'Legend: the "container" prop was provided, but its .current is null, so the legend has ' +
+                    'nothing to render into and will render nothing. Make sure the ref is attached to an ' +
+                    'element that actually mounts.'
+                )
+                hasWarnedMissingContainerRef.current = true
+            }
+        },
+        [externalContainer, canvas, visible, visibleSeriesNames.length]
     )
 
     if (!visible || visibleSeriesNames.length === 0) return null
