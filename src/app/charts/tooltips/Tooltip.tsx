@@ -155,6 +155,7 @@ export function Tooltip<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, 
             return () => {
                 unregisterMouseOverHandler(handlerId)
                 unregisterMouseLeaveHandler(handlerId)
+                removeTooltip()
             }
         },
         [
