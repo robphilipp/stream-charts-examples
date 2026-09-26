@@ -1,15 +1,40 @@
 import {failureResult, type Result, successResult} from "result-fn";
+import safeRegex from "safe-regex";
+
+/**
+ * Checks whether a regex is reasonably safe from catastrophic (exponential-time) backtracking --
+ * e.g. `/(a+)+$/`, the classic case that freezes on a long non-matching input. Every plot
+ * component tests a compiled `seriesFilter` regex against every series name on every redraw
+ * frame (not just once), so an unvetted pattern from a free-text filter field can hang the whole
+ * render loop, not just one call. Delegates to the `safe-regex` package, which walks the regex's
+ * actual parsed structure (via `regexp-tree`) rather than pattern-matching its source string, so
+ * it catches more than a hand-rolled "look for nested quantifiers" check would.
+ * @param pattern The regex (or its string source) to check
+ * @return `true` if the pattern is reasonably safe to run against arbitrary input; `false` if it
+ * risks catastrophic backtracking
+ */
+export function isSafeRegex(pattern: RegExp | string): boolean {
+    return safeRegex(pattern)
+}
 
 /**
  * Wraps the creation of the regex in a try/catch and returns the regex, wrapped in an option,
  * when it is valid. This can be used, for example, in a text field where the user types a regex.
+ * Also rejects a pattern that compiles fine but risks catastrophic backtracking (see
+ * {@link isSafeRegex}) -- a syntax error and an exponential-time pattern are both "can't use this"
+ * outcomes from the caller's point of view, so both are reported the same way.
  * @param regexString The string representation of the regex
  * @return The regular expression (`RegExp`) wrapped in an option. If the regexp
- * is invalid, then the option is none.
+ * is invalid, or is unsafe, then the option is none.
  */
 export function regexFilter(regexString: string): Result<RegExp, string> {
     try {
         const regex = new RegExp(regexString)
+        if (!isSafeRegex(regex)) {
+            return failureResult(
+                `Refusing to use a regex that risks catastrophic backtracking; regex_expression: ${regexString}`
+            )
+        }
         return successResult(regex)
     } catch(error) {
         return failureResult(

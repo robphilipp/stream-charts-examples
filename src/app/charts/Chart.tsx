@@ -17,6 +17,7 @@ import InitialDataProvider from "./hooks/InitialDataProvider";
 import DataObservableProvider from "./hooks/DataObservableProvider";
 import ChartProvider from "./hooks/ChartProvider";
 import AxesProvider from "./hooks/AxesProvider";
+import {isSafeRegex} from "./filters/regexFilter";
 
 const defaultBackground = '#202020';
 
@@ -298,6 +299,25 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
         [props.height, props.svgStyle, props.width]
     )
 
+    // `seriesFilter` is tested against every series name on every redraw frame by each plot
+    // component (not just once), so an unvetted pattern -- e.g. one built directly from
+    // free-text user input without going through the `regexFilter` helper, which already screens
+    // for this -- could freeze the whole render loop with catastrophic backtracking. This is the
+    // one place every `seriesFilter`, however it was constructed, necessarily passes through
+    // before reaching a plot, so it's checked here too, falling back to the safe match-everything
+    // default rather than ever handing plots something that could hang them.
+    const safeSeriesFilter = useMemo<RegExp>(
+        () => {
+            if (isSafeRegex(seriesFilter)) return seriesFilter
+            console.warn(
+                `seriesFilter regex risks catastrophic backtracking and was ignored; ` +
+                `falling back to the default (match-everything) filter; pattern: ${seriesFilter}`
+            )
+            return /./
+        },
+        [seriesFilter]
+    )
+
     return (
         <PlotDimensionsProvider containerDimensions={{width, height}} margin={margin}>
             <CanvasSurfaceProvider chartId={chartId} color={color} backgroundColor={backgroundColor} svgStyle={props.svgStyle}>
@@ -326,7 +346,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                                         backgroundColor={backgroundColor}
                                         svgStyle={svgStyle}
                                         seriesStyles={seriesStyles}
-                                        seriesFilter={seriesFilter}
+                                        seriesFilter={safeSeriesFilter}
                                     >
                                         {
                                             // the chart elements are the children
