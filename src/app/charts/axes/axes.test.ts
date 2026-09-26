@@ -1,5 +1,5 @@
 import {scaleBand} from "d3";
-import {AxisLocation, calculateOrdinalPanFor, ordinalAxisZoomHandler, type OrdinalStringAxis} from "./axes";
+import {AxisLocation, AxisType, calculateOrdinalPanFor, ordinalAxisZoomHandler, type OrdinalStringAxis} from "./axes";
 import {AxesState} from "./AxesState";
 import {OrdinalAxisRange} from "./OrdinalAxisRange";
 import type {Dimensions, Margin} from "../styling/margins";
@@ -17,6 +17,7 @@ describe('ordinal axis pan/zoom pixel-extent selection by location', () => {
         return {
             axisId: 'axis-1',
             location,
+            axisType: AxisType.OrdinalString,
             scale: scaleBand<string>(),
             categorySize: 10,
             update: () => 10,

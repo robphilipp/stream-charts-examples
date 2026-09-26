@@ -9,6 +9,7 @@ import {
     axesForSeriesGen,
     type BaseAxis,
     type ContinuousNumericAxis,
+    AxisType,
     ordinalAxisIntervals,
     ordinalAxisRanges,
     ordinalAxisZoomHandler,
@@ -935,15 +936,15 @@ function axesFor(
 ): [xAxis: OrdinalStringAxis, yAxis: ContinuousNumericAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
-    const xAxisCategory = xAxis as OrdinalStringAxis
-    if (xAxis && !xAxisCategory) {
+    if (xAxis && xAxis.axisType !== AxisType.OrdinalString) {
         throw Error("Bar plot requires that x-axis be of type CategoryAxis")
     }
+    const xAxisCategory = xAxis as OrdinalStringAxis
     const yAxis = yAxisFor(axes?.yAxis || "")
-    const yAxisContinuous = yAxis as ContinuousNumericAxis
-    if (yAxis && !yAxisContinuous) {
+    if (yAxis && yAxis.axisType !== AxisType.ContinuousNumeric) {
         throw Error("Bar plot requires that y-axis be of type ContinuousNumericAxis")
     }
+    const yAxisContinuous = yAxis as ContinuousNumericAxis
     return [xAxisCategory, yAxisContinuous]
 }
 

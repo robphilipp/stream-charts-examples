@@ -6,6 +6,7 @@ import {type Datum} from "../series/timeSeries";
 import {
     axesZoomHandler,
     type BaseAxis,
+    AxisType,
     type ContinuousNumericAxis,
     defaultLineStyle,
     panHandler2D,
@@ -838,15 +839,15 @@ function axesFor(
     yAxisFor: (id: string) => BaseAxis | undefined,
 ): [xAxis: ContinuousNumericAxis, yAxis: ContinuousNumericAxis] {
     const xAxis = xAxisFor("")
-    const xAxisLinear = xAxis as ContinuousNumericAxis
     const yAxis = yAxisFor("")
-    const yAxisLinear = yAxis as ContinuousNumericAxis
-    if (xAxis && !xAxisLinear) {
+    if (xAxis && xAxis.axisType !== AxisType.ContinuousNumeric) {
         throw Error("Poincare plot requires that x-axis be of type LinearAxis")
     }
-    if (yAxis && !yAxisLinear) {
+    if (yAxis && yAxis.axisType !== AxisType.ContinuousNumeric) {
         throw Error("Poincare plot requires that y-axis be of type LinearAxis")
     }
+    const xAxisLinear = xAxis as ContinuousNumericAxis
+    const yAxisLinear = yAxis as ContinuousNumericAxis
     return [xAxisLinear, yAxisLinear]
 }
 

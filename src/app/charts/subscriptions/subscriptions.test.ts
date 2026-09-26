@@ -10,7 +10,7 @@ import {
     type WindowedOrdinalStats,
 } from "./subscriptions";
 import {AxesState} from "../axes/AxesState";
-import {AxisLocation, type ContinuousNumericAxis, type OrdinalStringAxis} from "../axes/axes";
+import {AxisLocation, AxisType, type ContinuousNumericAxis, type OrdinalStringAxis} from "../axes/axes";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {assignAxes, type AxesAssignment} from "../plots/plot";
@@ -35,6 +35,7 @@ function fakeContinuousAxis(domain: [number, number] = [0, 1000]): ContinuousNum
     return {
         axisId: 'x-axis-1',
         location: AxisLocation.Bottom,
+        axisType: AxisType.ContinuousNumeric,
         scale: scaleLinear().domain(domain),
         update: () => {
         },
@@ -563,6 +564,7 @@ function fakeOrdinalAxis(axisId: string): OrdinalStringAxis {
     return {
         axisId,
         location: AxisLocation.Left,
+        axisType: AxisType.OrdinalString,
         scale: scaleBand<string>(),
         categorySize: 10,
         update: () => 10,

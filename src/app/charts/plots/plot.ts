@@ -48,9 +48,19 @@ export function createCanvasContext(
         context.clearRect(0, 0, canvas.width, canvas.height)
         context.restore()
 
-        Array.from(drawFns.values())
-            .sort((a, b) => a.zIndex - b.zIndex)
-            .forEach(({draw}) => draw(canvasContext))
+        Array.from(drawFns.entries())
+            .sort(([, a], [, b]) => a.zIndex - b.zIndex)
+            .forEach(([id, {draw}]) => {
+                try {
+                    draw(canvasContext)
+                } catch (error) {
+                    // one registrant's draw failure (e.g. a misconfigured axis assignment) must not
+                    // blank every other plot/axis/tracker sharing this canvas for the frame -- and
+                    // since this runs on every subsequent data tick too, an uncaught throw here would
+                    // otherwise wedge the chart's rendering permanently rather than just once
+                    console.error(`Error while drawing "${id}"; chart_id: ${chartId}`, error)
+                }
+            })
     }
 
     const canvasContext: CanvasContext = {

@@ -1,5 +1,5 @@
 import {AxesState} from "./AxesState";
-import {AxisLocation, type BaseAxis} from "./axes";
+import {AxisLocation, AxisType, type BaseAxis} from "./axes";
 
 describe('AxesState', () => {
     describe('creating axes-state', () => {
@@ -11,6 +11,7 @@ describe('AxesState', () => {
             const axis: BaseAxis = {
                 axisId: 'new-axis',
                 location: AxisLocation.Bottom,
+                axisType: AxisType.ContinuousNumeric,
             }
             const axesState = AxesState.from<BaseAxis>(new Map([['new-added-axis', axis]]));
             expect(axesState.isEmpty()).toBe(false);
@@ -23,6 +24,7 @@ describe('AxesState', () => {
             const axis: BaseAxis = {
                 axisId: 'new-axis',
                 location: AxisLocation.Bottom,
+                axisType: AxisType.ContinuousNumeric,
             }
             const updatedAxesState = axesState.addAxis(axis, 'new-added-axis');
             expect(updatedAxesState.isEmpty()).toBe(false);
@@ -30,8 +32,8 @@ describe('AxesState', () => {
     })
 
     describe('axisFor', () => {
-        const axisOne: BaseAxis = {axisId: 'axis-one', location: AxisLocation.Bottom}
-        const axisTwo: BaseAxis = {axisId: 'axis-two', location: AxisLocation.Bottom}
+        const axisOne: BaseAxis = {axisId: 'axis-one', location: AxisLocation.Bottom, axisType: AxisType.ContinuousNumeric}
+        const axisTwo: BaseAxis = {axisId: 'axis-two', location: AxisLocation.Bottom, axisType: AxisType.ContinuousNumeric}
         const axesState = AxesState.from<BaseAxis>(new Map([
             ['axis-one', axisOne],
             ['axis-two', axisTwo],

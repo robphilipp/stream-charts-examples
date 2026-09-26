@@ -8,6 +8,7 @@ import type {Datum, TimeSeries} from "../series/timeSeries";
 import {
     axesForSeriesGen,
     type BaseAxis,
+    AxisType,
     continuousAxisIntervals,
     continuousAxisRanges,
     continuousAxisZoomHandler,
@@ -857,15 +858,15 @@ function axesFor(
 ): [xAxis: ContinuousNumericAxis, yAxis: OrdinalStringAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
-    const xAxisLinear = xAxis as ContinuousNumericAxis
-    if (xAxis && !xAxisLinear) {
+    if (xAxis && xAxis.axisType !== AxisType.ContinuousNumeric) {
         throw Error("Raster plot requires that x-axis be of type LinearAxis")
     }
+    const xAxisLinear = xAxis as ContinuousNumericAxis
     const yAxis = yAxisFor(axes?.yAxis || "")
-    const yAxisCategory = yAxis as OrdinalStringAxis
-    if (yAxis && !yAxisCategory) {
+    if (yAxis && yAxis.axisType !== AxisType.OrdinalString) {
         throw Error("Raster plot requires that y-axis be of type CategoryAxis")
     }
+    const yAxisCategory = yAxis as OrdinalStringAxis
     return [xAxisLinear, yAxisCategory]
 }
 

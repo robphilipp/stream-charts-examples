@@ -17,6 +17,7 @@ import {AxisInterval} from "../axes/AxisInterval"
 import {
     axesForSeriesGen,
     type BaseAxis,
+    AxisType,
     continuousAxisIntervals,
     continuousAxisRanges,
     continuousAxisZoomHandler,
@@ -898,14 +899,16 @@ function axesFor(
     yAxisFor: (id: string) => BaseAxis | undefined,
 ): [xAxis: ContinuousNumericAxis | undefined, yAxis: ContinuousNumericAxis | undefined] {
     const assigned = axisAssignments.get(seriesName)
-    const xAxis = xAxisFor(assigned?.xAxis || "") as ContinuousNumericAxis | undefined
-    const yAxis = yAxisFor(assigned?.yAxis || "") as ContinuousNumericAxis | undefined
-    if (xAxisFor(assigned?.xAxis || "") && !xAxis) {
+    const xAxisRaw = xAxisFor(assigned?.xAxis || "")
+    const yAxisRaw = yAxisFor(assigned?.yAxis || "")
+    if (xAxisRaw && xAxisRaw.axisType !== AxisType.ContinuousNumeric) {
         throw Error("Outlier plot requires that x-axis be of type ContinuousNumericAxis")
     }
-    if (yAxisFor(assigned?.yAxis || "") && !yAxis) {
+    if (yAxisRaw && yAxisRaw.axisType !== AxisType.ContinuousNumeric) {
         throw Error("Outlier plot requires that y-axis be of type ContinuousNumericAxis")
     }
+    const xAxis = xAxisRaw as ContinuousNumericAxis | undefined
+    const yAxis = yAxisRaw as ContinuousNumericAxis | undefined
     return [xAxis, yAxis]
 }
 

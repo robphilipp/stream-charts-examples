@@ -94,6 +94,22 @@ export function defaultLineStyle(): SeriesLineStyle {
 }
 
 /**
+ * The concrete kind of an axis, set by every axis-creator function to its own unique value.
+ * Lets code that only has a `BaseAxis` (e.g. a plot's `axesFor` validating an `axisAssignments`
+ * entry) discriminate the concrete axis shape at runtime -- `BaseAxis`/`ContinuousNumericAxis`/
+ * `OrdinalStringAxis` are plain structural interfaces, so a type-level cast (`as ContinuousNumericAxis`)
+ * cannot do that; this field is what actually can.
+ * Note: replaces enums to support `erasableSyntaxOnly`
+ *  TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+ */
+export const AxisType = {
+    ContinuousNumeric: "ContinuousNumeric",
+    OrdinalString: "OrdinalString",
+} as const
+
+export type AxisType = (typeof AxisType)[keyof typeof AxisType]
+
+/**
  * The base interface that all Axes must implement. Each axis must have a unique ID and a location
  * (top, bottom, left, right). Under the old SVG-backed implementation this also carried a
  * `selection`; that's gone now that axes draw onto a shared canvas instead of owning their own DOM
@@ -102,6 +118,11 @@ export function defaultLineStyle(): SeriesLineStyle {
 export interface BaseAxis {
     axisId: string
     location: AxisLocation
+    /**
+     * The concrete kind of this axis (see {@link AxisType}). Every axis-creator function sets this
+     * to its own unique value.
+     */
+    axisType: AxisType
     /**
      * True for a placeholder axis added via {@link addEmptyXAxis}/{@link addEmptyYAxis} (just a
      * line, with no real data domain behind it). Consumers that report a value for the mouse
@@ -348,6 +369,7 @@ function addOrdinalStringXAxis(
     return {
         axisId,
         location,
+        axisType: AxisType.OrdinalString,
         scale,
         categorySize: categorySize(),
         update: (range, originalRange, plotDimensions, margin) => {
@@ -479,6 +501,7 @@ function addOrdinalStringYAxis(
     return {
         axisId,
         location,
+        axisType: AxisType.OrdinalString,
         scale,
         categorySize: categorySize(),
         update: (range, originalRange, plotDimensions, margin) => {
@@ -617,6 +640,7 @@ export function addEmptyXAxis(
     return {
         axisId,
         location,
+        axisType: AxisType.ContinuousNumeric,
         isEmpty: true,
         scale,
         update: (domain, plotDimensions, margin) => {
@@ -695,6 +719,7 @@ export function addEmptyYAxis(
     return {
         axisId,
         location,
+        axisType: AxisType.ContinuousNumeric,
         isEmpty: true,
         scale,
         update: (domain, plotDimensions, margin) => {
@@ -812,6 +837,7 @@ export function addContinuousNumericXAxis(
     return {
         axisId,
         location,
+        axisType: AxisType.ContinuousNumeric,
         scale,
         update: (domain, plotDimensions, margin) => {
             scale.domain(domain.asTuple()).range([0, plotDimensions.width])
@@ -930,6 +956,7 @@ export function addContinuousNumericYAxis(
     return {
         axisId,
         location,
+        axisType: AxisType.ContinuousNumeric,
         scale,
         update: (domain, plotDimensions, margin) => {
             scale.domain(domain.asTuple()).range([Math.max(margin.bottom, plotDimensions.height), 0])

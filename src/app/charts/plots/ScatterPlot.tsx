@@ -7,6 +7,7 @@ import type {Datum, TimeSeries} from "../series/timeSeries";
 import {
     axesForSeriesGen,
     type BaseAxis,
+    AxisType,
     continuousAxisIntervals,
     continuousAxisRanges,
     continuousAxisZoomHandler,
@@ -1091,15 +1092,15 @@ function axesFor(
 ): [xAxis: ContinuousNumericAxis, yAxis: ContinuousNumericAxis] {
     const axes = axisAssignments.get(seriesName)
     const xAxis = xAxisFor(axes?.xAxis || "")
-    const xAxisLinear = xAxis as ContinuousNumericAxis
     const yAxis = yAxisFor(axes?.yAxis || "")
-    const yAxisLinear = yAxis as ContinuousNumericAxis
-    if (xAxis && !xAxisLinear) {
+    if (xAxis && xAxis.axisType !== AxisType.ContinuousNumeric) {
         throw Error("Scatter plot requires that x-axis be of type LinearAxis")
     }
-    if (yAxis && !yAxisLinear) {
+    if (yAxis && yAxis.axisType !== AxisType.ContinuousNumeric) {
         throw Error("Scatter plot requires that y-axis be of type LinearAxis")
     }
+    const xAxisLinear = xAxis as ContinuousNumericAxis
+    const yAxisLinear = yAxis as ContinuousNumericAxis
     return [xAxisLinear, yAxisLinear]
 }
 
