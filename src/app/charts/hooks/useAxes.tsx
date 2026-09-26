@@ -112,6 +112,15 @@ export type UseAxesValues<AR extends BaseAxisRange, A extends BaseAxis> = {
     /**
      * Adds a handler for when the axes are updated. An axis domain/range could change because of a zoom action,
      * a pan action, or as new data is streamed in.
+     *
+     * Throws if `handlerId` is already registered, rather than silently replacing or ignoring the
+     * new one -- a custom axis/plot component that could ever remount (not just re-render) with
+     * the same `handlerId` (e.g. one derived from a stable chart/axis ID) must call
+     * {@link removeAxesRangesUpdateHandler} in its own unmount cleanup before this would ever be
+     * called again for that ID, or the remount will throw here. See {@link ContinuousAxis}/
+     * {@link OrdinalAxis} for the reference pattern: a `useEffect` whose only job is calling
+     * `removeAxesRangesUpdateHandler` on unmount, kept separate from whatever other effect(s)
+     * register the handler.
      * @param handlerId The unique ID of the handler to register/add
      * @param handler The handler function that accepts a map of updates and a plot dimension
      */

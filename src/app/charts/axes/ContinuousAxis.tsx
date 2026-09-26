@@ -239,6 +239,23 @@ export function ContinuousAxis(props: Props): null {
         ]
     )
 
+    // unregister the axes-provider range-update handler on a genuine unmount -- the main effect
+    // above only removes it on an axisId *change* (line ~130), never on unmount itself, so
+    // without this a component that unmounts and later remounts with the same chartId/axisId/
+    // location (hence the same computed handlerId) would try to re-register under an ID that's
+    // still occupied and throw ("Handler with ID already exists..."). Mirrors OrdinalAxis.tsx's
+    // identical cleanup effect.
+    useEffect(
+        () => {
+            return () => {
+                if (rangeUpdateHandlerIdRef.current) {
+                    removeAxesRangesUpdateHandler(rangeUpdateHandlerIdRef.current)
+                }
+            }
+        },
+        [removeAxesRangesUpdateHandler]
+    )
+
     // unregister the axis' draw function when the axis unmounts (e.g. the chart is torn down, or
     // this axis is swapped out for a different one)
     useEffect(
