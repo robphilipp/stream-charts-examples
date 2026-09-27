@@ -78,6 +78,16 @@ export interface Props {
      */
     highlightAxesOnMouseOver?: boolean
     /**
+     * Commonly used when the parent holds the subscription. A common use-case for this
+     * is when the application would like to keep a chart's data accumulating even while the
+     * component itself is unmounted -- e.g. when the user navigates away and back. In this use
+     * case, the subscription is stored at the application level (see the {@link Chart} prop
+     * `onSubscribe`) and handed back to this component when it remounts, purely so the mount-time
+     * effect below can find and tear down that orphaned subscription (never to resume rendering
+     * with it -- see that effect's comment).
+     */
+    subscription?: Subscription
+    /**
      * Called (mirroring `onSubscribe`) whenever this plot (re)creates its zoom behavior, handing
      * the caller a `resetZoom` function that programmatically clears d3-zoom's own accumulated
      * scale/pan state back to identity. See {@link ScatterPlot}'s identical prop for the full
@@ -144,6 +154,7 @@ export function RasterPlot(props: Props): null {
         shouldSubscribe,
 
         onSubscribe = noop,
+        onUnsubscribe = noop,
         onUpdateData,
     } = useDataObservable()
 
@@ -158,6 +169,7 @@ export function RasterPlot(props: Props): null {
         withCadenceOf,
         spikeMargin = 2,
         highlightAxesOnMouseOver = false,
+        subscription = undefined,
         onZoomReset = noop,
     } = props
 
@@ -194,12 +206,39 @@ export function RasterPlot(props: Props): null {
     // fire a "leave" for the old series before firing an "over" for the new one
     const lastHoveredRef = useRef<string | undefined>(undefined)
 
-    const subscriptionRef = useRef<Subscription>(undefined)
+    // seeded from the incoming `subscription` prop so this instance can detect (and, in the
+    // mount-time effect below, kill) a subscription inherited from a prior instance -- never to
+    // adopt/reuse it for rendering (its tick callback is bound to a different instance's refs,
+    // and would stomp this instance's zoom -- see bug #9 in zoom-pan-architecture-pitfalls). See
+    // {@link ScatterPlot}'s identical ref for the full explanation.
+    const subscriptionRef = useRef<Subscription | undefined>(subscription)
 
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     // eslint-disable-next-line react-hooks/refs
     const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
+
+    // tracks the latest `subscription` prop value, so the unmount cleanup (below) can tell
+    // whether an inherited/orphaned subscription is still meant to be kept alive to bridge a
+    // route change -- see {@link ScatterPlot}'s identical ref for the full explanation.
+    const subscriptionPropRef = useRef(subscription)
+    useEffect(
+        () => {
+            subscriptionPropRef.current = subscription
+        },
+        [subscription]
+    )
+
+    // tears down this instance's own subscription -- see {@link ScatterPlot}'s identical
+    // `teardownSubscription` for the full explanation.
+    const teardownSubscription = useCallback(
+        () => {
+            subscriptionRef.current?.unsubscribe()
+            subscriptionRef.current = undefined
+            onUnsubscribe()
+        },
+        [onUnsubscribe]
+    )
 
     /**
      * Calculates the upper and lower y-coordinate for the spike line
@@ -662,6 +701,7 @@ export function RasterPlot(props: Props): null {
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
+            if (subscriptionRef.current) return subscriptionRef.current
             if (seriesObservable === undefined || canvasContext === null) return undefined
             if (withCadenceOf !== undefined) {
                 return subscriptionTimeSeriesWithCadenceFor(
@@ -805,6 +845,24 @@ export function RasterPlot(props: Props): null {
         [canvasContext, chartId, margin, axisAssignments, xAxesState, yAxesState, mouseOverHandlerFor, mouseLeaveHandlerFor]
     )
 
+    // If this instance mounted holding a subscription inherited from a previous instance
+    // (stashed in the store to survive a route change -- see `StreamingRasterChart`), it cannot
+    // actually be re-adopted here: its RxJS callback was bound once, at creation, to the now-
+    // unmounted instance's `updateTimingAndPlot`/refs. See {@link ScatterPlot}'s identical
+    // mount-only effect for the full explanation of why it must be torn down here (never earlier,
+    // never re-adopted) and let the subscribe effect below create a fresh one this instance owns.
+    useEffect(
+        () => {
+            if (subscriptionRef.current !== undefined) {
+                teardownSubscription()
+            }
+        },
+        // deliberately mount-only (must run exactly once, before the subscribe effect below) --
+        // see ScatterPlot's identical effect for why this is safe with an empty dependency array
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        []
+    )
+
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
     // is changed to `true` and we haven't subscribed yet, then subscribe. when the
     // `shouldSubscribe` is `false` and we had subscribed, then unsubscribe. otherwise,
@@ -815,24 +873,29 @@ export function RasterPlot(props: Props): null {
                 subscriptionRef.current = subscribe()
                 allowTooltipRef.current = false
             } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
-                subscriptionRef.current?.unsubscribe()
-                subscriptionRef.current = undefined
+                teardownSubscription()
                 allowTooltipRef.current = true
             }
         },
-        [shouldSubscribe, subscribe]
+        [shouldSubscribe, subscribe, teardownSubscription]
     )
 
-    // unregister this plot's draw function on unmount
+    // unregister this plot's draw function on unmount, and, unless an external owner has claimed
+    // the subscription (see `subscriptionPropRef` above) -- meaning it should be left running to
+    // keep accumulating data until the *next* mount's effect above tears it down -- unsubscribe it
+    // so it doesn't keep driving stale draws after the component is gone
     useEffect(
         () => {
             return () => {
                 if (canvasContext) {
                     canvasContext.unregister(`raster-plot-${chartId}`)
                 }
+                if (subscriptionPropRef.current === undefined && subscriptionRef.current !== undefined) {
+                    teardownSubscription()
+                }
             }
         },
-        [canvasContext, chartId]
+        [canvasContext, chartId, teardownSubscription]
     )
 
     return null

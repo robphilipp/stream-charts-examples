@@ -1,7 +1,5 @@
-import {type JSX, useCallback, useLayoutEffect, useRef, useState} from 'react';
-import {Observable} from "rxjs";
+import {type JSX, useCallback, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import Checkbox from "../ui/Checkbox";
-import {randomSpikeDataObservable} from "./dataproviders/randomSpikeData.ts";
 import {
     Grid,
     gridArea,
@@ -17,7 +15,6 @@ import {
 import {lightTheme, type Theme} from "../ui/Themes.ts";
 
 import type {TimeSeries} from "../charts/series/timeSeries";
-import type {TimeSeriesChartData} from "../charts/series/timeSeriesChartData";
 import {regexFilter} from "../charts/filters/regexFilter";
 import {Chart} from "../charts/Chart";
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
@@ -40,9 +37,8 @@ import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
 import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {CommonControls} from "./controls/CommonControls.tsx";
-import {createInitialVisibility, type Visibility} from "./options/visibility.ts";
 import {EXTERNAL_LEGEND_WIDTH, LEGEND_ANIMATION_DURATION_MS, LegendControl} from "./controls/LegendControl.tsx";
-import {DEFAULT_DROP_AFTER_20, DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
+import {DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {FilterIcon, LagIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
@@ -53,6 +49,7 @@ import {BufferingControl} from "./controls/BufferingControl.tsx";
 import {DataUpdateRateControl} from "./controls/DataUpdateRateControl.tsx";
 import {NumberOfSeriesControl} from "./controls/NumberOfSeriesControl.tsx";
 import {initialRandomWeightData} from "./dataproviders/randomWeightData.ts";
+import {useRasterChartStore} from "./appstate/rasterChartStore.ts";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -74,8 +71,6 @@ import {initialRandomWeightData} from "./dataproviders/randomWeightData.ts";
 //     TrackerLabelLocation
 // } from "stream-charts"
 
-const initialVisibility = createInitialVisibility()
-
 /**
  * The properties
  */
@@ -89,6 +84,8 @@ interface Props {
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
+
+const X_AXIS_ID = 'x-axis-1'
 
 // generation parameters matching the initial data generated in routeData.ts, so that changing
 // the number of series produces data consistent with the app's default initial data
@@ -112,6 +109,16 @@ function initialDataForSeriesCount(numberOfSeries: number): Array<TimeSeries> {
 }
 
 /**
+ * Compiles the filter's regex string into a `RegExp`, falling back to a match-everything
+ * regex when the string isn't a valid regular expression. See StreamingScatterChart's identical
+ * helper for why this lives outside the component (a stable reference, not recompiled by a
+ * selector on every render).
+ * @param filterValue The string representation of the regex
+ * @return The compiled regex, or a match-everything regex when the string is invalid
+ */
+const filterFrom = (filterValue: string): RegExp => regexFilter(filterValue).getOrElse(new RegExp(''))
+
+/**
  * An example wrapper to a raster chart, that accepts an rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
  * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
@@ -128,21 +135,55 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         initialData: originalInitialData = [],
     } = props
 
-    // tunable streaming settings
-    const [windowingTime, setWindowingTime] = useState<number>(50)
-    const [cadence, setCadence] = useState<number>(25)
-    const [dataUpdatePeriod, setDataUpdatePeriod] = useState<number>(50)
-    const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
-    const [numberOfSeries, setNumberOfSeries] = useState<number>(originalInitialData.length)
+    // ----------------------------------------------------------------
+    // GRAB STATE FROM STORE (zustand) -- see StreamingScatterChart for why the chart's settings
+    // and subscription live here rather than in local useState: this store survives a route
+    // change (unmount/remount), so navigating away and back doesn't reset the chart's settings,
+    // and (via the `subscription` handed to <RasterPlot>) doesn't lose in-flight streamed data.
+    //
+    const initialData = useRasterChartStore(state => state.initialData)
+    const setInitialData = useRasterChartStore(state => state.setInitialData)
+    const observable = useRasterChartStore(state => state.observable)
 
-    const [initialData, setInitialData] = useState<Array<TimeSeries>>(() => initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const [observable, setObservable] = useState<Observable<TimeSeriesChartData>>(randomSpikeDataObservable(initialData, dataUpdatePeriod));
-    const [running, setRunning] = useState<boolean>(false)
+    const subscription = useRasterChartStore(state => state.subscription)
+    const setSubscription = useRasterChartStore(state => state.setSubscription)
+    const clearSubscription = useRasterChartStore(state => state.clearSubscription)
 
-    const [filterValue, setFilterValue] = useState<string>('');
-    const [filter, setFilter] = useState<RegExp>(new RegExp(''));
+    const running = useRasterChartStore(state => state.running)
+    const setRunning = useRasterChartStore(state => state.setRunning)
 
-    const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
+    const xAxisRange = useRasterChartStore(state => state.xAxisRange)
+    const setXAxisRange = useRasterChartStore(state => state.setXAxisRange)
+
+    const filterValue = useRasterChartStore(state => state.filterValue)
+    const setFilterValue = useRasterChartStore(state => state.setFilterValue)
+
+    const visibility = useRasterChartStore(state => state.visibility)
+    const setVisibility = useRasterChartStore(state => state.setVisibility)
+
+    const dropAfterMs = useRasterChartStore(state => state.dropAfterMs)
+    const setDropAfterMs = useRasterChartStore(state => state.setDropAfterMs)
+
+    const numberOfSeries = useRasterChartStore(state => state.numberOfSeries)
+    const setNumberOfSeries = useRasterChartStore(state => state.setNumberOfSeries)
+
+    const dataUpdatePeriod = useRasterChartStore(state => state.dataUpdatePeriod)
+    const setDataUpdatePeriod = useRasterChartStore(state => state.setDataUpdatePeriod)
+
+    const windowingTime = useRasterChartStore(state => state.windowingTime)
+    const setWindowingTime = useRasterChartStore(state => state.setWindowingTime)
+
+    const cadence = useRasterChartStore(state => state.cadence)
+    const setCadence = useRasterChartStore(state => state.setCadence)
+
+    const reset = useRasterChartStore(state => state.reset)
+    //
+    // ----------------------------------------------------------------
+
+    const filter = useMemo(() => filterFrom(filterValue), [filterValue])
+
+    // whether the store has already been seeded with the initial data from the props
+    const seededInitialDataRef = useRef<boolean>(false)
 
     const [legendLocation, setLegendLocation] = useState<LegendLocation>(LegendLocation.EXTERNAL_CONTAINER)
     const legendContainerRef = useRef<HTMLDivElement>(null)
@@ -154,8 +195,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [elapsed, setElapsed] = useState<number>(0)
 
-    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
-
     // holds the latest `resetZoom` handed back by <RasterPlot> (see its `onZoomReset` prop), so
     // that clearing the chart can also clear d3-zoom's own accumulated scale/pan state -- see
     // StreamingScatterChart's identical usage for the full explanation
@@ -163,9 +202,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     const handleZoomReset = useCallback((resetZoom: () => void): void => {
         resetZoomRef.current = resetZoom
     }, [])
-
-    // chart time
-    const [chartTime, setChartTime] = useState<number>(0)
 
     const shouldShowExternalLegend = visibility.legend && legendLocation === LegendLocation.EXTERNAL_CONTAINER
     const shouldRenderExternalLegend = legendLocation === LegendLocation.EXTERNAL_CONTAINER &&
@@ -207,9 +243,9 @@ export function StreamingRasterChart(props: Props): JSX.Element {
      * Called when the user changes the regular expression filter
      * @param updatedFilter The updated the filter
      */
-    function handleUpdateRegex(updatedFilter: string): void {
-        setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).onSuccess(regex => setFilter(regex));
+    function handleUpdateFilterValue(updatedFilter: string): void {
+        // the store compiles the regex from the filter value
+        setFilterValue(updatedFilter)
     }
 
     /**
@@ -217,7 +253,15 @@ export function StreamingRasterChart(props: Props): JSX.Element {
      * @param times A map associating the axis with its time range
      */
     function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
-        setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
+        // IMPORTANT: only call the store setter when the value has actually changed -- see
+        // StreamingScatterChart's identical guard for the full explanation
+        const xAxisInterval = times.get(X_AXIS_ID)
+        if (xAxisInterval) {
+            const [start, end] = xAxisInterval.asTuple()
+            if (start !== xAxisRange[0] || end !== xAxisRange[1]) {
+                setXAxisRange([start, end])
+            }
+        }
     }
 
     /**
@@ -242,9 +286,18 @@ export function StreamingRasterChart(props: Props): JSX.Element {
         setDataUpdatePeriod(ms)
     }
 
+    // seeds the store with the initial data handed in through the props (the store survives
+    // remounts, so this only needs to happen when the store hasn't been seeded yet). The ref
+    // guard keeps this from looping when the supplied initial data is itself empty.
+    // eslint-disable-next-line react-hooks/refs
+    if (!seededInitialDataRef.current && (initialData.length === 0)) {
+        seededInitialDataRef.current = true
+        setInitialData(initialDataFrom(originalInitialData))
+    }
+
     function handleRunPauseClick(): void {
         if (!running) {
-            setObservable(randomSpikeDataObservable(initialData, dataUpdatePeriod, 0.1))
+            setInitialData(initialData)
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -256,15 +309,22 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     }
 
     function handleClearClick(): void {
+        // set the state back to the initial state of the store, and then re-seed the
+        // initial data because the reset clears it (the filter is reset along with it)
+        reset()
         setInitialData(initialDataFrom(originalInitialData))
-        setNumberOfSeries(originalInitialData.length)
+
+        // reset local state to its original state
         setElapsed(0)
 
-        // the axes reset via initialData above, but d3-zoom keeps its own accumulated scale/pan
-        // state on the canvas element itself -- clear that too, or the next zoom gesture would
-        // compute its new scale against the stale, pre-reset transform
+        // the store reset above already restores the axis' own domain, but d3-zoom keeps its
+        // own accumulated scale/pan state on the canvas element itself -- clear that too, or the
+        // next zoom gesture would compute its new scale against the stale, pre-reset transform
         resetZoomRef.current()
     }
+
+    // the chart time is the end of the x-axis range
+    const chartTime = xAxisRange[1]
 
     return (
         <Grid
@@ -361,7 +421,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             <SeriesFilter
                                 theme={theme}
                                 filterValue={filterValue}
-                                handleFilterUpdate={handleUpdateRegex}
+                                handleFilterUpdate={handleUpdateFilterValue}
                             />
                             <Checkbox
                                 key={1}
@@ -385,12 +445,12 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                             />
                             <Checkbox
                                 key={9}
-                                checked={highlightAxes}
+                                checked={visibility.highlightAxes}
                                 label="highlight axes"
                                 backgroundColor={theme.backgroundColor}
                                 borderColor={theme.color}
                                 labelColor={theme.color}
-                                onChange={() => setHighlightAxes(!highlightAxes)}
+                                onChange={() => setVisibility({...visibility, highlightAxes: !visibility.highlightAxes})}
                             />
                             <Divider theme={theme}/>
                             <LegendControl
@@ -466,6 +526,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     seriesFilter={filter}
                     seriesObservable={observable}
                     shouldSubscribe={running}
+                    onSubscribe={setSubscription}
+                    onUnsubscribe={clearSubscription}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={windowingTime}
                     dataUpdatePeriod={dataUpdatePeriod}
@@ -473,7 +535,7 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     <ContinuousAxis
                         axisId="x-axis-1"
                         location={AxisLocation.Bottom}
-                        domain={[0, 10000]}
+                        domain={[xAxisRange[0], xAxisRange[1]]}
                         label="t (ms)"
                         // font={{color: theme.color}}
                     />
@@ -541,7 +603,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
                         withCadenceOf={cadence > 0 ? cadence : undefined}
-                        highlightAxesOnMouseOver={highlightAxes}
+                        highlightAxesOnMouseOver={visibility.highlightAxes}
+                        subscription={subscription}
                         onZoomReset={handleZoomReset}
                     />
                 </Chart>
