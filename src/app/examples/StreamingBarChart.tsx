@@ -2,7 +2,7 @@ import {type JSX, useRef, useState} from 'react';
 import * as d3 from "d3";
 import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {barDanceDataObservable} from "./dataproviders/randomOrdinalData.ts";
+import {barDanceDataObservable, initialSineFnData} from "./dataproviders/randomOrdinalData.ts";
 import {
     Grid,
     gridArea,
@@ -61,6 +61,7 @@ import {ChartControls} from "./controls/ChartControls.tsx";
 import {VerticalDivider} from "../ui/VerticalDivider.tsx";
 import {BufferingControl} from "./controls/BufferingControl.tsx";
 import {DataUpdateRateControl} from "./controls/DataUpdateRateControl.tsx";
+import {NumberOfSeriesControl} from "./controls/NumberOfSeriesControl.tsx";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -109,6 +110,22 @@ const UPDATE_PERIOD = 50
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 
+// generation parameters matching the initial data generated in routeData.ts, so that changing
+// the number of series produces data consistent with the app's default initial data
+const SERIES_TIME_INTERVAL = 1000
+const SERIES_NUM_POINTS = 4
+
+/**
+ * Generates the initial (static) data for the specified number of series, named "HC 1" through
+ * "HC {numberOfSeries}", matching the naming used for the chart's default initial data.
+ * @param numberOfSeries The number of series for which to generate initial data
+ * @return The generated initial data
+ */
+function initialDataForSeriesCount(numberOfSeries: number): Array<TimeSeries> {
+    const seriesNames = Array.from({length: numberOfSeries}, (_, index) => `HC ${index + 1}`)
+    return initialSineFnData(seriesNames, SERIES_TIME_INTERVAL, SERIES_NUM_POINTS)
+}
+
 /**
  * An example wrapper to a bar chart that accepts a rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
@@ -132,6 +149,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const [windowingTime, setWindowingTime] = useState<number>(50)
     const [dataUpdatePeriod, setDataUpdatePeriod] = useState<number>(UPDATE_PERIOD)
     const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
+    const [numberOfSeries, setNumberOfSeries] = useState<number>(originalInitialData.length)
 
     const [initialData, setInitialData] = useState<Array<BaseSeries<OrdinalDatum>>>(initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
     const [observable, setObservable] = useState<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialData, dataUpdatePeriod)));
@@ -201,6 +219,16 @@ export function StreamingBarChart(props: Props): JSX.Element {
         setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
+    /**
+     * Called when the user changes the number of series. Regenerates the initial data so
+     * it has the specified number of series (only available while the chart isn't running).
+     * @param count The number of series
+     */
+    function handleNumberOfSeriesChange(count: number): void {
+        setNumberOfSeries(count)
+        setInitialData(initialDataFrom(initialDataForSeriesCount(count)))
+    }
+
     function handleWindowingTimeChange(ms: number): void {
         setWindowingTime(ms)
     }
@@ -227,6 +255,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
      */
     function handleClearChart(): void {
         setInitialData(initialDataFrom(originalInitialData))
+        setNumberOfSeries(originalInitialData.length)
         setElapsed(0)
     }
 
@@ -302,6 +331,12 @@ export function StreamingBarChart(props: Props): JSX.Element {
                                 theme={theme}
                                 value={dropDataOptionForMs(dropAfterMs).getOrElse(DROP_AFTER_10_SEC)}
                                 handleDropAfterChange={setDropAfterMs}
+                                disabled={running}
+                            />
+                            <NumberOfSeriesControl
+                                theme={theme}
+                                numberOfSeries={numberOfSeries}
+                                handleNumberOfSeriesChange={handleNumberOfSeriesChange}
                                 disabled={running}
                             />
                             <DataUpdateRateControl
