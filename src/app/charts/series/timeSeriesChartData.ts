@@ -37,6 +37,7 @@ export interface TimeSeriesChartData extends ChartData {
 export function emptyTimeSeriesChartData(series: Array<string>): TimeSeriesChartData {
     return {
         ...defaultChartData(),
+        seriesNames: new Set(series),
         maxTime: 0,
         maxTimes: new Map(series.map(name => [name, 0])),
         newPoints: new Map<string, Array<Datum>>(series.map(name => [name, [{x: 0, y: 0}]]))
