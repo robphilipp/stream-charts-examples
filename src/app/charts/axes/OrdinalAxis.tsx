@@ -113,7 +113,7 @@ export function OrdinalAxis(props: Props): null {
                     if (rangeUpdateHandlerIdRef.current && axis) {
                         const range = updates.get(axisId)
                         if (range) {
-                            axis.update(range.current, range.original, plotDim, margin)
+                            axis.update(categories, range.current, range.original, plotDim, margin)
                         }
                     }
                 }
@@ -160,7 +160,7 @@ export function OrdinalAxis(props: Props): null {
                         .map(range => ([range.current, range.original]))
                         .getOrElse([AxisInterval.empty(), AxisInterval.empty()])
                     if (range && originalRange) {
-                        axis.update(range, originalRange, plotDimensions, margin)
+                        axis.update(categories, range, originalRange, plotDimensions, margin)
                     }
 
                     // keep the axis *label's* color in sync with the chart's color (e.g. on theme
@@ -197,7 +197,10 @@ export function OrdinalAxis(props: Props): null {
                         const {current, original} = OrdinalAxisRange
                             .from(start, end, 0, oldDimension.width)
                             .zoom(oldDimension.width, newDimension.width)
-                        axis.update(current, original, plotDimensions, margin)
+                        // a resize never changes the set of categories -- read the axis's own
+                        // current domain rather than `categories` from props, since `categories`
+                        // isn't in this effect's dependency array and so may be stale here
+                        axis.update(axis.scale.domain(), current, original, plotDimensions, margin)
                     }
                     if (location === AxisLocation.Left || location === AxisLocation.Right) {
                         const [start, end] = axisRangeFor(axisId)
@@ -206,7 +209,7 @@ export function OrdinalAxis(props: Props): null {
                         const {current, original} = OrdinalAxisRange
                             .from(start, end, 0, oldDimension.height)
                             .zoom(oldDimension.height, newDimension.height)
-                        axis.update(current, original, plotDimensions, margin)
+                        axis.update(axis.scale.domain(), current, original, plotDimensions, margin)
                     }
                 }
             })

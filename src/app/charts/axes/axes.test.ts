@@ -190,12 +190,32 @@ describe('axis creation', () => {
                 plotDimensions, margin, setRangeFor, setOriginalRangeFor
             )
             const categorySize = axis.update(
-                AxisInterval.from(0, 500), AxisInterval.from(0, 500), plotDimensions, margin
+                ['a', 'b'], AxisInterval.from(0, 500), AxisInterval.from(0, 500), plotDimensions, margin
             )
             expect(typeof categorySize).toBe('number')
             expect(setRangeFor).toHaveBeenCalledWith('x-1', expect.anything())
             expect(setOriginalRangeFor).toHaveBeenCalledWith('x-1', expect.anything())
             expect(cc.requestRedraw).toHaveBeenCalled()
+        })
+
+        // guards against a regression: OrdinalAxis.tsx used to be unable to change the category
+        // count after the axis was first created, because `update()` had no way to pass a new
+        // category list through to the scale -- it always re-applied whatever categories the axis
+        // was originally created with, via a closure, no matter how many times the caller's own
+        // `categories` prop changed. `update()` now takes categories as its first argument.
+        it('update() replaces the scale\'s domain with the given categories, changing the category count', () => {
+            const cc = fakeCanvasContext()
+            const axis = addOrdinalStringAxis(
+                cc, 'x-1', AxisLocation.Bottom, ['a', 'b', 'c'], 'label', font, tickStyle,
+                plotDimensions, margin, jest.fn(), jest.fn()
+            )
+            expect(axis.scale.domain()).toEqual(['a', 'b', 'c'])
+
+            axis.update(
+                ['a', 'b', 'c', 'd', 'e'], AxisInterval.from(0, 500), AxisInterval.from(0, 500), plotDimensions, margin
+            )
+
+            expect(axis.scale.domain()).toEqual(['a', 'b', 'c', 'd', 'e'])
         })
 
         it('setHighlighted and updateFont each request a redraw', () => {

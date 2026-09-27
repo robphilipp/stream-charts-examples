@@ -182,14 +182,19 @@ export interface OrdinalStringAxis extends BaseAxis {
      */
     categorySize: number
     /**
-     * Updates the axis based on the specified range and plot dimensions and requests the plot to be redrawn.
+     * Updates the axis based on the specified categories, range, and plot dimensions, and requests
+     * the plot to be redrawn.
+     * @param categories The category names for the axis, in order -- replaces the scale's domain,
+     * so passing a different set of categories (e.g. because the number of series changed) is how
+     * an axis reflects a new category count. Pass `axis.scale.domain()` to leave the categories
+     * unchanged (e.g. from a pan/zoom call site that isn't varying the category set).
      * @param range An interval representing the range of the axis.
      * @param originalRange An interval representing the original range of the axis (before zooming or panning).
      * @param plotDimensions The dimensions of the plot (without the margins).
      * @param margin The margins for the plot
      * @return The number of pixels for each category on the axis.
      */
-    update: (range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => number
+    update: (categories: Array<string>, range: AxisInterval, originalRange: AxisInterval, plotDimensions: Dimensions, margin: Margin) => number
     /**
      * Updates the font used for the axis label without recreating the axis. Tick label color is
      * intentionally not touched by this -- it stays fixed at whatever the tick style's font was
@@ -372,7 +377,10 @@ function addOrdinalStringXAxis(
         axisType: AxisType.OrdinalString,
         scale,
         categorySize: categorySize(),
-        update: (range, originalRange, plotDimensions, margin) => {
+        update: (updatedCategories, range, originalRange, plotDimensions, margin) => {
+            // reassign the closed-over `categories` (not just a local variable) so `draw`'s own
+            // `categories.forEach(...)` picks up the change on the next redraw too
+            categories = updatedCategories
             const updatedRange = AxisInterval.from(
                 Math.min(range.start, 0),
                 Math.max(range.end, plotDimensions.width)
@@ -504,7 +512,10 @@ function addOrdinalStringYAxis(
         axisType: AxisType.OrdinalString,
         scale,
         categorySize: categorySize(),
-        update: (range, originalRange, plotDimensions, margin) => {
+        update: (updatedCategories, range, originalRange, plotDimensions, margin) => {
+            // reassign the closed-over `categories` (not just a local variable) so `draw`'s own
+            // `categories.forEach(...)` picks up the change on the next redraw too
+            categories = updatedCategories
             const updatedRange = AxisInterval.from(
                 Math.min(range.start, 0),
                 Math.max(range.end, plotDimensions.height)
@@ -1246,8 +1257,9 @@ function ordinalPanAxes(
 
                 setAxisRange(axisId, range.current)
 
-                // update the axis' time-range
-                axis.update(range.current, range.original, plotDimensions, margin)
+                // update the axis' time-range -- panning never changes the set of categories, so
+                // pass the axis's own current domain back unchanged
+                axis.update(axis.scale.domain(), range.current, range.original, plotDimensions, margin)
             }
         })
     })
@@ -1477,8 +1489,9 @@ function calcOrdinalZoomAndUpdate(
             const origRange = AxisInterval.from(0, extent)
             setOriginalRangeFor(axisId, origRange)
 
-            // update the axis' range
-            axis.update(zoom.range.current, origRange, plotDimensions, margin)
+            // update the axis' range -- zooming never changes the set of categories, so pass the
+            // axis's own current domain back unchanged
+            axis.update(axis.scale.domain(), zoom.range.current, origRange, plotDimensions, margin)
         }
     })
 }
