@@ -137,17 +137,10 @@ export function formatValueChange(v1: number, v2: number): string {
  */
 export const minMaxOf = <T>(accessor: (v: T) => number) =>
     (data: Array<Array<T>>, currentMinMax: [number, number]): [number, number] => [
-        Math.min(d3.min(data, series => d3.min(series, datum => accessor(datum))) || 0, currentMinMax[0]),
-        Math.max(d3.max(data, series => d3.max(series, datum => accessor(datum))) || 1, currentMinMax[1])
+        Math.min(d3.min(data, series => d3.min(series, datum => accessor(datum))) ?? 0, currentMinMax[0]),
+        Math.max(d3.max(data, series => d3.max(series, datum => accessor(datum))) ?? 1, currentMinMax[1])
     ]
 
-/**
- * User specified series name may have spaces, and these may not be valid CSS ids. This
- * function replaces spaces with underscores. Kept for use in `Map`/draw-handle keys even though
- * canvas has no DOM ids to collide with.
- * @param name The name to be made safe for CSS
- * @return The name with spaces replaced with underscores
- */
 /**
  * Finds the index of the first element whose x-value (per `xFrom`) is `>= value`, in a
  * time-ordered (ascending) array-like collection, via binary search. Used to cheaply skip
@@ -178,6 +171,13 @@ export function firstIndexAtOrAfter<D>(data: {length: number, [index: number]: D
     return lo
 }
 
+/**
+ * User specified series name may have spaces, and these may not be valid CSS ids. This
+ * function replaces spaces with underscores. Kept for use in `Map`/draw-handle keys even though
+ * canvas has no DOM ids to collide with.
+ * @param name The name to be made safe for CSS
+ * @return The name with spaces replaced with underscores
+ */
 export function makeIdSafeForCss(name: string): string {
     // Spaces are not valid in XML IDs, and break CSS `#id` selectors; replace them.
     return name.replace(/\s+/g, '_')
