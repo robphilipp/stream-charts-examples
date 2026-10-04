@@ -1,4 +1,4 @@
-import {type CSSProperties, type JSX, useEffect, useMemo, useRef, useState} from "react";
+import {type CSSProperties, type JSX, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {gaussMapFn, logisticMapFn, tentMapFn} from "./dataproviders/randomIterateData.ts";
 import Checkbox from "../ui/Checkbox";
 import {
@@ -22,7 +22,7 @@ import {Tracker} from "../charts/trackers/Tracker";
 import {Tooltip} from "../charts/tooltips/Tooltip";
 import {defaultTooltipStyle} from "../charts/tooltips/tooltipUtils";
 import {PoincarePlotTooltipContent} from "../charts/tooltips/PoincarePlotTooltipContent";
-import {formatNumber} from '../charts/utils';
+import {formatNumber, noop} from '../charts/utils';
 import {PoincarePlot} from "../charts/plots/PoincarePlot";
 import type {IterateDatum, IterateSeries} from "../charts/series/iterateSeries";
 import * as d3 from "d3";
@@ -181,6 +181,13 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const interpolation = useMemo(() => interpolationFactoryFor(selectedInterpolationName), [selectedInterpolationName])
     const lagN = LAG_N.get(selectedLagN) || 1
 
+    // holds the latest `resetZoom` handed back by <PoincarePlot> (see its `onZoomReset` prop), so
+    // that clearing the chart also resets the zoom
+    const resetZoomRef = useRef<() => void>(noop)
+    const handleZoomReset = useCallback((resetZoom: () => void): void => {
+        resetZoomRef.current = resetZoom
+    }, [])
+
     // the iterate function is set by its parameter-input component (which calls back with the
     // function whenever its parameters change, including on mount)
     const [iterateFunction, setIterateFunction] = useState<IterateFunction>(() => tentMapFn(1.8))
@@ -268,6 +275,10 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
         // replaces the data source with a fresh (empty) one, which stops the current one
         setInitialData(emptyIterates())
         setElapsed(0)
+
+        // and resets the zoom (the axes' bounds below don't change when the iterate function
+        // stays the same, so nothing else would)
+        resetZoomRef.current()
 
         const [start, end] = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.range || [0, 1]
         setAxesRange([start, end])
@@ -566,6 +577,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         highlightAxesOnMouseOver={highlightAxes}
                         zoomState={zoomState}
                         onZoomStateChange={setZoomState}
+                        onZoomReset={handleZoomReset}
                     />
                 </Chart>
             </GridItem>

@@ -628,8 +628,8 @@ export function ScatterPlot(props: Props): null {
     // The zoom pivot -- the domain value that stays fixed on screen while the window widens or
     // narrows around it -- depends on whether the chart is actively streaming:
     //
-    // - While running, pivot on the axis's own "now" (`currentTimeRef`, updated on every
-    //   auto-scroll tick regardless of zoom activity) instead of the mouse position. This is what
+    // - While running, pivot on the axis's own "now" (`currentTimeRef`, updated by the view driver
+    //   on every data update and cadence tick, regardless of zoom activity) instead of the mouse position. This is what
     //   keeps "now" fixed on screen throughout the whole gesture: zooming out reveals more history
     //   to the *left* of "now" (which itself never moves), and zooming in trims history away while
     //   "now" stays put -- exactly whether or not the window has started auto-scrolling yet (before

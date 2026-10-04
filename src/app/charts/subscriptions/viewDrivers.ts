@@ -226,12 +226,16 @@ export function timeSeriesViewDriverFor(
             data.newPoints.forEach((_, name) => {
                 const axisId = groupFor(name)
                 const currentAxisTime = groupTimes.get(axisId) || data.maxTime
+                // record the axis' "now" on every update -- not only once the window starts
+                // scrolling -- since the plot's zoom pivots on it while streaming: before the data
+                // reaches the window's end, there would otherwise be no "now" to pivot on, and the
+                // zoom would pivot on the window's right edge, possibly leaving the data off-screen
+                setCurrentTime(axisId, currentAxisTime)
                 const range = timesWindows.get(axisId)
                 if (range !== undefined) {
                     const [, endTime] = range.current.asTuple()
                     if (endTime < currentAxisTime) {
                         timesWindows.set(axisId, scrollOrSqueezeRangeTo(range, currentAxisTime, timeWindowBehavior, initialTimes.get(axisId)))
-                        setCurrentTime(axisId, endTime)
                     }
                 }
             })
@@ -345,12 +349,15 @@ export function outlierViewDriverFor<M extends readonly number[]>(
             data.newPoints.forEach((newData, name) => {
                 const axisId = axisAssignments.get(name)?.xAxis || xAxesState.axisDefaultId().getOrElse("")
                 const currentAxisTime = Math.max(...newData.map(datum => datum.datum.x), -Infinity)
+                if (!Number.isFinite(currentAxisTime)) return
+                // record the axis' "now" on every update -- see timeSeriesViewDriverFor's identical
+                // call for why (the zoom pivots on it while streaming)
+                setCurrentTime(axisId, currentAxisTime)
                 const range = timesWindows.get(axisId)
-                if (Number.isFinite(currentAxisTime) && range !== undefined) {
+                if (range !== undefined) {
                     const [, endTime] = range.current.asTuple()
                     if (endTime < currentAxisTime) {
                         timesWindows.set(axisId, scrollOrSqueezeRangeTo(range, currentAxisTime, timeWindowBehavior, initialTimes.get(axisId)))
-                        setCurrentTime(axisId, endTime)
                     }
                 }
             })

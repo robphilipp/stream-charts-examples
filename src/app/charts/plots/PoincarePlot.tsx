@@ -109,6 +109,13 @@ export interface Props {
      */
     onZoomStateChange?: (zoomState: PoincarePlotZoomState) => void
     /**
+     * Called whenever this plot (re)creates its zoom behavior, handing the caller a `resetZoom`
+     * function that clears d3-zoom's own accumulated scale back to identity and restores every axis
+     * to its original (un-zoomed, un-panned) domain -- e.g. for a "Clear" action. Only meaningful
+     * (called) while `zoomEnabled` is true.
+     */
+    onZoomReset?: (resetZoom: () => void) => void
+    /**
      * When set, uses a cadence with the specified refresh period (in milliseconds). For plots
      * where the updates are slow (> 100 ms) using a cadence of 10 to 25 ms smooths out the
      * updates and makes the plot updates look cleaner. When updates are around 25 ms or less,
@@ -209,6 +216,7 @@ export function PoincarePlot(props: Props): null {
         highlightAxesOnMouseOver = false,
         zoomState = undefined,
         onZoomStateChange = noop,
+        onZoomReset = noop,
     } = props
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
@@ -761,6 +769,18 @@ export function PoincarePlot(props: Props): null {
                     )
 
                 zoomSelectionRef.current = canvasSelection.call(zoomRef.current)
+
+                // hands the caller a way to reset the zoom: d3-zoom's transform back to identity
+                // (the resulting "zoom" event has no source event, so the handler above ignores it),
+                // and every axis back to its original domain
+                const zoom = zoomRef.current
+                onZoomReset(() => {
+                    canvasSelection.call(zoom.transform, d3.zoomIdentity)
+                    lastZoomKRef.current = 1
+                    snapToOriginalRanges()
+                    updatePlotRef.current(cc)
+                    reportZoomState()
+                })
             }
 
             return () => {
@@ -775,7 +795,7 @@ export function PoincarePlot(props: Props): null {
         [
             canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin,
             zoomKeyModifiersRequired, zoomMinScaleFactor, zoomMaxScaleFactor, dataSource, reportZoomState,
-            snapToOriginalRanges
+            snapToOriginalRanges, onZoomReset
         ]
     )
 

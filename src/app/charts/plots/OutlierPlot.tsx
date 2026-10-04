@@ -543,8 +543,8 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
 
     // The zoom pivot -- the domain value that stays fixed on screen while the window widens or
     // narrows around it -- depends on whether the chart is actively streaming: while running,
-    // pivot on the axis's own "now" (`currentTimeRef`, updated on every auto-scroll tick
-    // regardless of zoom activity) instead of the mouse position, so "now" stays fixed on screen
+    // pivot on the axis's own "now" (`currentTimeRef`, updated by the view driver on every data
+    // update and cadence tick, regardless of zoom activity) instead of the mouse position, so "now" stays fixed on screen
     // throughout the whole gesture -- see ScatterPlot's identical `zoomPivotFor` for the full
     // explanation of why this replaced a previous design that pivoted on the mouse and then tried
     // to correct the result back towards "now" after the fact. While paused, pivot on the mouse

@@ -129,7 +129,7 @@ const track = <T extends {unsubscribe: () => void}>(subscription: T): T => {
 describe('timeSeriesViewDriverFor', () => {
     beforeEach(() => jest.useFakeTimers())
 
-    it('advances the (SCROLL) window to cover new data and reports the previous end time', () => {
+    it('advances the (SCROLL) window to cover new data and reports the current time', () => {
         const source = fakeSource<TimeSeriesChartData>()
         const updateTimingAndPlot = jest.fn()
         const setCurrentTime = jest.fn()
@@ -139,7 +139,21 @@ describe('timeSeriesViewDriverFor', () => {
         jest.advanceTimersByTime(100)
 
         expect(lastRanges(updateTimingAndPlot).get('x-axis-1')!.current.asTuple()).toEqual([500, 1500])
-        expect(setCurrentTime).toHaveBeenCalledWith('x-axis-1', 1000)
+        expect(setCurrentTime).toHaveBeenCalledWith('x-axis-1', 1500)
+    })
+
+    it('reports the current time even before the data reaches the end of the window (the zoom pivots on it)', () => {
+        const source = fakeSource<TimeSeriesChartData>()
+        const updateTimingAndPlot = jest.fn()
+        const setCurrentTime = jest.fn()
+        track(timeSeriesViewDriverFor(source, 100, new Map(), axesStateWith('x-axis-1'), updateTimingAndPlot, setCurrentTime))
+
+        source.updates$.next(chartDataFor(new Map([['series-a', [datumOf(400, 42)]]]), 400))
+        jest.advanceTimersByTime(100)
+
+        // the window hasn't scrolled, but "now" is still known
+        expect(lastRanges(updateTimingAndPlot).get('x-axis-1')!.current.asTuple()).toEqual([0, 1000])
+        expect(setCurrentTime).toHaveBeenCalledWith('x-axis-1', 400)
     })
 
     it('SQUEEZE mode pins the window start at initialStart and widens instead of sliding', () => {
@@ -330,6 +344,18 @@ describe('outlierViewDriverFor', () => {
         jest.advanceTimersByTime(100)
 
         expect(lastRanges(updateTimingAndPlot).get('x-axis-1')!.current.asTuple()).toEqual([500, 1500])
+    })
+
+    it('reports the current time even before the data reaches the end of the window', () => {
+        const source = fakeSource<OutlierChartData<readonly [number]>>()
+        const setCurrentTime = jest.fn()
+        track(outlierViewDriverFor(source, 100, new Map(), axesStateWith('x-axis-1'), jest.fn(), setCurrentTime))
+
+        const datum = (x: number): OutlierDatum<readonly [number]> => ({datum: {x, y: 1}, bounds: [{lower: 0, upper: 1}]})
+        source.updates$.next({seriesNames: new Set(['a']), newPoints: new Map([['a', [datum(300), datum(450)]]])})
+        jest.advanceTimersByTime(100)
+
+        expect(setCurrentTime).toHaveBeenCalledWith('x-axis-1', 450)
     })
 })
 
