@@ -32,6 +32,28 @@ import type {TooltipData} from "../hooks/useTooltip";
 import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import {Optional} from "result-fn";
 import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "./constants.ts";
+import {AxisInterval} from "../axes/AxisInterval";
+
+/**
+ * A snapshot of the bar plot's zoom/pan state, in a form that can be held outside the plot (e.g.
+ * in an application store) and handed back to a later instance of the plot (see the
+ * {@link Props.zoomState} and {@link Props.onZoomStateChange} props) -- so that zooming, navigating
+ * away, and navigating back doesn't reset the zoom.
+ */
+export interface BarPlotZoomState {
+    /**
+     * d3-zoom's cumulative scale factor (`transform.k`) at the time of the snapshot. The ordinal
+     * zoom math depends on this matching the axis ranges (see `OrdinalAxisRange.scaledCumulative`),
+     * so it must be restored onto the new canvas along with the ranges.
+     */
+    k: number
+    /**
+     * Maps each ordinal x-axis ID to its current (zoomed/panned) pixel range, expressed as
+     * fractions of the axis' original (un-zoomed) pixel extent, so that the snapshot remains valid
+     * if the plot is a different width when it is restored.
+     */
+    ranges: Record<string, [startFraction: number, endFraction: number]>
+}
 
 // typescript doesn't support enums with computed string values, even though they are all constants...
 export type BarChartElementId = {
@@ -88,6 +110,37 @@ export interface Props {
      * this doesn't attempt to match a specific element's highlight style). Defaults to `false`.
      */
     highlightAxesOnMouseOver?: boolean
+    /**
+     * Commonly used when the parent holds the subscription. A common use-case for this
+     * is when the application would like to keep a chart's data accumulating even while the
+     * component itself is unmounted -- e.g. when the user navigates away and back. In this use
+     * case, the subscription is stored at the application level (see the {@link Chart} prop
+     * `onSubscribe`) and handed back to this component when it remounts, purely so the mount-time
+     * effect below can find and tear down that orphaned subscription (never to resume rendering
+     * with it -- see that effect's comment).
+     */
+    subscription?: Subscription
+    /**
+     * An (optional) zoom/pan state to restore when this plot mounts -- commonly the last value
+     * reported through {@link onZoomStateChange} and held by the application (e.g. in a store)
+     * so that the zoom survives the plot being unmounted and remounted (e.g. navigating away
+     * and back). Only read once, when the plot's axes are first available; later changes to this
+     * prop are ignored.
+     */
+    zoomState?: BarPlotZoomState
+    /**
+     * (Optional) callback that is handed the plot's zoom/pan state after each zoom event and at
+     * the end of each pan, so the application can hold on to it (see {@link zoomState}).
+     */
+    onZoomStateChange?: (zoomState: BarPlotZoomState) => void
+    /**
+     * Called (mirroring `onSubscribe`) whenever this plot (re)creates its zoom behavior, handing
+     * the caller a `resetZoom` function that programmatically clears d3-zoom's own accumulated
+     * scale state back to identity and restores the ordinal x-axes to their original (un-zoomed,
+     * un-panned) ranges. See {@link ScatterPlot}'s identical prop for the full explanation of why
+     * this is needed. Only meaningful (called) while `zoomEnabled` is true.
+     */
+    onZoomReset?: (resetZoom: () => void) => void
 }
 
 /**
@@ -168,6 +221,7 @@ export function BarPlot(props: Props): null {
         shouldSubscribe,
 
         onSubscribe = noop,
+        onUnsubscribe = noop,
         onUpdateData,
         onUpdateChartTime = noop
     } = useDataObservable<OrdinalChartData, OrdinalDatum>()
@@ -188,6 +242,10 @@ export function BarPlot(props: Props): null {
         barMargin = 2,
         barSeriesStyle = defaultBarSeriesStyle(),
         highlightAxesOnMouseOver = false,
+        subscription = undefined,
+        zoomState = undefined,
+        onZoomStateChange = noop,
+        onZoomReset = noop,
     } = props
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
@@ -214,12 +272,40 @@ export function BarPlot(props: Props): null {
 
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<number>(0)
-    const subscriptionRef = useRef<Subscription>(undefined)
+
+    // seeded from the incoming `subscription` prop so this instance can detect (and, in the
+    // mount-time effect below, kill) a subscription inherited from a prior instance -- never to
+    // adopt/reuse it for rendering (its tick callback is bound to a different instance's refs,
+    // and would stomp this instance's zoom -- see bug #9 in zoom-pan-architecture-pitfalls). See
+    // {@link ScatterPlot}'s identical ref for the full explanation.
+    const subscriptionRef = useRef<Subscription | undefined>(subscription)
 
     const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
 
     // eslint-disable-next-line react-hooks/refs
     const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
+
+    // tracks the latest `subscription` prop value, so the unmount cleanup (below) can tell
+    // whether an inherited/orphaned subscription is still meant to be kept alive to bridge a
+    // route change -- see {@link ScatterPlot}'s identical ref for the full explanation.
+    const subscriptionPropRef = useRef(subscription)
+    useEffect(
+        () => {
+            subscriptionPropRef.current = subscription
+        },
+        [subscription]
+    )
+
+    // tears down this instance's own subscription -- see {@link ScatterPlot}'s identical
+    // `teardownSubscription` for the full explanation.
+    const teardownSubscription = useCallback(
+        () => {
+            subscriptionRef.current?.unsubscribe()
+            subscriptionRef.current = undefined
+            onUnsubscribe()
+        },
+        [onUnsubscribe]
+    )
 
     // the last-drawn geometry for each `${seriesName}::${elementType}`, in canvas coordinates,
     // used for hit-testing mouse hover on `mousemove` (see the effect below that wires up the
@@ -509,6 +595,68 @@ export function BarPlot(props: Props): null {
     // every time the ranges change.
     const ordinalRangesRef = useRef<Map<string, OrdinalAxisRange>>(new Map())
 
+    // hands the current zoom/pan state (the ordinal x-axes' ranges, as fractions of their
+    // original extent, and d3-zoom's cumulative `k`) to the `onZoomStateChange` callback
+    const reportZoomState = useCallback(
+        (cc: CanvasContext): void => {
+            const ranges: Record<string, [number, number]> = {}
+            ordinalRangesRef.current.forEach((range, axisId) => {
+                const extent = range.original.measure()
+                if (xAxesState.axes.has(axisId) && extent > 0) {
+                    ranges[axisId] = [
+                        (range.current.start - range.original.start) / extent,
+                        (range.current.end - range.original.start) / extent
+                    ]
+                }
+            })
+            onZoomStateChange({k: d3.zoomTransform(cc.canvas).k, ranges})
+        },
+        [onZoomStateChange, xAxesState]
+    )
+
+    // the zoom state to restore, captured once at mount (see the `zoomState` prop); cleared once
+    // it has been applied (see `restoreZoomState` below), so it's only ever applied once
+    const pendingZoomStateRef = useRef<BarPlotZoomState | undefined>(zoomState)
+
+    // applies the pending zoom state (if any) to the ordinal x-axes' ranges and to d3-zoom's
+    // transform on the canvas -- a remounted plot has a brand-new canvas, whose d3-zoom transform
+    // starts at identity (k = 1). Both must be restored together: the ordinal zoom math derives
+    // its incremental step from d3's cumulative `k` relative to the range's current/original width
+    // ratio, and treats `k === 1` as "snap back to fully zoomed out" (see
+    // `OrdinalAxisRange.scaledCumulative`), so restoring the ranges without `k` would make the
+    // very next wheel tick jump. Waits (leaving the state pending) until every axis in the
+    // snapshot exists, since the axes register themselves with the chart asynchronously.
+    const restoreZoomState = useCallback(
+        (cc: CanvasContext): void => {
+            const pending = pendingZoomStateRef.current
+            if (pending === undefined) return
+            const axisIds = Object.keys(pending.ranges)
+            const ready = axisIds.every(axisId =>
+                ordinalRangesRef.current.has(axisId) && xAxesState.axisFor(axisId).getOrUndefined() !== undefined
+            )
+            if (!ready || plotDimensions.width <= 0) return
+
+            axisIds.forEach(axisId => {
+                const range = ordinalRangesRef.current.get(axisId)
+                const axis = xAxesState.axisFor(axisId).getOrUndefined()
+                if (range === undefined || axis === undefined) return
+                const [startFraction, endFraction] = pending.ranges[axisId]
+                const {start: originalStart} = range.original
+                const extent = range.original.measure()
+                const current = AxisInterval.from(originalStart + startFraction * extent, originalStart + endFraction * extent)
+                ordinalRangesRef.current.set(axisId, range.update(current.start, current.end))
+                setAxisIntervalFor(axisId, current)
+                axis.update(axis.scale.domain(), current, range.original, plotDimensions, margin)
+            })
+            // `__zoom` is where d3-zoom keeps an element's transform (`d3.zoomTransform` reads
+            // it); setting it directly, rather than through `zoom.transform`, avoids dispatching
+            // a synthetic "zoom" event (whose handler expects a real wheel `sourceEvent`)
+            d3.select(cc.canvas).property("__zoom", d3.zoomIdentity.scale(pending.k))
+            pendingZoomStateRef.current = undefined
+        },
+        [margin, plotDimensions, setAxisIntervalFor, xAxesState]
+    )
+
     // sets up panning and zooming exactly once (and again only when something pan/zoom-relevant
     // actually changes -- e.g. a resize), rather than on every data tick. This used to live inside
     // `updatePlot`, which runs every `windowingTime` interval; recreating a `d3.drag()`/`d3.zoom()`
@@ -536,6 +684,7 @@ export function BarPlot(props: Props): null {
                     .on("end", () => {
                         canvasSelection.style("cursor", "auto")
                         allowTooltipRef.current = isSubscriptionClosed()
+                        reportZoomState(cc)
                     })
 
                 canvasSelection.call(drag)
@@ -552,6 +701,10 @@ export function BarPlot(props: Props): null {
                     .scaleExtent([1, 10])
                     .translateExtent([[margin.left, margin.top], [plotDimensions.width, plotDimensions.height]])
                     .on("zoom", event => {
+                            // a `null` sourceEvent means this "zoom" wasn't a real user gesture
+                            // but a programmatic `.transform(...)` call (see `resetZoom` below)
+                            if (event.sourceEvent === null) return
+
                             onZoom(
                                 // d3-zoom's own cumulative `k`, passed through unmodified -- see
                                 // `onZoom`'s JSDoc above for why the ordinal x-axis needs this
@@ -562,9 +715,26 @@ export function BarPlot(props: Props): null {
                                 ordinalRangesRef.current,
                             )
                             updatePlotRef.current(cc)
+                            reportZoomState(cc)
                         }
                     )
                 canvasSelection.call(zoom)
+
+                // hands the caller a way to clear d3-zoom's own accumulated scale back to identity
+                // -- see RasterPlot's identical `onZoomReset` usage. Both halves of the zoom state
+                // must be reset together (see `restoreZoomState` for why): d3's `k` back to 1, and
+                // each ordinal x-axis back to its original pixel range
+                onZoomReset(() => {
+                    canvasSelection.call(zoom.transform, d3.zoomIdentity)
+                    ordinalRangesRef.current.forEach((range, axisId) => {
+                        xAxesState.axisFor(axisId).ifPresent(axis => {
+                            ordinalRangesRef.current.set(axisId, range.update(range.original.start, range.original.end))
+                            setAxisIntervalFor(axisId, range.original)
+                            axis.update(axis.scale.domain(), range.original, range.original, plotDimensions, margin)
+                        })
+                    })
+                    updatePlotRef.current(cc)
+                })
             }
 
             return () => {
@@ -572,13 +742,14 @@ export function BarPlot(props: Props): null {
                 if (zoomEnabled) canvasSelection.on(".zoom", null)
             }
         },
-        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired]
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, reportZoomState, onZoomReset, xAxesState, setAxisIntervalFor]
     )
 
 
     // memoized function for subscribing to the chart-data observable
     const subscribe = useCallback(
         () => {
+            if (subscriptionRef.current) return subscriptionRef.current
             if (seriesObservable === undefined || canvasContext === null) return undefined
             return subscriptionOrdinalXFor(
                 seriesObservable,
@@ -638,10 +809,13 @@ export function BarPlot(props: Props): null {
                     ordinalRangesRef.current.clear()
                     ordinalAxesRanges.forEach((range, id) => ordinalRangesRef.current.set(id, range))
                 }
+                // restore a zoom state handed in from a previous instance (only does anything the
+                // first time the axes are all available -- see `restoreZoomState`)
+                restoreZoomState(canvasContext)
                 updatePlot(canvasContext)
             }
         },
-        [axesRanges, canvasContext, plotDimensions.width, updatePlot, xAxesState.axes]
+        [axesRanges, canvasContext, plotDimensions.width, updatePlot, xAxesState.axes, restoreZoomState]
     )
 
     // wires up a single mousemove/mouseleave listener on the shared canvas to replace the old
@@ -756,6 +930,24 @@ export function BarPlot(props: Props): null {
         ]
     )
 
+    // If this instance mounted holding a subscription inherited from a previous instance
+    // (stashed in the store to survive a route change -- see `StreamingBarChart`), it cannot
+    // actually be re-adopted here: its RxJS callback was bound once, at creation, to the now-
+    // unmounted instance's `updateTimingAndPlot`/refs. See {@link ScatterPlot}'s identical
+    // mount-only effect for the full explanation of why it must be torn down here (never earlier,
+    // never re-adopted) and let the subscribe effect below create a fresh one this instance owns.
+    useEffect(
+        () => {
+            if (subscriptionRef.current !== undefined) {
+                teardownSubscription()
+            }
+        },
+        // deliberately mount-only (must run exactly once, before the subscribe effect below) --
+        // see ScatterPlot's identical effect for why this is safe with an empty dependency array
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        []
+    )
+
     // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
     // is changed to `true` and we haven't subscribed yet, then subscribe. when the
     // `shouldSubscribe` is `false` and we had subscribed, then unsubscribe. otherwise,
@@ -766,24 +958,29 @@ export function BarPlot(props: Props): null {
                 subscriptionRef.current = subscribe()
                 allowTooltipRef.current = false
             } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
-                subscriptionRef.current?.unsubscribe()
-                subscriptionRef.current = undefined
+                teardownSubscription()
                 allowTooltipRef.current = true
             }
         },
-        [shouldSubscribe, subscribe]
+        [shouldSubscribe, subscribe, teardownSubscription]
     )
 
-    // unregister this plot's draw function on unmount
+    // unregister this plot's draw function on unmount, and, unless an external owner has claimed
+    // the subscription (see `subscriptionPropRef` above) -- meaning it should be left running to
+    // keep accumulating data until the *next* mount's effect above tears it down -- unsubscribe it
+    // so it doesn't keep driving stale draws after the component is gone
     useEffect(
         () => {
             return () => {
                 if (canvasContext) {
                     canvasContext.unregister(`bar-plot-${chartId}`)
                 }
+                if (subscriptionPropRef.current === undefined && subscriptionRef.current !== undefined) {
+                    teardownSubscription()
+                }
             }
         },
-        [canvasContext, chartId]
+        [canvasContext, chartId, teardownSubscription]
     )
 
     return null

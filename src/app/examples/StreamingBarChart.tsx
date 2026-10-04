@@ -1,8 +1,7 @@
-import {type JSX, useRef, useState} from 'react';
+import {type JSX, useCallback, useMemo, useRef, useState} from 'react';
 import * as d3 from "d3";
-import {Observable} from "rxjs";
 import Checkbox from "../ui/Checkbox";
-import {barDanceDataObservable, initialSineFnData} from "./dataproviders/randomOrdinalData.ts";
+import {initialSineFnData} from "./dataproviders/randomOrdinalData.ts";
 import {
     Grid,
     gridArea,
@@ -28,11 +27,12 @@ import {Tooltip} from "../charts/tooltips/Tooltip";
 import {type BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {BarPlot} from "../charts/plots/BarPlot";
 import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
-import {type OrdinalChartData, ordinalsObservable} from "../charts/observables/ordinals";
+import {type OrdinalChartData} from "../charts/observables/ordinals";
 import {type OrdinalDatum} from "../charts/series/ordinalSeries";
 import {type BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
 import {type WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
 import {AxisInterval} from "../charts/axes/AxisInterval";
+import {noop} from "../charts/utils";
 import {assignAxes} from "../charts/plots/plot";
 import {buttonStyle} from "../ui/utils";
 import type {OrdinalAxisRange} from "../charts/axes/OrdinalAxisRange.ts";
@@ -54,7 +54,7 @@ import {CommonControls} from "./controls/CommonControls.tsx";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
-import {DEFAULT_DROP_AFTER_10, DROP_AFTER_10_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
+import {DROP_AFTER_10_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
 import {ChartControlsHeader} from "./controls/ChartControlHeader.tsx";
 import {ChartControls} from "./controls/ChartControls.tsx";
@@ -62,6 +62,7 @@ import {VerticalDivider} from "../ui/VerticalDivider.tsx";
 import {BufferingControl} from "./controls/BufferingControl.tsx";
 import {DataUpdateRateControl} from "./controls/DataUpdateRateControl.tsx";
 import {NumberOfSeriesControl} from "./controls/NumberOfSeriesControl.tsx";
+import {useBarChartStore} from "./appstate/barChartStore.ts";
 // import {
 //     AxisLocation,
 //     CategoryAxis,
@@ -83,18 +84,6 @@ import {NumberOfSeriesControl} from "./controls/NumberOfSeriesControl.tsx";
 //     TrackerLabelLocation
 // } from "stream-charts"
 
-interface Visibility {
-    tooltip: boolean
-    tracker: boolean
-    magnifier: boolean
-}
-
-const initialVisibility: Visibility = {
-    tooltip: false,
-    tracker: false,
-    magnifier: false
-}
-
 /**
  * The properties
  */
@@ -106,7 +95,6 @@ interface Props {
     plotWidth?: number
 }
 
-const UPDATE_PERIOD = 50
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 
@@ -127,6 +115,32 @@ function initialDataForSeriesCount(numberOfSeries: number): Array<TimeSeries> {
 }
 
 /**
+ * Converts each of the specified time-series to a base-series of ordinal data. Recall that a
+ * `TimeSeries` is a `BaseSeries` of `Datum` which are (time, value)-pairs. The bar chart shows
+ * the current (time, value) for each series (as well as stats). `OrdinalDatum` is a
+ * (name, time, value)-tuple which we need for an ordinal chart. Hence the conversion.
+ * @param data An array of time-series to plot
+ * @return An array of base-series of ordinal data
+ */
+function initialDataFrom(data: Array<TimeSeries>): Array<BaseSeries<OrdinalDatum>> {
+    return data.map(series => seriesFrom<OrdinalDatum>(series.name, series.data.map(datum => ({
+        time: datum.x,
+        ordinal: series.name,
+        value: datum.y,
+    }))))
+}
+
+/**
+ * Compiles the filter's regex string into a `RegExp`, falling back to a match-everything
+ * regex when the string isn't a valid regular expression. See StreamingScatterChart's identical
+ * helper for why this lives outside the component (a stable reference, not recompiled by a
+ * selector on every render).
+ * @param filterValue The string representation of the regex
+ * @return The compiled regex, or a match-everything regex when the string is invalid
+ */
+const filterFrom = (filterValue: string): RegExp => regexFilter(filterValue).getOrElse(new RegExp(''))
+
+/**
  * An example wrapper to a bar chart that accepts a rxjs observable. The {@link Chart} manages
  * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
  * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
@@ -145,30 +159,71 @@ export function StreamingBarChart(props: Props): JSX.Element {
 
     // const chartId = useRef<number>(CHART_ID)
 
-    // tunable streaming settings
-    const [windowingTime, setWindowingTime] = useState<number>(50)
-    const [dataUpdatePeriod, setDataUpdatePeriod] = useState<number>(UPDATE_PERIOD)
-    const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
-    const [numberOfSeries, setNumberOfSeries] = useState<number>(originalInitialData.length)
+    // ----------------------------------------------------------------
+    // GRAB STATE FROM STORE (zustand) -- see StreamingScatterChart for why the chart's settings
+    // and subscription live here rather than in local useState: this store survives a route
+    // change (unmount/remount), so navigating away and back doesn't reset the chart's settings,
+    // and (via the `subscription` handed to <BarPlot>) doesn't lose in-flight streamed data.
+    //
+    const initialData = useBarChartStore(state => state.initialData)
+    const setInitialData = useBarChartStore(state => state.setInitialData)
+    const observable = useBarChartStore(state => state.observable)
 
-    const [initialData, setInitialData] = useState<Array<BaseSeries<OrdinalDatum>>>(initialDataFrom(originalInitialData.map(series => seriesFrom(series.name, series.data.slice()))))
-    const [observable, setObservable] = useState<Observable<OrdinalChartData>>(ordinalsObservable(barDanceDataObservable(initialData, dataUpdatePeriod)));
-    const [running, setRunning] = useState<boolean>(false)
+    const subscription = useBarChartStore(state => state.subscription)
+    const setSubscription = useBarChartStore(state => state.setSubscription)
+    const clearSubscription = useBarChartStore(state => state.clearSubscription)
 
-    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_10[1])
+    const running = useBarChartStore(state => state.running)
+    const setRunning = useBarChartStore(state => state.setRunning)
 
-    // holds the state of the series filter input field
-    const [filterValue, setFilterValue] = useState<string>('');
-    const [filter, setFilter] = useState<RegExp>(new RegExp(''));
+    const filterValue = useBarChartStore(state => state.filterValue)
+    const setFilterValue = useBarChartStore(state => state.setFilterValue)
 
-    // holds the state of the time-series statistics show in the plot
-    const [showMinMax, setShowMinMax] = useState<boolean>(true);
-    const [showValue, setShowValue] = useState<boolean>(true);
-    const [showMean, setShowMean] = useState<boolean>(true);
-    const [showWinMinMax, setShowWinMinMax] = useState<boolean>(true);
-    const [showWinMean, setShowWinMean] = useState<boolean>(true);
+    const visibility = useBarChartStore(state => state.visibility)
+    const setVisibility = useBarChartStore(state => state.setVisibility)
 
-    const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
+    const dropAfterMs = useBarChartStore(state => state.dropAfterMs)
+    const setDropAfterMs = useBarChartStore(state => state.setDropAfterMs)
+
+    const numberOfSeries = useBarChartStore(state => state.numberOfSeries)
+    const setNumberOfSeries = useBarChartStore(state => state.setNumberOfSeries)
+
+    const dataUpdatePeriod = useBarChartStore(state => state.dataUpdatePeriod)
+    const setDataUpdatePeriod = useBarChartStore(state => state.setDataUpdatePeriod)
+
+    const windowingTime = useBarChartStore(state => state.windowingTime)
+    const setWindowingTime = useBarChartStore(state => state.setWindowingTime)
+
+    // which of the time-series statistics are shown in the plot
+    const showMinMax = useBarChartStore(state => state.showMinMax)
+    const setShowMinMax = useBarChartStore(state => state.setShowMinMax)
+    const showValue = useBarChartStore(state => state.showValue)
+    const setShowValue = useBarChartStore(state => state.setShowValue)
+    const showMean = useBarChartStore(state => state.showMean)
+    const setShowMean = useBarChartStore(state => state.setShowMean)
+    const showWinMinMax = useBarChartStore(state => state.showWinMinMax)
+    const setShowWinMinMax = useBarChartStore(state => state.setShowWinMinMax)
+    const showWinMean = useBarChartStore(state => state.showWinMean)
+    const setShowWinMean = useBarChartStore(state => state.setShowWinMean)
+
+    const zoomState = useBarChartStore(state => state.zoomState)
+    const setZoomState = useBarChartStore(state => state.setZoomState)
+
+    const reset = useBarChartStore(state => state.reset)
+    //
+    // ----------------------------------------------------------------
+
+    const filter = useMemo(() => filterFrom(filterValue), [filterValue])
+
+    // whether the store has already been seeded with the initial data from the props
+    const seededInitialDataRef = useRef<boolean>(false)
+
+    // holds the latest `resetZoom` handed back by <BarPlot> (see its `onZoomReset` prop), so
+    // that clearing the chart can also clear the zoom -- see StreamingRasterChart's identical usage
+    const resetZoomRef = useRef<() => void>(noop)
+    const handleZoomReset = useCallback((resetZoom: () => void): void => {
+        resetZoomRef.current = resetZoom
+    }, [])
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
@@ -179,28 +234,12 @@ export function StreamingBarChart(props: Props): JSX.Element {
     const [chartTime, setChartTime] = useState<number>(0)
 
     /**
-     * Converts each of the specified time-series to a base-series of ordinal data. Recall that a
-     * `TimeSeries` is a `BaseSeries` of `Datum` which are (time, value)-pairs. The bar chart shows
-     * the current (time, value) for each series (as well as stats). `OrdinalDatum` is a
-     * (name, time, value)-tuple which we need for an ordinal chart. Hence the conversion.
-     * @param data An array of time-series to plot
-     * @return An array of base-series of ordinal data
-     */
-    function initialDataFrom(data: Array<TimeSeries>): Array<BaseSeries<OrdinalDatum>> {
-        return data.map(series => seriesFrom<OrdinalDatum>(series.name, series.data.map(datum => ({
-            time: datum.x,
-            ordinal: series.name,
-            value: datum.y,
-        }))))
-    }
-
-    /**
      * Called when the user changes the regular expression filter to filter the time-series
      * @param updatedFilter The updated the filter
      */
-    function handleUpdateRegex(updatedFilter: string): void {
-        setFilterValue(updatedFilter);
-        regexFilter(updatedFilter).onSuccess(regex => setFilter(regex));
+    function handleUpdateFilterValue(updatedFilter: string): void {
+        // the filter's regex is compiled from the filter value (see `filter` above)
+        setFilterValue(updatedFilter)
     }
 
     /**
@@ -237,9 +276,20 @@ export function StreamingBarChart(props: Props): JSX.Element {
         setDataUpdatePeriod(ms)
     }
 
+    // seeds the store with the initial data handed in through the props (the store survives
+    // remounts, so this only needs to happen when the store hasn't been seeded yet). The ref
+    // guard keeps this from looping when the supplied initial data is itself empty.
+    // eslint-disable-next-line react-hooks/refs
+    if (!seededInitialDataRef.current && (initialData.length === 0)) {
+        seededInitialDataRef.current = true
+        setInitialData(initialDataFrom(originalInitialData))
+        setNumberOfSeries(originalInitialData.length)
+    }
+
     function handleRunPauseClick(): void {
         if (!running) {
-            setObservable(ordinalsObservable(barDanceDataObservable(initialData, dataUpdatePeriod)))
+            // rebuilds the observable from the current initial data (and update period)
+            setInitialData(initialData)
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -254,9 +304,18 @@ export function StreamingBarChart(props: Props): JSX.Element {
      * Clears the chart and initializes the zoom
      */
     function handleClearChart(): void {
+        // set the state back to the initial state of the store, and then re-seed the
+        // initial data (and number of series) because the reset clears it
+        reset()
         setInitialData(initialDataFrom(originalInitialData))
         setNumberOfSeries(originalInitialData.length)
+
+        // reset local state to its original state
         setElapsed(0)
+
+        // the store reset above clears the saved zoom state, but the live plot keeps its own
+        // (d3-zoom's scale on the canvas, and the axes' zoomed ranges) -- clear that too
+        resetZoomRef.current()
     }
 
     // const inputStyle: CSSProperties = {
@@ -359,7 +418,7 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             <SeriesFilter
                                 theme={theme}
                                 filterValue={filterValue}
-                                handleFilterUpdate={handleUpdateRegex}
+                                handleFilterUpdate={handleUpdateFilterValue}
                             />
                             <Checkbox
                                 key={1}
@@ -383,12 +442,12 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             />
                             <Checkbox
                                 key={8}
-                                checked={highlightAxes}
+                                checked={visibility.highlightAxes}
                                 label="highlight axes"
                                 backgroundColor={theme.backgroundColor}
                                 borderColor={theme.color}
                                 labelColor={theme.color}
-                                onChange={() => setHighlightAxes(!highlightAxes)}
+                                onChange={() => setVisibility({...visibility, highlightAxes: !visibility.highlightAxes})}
                             />
                         </CommonControls>
                     </ExpandableControlBar>
@@ -509,6 +568,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     seriesObservable={observable}
                     seriesFilter={filter}
                     shouldSubscribe={running}
+                    onSubscribe={setSubscription}
+                    onUnsubscribe={clearSubscription}
                     onUpdateChartTime={handleChartTimeUpdate}
                     onUpdateAxesBounds={handleChartRangeUpdate}
                     windowingTime={windowingTime}
@@ -581,7 +642,11 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         showMeanValueLines={showMean}
                         showWindowedMinMaxBars={showWinMinMax}
                         showWindowedMeanValueLines={showWinMean}
-                        highlightAxesOnMouseOver={highlightAxes}
+                        highlightAxesOnMouseOver={visibility.highlightAxes}
+                        subscription={subscription}
+                        zoomState={zoomState}
+                        onZoomStateChange={setZoomState}
+                        onZoomReset={handleZoomReset}
                     />
                 </Chart>
             </GridItem>
