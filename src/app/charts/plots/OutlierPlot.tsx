@@ -400,21 +400,28 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     //
     // the notifications are coalesced into (at most) one per animation frame because zoom and pan
     // fire many events per gesture, and the callback generally updates the application state, which
-    // in turn causes a render. note that coalescing loses nothing: the zoom and pan handlers mutate
-    // the ranges map in place, so the deferred notification reads the map when the frame runs and
-    // always reports the most recent intervals, rather than those of the event that scheduled it.
+    // in turn causes a render. note that coalescing loses nothing: the deferred notification reports
+    // the most recent ranges (see `pendingRangesRef`) when the frame runs, rather than those of the
+    // event that scheduled it.
     const notifyIntervalsRef = useRef<(ranges: Map<string, ContinuousAxisRange>) => void>(noop)
     const notifyFrameRef = useRef<number>(0)
+    // the ranges to report when the scheduled notification runs -- always the *latest* ranges
+    // handed to `notifyIntervalsRef`, not those of the call that scheduled it. The zoom/pan
+    // handlers mutate one map in place, but the plot also *replaces* its ranges map (e.g. on reset,
+    // or when a new view driver starts); reporting the scheduling call's map would then write
+    // stale intervals into the application state (e.g. undoing a Reset a frame later).
+    const pendingRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
     useEffect(() => {
         notifyIntervalsRef.current = onUpdateAxesInterval === undefined ?
             noop :
             ranges => {
-                // a notification is already scheduled for the next frame, and it will pick up
-                // these intervals when it runs
+                pendingRangesRef.current = ranges
+                // a notification is already scheduled for the next frame, and it will report the latest
+                // ranges when it runs
                 if (notifyFrameRef.current !== 0) return
                 notifyFrameRef.current = requestAnimationFrame(() => {
                     notifyFrameRef.current = 0
-                    onUpdateAxesInterval(currentIntervalsFrom(ranges))
+                    onUpdateAxesInterval(currentIntervalsFrom(pendingRangesRef.current))
                 })
             }
     }, [onUpdateAxesInterval])

@@ -137,17 +137,13 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     // ----------------------------------------------------------------
     // GRAB STATE FROM STORE (zustand) -- see StreamingScatterChart for why the chart's settings
-    // and subscription live here rather than in local useState: this store survives a route
+    // and data source live here rather than in local useState: this store survives a route
     // change (unmount/remount), so navigating away and back doesn't reset the chart's settings,
-    // and (via the `subscription` handed to <RasterPlot>) doesn't lose in-flight streamed data.
+    // and the data source (which owns the stream's subscription and the series) keeps ingesting
+    // while this chart is unmounted.
     //
-    const initialData = useRasterChartStore(state => state.initialData)
+    const dataSource = useRasterChartStore(state => state.dataSource)
     const setInitialData = useRasterChartStore(state => state.setInitialData)
-    const observable = useRasterChartStore(state => state.observable)
-
-    const subscription = useRasterChartStore(state => state.subscription)
-    const setSubscription = useRasterChartStore(state => state.setSubscription)
-    const clearSubscription = useRasterChartStore(state => state.clearSubscription)
 
     const running = useRasterChartStore(state => state.running)
     const setRunning = useRasterChartStore(state => state.setRunning)
@@ -181,6 +177,9 @@ export function StreamingRasterChart(props: Props): JSX.Element {
     // ----------------------------------------------------------------
 
     const filter = useMemo(() => filterFrom(filterValue), [filterValue])
+
+    // the series held by the data source (a new data source means new initial data)
+    const initialData = useMemo(() => dataSource.seriesList(), [dataSource])
 
     // whether the store has already been seeded with the initial data from the props
     const seededInitialDataRef = useRef<boolean>(false)
@@ -297,7 +296,6 @@ export function StreamingRasterChart(props: Props): JSX.Element {
 
     function handleRunPauseClick(): void {
         if (!running) {
-            setInitialData(initialData)
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -522,12 +520,8 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                     //     }],
                     //     // ['test3', {...defaultLineStyle, color: 'dodgerblue', lineWidth: 1, highlightColor: 'dodgerblue', highlightWidth: 3}],
                     // ])}
-                    initialData={initialData}
+                    dataSource={dataSource}
                     seriesFilter={filter}
-                    seriesObservable={observable}
-                    shouldSubscribe={running}
-                    onSubscribe={setSubscription}
-                    onUnsubscribe={clearSubscription}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={windowingTime}
                     dataUpdatePeriod={dataUpdatePeriod}
@@ -598,13 +592,11 @@ export function StreamingRasterChart(props: Props): JSX.Element {
                         //     // ['test3', assignAxes("x-axis-1", "y-axis-1")],
                         // ])}
                         spikeMargin={1}
-                        dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
                         withCadenceOf={cadence > 0 ? cadence : undefined}
                         highlightAxesOnMouseOver={visibility.highlightAxes}
-                        subscription={subscription}
                         onZoomReset={handleZoomReset}
                     />
                 </Chart>
