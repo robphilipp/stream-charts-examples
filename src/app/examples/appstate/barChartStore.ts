@@ -1,7 +1,5 @@
 import type {UseBoundStore} from "zustand";
 import {create, type StoreApi} from 'zustand';
-import {Observable} from "rxjs";
-import {shareReplay} from "rxjs/operators";
 import type {BaseSeries} from "../../charts/series/baseSeries.ts";
 import type {OrdinalDatum} from "../../charts/series/ordinalSeries.ts";
 import {type OrdinalChartData, ordinalsObservable} from "../../charts/observables/ordinals.ts";
@@ -9,9 +7,10 @@ import {barDanceDataObservable} from "../dataproviders/randomOrdinalData.ts";
 import {createInitialVisibility} from "../options/visibility.ts";
 import {DEFAULT_DROP_AFTER_10} from "../options/dropDataAfter.ts";
 import type {BarPlotZoomState} from "../../charts/plots/BarPlot.tsx";
+import {OrdinalDataSource} from "../../charts/datasources/ordinalDataSource.ts";
+import type {DataGenerator} from "../../charts/datasources/StreamingDataSource.ts";
 import {devtools} from "zustand/middleware";
-import {type DataSlice, dataSliceStateCreator, type DataStateSlice} from "./stateslices/dataStateSlice.ts";
-import {type RunSlice, runSliceStateCreator, type RunStateSlice} from "./stateslices/runStateSlice.ts";
+import {type DataSourceSlice, dataSourceSlice} from "./stateslices/dataSourceStateSlice.ts";
 import {
     type VisibilitySlice,
     visibilitySliceStateCreator,
@@ -23,35 +22,28 @@ import {
  */
 const DEFAULT_DATA_UPDATE_PERIOD = 50
 
-// note: unlike randomSpikeDataObservable (used by the raster chart), this pipeline *does* carry
-// per-subscription state: barDanceDataObservable's time is tick-counted from its `interval` (and
-// it re-emits the initial data first via `concat`), and `ordinalsObservable` accumulates the
-// series and their (windowed) stats in a `scan`. A fresh `.subscribe()` on remount (after
-// BarPlot tears down an inherited subscription) would restart all of that from scratch -- time
-// snapping back and the min/max/mean stats being wiped. So, as with randomWeightDataObservable
-// (the scatter chart), share one running pipeline across resubscribes -- see that observable's
-// `shareReplay` comment for the full explanation, including why `refCount: false`.
-const randomData = (updatePeriod: number): (initialData: Array<BaseSeries<OrdinalDatum>>) => Observable<OrdinalChartData> => {
-    return initialData => ordinalsObservable(barDanceDataObservable(initialData, updatePeriod)).pipe(
-        shareReplay({bufferSize: 1, refCount: false})
-    )
-}
-const randomDataObservable = randomData(DEFAULT_DATA_UPDATE_PERIOD)
-
-const initialDataState: DataStateSlice<OrdinalChartData, OrdinalDatum, BaseSeries<OrdinalDatum>> = {
-    initialData: [],
-    observable: randomDataObservable([]),
-    subscription: undefined
-}
-const createDataSlice = dataSliceStateCreator<OrdinalChartData, OrdinalDatum, BaseSeries<OrdinalDatum>>(initialDataState, randomDataObservable)
-
-/*
-    set up the run state
+/**
+ * Creates the "dancing bars" data generator for the specified update period. The data source calls
+ * it with its *current* series each time it starts, so Run after Pause continues from the latest
+ * accumulated data (the generator's time starts from the series' latest time). The generator's
+ * pipeline does carry per-subscription state (`ordinalsObservable` accumulates the stats in a
+ * `scan`), but that no longer matters across a remount: the data source holds the one
+ * subscription, and it isn't touched when the chart unmounts.
+ * @param updatePeriod The period (ms) between generated data points
+ * @return The data generator
  */
-const initialRunState: RunStateSlice = {
-    running: false
-}
-const createRunSlice = runSliceStateCreator(initialRunState)
+const randomData = (updatePeriod: number): DataGenerator<OrdinalChartData, BaseSeries<OrdinalDatum>> =>
+    currentSeries => ordinalsObservable(barDanceDataObservable(currentSeries, updatePeriod))
+
+/**
+ * Creates the chart's data source
+ * @param initialData The initial series (owned by the data source from here on)
+ * @param dataUpdatePeriod The period (ms) between generated data points
+ * @param dropAfterMs Data older than this (ms) is dropped
+ * @return The data source
+ */
+const newDataSource = (initialData: Array<BaseSeries<OrdinalDatum>>, dataUpdatePeriod: number, dropAfterMs: number): OrdinalDataSource =>
+    new OrdinalDataSource({initialData, generator: randomData(dataUpdatePeriod), dropDataAfter: dropAfterMs})
 
 /*
     set up the visibility state
@@ -111,17 +103,20 @@ type BarChartActions = {
 }
 
 type BarChartStore = BarChartState & BarChartActions &
-    DataSlice<OrdinalChartData, OrdinalDatum, BaseSeries<OrdinalDatum>> &
-    RunSlice &
+    DataSourceSlice<OrdinalDataSource, BaseSeries<OrdinalDatum>> &
     VisibilitySlice
 
 export const useBarChartStore: UseBoundStore<StoreApi<BarChartStore>> = create<BarChartStore>()(
     devtools<BarChartStore>((set, get, store) => ({
         ...initialState,
-        // data slice for initial data, observable, and subscription
-        ...createDataSlice(set, get, store),
-        // run slice to track and manipulate running state
-        ...createRunSlice(set, get, store),
+        // the data source (which owns the data generator's subscription, the series, and their
+        // stats), and whether it's running
+        ...dataSourceSlice<OrdinalDataSource, BaseSeries<OrdinalDatum>>(
+            set,
+            get,
+            newDataSource([], initialState.dataUpdatePeriod, initialState.dropAfterMs),
+            initialData => newDataSource(initialData, get().dataUpdatePeriod, get().dropAfterMs)
+        ),
 
         // the compiled regex is derived from this in the component, so its reference only
         // changes when the filter value actually changes
@@ -130,7 +125,11 @@ export const useBarChartStore: UseBoundStore<StoreApi<BarChartStore>> = create<B
         // holds status of the visibility for tooltip, tracker, and axes highlighting
         ...createVisibilitySlice(set, get, store),
 
-        setDropAfterMs: (dropAfterMs: number) => set({dropAfterMs}),
+        // data retention belongs to the data source, so keep it in step
+        setDropAfterMs: (dropAfterMs: number) => {
+            get().dataSource.setDropDataAfter(dropAfterMs)
+            set({dropAfterMs})
+        },
 
         setNumberOfSeries: (numberOfSeries: number) => set({numberOfSeries}),
 
@@ -144,27 +143,18 @@ export const useBarChartStore: UseBoundStore<StoreApi<BarChartStore>> = create<B
 
         setZoomState: (zoomState: BarPlotZoomState) => set({zoomState}),
 
-        // rebuilds the observable at the new update period, using whatever initial data is
-        // currently in the store -- keeps the RxJS stream's data-generation rate in sync with
-        // this setting, since it's baked into the observable at creation time
-        setDataUpdatePeriod: (dataUpdatePeriod: number) => set(state => ({
-            dataUpdatePeriod,
-            observable: randomData(dataUpdatePeriod)(state.initialData)
-        })),
+        // the update period is baked into the generator, so give the data source a new one (only
+        // possible while stopped, which is the only time the control is enabled)
+        setDataUpdatePeriod: (dataUpdatePeriod: number) => {
+            get().dataSource.setGenerator(randomData(dataUpdatePeriod))
+            set({dataUpdatePeriod})
+        },
 
-        // overrides the data slice's default setInitialData (see createDataSlice above) so that
-        // regenerating the initial data (e.g. from a number-of-series change) rebuilds the
-        // observable using the *current* dataUpdatePeriod, rather than always reverting to the
-        // slice's original default period
-        setInitialData: (initialData: Array<BaseSeries<OrdinalDatum>>) => set(state => ({
-            initialData,
-            observable: randomData(state.dataUpdatePeriod)(initialData)
-        })),
-
-        reset: () => set({
-            ...initialState,
-            ...initialDataState,
-            ...initialRunState,
-            ...initialVisibilityState
-        })
+        // resets the settings (including the zoom state), and replaces the data source with an
+        // empty one (which disposes of, and so stops, the current one) -- the chart re-seeds it
+        // with its initial data
+        reset: () => {
+            set({...initialState, ...initialVisibilityState})
+            get().setInitialData([])
+        }
     })));

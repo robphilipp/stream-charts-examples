@@ -165,13 +165,10 @@ export function StreamingBarChart(props: Props): JSX.Element {
     // change (unmount/remount), so navigating away and back doesn't reset the chart's settings,
     // and (via the `subscription` handed to <BarPlot>) doesn't lose in-flight streamed data.
     //
-    const initialData = useBarChartStore(state => state.initialData)
+    // the data source owns the stream's subscription, the series, and their stats; it lives in the
+    // store, so it keeps ingesting while this chart is unmounted (e.g. on another page)
+    const dataSource = useBarChartStore(state => state.dataSource)
     const setInitialData = useBarChartStore(state => state.setInitialData)
-    const observable = useBarChartStore(state => state.observable)
-
-    const subscription = useBarChartStore(state => state.subscription)
-    const setSubscription = useBarChartStore(state => state.setSubscription)
-    const clearSubscription = useBarChartStore(state => state.clearSubscription)
 
     const running = useBarChartStore(state => state.running)
     const setRunning = useBarChartStore(state => state.setRunning)
@@ -214,6 +211,9 @@ export function StreamingBarChart(props: Props): JSX.Element {
     // ----------------------------------------------------------------
 
     const filter = useMemo(() => filterFrom(filterValue), [filterValue])
+
+    // the series held by the data source (a new data source means new initial data)
+    const initialData = useMemo(() => dataSource.seriesList(), [dataSource])
 
     // whether the store has already been seeded with the initial data from the props
     const seededInitialDataRef = useRef<boolean>(false)
@@ -288,8 +288,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
 
     function handleRunPauseClick(): void {
         if (!running) {
-            // rebuilds the observable from the current initial data (and update period)
-            setInitialData(initialData)
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -564,12 +562,8 @@ export function StreamingBarChart(props: Props): JSX.Element {
                             lineWidth: 2,
                         } as BarSeriesStyle],
                     ])}
-                    initialData={initialData}
-                    seriesObservable={observable}
+                    dataSource={dataSource}
                     seriesFilter={filter}
-                    shouldSubscribe={running}
-                    onSubscribe={setSubscription}
-                    onUnsubscribe={clearSubscription}
                     onUpdateChartTime={handleChartTimeUpdate}
                     onUpdateAxesBounds={handleChartRangeUpdate}
                     windowingTime={windowingTime}
@@ -624,7 +618,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     </Tooltip>
                     <BarPlot
                         barMargin={1}
-                        dropDataAfter={dropAfterMs}
                         // dropDataAfter={5000000}
                         panEnabled={true}
                         zoomEnabled={true}
@@ -643,7 +636,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                         showWindowedMinMaxBars={showWinMinMax}
                         showWindowedMeanValueLines={showWinMean}
                         highlightAxesOnMouseOver={visibility.highlightAxes}
-                        subscription={subscription}
                         zoomState={zoomState}
                         onZoomStateChange={setZoomState}
                         onZoomReset={handleZoomReset}

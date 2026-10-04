@@ -2,7 +2,7 @@ import {type AxesAssignment, clipToArea} from "./plot";
 import * as d3 from "d3";
 import {noop} from "../utils";
 import {useChart} from "../hooks/useChart";
-import {useCallback, useEffect, useMemo, useRef} from "react";
+import {useCallback, useEffect, useEffectEvent, useMemo, useRef} from "react";
 import type {CanvasContext} from "../d3types";
 import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {
@@ -16,15 +16,17 @@ import {
     ordinalPanHandler,
     type OrdinalStringAxis
 } from "../axes/axes";
-import {Subscription} from "rxjs";
 import type {Dimensions, Margin} from "../styling/margins";
-import {subscriptionOrdinalXFor, type WindowedOrdinalStats} from "../subscriptions/subscriptions";
+import {type WindowedOrdinalStats} from "../subscriptions/subscriptions";
+import {ordinalViewDriverFor} from "../subscriptions/viewDrivers";
 import {useDataObservable} from "../hooks/useDataObservable";
+import {useDataSource, useDataSourceRunning} from "../hooks/useDataSource";
+import {initialOrdinalStats} from "../datasources/ordinalDataSource";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
-import {copyValueStatsForSeries, type OrdinalChartData} from "../observables/ordinals";
+import {type OrdinalChartData} from "../observables/ordinals";
 import type {BaseSeries} from "../series/baseSeries";
-import {calculateOrdinalStats, type OrdinalDatum, type OrdinalSeries} from "../series/ordinalSeries";
+import {type OrdinalDatum} from "../series/ordinalSeries";
 import {applyFillStyle, applyStrokeStyle} from "../styling/canvasStyle";
 import type {SvgFillStyle, SvgStrokeStyle} from "../styling/svgStyle";
 import {type BarSeriesStyle, type BarStyle, defaultBarSeriesStyle} from "../styling/barPlotStyle";
@@ -77,11 +79,6 @@ export interface Props {
     showMeanValueLines?: boolean
     showWindowedMeanValueLines?: boolean
     /**
-     * The number of milliseconds worth of data to hold in memory before dropping it. Defaults to
-     * infinity (i.e. no data is dropped)
-     */
-    dropDataAfter?: number
-    /**
      * Enables panning (default is false)
      */
     panEnabled?: boolean
@@ -110,16 +107,6 @@ export interface Props {
      * this doesn't attempt to match a specific element's highlight style). Defaults to `false`.
      */
     highlightAxesOnMouseOver?: boolean
-    /**
-     * Commonly used when the parent holds the subscription. A common use-case for this
-     * is when the application would like to keep a chart's data accumulating even while the
-     * component itself is unmounted -- e.g. when the user navigates away and back. In this use
-     * case, the subscription is stored at the application level (see the {@link Chart} prop
-     * `onSubscribe`) and handed back to this component when it remounts, purely so the mount-time
-     * effect below can find and tear down that orphaned subscription (never to resume rendering
-     * with it -- see that effect's comment).
-     */
-    subscription?: Subscription
     /**
      * An (optional) zoom/pan state to restore when this plot mounts -- commonly the last value
      * reported through {@link onZoomStateChange} and held by the application (e.g. in a store)
@@ -165,7 +152,6 @@ export interface Props {
  * ```typescript
  * <BarPlot
  *     barMargin={1}
- *     dropDataAfter={5000}
  *     panEnabled={true}
  *     zoomEnabled={true}
  *     zoomKeyModifiersRequired={true}
@@ -216,21 +202,18 @@ export function BarPlot(props: Props): null {
     const {plotDimensions, margin} = usePlotDimensions()
 
     const {
-        seriesObservable,
         windowingTime = 100,
-        shouldSubscribe,
-
-        onSubscribe = noop,
-        onUnsubscribe = noop,
-        onUpdateData,
         onUpdateChartTime = noop
     } = useDataObservable<OrdinalChartData, OrdinalDatum>()
+
+    // the application-owned source of the data, and whether it's running (streaming)
+    const dataSource = useDataSource<OrdinalChartData, OrdinalDatum>()
+    const running = useDataSourceRunning(dataSource)
 
     const {initialData} = useInitialData<OrdinalChartData, OrdinalDatum>()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
-        dropDataAfter = Infinity,
         panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
@@ -242,7 +225,6 @@ export function BarPlot(props: Props): null {
         barMargin = 2,
         barSeriesStyle = defaultBarSeriesStyle(),
         highlightAxesOnMouseOver = false,
-        subscription = undefined,
         zoomState = undefined,
         onZoomStateChange = noop,
         onZoomReset = noop,
@@ -268,44 +250,15 @@ export function BarPlot(props: Props): null {
     const seriesRef = useRef<Map<string, BaseSeries<OrdinalDatum>>>(
         new Map(initialData.map(series => [series.name, series]))
     )
-    const statsRef = useRef<WindowedOrdinalStats>(initialOrdinalStats(initialData))
+    // the lifetime and windowed stats for each series -- kept by the data source (when it's an
+    // ordinal data source), so they keep accumulating while this plot is unmounted
+    const statsRef = useRef<WindowedOrdinalStats>(statsFrom(dataSource, initialData))
 
     // map(axis_id -> current_time) -- maps the axis ID to the current time for that axis
     const currentTimeRef = useRef<number>(0)
 
-    // seeded from the incoming `subscription` prop so this instance can detect (and, in the
-    // mount-time effect below, kill) a subscription inherited from a prior instance -- never to
-    // adopt/reuse it for rendering (its tick callback is bound to a different instance's refs,
-    // and would stomp this instance's zoom -- see bug #9 in zoom-pan-architecture-pitfalls). See
-    // {@link ScatterPlot}'s identical ref for the full explanation.
-    const subscriptionRef = useRef<Subscription | undefined>(subscription)
-
-    const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
-
-    // eslint-disable-next-line react-hooks/refs
-    const allowTooltipRef = useRef<boolean>(isSubscriptionClosed())
-
-    // tracks the latest `subscription` prop value, so the unmount cleanup (below) can tell
-    // whether an inherited/orphaned subscription is still meant to be kept alive to bridge a
-    // route change -- see {@link ScatterPlot}'s identical ref for the full explanation.
-    const subscriptionPropRef = useRef(subscription)
-    useEffect(
-        () => {
-            subscriptionPropRef.current = subscription
-        },
-        [subscription]
-    )
-
-    // tears down this instance's own subscription -- see {@link ScatterPlot}'s identical
-    // `teardownSubscription` for the full explanation.
-    const teardownSubscription = useCallback(
-        () => {
-            subscriptionRef.current?.unsubscribe()
-            subscriptionRef.current = undefined
-            onUnsubscribe()
-        },
-        [onUnsubscribe]
-    )
+    // tooltips are only shown while the data source is paused (and not while panning)
+    const allowTooltipRef = useRef<boolean>(!(dataSource?.running ?? false))
 
     // the last-drawn geometry for each `${seriesName}::${elementType}`, in canvas coordinates,
     // used for hit-testing mouse hover on `mousemove` (see the effect below that wires up the
@@ -546,9 +499,9 @@ export function BarPlot(props: Props): null {
             dataRef.current = initialData.slice()
             seriesRef.current = new Map(initialData.map(series => [series.name, series]))
             currentTimeRef.current = 0
-            statsRef.current = initialOrdinalStats(dataRef.current)
+            statsRef.current = statsFrom(dataSource, dataRef.current)
         },
-        [initialData]
+        [initialData, dataSource]
     )
 
     /**
@@ -683,7 +636,7 @@ export function BarPlot(props: Props): null {
                     })
                     .on("end", () => {
                         canvasSelection.style("cursor", "auto")
-                        allowTooltipRef.current = isSubscriptionClosed()
+                        allowTooltipRef.current = !(dataSource?.running ?? false)
                         reportZoomState(cc)
                     })
 
@@ -742,37 +695,9 @@ export function BarPlot(props: Props): null {
                 if (zoomEnabled) canvasSelection.on(".zoom", null)
             }
         },
-        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, reportZoomState, onZoomReset, xAxesState, setAxisIntervalFor]
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, reportZoomState, onZoomReset, xAxesState, setAxisIntervalFor, dataSource]
     )
 
-
-    // memoized function for subscribing to the chart-data observable
-    const subscribe = useCallback(
-        () => {
-            if (subscriptionRef.current) return subscriptionRef.current
-            if (seriesObservable === undefined || canvasContext === null) return undefined
-            return subscriptionOrdinalXFor(
-                seriesObservable,
-                onSubscribe,
-                windowingTime,
-                axisAssignments,
-                yAxesState,
-                onUpdateData,
-                dropDataAfter,
-                updateTimingAndPlot,
-                // as new data flows into the subscription, the subscription
-                // updates this map directly (for performance)
-                seriesRef.current,
-                statsRef,
-                (currentTime: number) => currentTimeRef.current = currentTime,
-            )
-        },
-        [
-            axisAssignments, dropDataAfter, canvasContext,
-            onSubscribe, onUpdateData,
-            seriesObservable, updateTimingAndPlot, windowingTime, yAxesState
-        ]
-    )
 
     useEffect(
         () => {
@@ -930,57 +855,64 @@ export function BarPlot(props: Props): null {
         ]
     )
 
-    // If this instance mounted holding a subscription inherited from a previous instance
-    // (stashed in the store to survive a route change -- see `StreamingBarChart`), it cannot
-    // actually be re-adopted here: its RxJS callback was bound once, at creation, to the now-
-    // unmounted instance's `updateTimingAndPlot`/refs. See {@link ScatterPlot}'s identical
-    // mount-only effect for the full explanation of why it must be torn down here (never earlier,
-    // never re-adopted) and let the subscribe effect below create a fresh one this instance owns.
+    // the latest `updateTimingAndPlot`, for the view driver to call -- the driver is created once
+    // per run (see below), so it must not capture a stale one (e.g. bound to an older canvas)
+    const updateTimingAndPlotRef = useRef(updateTimingAndPlot)
     useEffect(
         () => {
-            if (subscriptionRef.current !== undefined) {
-                teardownSubscription()
-            }
+            updateTimingAndPlotRef.current = updateTimingAndPlot
         },
-        // deliberately mount-only (must run exactly once, before the subscribe effect below) --
-        // see ScatterPlot's identical effect for why this is safe with an empty dependency array
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        []
+        [updateTimingAndPlot]
     )
 
-    // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
-    // is changed to `true` and we haven't subscribed yet, then subscribe. when the
-    // `shouldSubscribe` is `false` and we had subscribed, then unsubscribe. otherwise,
-    // do nothing.
+    // creates the view driver that keeps this plot's view in step with the data source, using the
+    // current settings -- see ScatterPlot's identical effect event
+    const createViewDriver = useEffectEvent(
+        (source: NonNullable<typeof dataSource>) => ordinalViewDriverFor(
+            source,
+            windowingTime,
+            yAxesState,
+            ranges => updateTimingAndPlotRef.current(ranges),
+            currentTime => currentTimeRef.current = currentTime,
+        )
+    )
+
+    // while the data source is running (and this plot has a canvas), drive the view from the
+    // data source's updates -- see ScatterPlot's identical effect. The driver belongs to this plot
+    // instance alone and is always torn down with it.
     useEffect(
         () => {
-            if (shouldSubscribe && subscriptionRef.current === undefined) {
-                subscriptionRef.current = subscribe()
-                allowTooltipRef.current = false
-            } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
-                teardownSubscription()
+            if (dataSource === undefined || !running || canvasContext === null) return
+            allowTooltipRef.current = false
+            const driver = createViewDriver(dataSource)
+            return () => {
+                driver.unsubscribe()
                 allowTooltipRef.current = true
             }
         },
-        [shouldSubscribe, subscribe, teardownSubscription]
+        [dataSource, running, canvasContext]
     )
 
-    // unregister this plot's draw function on unmount, and, unless an external owner has claimed
-    // the subscription (see `subscriptionPropRef` above) -- meaning it should be left running to
-    // keep accumulating data until the *next* mount's effect above tears it down -- unsubscribe it
-    // so it doesn't keep driving stale draws after the component is gone
+    // this plot needs a data source (see the `Chart`'s `dataSource` prop)
+    useEffect(
+        () => {
+            if (dataSource === undefined) {
+                console.error("BarPlot requires a data source; set the enclosing Chart's `dataSource` prop")
+            }
+        },
+        [dataSource]
+    )
+
+    // unregister this plot's draw function on unmount
     useEffect(
         () => {
             return () => {
                 if (canvasContext) {
                     canvasContext.unregister(`bar-plot-${chartId}`)
                 }
-                if (subscriptionPropRef.current === undefined && subscriptionRef.current !== undefined) {
-                    teardownSubscription()
-                }
             }
         },
-        [canvasContext, chartId, teardownSubscription]
+        [canvasContext, chartId]
     )
 
     return null
@@ -1089,17 +1021,15 @@ function barDimensions(widthFraction: number, lowerX: number, upperX: number, mi
 }
 
 /**
- * Calculates the ordinal stats for each of the ordinal series (generally, initial data) and
- * returns a {@link WindowedOrdinalStats} object
- * @param series The array of ordinal series
- * @return A {@link WindowedOrdinalStats} object with the stats for each of the series
+ * @param dataSource The chart's data source
+ * @param series The series to calculate the stats for when the data source doesn't keep them
+ * @return The data source's (live) stats when it keeps them (i.e. an ordinal data source);
+ * otherwise, the stats calculated from the specified series
  */
-function initialOrdinalStats(series: Array<OrdinalSeries>): WindowedOrdinalStats {
-    const ordinalStats = calculateOrdinalStats(series)
-    return {
-        ...ordinalStats,
-        windowedValueStatsForSeries: copyValueStatsForSeries(ordinalStats.valueStatsForSeries)
-    }
+function statsFrom(dataSource: unknown, series: Array<BaseSeries<OrdinalDatum>>): WindowedOrdinalStats {
+    return dataSource !== null && typeof dataSource === 'object' && 'stats' in dataSource ?
+        (dataSource as {stats: WindowedOrdinalStats}).stats :
+        initialOrdinalStats(series)
 }
 
 /**
