@@ -91,7 +91,7 @@ export function barDanceDataObservable(
         map(sequence => startTime + (sequence + 1) * updatePeriod),
 
         // create a new (time, value) for each series
-        map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
+        map(time => barDanceData(time, seriesNames)),
 
         // create an observable for the ordinal chart data, starting from the existing data (the
         // seed isn't itself emitted)
@@ -138,19 +138,16 @@ function mergeOrdinalSeries(
 
 /**
  * Some complicated function to make the bars dance
- * @param sequenceTime The current time
+ * @param sequenceTime The current time (every series gets a new point at this time)
  * @param seriesNames An array holding the names of the series
- * @param seriesMaxTimes A map holding the maximum time for each series (map(series_name -> max_time))
  * @return A time-series chart data
  */
 function barDanceData(
     sequenceTime: number,
     seriesNames: Array<string>,
-    seriesMaxTimes: Map<string, number>,
 ): TimeSeriesChartData {
-    const maxTimes = new Map(Array.from(
-        seriesMaxTimes.entries()).map(([name, maxTime]) => [name, maxTime + sequenceTime])
-    )
+    // every series' latest point is the new one, at the current time
+    const maxTimes = new Map(seriesNames.map(name => [name, sequenceTime]))
     const intercept = 0.1
     const slope = 0.3 / seriesNames.length
     return {

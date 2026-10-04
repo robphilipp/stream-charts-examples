@@ -62,4 +62,18 @@ describe('dancing-bar data (barDanceDataObservable)', () => {
         expect(emitted.map(data => data.newPoints.get('a')!.map(datum => datum.x))).toEqual([[1050], [1100]])
         expect(emitted[0].newPoints.get('b')!).toHaveLength(1)
     })
+
+    it("reports each series' max time as the time of its latest point", () => {
+        jest.useFakeTimers()
+        const emitted: Array<TimeSeriesChartData> = []
+        const subscription = barDanceDataObservable(existing, 50).subscribe(data => emitted.push(data))
+        jest.advanceTimersByTime(100)
+        subscription.unsubscribe()
+
+        emitted.forEach(data => {
+            expect(data.maxTimes.get('a')).toBe(data.newPoints.get('a')!.at(-1)!.x)
+            expect(data.maxTimes.get('b')).toBe(data.newPoints.get('b')!.at(-1)!.x)
+            expect(data.maxTime).toBe(data.newPoints.get('a')!.at(-1)!.x)
+        })
+    })
 })

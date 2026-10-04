@@ -485,9 +485,10 @@ export function BarPlot(props: Props): null {
     const updateTimingAndPlot = useCallback(
         (): void => {
             if (canvasContext !== null) {
+                // (one redraw request is enough: `onUpdateChartTime` only reports the time to the
+                // application, and redraw requests are coalesced into one animation frame anyway)
                 updatePlotRef.current(canvasContext)
                 onUpdateChartTime(currentTimeRef.current)
-                updatePlotRef.current(canvasContext)
             }
         },
         [canvasContext, onUpdateChartTime]
