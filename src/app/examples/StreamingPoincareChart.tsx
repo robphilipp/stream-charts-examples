@@ -294,7 +294,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     function handleRunPauseClick(): void {
         if (!running) {
-            // each run iterates the selected function, at the selected lag, from the seeds
+            // each run iterates the selected function, at the selected lag, continuing from where the
+            // iteration left off (or from the seeds, when there's no data yet)
             dataSource.setGenerator(iteratesGenerator(iterateFunction, lagN, seeds))
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)

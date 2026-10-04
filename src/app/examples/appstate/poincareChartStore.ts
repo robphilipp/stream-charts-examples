@@ -5,7 +5,8 @@ import {EMPTY} from "rxjs";
 import type {IterateChartData} from "../../charts/observables/iterates.ts";
 import {iteratesObservable} from "../../charts/observables/iterates.ts";
 import type {IterateSeries} from "../../charts/series/iterateSeries.ts";
-import type {Datum, TimeSeries} from "../../charts/series/timeSeries.ts";
+import {type Datum, datumOf, type TimeSeries} from "../../charts/series/timeSeries.ts";
+import {seriesFrom} from "../../charts/series/baseSeries.ts";
 import {IteratesDataSource} from "../../charts/datasources/iteratesDataSource.ts";
 import type {DataGenerator} from "../../charts/datasources/StreamingDataSource.ts";
 import {iterateFunctionObservable} from "../dataproviders/randomIterateData.ts";
@@ -22,10 +23,31 @@ export type IterateFunction = (time: number, xn: number) => Datum
 const UPDATE_PERIOD = 50
 
 /**
- * Creates the iterates generator: iterates the specified function from the seed values, and
- * converts the stream into `f[n](x)` versus `f[n+lag](x)` iterates. Each start iterates from the
- * seed values (as before the data source existed, Run restarts the iteration from the seeds), so
- * the generator ignores the data source's current series.
+ * Finds where each series' iteration should start: from the latest iterate the series already
+ * holds, so that a run started after a pause continues the iteration rather than starting over;
+ * or, for a series with no iterates yet, from its seed. The latest iterate holds `x[m]` (as its
+ * `iterateN`) at its time, and the iterate functions are deterministic, so iterating from `x[m]`
+ * regenerates `x[m+1]`, `x[m+2]`, ..., and the first new iterate is `(x[m+1], x[m+1+lag])` -- exactly
+ * the one that would have come next without the pause (for whatever lag is selected now).
+ * @param currentSeries The data source's current iterate series
+ * @param seeds The seed (initial) value for each series
+ * @return The starting point for each series, as a single-datum time-series
+ */
+export function iterationStartsFor(currentSeries: Array<IterateSeries>, seeds: Array<TimeSeries>): Array<TimeSeries> {
+    const latestIterates = new Map(currentSeries.flatMap(series =>
+        series.last().map(iterate => [[series.name, iterate] as const]).getOrElse([])
+    ))
+    return seeds.map(seed => {
+        const latest = latestIterates.get(seed.name)
+        return latest === undefined ? seed : seriesFrom<Datum>(seed.name, [datumOf(latest.time, latest.iterateN)])
+    })
+}
+
+/**
+ * Creates the iterates generator: iterates the specified function and converts the stream into
+ * `f[n](x)` versus `f[n+lag](x)` iterates. Each start continues from the data source's current
+ * iterates (see {@link iterationStartsFor}), so Pause -> Run picks up where the iteration left off;
+ * series without any iterates yet (e.g. after Clear) start from their seeds.
  * @param iterateFunction The iterate function
  * @param lagN The lag of the iterates plot (e.g. f[n](x) vs f[n+N](x), where N is the lag)
  * @param seeds The seed (initial) value for each series
@@ -36,7 +58,10 @@ export const iteratesGenerator = (
     lagN: number,
     seeds: Array<TimeSeries>
 ): DataGenerator<IterateChartData, IterateSeries> =>
-    () => iteratesObservable(iterateFunctionObservable(iterateFunction, seeds, UPDATE_PERIOD), lagN)
+    currentSeries => iteratesObservable(
+        iterateFunctionObservable(iterateFunction, iterationStartsFor(currentSeries, seeds), UPDATE_PERIOD),
+        lagN
+    )
 
 /**
  * A generator that emits nothing -- the chart sets the real generator (from the selected iterate
