@@ -149,25 +149,18 @@ export const copyOrdinalDataFrom = (data: OrdinalChartData): OrdinalChartData =>
     // newPoints: new Map<string, Array<OrdinalDatum>>(Array.from(data.newPoints.entries()).map(([name, points]) => [name, points.slice()])),
 })
 
-type Accumulator = {
-    previous: Map<string, Array<Datum>>
-    accumulated: OrdinalChartData
-}
-
 /**
  * @param initialStats Optional stats to start the accumulation from (see {@link ordinalsObservable})
- * @return The initial accumulator
+ * @return The initial accumulated chart data
  */
-const initialAccumulate = (initialStats?: OrdinalStats): Accumulator => ({
-    previous: new Map(),
-    accumulated: initialStats === undefined ?
+const initialAccumulate = (initialStats?: OrdinalStats): OrdinalChartData =>
+    initialStats === undefined ?
         emptyOrdinalData() :
         {
             ...emptyOrdinalData(),
             seriesNames: new Set(initialStats.valueStatsForSeries.keys()),
             stats: copyOrdinalStats(initialStats)
         }
-})
 
 /**
  * Accepts a {@link TimeSeriesChartData} observable and converts it to an observable of {@link OrdinalChartData}.
@@ -186,7 +179,12 @@ export function ordinalsObservable(
     return dataObservable
         .pipe(
             // calculate the iterates for each series in the chart data
-            scan(({previous, accumulated}: Accumulator, current: TimeSeriesChartData) => {
+            //
+            // note: only the stats and the latest new points are accumulated -- the incoming points
+            // themselves aren't kept (the data source holds the series). A previous version also
+            // appended every incoming point to a map that nothing ever read, which grew without bound
+            // for as long as the stream ran (one point per series per tick).
+            scan((accumulated: OrdinalChartData, current: TimeSeriesChartData) => {
                 // make a deep copy of the accumulated data (because the accumulated data object
                 // holds references to maps)
                 const accum = copyOrdinalDataFrom(accumulated)
@@ -195,15 +193,6 @@ export function ordinalsObservable(
                 Array
                     .from(current.newPoints.entries())
                     .forEach(([name, series]) => {
-                        // grab the points from the previous incoming data and add the new
-                        // data to the end  of the previous data (when the updated data
-                        // didn't yet exist, add it to the map holding the previous series)
-                        const updated = (previous.get(name) || [])
-                        if (updated.length === 0) {
-                            previous.set(name, updated)
-                        }
-                        updated.push(...series)
-
                         // add the series name to the list of all
                         accum.seriesNames.add(name)
 
@@ -256,26 +245,23 @@ export function ordinalsObservable(
                         ))
                         // accum.newPoints.set(name, series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y)))
                     })
-                return {previous, accumulated: accum}
+                return accum
             }, initialAccumulate(initialStats)),
 
             // remove new points from the map that are empty
-            map(accum => removeEmptyNewPoints(accum)),
-            map(accum => accum.accumulated === undefined ? emptyOrdinalData() : accum.accumulated)
+            map(accumulated => removeEmptyNewPoints(accumulated))
         )
 }
 
-function removeEmptyNewPoints(accum: Accumulator): Accumulator {
+/**
+ * @param data The ordinal chart data
+ * @return A copy of the chart data, without any empty new points
+ */
+function removeEmptyNewPoints(data: OrdinalChartData): OrdinalChartData {
     const newPoints = new Map(
         Array
-            .from(accum.accumulated.newPoints.entries())
+            .from(data.newPoints.entries())
             .map(([name, points]) => [name, points.filter(point => nonEmptyOrdinalDatum(point))])
     )
-    return {
-        previous: accum.previous,
-        accumulated: {
-            ...accum.accumulated,
-            newPoints
-        }
-    }
+    return {...data, newPoints}
 }
