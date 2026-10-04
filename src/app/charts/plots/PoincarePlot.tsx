@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef} from 'react'
+import {useCallback, useEffect, useEffectEvent, useMemo, useRef} from 'react'
 import {type NoTooltipMetadata, useChart} from "../hooks/useChart";
 import * as d3 from "d3";
 import {clipToArea} from "./plot";
@@ -14,11 +14,11 @@ import {
 } from "../axes/axes";
 import type {CanvasContext} from "../d3types";
 import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
-import {Observable, Subscription} from "rxjs";
 import {formatTime, fontStringFor, noop, textDimensions} from "../utils";
 import type {Dimensions} from "../styling/margins";
-import {subscriptionIteratesFor} from "../subscriptions/subscriptions";
+import {iteratesViewDriverFor} from "../subscriptions/viewDrivers";
 import {useDataObservable} from "../hooks/useDataObservable";
+import {useDataSource, useDataSourceRunning} from "../hooks/useDataSource";
 import type {IterateChartData} from "../observables/iterates";
 import type {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
@@ -50,11 +50,6 @@ export interface Props {
      * When set to `true` plots the data points as well as the line.
      */
     showPoints?: boolean
-    /**
-     * The number of milliseconds of data to hold in memory before dropping it. Defaults to
-     * infinity (i.e. no data is dropped)
-     */
-    dropDataAfter?: number
     /**
      * Enables panning (default is false)
      */
@@ -120,7 +115,6 @@ export interface Props {
  *      axisAssignments={new Map([
  *          ['test2', assignAxes("x-axis-2", "y-axis-2")],
  *      ])}
- *      dropDataAfter={10000}
  *      panEnabled={true}
  *      zoomEnabled={true}
  *      zoomKeyModifiersRequired={true}
@@ -160,14 +154,13 @@ export function PoincarePlot(props: Props): null {
     } = usePlotDimensions()
 
     const {
-        seriesObservable,
         windowingTime = 100,
-        shouldSubscribe,
-
-        onSubscribe = noop,
-        onUpdateData,
         onUpdateChartTime = noop,
     } = useDataObservable<IterateChartData, IterateDatum>()
+
+    // the application-owned source of the data, and whether it's running (streaming)
+    const dataSource = useDataSource<IterateChartData, IterateDatum, IterateSeries>()
+    const running = useDataSourceRunning(dataSource)
 
     const {initialData} = useInitialData<TimeSeriesChartData, IterateDatum>()
 
@@ -176,7 +169,6 @@ export function PoincarePlot(props: Props): null {
     const {
         interpolation,
         showPoints = true,
-        dropDataAfter = 1000,
         panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
@@ -208,11 +200,8 @@ export function PoincarePlot(props: Props): null {
     const xAxisRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map());
     const yAxisRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map());
 
-    const subscriptionRef = useRef<Subscription>(undefined)
-    const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
-
-    // eslint-disable-next-line react-hooks/refs
-    const allowTooltip = useRef<boolean>(isSubscriptionClosed())
+    // tooltips are only shown while the data source is paused (and not while panning)
+    const allowTooltip = useRef<boolean>(!(dataSource?.running ?? false))
 
     // so that we can reset the zoom when the axes-bounds change, we hold on to the zoom-behaviour
     // and the zoom-selection so that we can reset the transform to the identity
@@ -602,7 +591,7 @@ export function PoincarePlot(props: Props): null {
                         // during panning, we disabled viewing the tooltip to prevent
                         // tooltips from rendering but not getting removed, now that panning
                         // is over, allow tooltips to render again
-                        allowTooltip.current = isSubscriptionClosed();
+                        allowTooltip.current = !(dataSource?.running ?? false)
                     })
 
                 canvasSelection.call(drag)
@@ -654,7 +643,7 @@ export function PoincarePlot(props: Props): null {
         },
         [
             canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin,
-            zoomKeyModifiersRequired, zoomMinScaleFactor, zoomMaxScaleFactor
+            zoomKeyModifiersRequired, zoomMinScaleFactor, zoomMaxScaleFactor, dataSource
         ]
     )
 
@@ -664,33 +653,6 @@ export function PoincarePlot(props: Props): null {
             onUpdateAxesBoundsRef.current = updateAxisRanges
         },
         [updateAxisRanges]
-    )
-
-    // memoized function for subscribing to the chart-data observable
-    const subscribe = useCallback(
-        () => {
-            if (seriesObservable === undefined || canvasContext === null) return undefined
-            return subscriptionIteratesFor(
-                seriesObservable as Observable<IterateChartData>,
-                onSubscribe,
-                windowingTime,
-                xAxesState,
-                yAxesState,
-                onUpdateData,
-                dropDataAfter,
-                updateRangesAndPlot,
-                // as new data flows into the subscription, the subscription
-                // updates this map directly (for performance)
-                seriesRef.current,
-                end => currentTimeRef.current = end
-            )
-        },
-        [
-            dropDataAfter, canvasContext,
-            onSubscribe, onUpdateData,
-            seriesObservable, updateRangesAndPlot, windowingTime,
-            xAxesState, yAxesState,
-        ]
     )
 
     // updates the plot when the interpolation and filter change, because the updatePlot
@@ -795,22 +757,53 @@ export function PoincarePlot(props: Props): null {
         ]
     )
 
-    // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
-    // is changed to `true` and we haven't subscribed yet, then subscribe. when the
-    // `shouldSubscribe` is `false` and we had subscribed, then unsubscribe. otherwise,
-    // do nothing.
+    // the latest `updateRangesAndPlot`, for the view driver to call -- the driver is created once
+    // per run (see below), so it must not capture a stale one (e.g. bound to an older canvas)
+    const updateRangesAndPlotRef = useRef(updateRangesAndPlot)
     useEffect(
         () => {
-            if (shouldSubscribe && subscriptionRef.current === undefined) {
-                subscriptionRef.current = subscribe()
-                allowTooltip.current = false
-            } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
-                subscriptionRef.current?.unsubscribe()
-                subscriptionRef.current = undefined
+            updateRangesAndPlotRef.current = updateRangesAndPlot
+        },
+        [updateRangesAndPlot]
+    )
+
+    // creates the view driver that keeps this plot's view in step with the data source, using the
+    // current settings -- see ScatterPlot's identical effect event
+    const createViewDriver = useEffectEvent(
+        (source: NonNullable<typeof dataSource>) => iteratesViewDriverFor(
+            source,
+            windowingTime,
+            xAxesState,
+            yAxesState,
+            () => updateRangesAndPlotRef.current(),
+            end => currentTimeRef.current = end
+        )
+    )
+
+    // while the data source is running (and this plot has a canvas), drive the view from the
+    // data source's updates -- see ScatterPlot's identical effect. The driver belongs to this plot
+    // instance alone and is always torn down with it.
+    useEffect(
+        () => {
+            if (dataSource === undefined || !running || canvasContext === null) return
+            allowTooltip.current = false
+            const driver = createViewDriver(dataSource)
+            return () => {
+                driver.unsubscribe()
                 allowTooltip.current = true
             }
         },
-        [shouldSubscribe, subscribe]
+        [dataSource, running, canvasContext]
+    )
+
+    // this plot needs a data source (see the `Chart`'s `dataSource` prop)
+    useEffect(
+        () => {
+            if (dataSource === undefined) {
+                console.error("PoincarePlot requires a data source; set the enclosing Chart's `dataSource` prop")
+            }
+        },
+        [dataSource]
     )
 
     // unregister this plot's draw function on unmount

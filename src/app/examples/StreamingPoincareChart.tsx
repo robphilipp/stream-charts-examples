@@ -1,6 +1,5 @@
 import {type CSSProperties, type JSX, useEffect, useMemo, useRef, useState} from "react";
-import {gaussMapFn, iterateFunctionObservable, logisticMapFn, tentMapFn} from "./dataproviders/randomIterateData.ts";
-import {Observable} from "rxjs";
+import {gaussMapFn, logisticMapFn, tentMapFn} from "./dataproviders/randomIterateData.ts";
 import Checkbox from "../ui/Checkbox";
 import {
     Grid,
@@ -14,7 +13,7 @@ import {
     withFraction,
     withPixels
 } from "react-resizable-grid-layout";
-import type {Datum, TimeSeries} from "../charts/series/timeSeries";
+import type {Datum} from "../charts/series/timeSeries";
 import {type BaseSeries, seriesFrom} from "../charts/series/baseSeries";
 import {Chart} from "../charts/Chart";
 import {AxisLocation, defaultLineStyle} from '../charts/axes/axes';
@@ -25,17 +24,17 @@ import {defaultTooltipStyle} from "../charts/tooltips/tooltipUtils";
 import {PoincarePlotTooltipContent} from "../charts/tooltips/PoincarePlotTooltipContent";
 import {formatNumber} from '../charts/utils';
 import {PoincarePlot} from "../charts/plots/PoincarePlot";
-import {type IterateChartData, iteratesObservable} from "../charts/observables/iterates";
+import type {IterateDatum, IterateSeries} from "../charts/series/iterateSeries";
 import * as d3 from "d3";
 import {lightTheme, type Theme} from "../ui/Themes.ts";
 import {buttonStyle} from "../ui/utils";
 import {TrackerLabelLocation} from "../charts/trackers/trackerUtils.ts";
 import {defaultMargin} from "../charts/hooks/defaultPlotDimensions";
-import {DEFAULT_DROP_AFTER_20, DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
+import {DROP_AFTER_20_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {InterpolationControl} from "./controls/InterpolationControl.tsx";
 import {interpolationFactoryFor} from "./options/interpolations.ts";
-import {createInitialVisibility, type Visibility} from "./options/visibility.ts";
+import {iteratesGenerator, type IterateFunction, usePoincareChartStore} from "./appstate/poincareChartStore.ts";
 import {ExpandableControlBar} from "../ui/ExpandableControlBar.tsx";
 import {CommonExecutionControls} from "./controls/CommonExecutionControls.tsx";
 import {GaussMapIcon, LagIcon, LogisticMapIcon, TentMapIcon, TooltipIcon, TrackerIcon} from "../ui/Icons.tsx";
@@ -68,12 +67,10 @@ import {Divider} from "../ui/Divider.tsx";
 const LAG_N: Map<string, number> = new Map<string, number>([
     ['lag = 1', 1], ['lag = 2', 2], ['lag = 3', 3], ['lag = 4', 4], ['lag = 5', 5]
 ])
-const DEFAULT_LAG_N: [name: string, value: number] = Array.from(LAG_N.entries())[0]
 
 //
 // iterate functions for Poincare plots
 //
-type IterateFunction = (time: number, xn: number) => Datum
 type IterateFunctionCallback = (fn: IterateFunction) => void
 type IterateFunctionInfo = {
     inputFn: (callback: IterateFunctionCallback, theme: Theme) => JSX.Element,
@@ -116,8 +113,6 @@ const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
 
 const DEFAULT_ITER_FUNC = Array.from(ITERATE_FUNCTIONS.entries())[0]
 
-const initialVisibility = createInitialVisibility()
-
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
 
@@ -147,48 +142,71 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     const chartId = useRef<number>(CHART_ID)
 
-    const initialDataRef = useRef<Array<TimeSeries>>(initialData.map(series => seriesFrom(series.name, series.data.slice())))
-    const [running, setRunning] = useState<boolean>(false)
+    // the seed (initial) value for each series, from which each run iterates (never mutated)
+    const seeds = useMemo(
+        () => initialData.map(series => seriesFrom<Datum>(series.name, series.data.slice())),
+        [initialData]
+    )
 
-    const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
-    const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
-
+    // ----------------------------------------------------------------
+    // GRAB STATE FROM STORE (zustand) -- the store survives a route change (unmount/remount), so
+    // navigating away and back keeps the chart's settings, and its data source (which owns the
+    // stream's subscription and the iterates) keeps ingesting while this chart is unmounted
     //
-    // header bar information
+    const dataSource = usePoincareChartStore(state => state.dataSource)
+    const setInitialData = usePoincareChartStore(state => state.setInitialData)
+    const running = usePoincareChartStore(state => state.running)
+    const setRunning = usePoincareChartStore(state => state.setRunning)
+
+    const visibility = usePoincareChartStore(state => state.visibility)
+    const setVisibility = usePoincareChartStore(state => state.setVisibility)
+    const highlightAxes = usePoincareChartStore(state => state.highlightAxes)
+    const setHighlightAxes = usePoincareChartStore(state => state.setHighlightAxes)
+
+    const selectedInterpolationName = usePoincareChartStore(state => state.selectedInterpolationName)
+    const setSelectedInterpolationName = usePoincareChartStore(state => state.setSelectedInterpolationName)
+    const dropAfterMs = usePoincareChartStore(state => state.dropAfterMs)
+    const setDropAfterMs = usePoincareChartStore(state => state.setDropAfterMs)
+    const selectedLagN = usePoincareChartStore(state => state.selectedLagN)
+    const setSelectedLagN = usePoincareChartStore(state => state.setSelectedLagN)
+    const selectedIterateFunction = usePoincareChartStore(state => state.selectedIterateFunction)
+    const setSelectedIterateFunction = usePoincareChartStore(state => state.setSelectedIterateFunction)
+    const axesRange = usePoincareChartStore(state => state.axesRange)
+    const setAxesRange = usePoincareChartStore(state => state.setAxesRange)
     //
-    const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveStepAfter')
-    const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => interpolationFactoryFor(selectedInterpolationName))
+    // ----------------------------------------------------------------
 
-    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_20[1])
+    const interpolation = useMemo(() => interpolationFactoryFor(selectedInterpolationName), [selectedInterpolationName])
+    const lagN = LAG_N.get(selectedLagN) || 1
 
-    const [selectedLagN, setSelectedLagN] = useState<string>(DEFAULT_LAG_N[0])
-    const [lagN, setLagN] = useState<number>(DEFAULT_LAG_N[1])
-
-    const [selectedIterateFunction, setSelectedIterateFunction] = useState<string>(DEFAULT_ITER_FUNC[0])
-    const [iterateFunctionInputGen, setIterateFunctionInputGen] = useState<(callback: IterateFunctionCallback, theme: Theme) => JSX.Element>(() => DEFAULT_ITER_FUNC[1].inputFn)
+    // the iterate function is set by its parameter-input component (which calls back with the
+    // function whenever its parameters change, including on mount)
     const [iterateFunction, setIterateFunction] = useState<IterateFunction>(() => tentMapFn(1.8))
-    const [axesRange, setAxesRange] = useState<[start: number, end: number]>(DEFAULT_ITER_FUNC[1].range)
 
-    // holds the iterate function input component as state, updating it when the iterate function
-    // input generator changes (e.g. when the user selects a new iterate function
+    // the parameter-input component for the selected iterate function
     const iterFuncInput = useMemo(
-        () => iterateFunctionInputGen(
+        () => (ITERATE_FUNCTIONS.get(selectedIterateFunction) || DEFAULT_ITER_FUNC[1]).inputFn(
             (iterFn: IterateFunction) => setIterateFunction(() => iterFn),
             theme
         ),
-        [iterateFunctionInputGen, theme]
+        [selectedIterateFunction, theme]
     )
 
     /**
-     * Creates an iterates stream with lag N from a stream of points (time-series chart data
-     * @param updatePeriod The time between successive points
-     * @param lagN The lag of the iterates plot (e.g. f[n](x) vs f[n+N](x), where N is the lag)
+     * Creates the (empty) iterate series, one for each seed -- the iterates are generated from the
+     * seeds once the chart runs
+     * @return An empty iterate series for each seed
      */
-    const randomData = (updatePeriod: number, lagN: number): (initialData: Array<TimeSeries>) => Observable<IterateChartData> => {
-        return initialData => iteratesObservable(iterateFunctionObservable(iterateFunction, initialData, updatePeriod), lagN)
+    const emptyIterates = (): Array<IterateSeries> => seeds.map(series => seriesFrom<IterateDatum>(series.name, []))
+
+    // seeds the store's data source with the (empty) iterate series (the store survives remounts,
+    // so this only needs to happen when the store hasn't been seeded yet). The ref guard keeps this
+    // from looping when there are no seeds.
+    const seededRef = useRef<boolean>(false)
+    if (!seededRef.current && dataSource.seriesList().length === 0) {
+        seededRef.current = true
+        setInitialData(emptyIterates())
     }
-    const randomDataObservable = randomData(50, lagN)
-    const observableRef = useRef<Observable<IterateChartData>>(randomDataObservable(initialDataRef.current))
 
     // elapsed time
     const startTimeRef = useRef<number>(new Date().valueOf())
@@ -198,18 +216,13 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     // chart time
     const [chartTime, setChartTime] = useState<number>(0)
 
-    function initialDataFrom(data: Array<TimeSeries>): Array<TimeSeries> {
-        return data.map(series => seriesFrom(series.name, series.data.slice()))
-    }
-
     /**
      * Called when the interpolation is change for the chart. Converts the selected
      * interpolation name into the d3 curve-factory.
      * @param selectedInterpolation The name of the selected interpolation
      */
     function handleInterpolationChange(selectedInterpolation: string): void {
-        const factory = interpolationFactoryFor(selectedInterpolation)
-        setInterpolation(() => factory)
+        // the interpolation's curve factory is derived from its name (see `interpolation` above)
         setSelectedInterpolationName(selectedInterpolation)
     }
 
@@ -228,8 +241,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
      * @param selectedLagN The name in the select dropdown that represents the lag N
      */
     function handleUpdateLag(selectedLagN: string): void {
-        const lag = LAG_N.get(selectedLagN) || 1
-        setLagN(lag)
+        // the lag is derived from its name (see `lagN` above)
         setSelectedLagN(selectedLagN)
     }
 
@@ -243,9 +255,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
         handleClearChart()
 
-        const componentFactory = ITERATE_FUNCTIONS.get(iterateFunction)!.inputFn
-        setIterateFunctionInputGen(() => componentFactory)
-
         const [start, end] = ITERATE_FUNCTIONS.get(iterateFunction)?.range || [0, 1]
         setAxesRange([start, end])
     }
@@ -254,7 +263,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
      * Clears the chart and initializes the zoom
      */
     function handleClearChart(): void {
-        initialDataRef.current = initialDataFrom(initialData)
+        // replaces the data source with a fresh (empty) one, which stops the current one
+        setInitialData(emptyIterates())
         setElapsed(0)
 
         const [start, end] = ITERATE_FUNCTIONS.get(selectedIterateFunction)?.range || [0, 1]
@@ -271,7 +281,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
 
     function handleRunPauseClick(): void {
         if (!running) {
-            observableRef.current = randomDataObservable(initialData)
+            // each run iterates the selected function, at the selected lag, from the seeds
+            dataSource.setGenerator(iteratesGenerator(iterateFunction, lagN, seeds))
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -470,9 +481,7 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                             highlightWidth: 5
                         }],
                     ])}
-                    initialData={initialDataRef.current}
-                    seriesObservable={observableRef.current}
-                    shouldSubscribe={running}
+                    dataSource={dataSource}
                     onUpdateChartTime={handleChartTimeUpdate}
                     windowingTime={25}
                 >
@@ -548,7 +557,6 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                     </Tooltip>
                     <PoincarePlot
                         interpolation={interpolation}
-                        dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}
