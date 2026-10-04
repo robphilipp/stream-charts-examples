@@ -18,6 +18,8 @@ import DataObservableProvider from "./hooks/DataObservableProvider";
 import ChartProvider from "./hooks/ChartProvider";
 import AxesProvider from "./hooks/AxesProvider";
 import {isSafeRegex} from "./filters/regexFilter";
+import type {StreamingDataSource} from "./datasources/StreamingDataSource";
+import {DataSourceContext} from "./hooks/useDataSource";
 
 const defaultBackground = '#202020';
 
@@ -51,7 +53,7 @@ const defaultBackground = '#202020';
  * @template D refers to the datum in the data-series
  * @template S refers to the type for the series style
  */
-export interface Props<CD, D, S extends SeriesStyle> {
+export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
     chartId: number
     /**
      * The width of the chart container
@@ -87,8 +89,10 @@ export interface Props<CD, D, S extends SeriesStyle> {
      */
     /**
      * Initial (static) data to plot before subscribing to the {@link ChartData} observable.
+     * Ignored (and not needed) when a {@link dataSource} is given -- the data source holds the
+     * series.
      */
-    initialData: Array<BaseSeries<D>>
+    initialData?: Array<BaseSeries<D>>
     /**
      * Optional conversion function that converts an array of base-series with datum type D to a
      * descendent of a {@link ChartData} object
@@ -103,6 +107,15 @@ export interface Props<CD, D, S extends SeriesStyle> {
     /*
      | DATA STREAM
      */
+    /**
+     * The application-owned source of the chart's data (see {@link StreamingDataSource}). When
+     * given, the chart and its plots read their series from the data source, and redraw as it
+     * ingests new data, rather than subscribing to {@link seriesObservable} themselves -- the
+     * application starts and stops the data source (and it keeps ingesting while the chart is
+     * unmounted). Replaces `initialData`, `asChartData`, `seriesObservable`, `shouldSubscribe`,
+     * `onSubscribe`, `onUnsubscribe`, and `onUpdateData`, which are ignored when it's given.
+     */
+    dataSource?: StreamingDataSource<CD, D>
     /**
      * {@link ChartData} RxJS `Observable` that feeds the chart data to display (i.e. the data stream).
      */
@@ -275,6 +288,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
         initialData,
         asChartData,
         seriesFilter = /./,
+        dataSource,
         seriesObservable,
         windowingTime = 100,
         dataUpdatePeriod,
@@ -288,6 +302,13 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
 
         children,
     } = props
+
+    // with a data source, the series come from the data source (a new data source means new initial
+    // data, exactly as a new `initialData` array did, so plots keyed on the initial data reset)
+    const effectiveInitialData = useMemo<Array<BaseSeries<D>>>(
+        () => dataSource !== undefined ? dataSource.seriesList() : (initialData ?? []),
+        [dataSource, initialData]
+    )
 
     // override the defaults with the parent's properties, leaving any unset values as the default value
     const margin = {...defaultMargin, ...props.margin}
@@ -325,20 +346,21 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                     <MouseProvider<D, TM>>
                         <TooltipProvider<D, TM>>
                             <InitialDataProvider<CD, D>
-                                initialData={initialData}
-                                asChartData={asChartData}
+                                initialData={effectiveInitialData}
+                                asChartData={dataSource !== undefined ? undefined : asChartData}
                             >
                                 <DataObservableProvider<CD, D>
-                                    seriesObservable={seriesObservable}
+                                    seriesObservable={dataSource !== undefined ? undefined : seriesObservable}
                                     windowingTime={windowingTime}
                                     dataUpdatePeriod={dataUpdatePeriod}
-                                    shouldSubscribe={shouldSubscribe}
+                                    shouldSubscribe={dataSource !== undefined ? false : shouldSubscribe}
 
                                     onSubscribe={onSubscribe}
                                     onUnsubscribe={onUnsubscribe}
                                     onUpdateData={onUpdateData}
                                     onUpdateChartTime={onUpdateChartTime}
                                 >
+                                    <DataSourceContext.Provider value={dataSource}>
                                     <ChartProvider<S, AR, A>
                                         chartId={chartId}
 
@@ -353,6 +375,7 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                                             children
                                         }
                                     </ChartProvider>
+                                    </DataSourceContext.Provider>
                                 </DataObservableProvider>
                             </InitialDataProvider>
                         </TooltipProvider>
