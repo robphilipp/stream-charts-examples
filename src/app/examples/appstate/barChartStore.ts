@@ -1,7 +1,7 @@
 import type {UseBoundStore} from "zustand";
 import {create, type StoreApi} from 'zustand';
 import type {BaseSeries} from "../../charts/series/baseSeries.ts";
-import type {OrdinalDatum} from "../../charts/series/ordinalSeries.ts";
+import {calculateOrdinalStats, type OrdinalDatum} from "../../charts/series/ordinalSeries.ts";
 import {type OrdinalChartData, ordinalsObservable} from "../../charts/observables/ordinals.ts";
 import {barDanceDataObservable} from "../dataproviders/randomOrdinalData.ts";
 import {createInitialVisibility} from "../options/visibility.ts";
@@ -25,15 +25,17 @@ const DEFAULT_DATA_UPDATE_PERIOD = 50
 /**
  * Creates the "dancing bars" data generator for the specified update period. The data source calls
  * it with its *current* series each time it starts, so Run after Pause continues from the latest
- * accumulated data (the generator's time starts from the series' latest time). The generator's
- * pipeline does carry per-subscription state (`ordinalsObservable` accumulates the stats in a
- * `scan`), but that no longer matters across a remount: the data source holds the one
- * subscription, and it isn't touched when the chart unmounts.
+ * accumulated data: the generator's time starts from the series' latest time, and its stats start
+ * from the series' stats (the existing data itself isn't re-emitted, which would duplicate it).
  * @param updatePeriod The period (ms) between generated data points
  * @return The data generator
  */
 const randomData = (updatePeriod: number): DataGenerator<OrdinalChartData, BaseSeries<OrdinalDatum>> =>
-    currentSeries => ordinalsObservable(barDanceDataObservable(currentSeries, updatePeriod))
+    currentSeries => ordinalsObservable(
+        barDanceDataObservable(currentSeries, updatePeriod),
+        undefined,
+        calculateOrdinalStats(currentSeries)
+    )
 
 /**
  * Creates the chart's data source

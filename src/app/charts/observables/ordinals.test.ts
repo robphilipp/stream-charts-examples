@@ -4,6 +4,7 @@ import {seriesFrom} from "../series/baseSeries";
 import {Observable, of, range} from "rxjs";
 import {map} from "rxjs/operators";
 import {type OrdinalChartData, ordinalsObservable} from "./ordinals";
+import {calculateOrdinalStats, type OrdinalDatum, ordinalDatumOf} from "../series/ordinalSeries";
 
 export function sinFn(x: number, period: number): number {
     return Math.sin(2 * Math.PI * x / period)
@@ -92,6 +93,32 @@ describe('min/max time and value tracking', () => {
         expect(stats.maxDatum.time.time).toBe(10)
         expect(stats.minDatum.value.value).toBe(3)
         expect(stats.maxDatum.value.value).toBe(8)
+    })
+})
+
+describe('seeding the stats with the stats of existing data', () => {
+    it('accumulates the stats from the seed rather than from scratch', () => {
+        const seed = calculateOrdinalStats([seriesFrom<OrdinalDatum>('s1', [ordinalDatumOf(0, 's1', 2), ordinalDatumOf(1, 's1', 4)])])
+        const results: Array<OrdinalChartData> = []
+        ordinalsObservable(of(tick('s1', 10, 6)), undefined, seed).subscribe(chartData => results.push(chartData))
+
+        expect(results).toHaveLength(1)
+        const stats = results[0].stats
+        // the existing two points (2, 4) plus the new one (6)
+        expect(stats.valueStatsForSeries.get('s1')!.count).toBe(3)
+        expect(stats.valueStatsForSeries.get('s1')!.mean).toBe(4)
+        expect(stats.minDatum.value.value).toBe(2)
+        expect(stats.maxDatum.value.value).toBe(6)
+        expect(stats.minDatum.time.time).toBe(0)
+        expect(stats.maxDatum.time.time).toBe(10)
+        // only the new point is emitted as new
+        expect(results[0].newPoints.get('s1')!.length).toBe(1)
+    })
+
+    it('does not modify the seed', () => {
+        const seed = calculateOrdinalStats([seriesFrom<OrdinalDatum>('s1', [ordinalDatumOf(0, 's1', 2)])])
+        ordinalsObservable(of(tick('s1', 10, 6)), undefined, seed).subscribe()
+        expect(seed.valueStatsForSeries.get('s1')!.count).toBe(1)
     })
 })
 

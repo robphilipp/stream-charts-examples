@@ -154,16 +154,34 @@ type Accumulator = {
     accumulated: OrdinalChartData
 }
 
-const initialAccumulate = (): Accumulator => ({previous: new Map(), accumulated: emptyOrdinalData()})
+/**
+ * @param initialStats Optional stats to start the accumulation from (see {@link ordinalsObservable})
+ * @return The initial accumulator
+ */
+const initialAccumulate = (initialStats?: OrdinalStats): Accumulator => ({
+    previous: new Map(),
+    accumulated: initialStats === undefined ?
+        emptyOrdinalData() :
+        {
+            ...emptyOrdinalData(),
+            seriesNames: new Set(initialStats.valueStatsForSeries.keys()),
+            stats: copyOrdinalStats(initialStats)
+        }
+})
 
 /**
  * Accepts a {@link TimeSeriesChartData} observable and converts it to an observable of {@link OrdinalChartData}.
  * @param dataObservable The observable over {@link TimeSeriesChartData}
+ * @param compactingSize The number of shifts a series' backing array accumulates before it's compacted
+ * @param initialStats Optional stats of the data that already exists (e.g. a chart's accumulated
+ * series, see `calculateOrdinalStats`), from which the stats accumulate -- so that the stats cover
+ * that data without the data having to be re-emitted through `dataObservable`
  * @return An observable of {@link OrdinalChartData} holding the series for the incoming chart data
  */
 export function ordinalsObservable(
     dataObservable: Observable<TimeSeriesChartData>,
-    compactingSize: number = DEFAULT_COMPACTING_SIZE
+    compactingSize: number = DEFAULT_COMPACTING_SIZE,
+    initialStats?: OrdinalStats,
 ): Observable<OrdinalChartData> {
     return dataObservable
         .pipe(
@@ -239,7 +257,7 @@ export function ordinalsObservable(
                         // accum.newPoints.set(name, series.map(({x, y}: Datum) => ordinalDatumOf(x, name, y)))
                     })
                 return {previous, accumulated: accum}
-            }, initialAccumulate()),
+            }, initialAccumulate(initialStats)),
 
             // remove new points from the map that are empty
             map(accum => removeEmptyNewPoints(accum)),

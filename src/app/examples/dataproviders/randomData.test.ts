@@ -1,7 +1,10 @@
 // import {initialChartData, seriesFromTuples} from "stream-charts";
 
 import {timeSeriesFromTuples} from "../../charts/series/timeSeries.ts";
-import {initialTimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
+import {initialTimeSeriesChartData, type TimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
+import {seriesFrom} from "../../charts/series/baseSeries.ts";
+import {type OrdinalDatum, ordinalDatumOf} from "../../charts/series/ordinalSeries.ts";
+import {barDanceDataObservable} from "./randomOrdinalData.ts";
 
 describe('when creating random data from an initial series', () => {
     const initialData = [
@@ -33,5 +36,30 @@ describe('when creating random data from an initial series', () => {
         expect((p3 || [])[0].x).toBe(170)
         expect((p1 || [])[0].y).toBe(980)
         expect((p3 || [])[0].y).toBe(280)
+    })
+})
+
+describe('dancing-bar data (barDanceDataObservable)', () => {
+    afterEach(() => jest.useRealTimers())
+
+    const existing = [
+        seriesFrom<OrdinalDatum>('a', [ordinalDatumOf(0, 'a', 0.1), ordinalDatumOf(1000, 'a', 0.2)]),
+        seriesFrom<OrdinalDatum>('b', [ordinalDatumOf(0, 'b', 0.3), ordinalDatumOf(1000, 'b', 0.4)]),
+    ]
+
+    it('emits only new data, continuing one update period after the latest existing datum', () => {
+        jest.useFakeTimers()
+        const emitted: Array<TimeSeriesChartData> = []
+        const subscription = barDanceDataObservable(existing, 50).subscribe(data => emitted.push(data))
+
+        // nothing (in particular, not the existing data) until the first tick
+        expect(emitted).toHaveLength(0)
+
+        jest.advanceTimersByTime(100)
+        subscription.unsubscribe()
+
+        expect(emitted).toHaveLength(2)
+        expect(emitted.map(data => data.newPoints.get('a')!.map(datum => datum.x))).toEqual([[1050], [1100]])
+        expect(emitted[0].newPoints.get('b')!).toHaveLength(1)
     })
 })

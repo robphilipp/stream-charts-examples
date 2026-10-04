@@ -6,7 +6,7 @@ import {type BaseSeries, seriesFrom} from "../../charts/series/baseSeries.ts";
 import {type Datum, datumOf} from "../../charts/series/timeSeries.ts";
 import type {TimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
 import type {OrdinalDatum} from "../../charts/series/ordinalSeries.ts"
-import {concat, from, interval, Observable} from "rxjs";
+import {interval, Observable} from "rxjs";
 import {map, scan} from "rxjs/operators";
 
 /**
@@ -65,7 +65,9 @@ export function initialOrdinalChartData(seriesList: Array<BaseSeries<OrdinalDatu
 }
 
 /**
- * Creates random set of time-series data, designed to make the bar chart dance
+ * Creates random set of time-series data, designed to make the bar chart dance. Only *new* data is
+ * emitted -- the specified series are the starting point (their latest values and times), not part of
+ * the stream -- so that resuming from a chart's accumulated data doesn't re-emit (and duplicate) it.
  * @param series The number of time-series for which to generate data (i.e. one for each neuron)
  * @param [updatePeriod=25] The time-interval between the generation of subsequent data points
  * @param [min=-1] The minimum allowed value
@@ -81,26 +83,24 @@ export function barDanceDataObservable(
 ): Observable<TimeSeriesChartData> {
     const seriesNames = series.map(series => series.name)
     const initialData = initialOrdinalChartData(series)
-    // prepend the initial data to the observable created using the update period
-    return concat(
-        // create an observable from the initial data
-        from([initialData]),
-        // create and observable that issues data at each update period
-        interval(updatePeriod).pipe(
-            // convert the number sequence to a time
-            map(sequence => (sequence + 1) * updatePeriod + initialData.maxTime + updatePeriod),
+    // the time of the latest existing datum, from which the new data continues
+    const startTime = isFinite(initialData.maxTime) ? initialData.maxTime : 0
+    return interval(updatePeriod).pipe(
+        // convert the number sequence to a time: one update period after the latest existing datum,
+        // then one more for each subsequent tick
+        map(sequence => startTime + (sequence + 1) * updatePeriod),
 
-            // create a new (time, value) for each series
-            map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
-        )
-    ).pipe(
-        // create an observable for the ordinal chart data
+        // create a new (time, value) for each series
+        map(time => barDanceData(time, seriesNames, initialData.maxTimes)),
+
+        // create an observable for the ordinal chart data, starting from the existing data (the
+        // seed isn't itself emitted)
         scan((accumulated, chartData) => ({
             seriesNames: new Set(accumulated.seriesNames),
             maxTime: chartData.maxTime,
             maxTimes: chartData.maxTimes,
             newPoints: mergeOrdinalSeries(accumulated.newPoints, chartData.newPoints, min, max)
-        }))
+        }), initialData)
     )
 }
 

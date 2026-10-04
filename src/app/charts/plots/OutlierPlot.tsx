@@ -187,6 +187,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
 
     const {
         windowingTime = 100,
+        dataUpdatePeriod,
     } = useDataObservable()
 
     // the application-owned source of the data, and whether it's running (streaming)
@@ -814,7 +815,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                 outlierWithCadenceViewDriverFor<M>(source, windowingTime, xAxesState, redraw, setCurrentTime, withCadenceOf) :
                 outlierViewDriverFor<M>(
                     source, windowingTime, axisAssignments, xAxesState, redraw, setCurrentTime,
-                    timeWindowBehavior, initialTimesRef.current
+                    timeWindowBehavior, initialTimesRef.current, dataUpdatePeriod
                 )
         }
     )
