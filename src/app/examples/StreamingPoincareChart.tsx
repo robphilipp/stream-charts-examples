@@ -173,6 +173,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
     const setSelectedIterateFunction = usePoincareChartStore(state => state.setSelectedIterateFunction)
     const axesRange = usePoincareChartStore(state => state.axesRange)
     const setAxesRange = usePoincareChartStore(state => state.setAxesRange)
+    const zoomState = usePoincareChartStore(state => state.zoomState)
+    const setZoomState = usePoincareChartStore(state => state.setZoomState)
     //
     // ----------------------------------------------------------------
 
@@ -562,6 +564,8 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                         zoomKeyModifiersRequired={true}
                         // withCadenceOf={30}
                         highlightAxesOnMouseOver={highlightAxes}
+                        zoomState={zoomState}
+                        onZoomStateChange={setZoomState}
                     />
                 </Chart>
             </GridItem>

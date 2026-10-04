@@ -12,6 +12,7 @@ import {iterateFunctionObservable} from "../dataproviders/randomIterateData.ts";
 import {createInitialVisibility, type Visibility} from "../options/visibility.ts";
 import {DEFAULT_DROP_AFTER_20} from "../options/dropDataAfter.ts";
 import {type DataSourceSlice, dataSourceSlice} from "./stateslices/dataSourceStateSlice.ts";
+import type {PoincarePlotZoomState} from "../../charts/plots/PoincarePlot.tsx";
 
 /**
  * An iterate function, `x[n+1] = f(x[n])`, as a function of the time and `x[n]`
@@ -60,6 +61,9 @@ type PoincareChartState = {
     axesRange: [start: number, end: number]
     visibility: Visibility
     highlightAxes: boolean
+    // the plot's zoom/pan state (undefined when never zoomed/panned), handed back to the plot
+    // when it remounts so that navigating away and back doesn't reset the zoom
+    zoomState: PoincarePlotZoomState | undefined
 }
 
 const initialState: PoincareChartState = {
@@ -70,6 +74,7 @@ const initialState: PoincareChartState = {
     axesRange: [0, 1],
     visibility: createInitialVisibility(),
     highlightAxes: false,
+    zoomState: undefined,
 }
 
 type PoincareChartActions = {
@@ -80,6 +85,7 @@ type PoincareChartActions = {
     setAxesRange: (range: [start: number, end: number]) => void
     setVisibility: (visibility: Visibility) => void
     setHighlightAxes: (highlight: boolean) => void
+    setZoomState: (zoomState: PoincarePlotZoomState) => void
 }
 
 type PoincareChartStore = PoincareChartState & PoincareChartActions &
@@ -112,4 +118,5 @@ export const usePoincareChartStore: UseBoundStore<StoreApi<PoincareChartStore>> 
         setAxesRange: (axesRange: [start: number, end: number]) => set({axesRange}),
         setVisibility: (visibility: Visibility) => set({visibility}),
         setHighlightAxes: (highlightAxes: boolean) => set({highlightAxes}),
+        setZoomState: (zoomState: PoincarePlotZoomState) => set({zoomState}),
     })));

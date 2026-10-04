@@ -48,6 +48,7 @@ import {noop} from "../charts/utils";
 import {
     baseDataFnFactory,
     DEFAULT_DATA_UPDATE_PERIOD,
+    DEFAULT_X_AXIS_RANGE,
     MEASURES,
     type Measures,
     NOISE_SIGMA,
@@ -62,6 +63,7 @@ const MEASURE_DESCRIPTIONS = [
 ] as readonly [string, string, string]
 
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
+const X_AXIS_ID = 'x-axis-1'
 const INITIAL_POINT_COUNT = 400  // 100 * 25ms = 2500ms, fills the default x-axis window
 
 function defaultInitialOutlierData(): Array<OutlierSeries<Measures>> {
@@ -124,6 +126,9 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     const running = useOutlierChartStore(state => state.running)
     const setRunning = useOutlierChartStore(state => state.setRunning)
 
+    const xAxisRange = useOutlierChartStore(state => state.xAxisRange)
+    const setXAxisRange = useOutlierChartStore(state => state.setXAxisRange)
+
     const windowingTime = useOutlierChartStore(state => state.windowingTime)
     const setWindowingTime = useOutlierChartStore(state => state.setWindowingTime)
     // 0 means disabled (unchecked); CadenceControl's own default of 25ms is what appears once
@@ -178,7 +183,6 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     const handleZoomReset = useCallback((resetZoom: () => void): void => {
         resetZoomRef.current = resetZoom
     }, [])
-    const [chartTime, setChartTime] = useState<number>(0)
 
     function handleToggleTooltipType(status: ToggleStatus): void {
         if (status === ToggleStatus.OFF) {
@@ -199,7 +203,16 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     }
 
     function handleChartTimeUpdate(times: Map<string, AxisInterval>): void {
-        setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
+        // keeps the x-axis' current range in the store (so the view survives navigating away and
+        // back). IMPORTANT: only call the store setter when the value has actually changed -- see
+        // StreamingScatterChart's identical guard for the full explanation
+        const xAxisInterval = times.get(X_AXIS_ID)
+        if (xAxisInterval) {
+            const [start, end] = xAxisInterval.asTuple()
+            if (start !== xAxisRange[0] || end !== xAxisRange[1]) {
+                setXAxisRange([start, end])
+            }
+        }
     }
 
     function handleWindowingTimeChange(ms: number): void {
@@ -234,13 +247,16 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
         // current one); like before, Clear resets the data and the zoom, not the settings
         setInitialData(freshCopyOf(seededInitialData))
         setElapsed(0)
-        setChartTime(0)
+        setXAxisRange(DEFAULT_X_AXIS_RANGE)
 
         // the axes reset via the new data source above, but d3-zoom keeps its own accumulated scale/pan
         // state on the canvas element itself -- clear that too, or the next zoom gesture would
         // compute its new scale against the stale, pre-reset transform
         resetZoomRef.current()
     }
+
+    // the chart time is the end of the x-axis range
+    const chartTime = xAxisRange[1]
 
     return (
         <Grid
@@ -428,9 +444,9 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                     dataUpdatePeriod={dataUpdatePeriod}
                 >
                     <ContinuousAxis
-                        axisId="x-axis-1"
+                        axisId={X_AXIS_ID}
                         location={AxisLocation.Bottom}
-                        domain={[0, 40000]}
+                        domain={[xAxisRange[0], xAxisRange[1]]}
                         label="Time (ms)"
                     />
                     <ContinuousAxis

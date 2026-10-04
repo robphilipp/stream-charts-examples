@@ -65,7 +65,17 @@ const newDataSource = (
 ): OutlierDataSource<Measures> =>
     new OutlierDataSource<Measures>({initialData, generator: randomData(dataUpdatePeriod), dropDataAfter: dropAfterMs})
 
+export type Range = [start: number, end: number]
+
+/**
+ * The x-axis' default (un-zoomed, un-scrolled) range
+ */
+export const DEFAULT_X_AXIS_RANGE: Range = [0, 40000]
+
 type OutlierChartState = {
+    // the x-axis' current (zoomed, panned, scrolled) range, handed back to the axis as its domain
+    // when the chart remounts, so navigating away and back keeps the view
+    xAxisRange: Range
     filterValue: string
     dropAfterMs: number
     windowingTime: number
@@ -79,6 +89,7 @@ type OutlierChartState = {
 }
 
 const initialState: OutlierChartState = {
+    xAxisRange: DEFAULT_X_AXIS_RANGE,
     filterValue: '',
     dropAfterMs: DEFAULT_DROP_AFTER_100[1],
     windowingTime: 25,
@@ -93,6 +104,7 @@ const initialState: OutlierChartState = {
 }
 
 type OutlierChartActions = {
+    setXAxisRange: (range: Range) => void
     setFilterValue: (filterValue: string) => void
     setDropAfterMs: (dropAfterMs: number) => void
     setWindowingTime: (windowingTime: number) => void
@@ -123,6 +135,8 @@ export const useOutlierChartStore: UseBoundStore<StoreApi<OutlierChartStore>> = 
             newDataSource([], initialState.dataUpdatePeriod, initialState.dropAfterMs),
             initialData => newDataSource(initialData, get().dataUpdatePeriod, get().dropAfterMs)
         ),
+
+        setXAxisRange: (xAxisRange: Range) => set({xAxisRange}),
 
         setFilterValue: filterValue => set({filterValue}),
 

@@ -25,6 +25,7 @@ import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {type TooltipData, useTooltip} from "../hooks/useTooltip";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
+import {AxisInterval} from "../axes/AxisInterval";
 import {FastShiftArray} from "fast-shift-array";
 
 type IteratePoint = { n: number, n_1: number, time: number, index: number }
@@ -37,6 +38,26 @@ function generateAxisRangeMap(axes: Map<string, BaseAxis>): Map<string, Continuo
             return [id, ContinuousAxisRange.from(start, end)]
         })
     )
+}
+
+/**
+ * A snapshot of the Poincaré plot's zoom/pan state, in a form that can be held outside the plot
+ * (e.g. in an application store) and handed back to a later instance of the plot (see the
+ * {@link Props.zoomState} and {@link Props.onZoomStateChange} props) -- so that zooming, navigating
+ * away, and navigating back doesn't reset the zoom.
+ */
+export interface PoincarePlotZoomState {
+    /**
+     * d3-zoom's cumulative scale factor (`transform.k`) at the time of the snapshot. It must be
+     * restored onto the new canvas along with the ranges: d3-zoom's `scaleExtent` (see
+     * {@link Props.zoomMaxScaleFactor}) limits `k`, so a remounted canvas starting back at `k = 1`
+     * would otherwise mis-measure how much further the user may zoom in or out.
+     */
+    k: number
+    /**
+     * Maps each axis ID (x and y) to its current (zoomed, panned) domain
+     */
+    ranges: Record<string, [start: number, end: number]>
 }
 
 export interface Props {
@@ -75,6 +96,18 @@ export interface Props {
      * the larger this factor, the more the user can "zoom out". Default value is 1.0.
      */
     zoomMaxScaleFactor?: number
+    /**
+     * An (optional) zoom/pan state to restore when this plot mounts -- commonly the last value
+     * reported through {@link onZoomStateChange} and held by the application (e.g. in a store) so
+     * that the zoom survives the plot being unmounted and remounted (e.g. navigating away and
+     * back). Only read once, when the plot's axes are first available.
+     */
+    zoomState?: PoincarePlotZoomState
+    /**
+     * (Optional) callback that is handed the plot's zoom/pan state after each zoom event, at the
+     * end of each pan, and when the axes' bounds are changed from outside (which resets the zoom)
+     */
+    onZoomStateChange?: (zoomState: PoincarePlotZoomState) => void
     /**
      * When set, uses a cadence with the specified refresh period (in milliseconds). For plots
      * where the updates are slow (> 100 ms) using a cadence of 10 to 25 ms smooths out the
@@ -174,6 +207,8 @@ export function PoincarePlot(props: Props): null {
         zoomMinScaleFactor = 0,
         zoomMaxScaleFactor = 1,
         highlightAxesOnMouseOver = false,
+        zoomState = undefined,
+        onZoomStateChange = noop,
     } = props
 
     // why do "dataRef" and "seriesRef" both hold on to the same underlying data? for performance.
@@ -411,6 +446,69 @@ export function PoincarePlot(props: Props): null {
         [updatePlot]
     )
 
+    // hands the current zoom/pan state (d3-zoom's cumulative `k`, which `lastZoomKRef` tracks, and
+    // every axis' current domain) to the `onZoomStateChange` callback
+    const onZoomStateChangeRef = useRef(onZoomStateChange)
+    useEffect(
+        () => {
+            onZoomStateChangeRef.current = onZoomStateChange
+        },
+        [onZoomStateChange]
+    )
+    const reportZoomState = useCallback(
+        (): void => {
+            const ranges: Record<string, [number, number]> = {}
+            xAxisRangesRef.current.forEach((range, axisId) => ranges[axisId] = range.current.asTuple())
+            yAxisRangesRef.current.forEach((range, axisId) => ranges[axisId] = range.current.asTuple())
+            onZoomStateChangeRef.current({k: lastZoomKRef.current, ranges})
+        },
+        []
+    )
+
+    // the zoom state to restore, captured once at mount (see the `zoomState` prop); cleared once
+    // it has been applied (see `restoreZoomState` below), so it's only ever applied once
+    const pendingZoomStateRef = useRef<PoincarePlotZoomState | undefined>(zoomState)
+
+    // applies the pending zoom state (if any) to the axes' ranges and to d3-zoom's transform on the
+    // canvas (a remounted plot has a brand-new canvas, whose transform starts at identity). Each
+    // range keeps its `.original` -- the axis' real, un-zoomed domain -- since the zoom handler's
+    // constraint is measured against it. Waits until the axes' ranges and the canvas exist.
+    const restoreZoomState = useEffectEvent((): void => {
+        const pending = pendingZoomStateRef.current
+        if (pending === undefined || canvasContext === null) return
+        if (xAxisRangesRef.current.size === 0 || yAxisRangesRef.current.size === 0) return
+
+        Object.entries(pending.ranges).forEach(([axisId, [start, end]]) => {
+            const interval = AxisInterval.from(start, end)
+            const ranges = xAxisRangesRef.current.has(axisId) ? xAxisRangesRef.current : yAxisRangesRef.current
+            const range = ranges.get(axisId)
+            const axis = xAxesState.axisFor(axisId).getOrUndefined() ?? yAxesState.axisFor(axisId).getOrUndefined()
+            if (range === undefined || axis === undefined) return
+            ranges.set(axisId, range.update(start, end))
+            setAxisIntervalFor(axisId, interval)
+            axis.update(interval, plotDimensions, margin)
+        })
+        // `__zoom` is where d3-zoom keeps an element's transform; setting it directly (rather than
+        // through `zoom.transform`) avoids dispatching a synthetic "zoom" event
+        d3.select(canvasContext.canvas).property("__zoom", d3.zoomIdentity.scale(pending.k))
+        lastZoomKRef.current = pending.k
+        pendingZoomStateRef.current = undefined
+        updatePlotRef.current(canvasContext)
+    })
+
+    // when the axes are available, then set the reference, but only once
+    useEffect(() => {
+        if (xAxesState.axes.size > 0 && xAxisRangesRef.current.size === 0) {
+            xAxisRangesRef.current = generateAxisRangeMap(xAxesState.axes)
+        }
+        if (yAxesState.axes.size > 0 && yAxisRangesRef.current.size === 0) {
+            yAxisRangesRef.current = generateAxisRangeMap(yAxesState.axes)
+        }
+        // restore a zoom state handed in from a previous instance (only does anything the first
+        // time the axes and canvas are all available -- see `restoreZoomState`)
+        restoreZoomState()
+    }, [xAxesState, yAxesState, canvasContext]);
+
     // calculates the distinct axis IDs that cover all the series in the plot
     const xAxesForSeries = useMemo(
         (): Array<string> => xAxesState.axisIds(),
@@ -421,15 +519,6 @@ export function PoincarePlot(props: Props): null {
         [yAxesState]
     )
 
-    // when the axes are available, then set the reference, but only once
-    useEffect(() => {
-        if (xAxesState.axes.size > 0 && xAxisRangesRef.current.size === 0) {
-            xAxisRangesRef.current = generateAxisRangeMap(xAxesState.axes)
-        }
-        if (yAxesState.axes.size > 0 && yAxisRangesRef.current.size === 0) {
-            yAxisRangesRef.current = generateAxisRangeMap(yAxesState.axes)
-        }
-    }, [xAxesState, yAxesState]);
 
     // update the plot with the new axes bounds
     const updateRangesAndPlot = useCallback(
@@ -476,8 +565,11 @@ export function PoincarePlot(props: Props): null {
                 // for why `lastZoomKRef` must follow it back to 1
                 lastZoomKRef.current = 1
             }
+            // the axes' bounds were changed from outside (e.g. a different iterate function), which
+            // resets the zoom, so a previously reported zoom state no longer applies
+            reportZoomState()
         },
-        [zoomEnabled]
+        [zoomEnabled, reportZoomState]
     )
 
     // strange construct so that we only add the update handler when the chart ID
@@ -591,6 +683,7 @@ export function PoincarePlot(props: Props): null {
                         // tooltips from rendering but not getting removed, now that panning
                         // is over, allow tooltips to render again
                         allowTooltip.current = !(dataSource?.running ?? false)
+                        reportZoomState()
                     })
 
                 canvasSelection.call(drag)
@@ -623,6 +716,7 @@ export function PoincarePlot(props: Props): null {
                                     yAxisRangesRef.current
                                 )
                                 updatePlotRef.current(cc)
+                                reportZoomState()
                             }
                             allowTooltip.current = true
                         }
@@ -642,7 +736,7 @@ export function PoincarePlot(props: Props): null {
         },
         [
             canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin,
-            zoomKeyModifiersRequired, zoomMinScaleFactor, zoomMaxScaleFactor, dataSource
+            zoomKeyModifiersRequired, zoomMinScaleFactor, zoomMaxScaleFactor, dataSource, reportZoomState
         ]
     )
 
