@@ -31,7 +31,6 @@ import {type OrdinalChartData} from "../charts/observables/ordinals";
 import {type OrdinalDatum} from "../charts/series/ordinalSeries";
 import {type BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
 import {type WindowedOrdinalStats} from "../charts/datasources/ordinalDataSource";
-import {AxisInterval} from "../charts/axes/AxisInterval";
 import {noop} from "../charts/utils";
 import {assignAxes} from "../charts/plots/plot";
 import {buttonStyle} from "../ui/utils";
@@ -246,14 +245,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
      */
     function handleChartTimeUpdate(time: number): void {
         setChartTime(time)
-    }
-
-    /**
-     * Updates the time from the chart (the max value of the axes ranges)
-     * @param times A map associating the axis with its time range
-     */
-    function handleChartRangeUpdate(times: Map<string, AxisInterval>): void {
-        setChartTime(Math.max(...Array.from(times.values()).map(range => range.end)))
     }
 
     /**
@@ -563,7 +554,6 @@ export function StreamingBarChart(props: Props): JSX.Element {
                     dataSource={dataSource}
                     seriesFilter={filter}
                     onUpdateChartTime={handleChartTimeUpdate}
-                    onUpdateAxesBounds={handleChartRangeUpdate}
                     windowingTime={windowingTime}
                     dataUpdatePeriod={dataUpdatePeriod}
                 >
