@@ -620,6 +620,30 @@ export function PoincarePlot(props: Props): null {
     )
 
     /**
+     * Restores every axis to its original (un-zoomed) domain. Used when d3-zoom's cumulative `k`
+     * returns to exactly 1 (fully zoomed out): composing pivot-preserving zooms at *different*
+     * pivots isn't position-preserving (zooming in at one spot and back out at another nets a
+     * translation, as in any pinch-zoom UI), and the zoom constraint clamps that translated window
+     * to the original bounds -- so without this, zooming in at one spot and out at another stops
+     * short of the full view on both axes, with `k` already at its maximum. d3-zoom's `scaleExtent`
+     * clamps `k` to *exactly* 1 at that limit, so the equality check reliably detects it. (This is
+     * the continuous-axis counterpart of `OrdinalAxisRange.scaledCumulative`'s `factor === 1` case.)
+     */
+    const snapToOriginalRanges = useCallback(
+        (): void => {
+            const snap = (ranges: Map<string, ContinuousAxisRange>, axesState: typeof xAxesState) =>
+                ranges.forEach((range, axisId) => {
+                    ranges.set(axisId, range.update(range.original.start, range.original.end))
+                    setAxisIntervalFor(axisId, range.original)
+                    axesState.axisFor(axisId).ifPresent(axis => axis.update(range.original, plotDimensions, margin))
+                })
+            snap(xAxisRangesRef.current, xAxesState)
+            snap(yAxisRangesRef.current, yAxesState)
+        },
+        [setAxisIntervalFor, xAxesState, yAxesState, plotDimensions, margin]
+    )
+
+    /**
      * Called when the user uses the scroll wheel (or scroll gesture) to zoom in or out. Zooms in/out
      * at the location of the mouse when the scroll wheel or gesture was applied. Unlike time-series
      * plots, the iterates plot zooms the x- and y-axis at the same rate.
@@ -707,14 +731,21 @@ export function PoincarePlot(props: Props): null {
                                 const zoomFactor = event.transform.k / lastZoomKRef.current
                                 lastZoomKRef.current = event.transform.k
 
-                                onZoom(
-                                    zoomFactor,
-                                    event.sourceEvent.offsetX - margin.left,
-                                    event.sourceEvent.offsetY - margin.top,
-                                    plotDimensions,
-                                    xAxisRangesRef.current,
-                                    yAxisRangesRef.current
-                                )
+                                // back at d3-zoom's identity (`k` is exactly 1, see `snapToOriginalRanges`)
+                                // means fully zoomed out, which has exactly one correct view: the axes'
+                                // original domains, however many pivots it took to get here
+                                if (event.transform.k === 1) {
+                                    snapToOriginalRanges()
+                                } else {
+                                    onZoom(
+                                        zoomFactor,
+                                        event.sourceEvent.offsetX - margin.left,
+                                        event.sourceEvent.offsetY - margin.top,
+                                        plotDimensions,
+                                        xAxisRangesRef.current,
+                                        yAxisRangesRef.current
+                                    )
+                                }
                                 updatePlotRef.current(cc)
                                 reportZoomState()
                             }
@@ -736,7 +767,8 @@ export function PoincarePlot(props: Props): null {
         },
         [
             canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin,
-            zoomKeyModifiersRequired, zoomMinScaleFactor, zoomMaxScaleFactor, dataSource, reportZoomState
+            zoomKeyModifiersRequired, zoomMinScaleFactor, zoomMaxScaleFactor, dataSource, reportZoomState,
+            snapToOriginalRanges
         ]
     )
 
