@@ -73,7 +73,7 @@ export interface Props {
      */
     highlightAxesOnMouseOver?: boolean
     /**
-     * Called (mirroring `onSubscribe`) whenever this plot (re)creates its zoom behavior, handing
+     * Called whenever this plot (re)creates its zoom behavior, handing
      * the caller a `resetZoom` function that programmatically clears d3-zoom's own accumulated
      * scale/pan state back to identity. See {@link ScatterPlot}'s identical prop for the full
      * explanation of why this is needed. Only meaningful (called) while `zoomEnabled` is true.
@@ -143,7 +143,7 @@ export function RasterPlot(props: Props): null {
     const dataSource = useDataSource<TimeSeriesChartData, Datum, TimeSeries>()
     const running = useDataSourceRunning(dataSource)
 
-    const {initialData} = useInitialData<TimeSeriesChartData, Datum>()
+    const {initialData} = useInitialData<Datum>()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),

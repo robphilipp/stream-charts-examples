@@ -1,44 +1,30 @@
 import {createContext, useContext} from "react";
 import type {BaseSeries} from "../series/baseSeries";
-import type {ChartData} from "../observables/ChartData";
 
 /**
- * The values exposed through the {@link useInitialData} react hook
- * @template CD The type of the chart data
- * @template D The type of the data object for the series
+ * The series the chart was handed (by its data source), for components that need the set of
+ * series up front (e.g. the legend, or a plot resetting itself for new data)
+ * @template D The type of the datum held in each series
  */
-export type UseInitialDataValues<CD extends ChartData, D> = {
-    /**
-     * An array of series representing the initial data for the chart (i.e. static data
-     * before streaming starts) where D is a datum, whose type must be the same as that
-     * used for the Observable on the chart data
-     */
+export type UseInitialDataValues<D> = {
     initialData: Array<BaseSeries<D>>
-
-    /**
-     * Function that takes an array of series (which has elements of type D) and converts
-     * it into a chart data type, CD
-     * @param seriesList
-     */
-    asChartData?: (seriesList: Array<BaseSeries<D>>) => CD
 }
 
-// the context is generic over the same type parameters as `UseInitialDataValues`, but a context
+// the context is generic over the same type parameter as `UseInitialDataValues`, but a context
 // object can't itself carry unbound generics -- `useInitialData` below casts it back to the
-// caller's concrete types, which is safe because `<InitialDataProvider/>` is what actually
+// caller's concrete type, which is safe because `<InitialDataProvider/>` is what actually
 // supplies the value
 export const InitialDataContext = createContext<unknown>(undefined)
 
 /**
- * React hook that sets up the React context for the initial data values.
- * @return The {@link UseInitialDataValues} held in the React context.
- * @template CD The type of the chart data
- * @template D The type of the data object for the series
+ * @return The {@link UseInitialDataValues} held in the React context
+ * @throws Error when this hook is used outside of its provider
+ * @template D The type of the datum held in each series
  */
-export function useInitialData<CD extends ChartData, D>(): UseInitialDataValues<CD, D> {
+export function useInitialData<D>(): UseInitialDataValues<D> {
     const context = useContext(InitialDataContext)
     if (context === undefined) {
         throw new Error("useInitialData can only be used when the parent is a <InitialDataProvider/>")
     }
-    return context as UseInitialDataValues<CD, D>
+    return context as UseInitialDataValues<D>
 }

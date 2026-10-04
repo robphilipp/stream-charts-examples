@@ -6,7 +6,6 @@ import {useInitialData} from "../hooks/useInitialData";
 import React, {useCallback, useEffect, useMemo, useRef} from "react";
 import {createPortal} from "react-dom";
 import * as d3 from "d3";
-import type {ChartData} from "../observables/ChartData.ts";
 import {defaultLegendStyle, LegendLocation} from "./constants";
 
 export interface LegendStyle {
@@ -95,7 +94,7 @@ export interface Props {
  * ```
  */
 // noinspection JSUnusedGlobalSymbols
-export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(
+export function Legend<D, S extends SeriesStyle, TM, AR extends BaseAxisRange, A extends BaseAxis>(
     props: Props
 ): React.ReactElement | null {
     const {
@@ -117,7 +116,7 @@ export function Legend<CD extends ChartData, D, S extends SeriesStyle, TM, AR ex
         setHoveredSeriesName
     } = useChart<D, S, TM, AR, A>()
     const {margin, plotDimensions} = usePlotDimensions()
-    const {initialData} = useInitialData<CD, D>()
+    const {initialData} = useInitialData<D>()
 
     const legendStyle = useMemo<LegendStyle>(
         () => ({

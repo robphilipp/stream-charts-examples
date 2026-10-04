@@ -119,12 +119,10 @@ function initialDataForSeriesCount(numberOfSeries: number): Array<TimeSeries> {
 const filterFrom = (filterValue: string): RegExp => regexFilter(filterValue).getOrElse(new RegExp(''))
 
 /**
- * An example wrapper to a raster chart, that accepts an rxjs observable. The {@link Chart} manages
- * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
- * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
- * {@link Chart} updates itself with the new data without causing React to re-render the component. In this
- * example, we delay the subscription to the observable by 1 second.
- * after the {@link Chart} has mounted.
+ * An example wrapper to a raster chart. The chart's data comes from a data source held in the
+ * app's store: Run/Pause start and stop the data source, which keeps ingesting even while this
+ * chart is unmounted (e.g. on another page). The {@link Chart} updates itself with the new data
+ * without causing React to re-render the component.
  * @param {Props} props The properties passed down from the parent
  * @return {Element} The streaming raster chart
  * @constructor

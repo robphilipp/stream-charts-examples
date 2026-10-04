@@ -117,7 +117,7 @@ export function randomWeightDataObservable(
     // the underlying `setInterval` is throttled (e.g. the tab/window being hidden) -- it never
     // catches up on its own, since the count just keeps incrementing by 1 per tick going forward,
     // not by however many ticks *should* have fired. That matters here because the chart's cadence
-    // (see `subscriptionTimeSeriesWithCadenceFor`) is deliberately wall-clock-based for the same
+    // (see `timeSeriesWithCadenceViewDriverFor`) is deliberately wall-clock-based for the same
     // reason: if the data source stayed tick-counted while cadence corrects itself immediately on
     // becoming visible again, cadence would race ahead of where the (still-behind) data actually
     // is, scrolling the axis past all the visible data instead of merely lagging behind it.

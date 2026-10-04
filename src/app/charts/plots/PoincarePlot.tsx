@@ -24,7 +24,6 @@ import type {IterateDatum, IterateSeries} from "../series/iterateSeries";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {type TooltipData, useTooltip} from "../hooks/useTooltip";
-import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {FastShiftArray} from "fast-shift-array";
 
@@ -156,13 +155,13 @@ export function PoincarePlot(props: Props): null {
     const {
         windowingTime = 100,
         onUpdateChartTime = noop,
-    } = useDataObservable<IterateChartData, IterateDatum>()
+    } = useDataObservable()
 
     // the application-owned source of the data, and whether it's running (streaming)
     const dataSource = useDataSource<IterateChartData, IterateDatum, IterateSeries>()
     const running = useDataSourceRunning(dataSource)
 
-    const {initialData} = useInitialData<TimeSeriesChartData, IterateDatum>()
+    const {initialData} = useInitialData<IterateDatum>()
 
     const {visibilityState: tooltipVisible} = useTooltip()
 

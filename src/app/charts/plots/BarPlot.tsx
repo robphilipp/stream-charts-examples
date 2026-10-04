@@ -17,11 +17,10 @@ import {
     type OrdinalStringAxis
 } from "../axes/axes";
 import type {Dimensions, Margin} from "../styling/margins";
-import {type WindowedOrdinalStats} from "../subscriptions/subscriptions";
 import {ordinalViewDriverFor} from "../subscriptions/viewDrivers";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {useDataSource, useDataSourceRunning} from "../hooks/useDataSource";
-import {initialOrdinalStats} from "../datasources/ordinalDataSource";
+import {initialOrdinalStats, type WindowedOrdinalStats} from "../datasources/ordinalDataSource";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {useInitialData} from "../hooks/useInitialData";
 import {type OrdinalChartData} from "../observables/ordinals";
@@ -121,7 +120,7 @@ export interface Props {
      */
     onZoomStateChange?: (zoomState: BarPlotZoomState) => void
     /**
-     * Called (mirroring `onSubscribe`) whenever this plot (re)creates its zoom behavior, handing
+     * Called whenever this plot (re)creates its zoom behavior, handing
      * the caller a `resetZoom` function that programmatically clears d3-zoom's own accumulated
      * scale state back to identity and restores the ordinal x-axes to their original (un-zoomed,
      * un-panned) ranges. See {@link ScatterPlot}'s identical prop for the full explanation of why
@@ -204,13 +203,13 @@ export function BarPlot(props: Props): null {
     const {
         windowingTime = 100,
         onUpdateChartTime = noop
-    } = useDataObservable<OrdinalChartData, OrdinalDatum>()
+    } = useDataObservable()
 
     // the application-owned source of the data, and whether it's running (streaming)
     const dataSource = useDataSource<OrdinalChartData, OrdinalDatum>()
     const running = useDataSourceRunning(dataSource)
 
-    const {initialData} = useInitialData<OrdinalChartData, OrdinalDatum>()
+    const {initialData} = useInitialData<OrdinalDatum>()
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),

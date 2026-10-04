@@ -18,7 +18,6 @@ import type {IterateChartData} from "../observables/iterates";
 import type {StreamingDataSource} from "../datasources/StreamingDataSource";
 import {currentTimesByGroup, type TimeGroupFor} from "../datasources/timeSeriesDataSource";
 import {iteratesCurrentTime} from "../datasources/iteratesDataSource";
-import {TimeWindowBehavior} from "./subscriptions";
 
 /*
  * View drivers: the *view* half of a streaming plot.
@@ -31,9 +30,22 @@ import {TimeWindowBehavior} from "./subscriptions";
  * series, so there is never a reason to keep a driver alive across a remount, adopt one, or defer
  * its teardown.
  *
- * Each driver mirrors the view logic of the corresponding `subscription*For` function in
- * `subscriptions.ts` (minus the ingestion, which now lives in the data sources).
+ * (Before v2, a plot's single subscription did both the ingestion and the view work, which tied
+ * the data's lifetime to the plot's -- see the data sources for the ingestion half.)
  */
+
+/**
+ * The behavior of the time window when data is added to the chart: `SCROLL` slides the window
+ * forward (keeping its width) as new data passes its end; `SQUEEZE` keeps the window's start
+ * pinned and widens it instead.
+ * Note: a const object rather than an enum, to support `erasableSyntaxOnly`
+ */
+export const TimeWindowBehavior = {
+    SCROLL: "SCROLL",
+    SQUEEZE: "SQUEEZE"
+} as const
+
+export type TimeWindowBehavior = (typeof TimeWindowBehavior)[keyof typeof TimeWindowBehavior];
 
 /**
  * The part of a data source a view driver needs

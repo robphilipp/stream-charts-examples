@@ -30,7 +30,7 @@ import {BarPlotTooltipContent} from "../charts/tooltips/BarPlotTooltipContent";
 import {type OrdinalChartData} from "../charts/observables/ordinals";
 import {type OrdinalDatum} from "../charts/series/ordinalSeries";
 import {type BarSeriesStyle, defaultBarSeriesStyle} from "../charts/styling/barPlotStyle";
-import {type WindowedOrdinalStats} from "../charts/subscriptions/subscriptions";
+import {type WindowedOrdinalStats} from "../charts/datasources/ordinalDataSource";
 import {AxisInterval} from "../charts/axes/AxisInterval";
 import {noop} from "../charts/utils";
 import {assignAxes} from "../charts/plots/plot";
@@ -141,12 +141,10 @@ function initialDataFrom(data: Array<TimeSeries>): Array<BaseSeries<OrdinalDatum
 const filterFrom = (filterValue: string): RegExp => regexFilter(filterValue).getOrElse(new RegExp(''))
 
 /**
- * An example wrapper to a bar chart that accepts a rxjs observable. The {@link Chart} manages
- * the subscription to the observable, but we can control when the {@link Chart} subscribes through the
- * `shouldSubscribe` property. Once subscribed, the observable emits a sequence or random chart data. The
- * {@link Chart} updates itself with the new data without causing React to re-render the component. In this
- * example, we delay the subscription to the observable by 1 second.
- * after the {@link Chart} has mounted.
+ * An example wrapper to a bar chart. The chart's data comes from a data source held in the
+ * app's store: Run/Pause start and stop the data source, which keeps ingesting even while this
+ * chart is unmounted (e.g. on another page). The {@link Chart} updates itself with the new data
+ * without causing React to re-render the component.
  * @param {Props} props The properties passed down from the parent
  * @return {Element} The streaming raster chart
  * @constructor

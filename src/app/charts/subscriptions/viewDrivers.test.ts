@@ -6,8 +6,8 @@ import {
     outlierViewDriverFor,
     timeSeriesViewDriverFor,
     timeSeriesWithCadenceViewDriverFor,
+    TimeWindowBehavior,
 } from "./viewDrivers";
-import {TimeWindowBehavior} from "./subscriptions";
 import {AxesState} from "../axes/AxesState";
 import {AxisLocation, AxisType, type ContinuousNumericAxis, type OrdinalStringAxis} from "../axes/axes";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
@@ -24,8 +24,8 @@ import {TimeSeriesDataSource} from "../datasources/timeSeriesDataSource";
 
 /**
  * The view drivers only advance the view and ask the plot to redraw -- ingestion is covered by the
- * data-source tests. These mirror the view-behavior tests of the original `subscription*For`
- * functions (SCROLL/SQUEEZE, axis routing, cadence anchoring, catch-up, visibility resync).
+ * data-source tests. These cover SCROLL/SQUEEZE, axis routing, cadence anchoring, catch-up, and
+ * visibility resync.
  */
 
 function fakeContinuousAxis(domain: [number, number] = [0, 1000]): ContinuousNumericAxis {

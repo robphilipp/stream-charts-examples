@@ -9,7 +9,7 @@ import type {ContinuousNumericAxis, SeriesLineStyle} from "../axes/axes";
 import {usePlotDimensions} from "../hooks/usePlotDimensions";
 import {emptyOrdinalDatum, type OrdinalDatum} from "../series/ordinalSeries";
 import type {TooltipData} from "../hooks/useTooltip";
-import type {WindowedOrdinalStats} from "../subscriptions/subscriptions";
+import type {WindowedOrdinalStats} from "../datasources/ordinalDataSource";
 import {defaultOrdinalValueStats} from "../observables/ordinals";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {BAR_CHART_TOOLTIP_PROVIDER_IDS} from "../plots/constants.ts";

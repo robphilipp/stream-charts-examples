@@ -3,7 +3,6 @@ import {type Margin} from "./styling/margins";
 import {initialSvgStyle, type SvgStyle} from "./styling/svgStyle";
 import type {BaseAxis, SeriesStyle} from "./axes/axes";
 import {noop} from "./utils";
-import {Observable, Subscription} from "rxjs";
 import type {BaseSeries} from "./series/baseSeries";
 import type {ChartData} from "./observables/ChartData";
 import {AxisInterval} from "./axes/AxisInterval";
@@ -33,19 +32,12 @@ const defaultBackground = '#202020';
  * @param backgroundColor The base/default background color. This can be overridden by the {@link Props.svgStyle} property.
  * @param svgStyle Overrides for the chart container's CSS style
  * @param seriesStyles Map holding the series name to the series style associated with that series.
- * @param initialData Initial (static) data to plot before subscribing to the {@link ChartData} observable.
- * @param asChartData Optional conversion function that converts an array of base-series with datum type D to a
- * descendent of a {@link ChartData} object
  * @param seriesFilter Regular expression that filters which series to display on the plot. Can be update while streaming
- * @param seriesObservable {@link ChartData} RxJS `Observable` that feeds the chart data to display (i.e. the data stream).
+ * @param dataSource The application-owned {@link StreamingDataSource} that holds (and ingests) the chart's data
  * @param windowingTime The time-window (in milliseconds) to buffer the incoming data before updating the chart. This is
  * a lever to reduce the lag between real-time and chart-time when a large amount of data is being
  * sourced by the observable. Smaller time-windows result in smoother scrolling, but more updates, and
  * possibly a larger lag.
- * @param shouldSubscribe When switching to `true` from `false`, subscribes to the {@link seriesObservable}. When switching
- * to `false` from `true`, unsubscribes from the {@link seriesObservable}.
- * @param onSubscribe Callback when the chart subscribes to the {@link ChartData} observable
- * @param onUnsubscribe Callback when the chart unsubscribes from the {@link ChartData} observable
  * @param onUpdateAxesBounds Callback when the time range changes. This is generally used by plots where the
  * x-axis starts to scroll as the data streams in past the end of the current time
  * @param onUpdateChartTime Callback for updating the current chart time. This is generally used by plots
@@ -84,21 +76,6 @@ export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
      */
     seriesStyles?: Map<string, S>
 
-    /*
-     | INITIAL DATA
-     */
-    /**
-     * Initial (static) data to plot before subscribing to the {@link ChartData} observable.
-     * Ignored (and not needed) when a {@link dataSource} is given -- the data source holds the
-     * series.
-     */
-    initialData?: Array<BaseSeries<D>>
-    /**
-     * Optional conversion function that converts an array of base-series with datum type D to a
-     * descendent of a {@link ChartData} object
-     * @param initialData The initial array of series
-     */
-    asChartData?: (initialData: Array<BaseSeries<D>>) => CD
     /**
      * Regular expression that filters which series to display on the plot. Can be update while streaming
      */
@@ -108,18 +85,14 @@ export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
      | DATA STREAM
      */
     /**
-     * The application-owned source of the chart's data (see {@link StreamingDataSource}). When
-     * given, the chart and its plots read their series from the data source, and redraw as it
-     * ingests new data, rather than subscribing to {@link seriesObservable} themselves -- the
-     * application starts and stops the data source (and it keeps ingesting while the chart is
-     * unmounted). Replaces `initialData`, `asChartData`, `seriesObservable`, `shouldSubscribe`,
-     * `onSubscribe`, `onUnsubscribe`, and `onUpdateData`, which are ignored when it's given.
+     * The application-owned source of the chart's data (see {@link StreamingDataSource}). The chart
+     * and its plots read their series from the data source, and redraw as it ingests new data --
+     * they never subscribe to the data stream themselves. The application starts and stops the
+     * data source (e.g. Run/Pause), and the data source keeps ingesting while the chart is
+     * unmounted (e.g. the user navigated to another page), so the chart picks up where it left
+     * off when it remounts.
      */
-    dataSource?: StreamingDataSource<CD, D>
-    /**
-     * {@link ChartData} RxJS `Observable` that feeds the chart data to display (i.e. the data stream).
-     */
-    seriesObservable?: Observable<CD>
+    dataSource: StreamingDataSource<CD, D>
     /**
      * The time-window (in milliseconds) to buffer the incoming data before updating the chart. This is
      * a lever to reduce the lag between real-time and chart-time when a large amount of data is being
@@ -128,26 +101,12 @@ export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
      */
     windowingTime?: number
     /**
-     * The period (ms) at which `seriesObservable` itself emits new data, when known. When
+     * The period (ms) at which the data source's generator emits new data, when known. When
      * provided, buffering switches from wall-clock-based to a fixed tick count derived from
      * `windowingTime / dataUpdatePeriod`, avoiding a jittery scroll that can otherwise result once
-     * the axis auto-scrolls (see {@link subscriptionTimeSeriesFor}'s `dataUpdatePeriod` param).
+     * the axis auto-scrolls (see the view drivers in `subscriptions/viewDrivers.ts`).
      */
     dataUpdatePeriod?: number
-    /**
-     * When switching to `true` from `false`, subscribes to the {@link seriesObservable}. When switching
-     * to `false` from `true`, unsubscribes from the {@link seriesObservable}.
-     */
-    shouldSubscribe?: boolean
-    /**
-     * Callback when the chart subscribes to the {@link ChartData} observable
-     * @param subscription The RxJS subscription
-     */
-    onSubscribe?: (subscription: Subscription) => void
-    /**
-     * Callback when the chart unsubscribes from the {@link ChartData} observable.
-     */
-    onUnsubscribe?: () => void
     /**
      * Callback when the time range changes. This is generally used by plots where the
      * x-axis starts to scroll as the data streams in past the end of the current time
@@ -164,13 +123,6 @@ export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
      * @param time The current chart time
      */
     onUpdateChartTime?: (time: number) => void
-    /**
-     * Callback function that is called when new data arrives to the chart.
-     * @param seriesName The name of the series for which new data arrived
-     * @param data The new data that arrived in the windowing tine
-     * @see UseChartValues.windowingTime
-     */
-    onUpdateData?: (seriesName: string, data: Array<D>) => void
 
     /**
      * The child components of the chart (i.e. the axis, plot, tracker, tooltip)
@@ -179,8 +131,9 @@ export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
 }
 
 /**
- * The chart container that holds the axes, plot, tracker, and tooltip. The chart manages the
- * subscription, sets up the {@link useChart} hook via the {@link ChartProvider}.
+ * The chart container that holds the axes, plot, tracker, and tooltip. The chart reads its data
+ * from the application-owned data source (its `dataSource` prop), and sets up the
+ * {@link useChart} hook via the {@link ChartProvider}.
  *
  * Internally, the chart is backed by a single `<canvas>` element rather than an SVG element tree.
  * The canvas itself is created and sized by {@link CanvasSurfaceProvider}, which derives its size
@@ -222,11 +175,9 @@ export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
             highlightWidth: 5
         }],
     ])}
-    initialData={initialDataRef.current}
+    dataSource={dataSource}
     seriesFilter={filter}
-    seriesObservable={observableRef.current}
-    shouldSubscribe={running}
-    onUpdateTime={handleChartTimeUpdate}
+    onUpdateAxesBounds={handleChartTimeUpdate}
     windowingTime={150}
 >
     <ContinuousAxis
@@ -238,13 +189,13 @@ export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
     <CategoryAxis
         axisId="y-axis-1"
         location={AxisLocation.Left}
-        categories={initialDataRef.current.map(series => series.name)}
+        categories={dataSource.seriesList().map(series => series.name)}
         label="neuron"
     />
     <CategoryAxis
         axisId="y-axis-2"
         location={AxisLocation.Right}
-        categories={initialDataRef.current.map(series => series.name)}
+        categories={dataSource.seriesList().map(series => series.name)}
         label="neuron"
     />
     <Tracker
@@ -269,7 +220,6 @@ export interface Props<CD extends ChartData, D, S extends SeriesStyle> {
     </Tooltip>
     <RasterPlot
         spikeMargin={1}
-        dropDataAfter={5000}
         panEnabled={true}
         zoomEnabled={true}
         zoomKeyModifiersRequired={true}
@@ -285,30 +235,20 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
         color = '#d2933f',
         backgroundColor = defaultBackground,
         seriesStyles = new Map<string, S>(),
-        initialData,
-        asChartData,
         seriesFilter = /./,
         dataSource,
-        seriesObservable,
         windowingTime = 100,
         dataUpdatePeriod,
-        shouldSubscribe = true,
 
-        onSubscribe = noop,
-        onUnsubscribe = noop,
         onUpdateAxesBounds = noop,
         onUpdateChartTime = noop,
-        onUpdateData = noop,
 
         children,
     } = props
 
-    // with a data source, the series come from the data source (a new data source means new initial
-    // data, exactly as a new `initialData` array did, so plots keyed on the initial data reset)
-    const effectiveInitialData = useMemo<Array<BaseSeries<D>>>(
-        () => dataSource !== undefined ? dataSource.seriesList() : (initialData ?? []),
-        [dataSource, initialData]
-    )
+    // the series held by the data source, as of when it was handed to the chart (a new data source
+    // means new initial data, so plots keyed on the initial data reset)
+    const initialData = useMemo<Array<BaseSeries<D>>>(() => dataSource.seriesList(), [dataSource])
 
     // override the defaults with the parent's properties, leaving any unset values as the default value
     const margin = {...defaultMargin, ...props.margin}
@@ -345,19 +285,10 @@ export function Chart<CD extends ChartData, D, S extends SeriesStyle, TM, AR ext
                 <AxesProvider onUpdateAxesInterval={onUpdateAxesBounds}>
                     <MouseProvider<D, TM>>
                         <TooltipProvider<D, TM>>
-                            <InitialDataProvider<CD, D>
-                                initialData={effectiveInitialData}
-                                asChartData={dataSource !== undefined ? undefined : asChartData}
-                            >
-                                <DataObservableProvider<CD, D>
-                                    seriesObservable={dataSource !== undefined ? undefined : seriesObservable}
+                            <InitialDataProvider<D> initialData={initialData}>
+                                <DataObservableProvider
                                     windowingTime={windowingTime}
                                     dataUpdatePeriod={dataUpdatePeriod}
-                                    shouldSubscribe={dataSource !== undefined ? false : shouldSubscribe}
-
-                                    onSubscribe={onSubscribe}
-                                    onUnsubscribe={onUnsubscribe}
-                                    onUpdateData={onUpdateData}
                                     onUpdateChartTime={onUpdateChartTime}
                                 >
                                     <DataSourceContext.Provider value={dataSource}>

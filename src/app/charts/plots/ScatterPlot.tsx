@@ -20,8 +20,11 @@ import type {CanvasContext} from "../d3types";
 import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
 import {firstIndexAtOrAfter, noop} from "../utils";
 import type {Dimensions, Margin} from "../styling/margins";
-import {TimeWindowBehavior} from "../subscriptions/subscriptions";
-import {timeSeriesViewDriverFor, timeSeriesWithCadenceViewDriverFor} from "../subscriptions/viewDrivers";
+import {
+    timeSeriesViewDriverFor,
+    timeSeriesWithCadenceViewDriverFor,
+    TimeWindowBehavior
+} from "../subscriptions/viewDrivers";
 import {useDataObservable} from "../hooks/useDataObservable";
 import {useDataSource, useDataSourceRunning} from "../hooks/useDataSource";
 import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
@@ -100,7 +103,7 @@ export interface Props {
     highlightAxesOnMouseOver?: boolean
 
     /**
-     * Called (mirroring `onSubscribe`) whenever this plot (re)creates its zoom behavior, handing
+     * Called whenever this plot (re)creates its zoom behavior, handing
      * the caller a `resetZoom` function that programmatically clears d3-zoom's own accumulated
      * scale/pan state back to identity. This exists because d3-zoom keeps that state attached
      * directly to the canvas element -- entirely separate from (and unaffected by) resetting the
@@ -157,7 +160,7 @@ export function ScatterPlot(props: Props): null {
 
     const {
         initialData
-    } = useInitialData<TimeSeriesChartData, Datum>()
+    } = useInitialData<Datum>()
 
     const {
         xAxesState,

@@ -10,7 +10,7 @@ export const DataSourceContext = createContext<unknown>(undefined)
 
 /**
  * @return The {@link StreamingDataSource} handed to the enclosing {@link Chart} through its
- * `dataSource` prop, or `undefined` when the chart is using the legacy `seriesObservable` props
+ * `dataSource` prop (`undefined` only outside of a chart)
  * @template CD The type of the chart data
  * @template D The type of datum held in each series
  * @template S The type of series

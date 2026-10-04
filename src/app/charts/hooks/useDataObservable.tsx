@@ -1,38 +1,18 @@
 import {createContext, useContext} from "react";
-import {Observable, Subscription} from "rxjs";
-import type {ChartData} from "../observables/ChartData";
 
 /**
- * The values exposed through the {@link useDataObservable} react hook
- * @template CD The type of the chart data
- * @template D The type of the data object for the series
+ * The chart's streaming settings and callbacks (the data itself comes from the chart's data
+ * source -- see {@link useDataSource})
  */
-export interface UseObservableValues<CD extends ChartData, D> {
+export interface UseObservableValues {
     /**
-     * An observable source for chart data
-     */
-    // seriesObservable?: SeriesObservable
-    seriesObservable?: Observable<CD>
-    /**
-     * When `true` the chart will subscribe to the observable, or if already subscribed, will remain
-     * subscribed. When `false` the chart will unsubscribe to the observable if subscribed, or will
-     * remain unsubscribed if not already subscribed.
-     */
-    shouldSubscribe?: boolean
-    /**
-     * The windowing time for aggregating chart-data events. Defines the update rate of the chart.
-     * For example, if chart-data events occur every 1 ms, and the windowing time is set to 10 ms,
-     * then events will be aggregated for 10 ms, and then the chart will be updated. In this example,
-     * the chart would be updated only once per 10 ms.
+     * The time (in milliseconds) over which incoming data is batched before the plot redraws
      */
     windowingTime?: number
     /**
-     * The period (ms) at which `seriesObservable` itself emits new data, when known. When
-     * provided, the subscription buffers by a fixed tick count derived from
-     * `windowingTime / dataUpdatePeriod` instead of by wall-clock time, avoiding the jittery
-     * scroll that can result from two independent, unsynchronized timers (the source's own
-     * emission timer and the windowing timer) disagreeing about how many ticks landed in a
-     * given flush.
+     * The period (ms) at which the data source's generator emits new data, when known. When
+     * provided, batching switches from wall-clock-based to a fixed tick count derived from
+     * `windowingTime / dataUpdatePeriod` (see the view drivers in `subscriptions/viewDrivers.ts`).
      */
     dataUpdatePeriod?: number
 
@@ -40,49 +20,23 @@ export interface UseObservableValues<CD extends ChartData, D> {
      | USER CALLBACK FUNCTIONS
      */
     /**
-     * Callback function that is called when the chart subscribes to the observable
-     * @param subscription The subscription resulting from the subscribe action
-     */
-    onSubscribe: (subscription: Subscription) => void
-    /**
-     * Callback function that is called after the chart unsubscribes from the observable
-     * (e.g. when `shouldSubscribe` becomes `false`, or on unmount). Mirrors `onSubscribe` as a
-     * pure notification -- the chart itself always performs the actual `unsubscribe()` and
-     * calls this afterward to report it (e.g. so a store can clear a stashed subscription
-     * reference); it is not this callback's job to unsubscribe anything itself, and it is safe
-     * to leave unimplemented (defaults to a no-op).
-     */
-    onUnsubscribe?: () => void
-    /**
-     * Callback function that is called when new data arrives to the chart.
-     * @param seriesName The name of the series for which new data arrived
-     * @param data The new data that arrived in the windowing tine
-     * @see UseChartValues.windowingTime
-     */
-    onUpdateData?: (seriesName: string, data: Array<D>) => void
-    /**
-     * todo
-     * @param time
+     * Callback function that is called when the chart time is updated
+     * @param time The new chart time
      */
     onUpdateChartTime?: (time: number) => void
 }
 
-// the context is generic over the same type parameters as `UseObservableValues`, but a context
-// object can't itself carry unbound generics -- `useDataObservable` below casts it back to the
-// caller's concrete types, which is safe because `<DataObservableProvider/>` is what actually
-// supplies the value
-export const DataObservableContext = createContext<unknown>(undefined)
+export const DataObservableContext = createContext<UseObservableValues | undefined>(undefined)
 
 /**
- * React hook that sets up the React context for the chart values.
+ * React hook that sets up the React context for the chart's streaming settings and callbacks.
  * @return The {@link UseObservableValues} held in the React context.
- * @template CD The type of the chart data
- * @template D The type of the data object for the series
+ * @throws Error when this hook is used outside of its provider
  */
-export function useDataObservable<CD extends ChartData, D>(): UseObservableValues<CD, D> {
+export function useDataObservable(): UseObservableValues {
     const context = useContext(DataObservableContext)
     if (context === undefined) {
         throw new Error("useDataObservable can only be used when the parent is a <DataObservableProvider/>")
     }
-    return context as UseObservableValues<CD, D>
+    return context
 }

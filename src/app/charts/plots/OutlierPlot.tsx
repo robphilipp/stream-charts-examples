@@ -26,8 +26,7 @@ import {
     panHandler,
     type SeriesLineStyle
 } from "../axes/axes"
-import {TimeWindowBehavior} from "../subscriptions/subscriptions"
-import {outlierViewDriverFor, outlierWithCadenceViewDriverFor} from "../subscriptions/viewDrivers"
+import {outlierViewDriverFor, outlierWithCadenceViewDriverFor, TimeWindowBehavior} from "../subscriptions/viewDrivers"
 import type {OutlierChartData} from "../observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries"
 import {FastShiftArray} from "fast-shift-array";
@@ -99,7 +98,7 @@ export interface Props {
      */
     highlightAxesOnMouseOver?: boolean
     /**
-     * Called (mirroring `onSubscribe`) whenever this plot (re)creates its zoom behavior, handing
+     * Called whenever this plot (re)creates its zoom behavior, handing
      * the caller a `resetZoom` function that programmatically clears d3-zoom's own accumulated
      * scale/pan state back to identity. See {@link ScatterPlot}'s identical prop for the full
      * explanation of why this is needed. Only meaningful (called) while `zoomEnabled` is true.
@@ -174,7 +173,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
 
     const {mouseOverHandlerFor, mouseLeaveHandlerFor} = mouse
 
-    const {initialData} = useInitialData<OutlierChartData<M>, OutlierDatum<M>>()
+    const {initialData} = useInitialData<OutlierDatum<M>>()
 
     const {
         xAxesState,
@@ -188,7 +187,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
 
     const {
         windowingTime = 100,
-    } = useDataObservable<OutlierChartData<M>, OutlierDatum<M>>()
+    } = useDataObservable()
 
     // the application-owned source of the data, and whether it's running (streaming)
     const dataSource = useDataSource<OutlierChartData<M>, OutlierDatum<M>, OutlierSeries<M>>()
