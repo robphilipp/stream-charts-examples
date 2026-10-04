@@ -551,12 +551,19 @@ export function PoincarePlot(props: Props): null {
      */
     const updatedBoundsHandler = useCallback(
         (updates: Map<string, ContinuousAxisRange>): void => {
+            // the new bounds become the axes' new un-zoomed (original) domains -- the zoom is reset
+            // to identity below, so they're the baseline the zoom constraint and the fully-zoomed-out
+            // snap (see `snapToOriginalRanges`) must measure against. The update itself can't be
+            // used as-is: `ContinuousAxis` carries the *previous* `.original` forward on a domain
+            // change, which would leave the zoom clamped to (and snapping back to) the old domain,
+            // e.g. [0, 1] after switching to an iterate function whose range is [-1, 1].
             updates.forEach((update, axisId) => {
+                const [start, end] = update.current.asTuple()
                 if (xAxisRangesRef.current.has(axisId)) {
-                    xAxisRangesRef.current.set(axisId, update)
+                    xAxisRangesRef.current.set(axisId, ContinuousAxisRange.from(start, end))
                 }
                 if (yAxisRangesRef.current.has(axisId)) {
-                    yAxisRangesRef.current.set(axisId, update)
+                    yAxisRangesRef.current.set(axisId, ContinuousAxisRange.from(start, end))
                 }
             })
             if (zoomEnabled && zoomSelectionRef.current !== undefined && zoomRef.current !== undefined) {
