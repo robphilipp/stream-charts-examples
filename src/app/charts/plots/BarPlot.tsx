@@ -476,13 +476,15 @@ export function BarPlot(props: Props): null {
         [initialData, axisAssignments, xAxesState]
     )
 
-    // updates the timing using the onUpdateTime and updatePlot references. This and the references
-    // defined above allow the axes' times to be updated properly by avoid stale reference to these
-    // functions.
+    // redraws the plot for newly arrived data and reports the chart time, using the updatePlot
+    // reference (to avoid a stale updatePlot). Deliberately leaves the axes' ranges
+    // (`ordinalRangesRef`) alone: the ordinal axes don't scroll as data arrives, so only this plot's
+    // own zoom, pan, and resize handling changes them -- replacing them here (as a previous version
+    // did, with the y-axes' ranges) left the x-axis zoom/pan handlers with nothing to act on until
+    // something else happened to rebuild the map.
     const updateTimingAndPlot = useCallback(
-        (ranges: Map<string, OrdinalAxisRange>): void => {
+        (): void => {
             if (canvasContext !== null) {
-                ordinalRangesRef.current = ranges
                 updatePlotRef.current(canvasContext)
                 onUpdateChartTime(currentTimeRef.current)
                 updatePlotRef.current(canvasContext)
@@ -709,8 +711,8 @@ export function BarPlot(props: Props): null {
                 if (ordinalAxesRanges.size === 0) {
                     // when no time-ranges have yet been created, then create them and populate the
                     // existing ref's map in place (rather than replacing it -- reassigning `.current`
-                    // once it's already in play elsewhere, e.g. `updateTimingAndPlot` above, isn't
-                    // allowed by react-hooks/immutability)
+                    // once it's already in play elsewhere, e.g. the zoom/pan handlers, isn't allowed
+                    // by react-hooks/immutability)
                     ordinalRangesRef.current.clear()
                     ordinalAxisRanges(xAxesState.axes)
                         .forEach((range, id) => ordinalRangesRef.current.set(id, range))
@@ -870,8 +872,7 @@ export function BarPlot(props: Props): null {
         (source: NonNullable<typeof dataSource>) => ordinalViewDriverFor(
             source,
             windowingTime,
-            yAxesState,
-            ranges => updateTimingAndPlotRef.current(ranges),
+            () => updateTimingAndPlotRef.current(),
             currentTime => currentTimeRef.current = currentTime,
         )
     )

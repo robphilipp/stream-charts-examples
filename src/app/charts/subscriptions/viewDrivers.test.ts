@@ -9,7 +9,7 @@ import {
     TimeWindowBehavior,
 } from "./viewDrivers";
 import {AxesState} from "../axes/AxesState";
-import {AxisLocation, AxisType, type ContinuousNumericAxis, type OrdinalStringAxis} from "../axes/axes";
+import {AxisLocation, AxisType, type ContinuousNumericAxis} from "../axes/axes";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
 import {assignAxes} from "../plots/plot";
 import {datumOf, type Datum, type TimeSeries} from "../series/timeSeries";
@@ -366,9 +366,7 @@ describe('ordinalViewDriverFor', () => {
         const source = fakeSource<OrdinalChartData>()
         const updateTimingAndPlot = jest.fn()
         const setCurrentTime = jest.fn()
-        track(ordinalViewDriverFor(
-            source, 100, AxesState.from<OrdinalStringAxis>(new Map()), updateTimingAndPlot, setCurrentTime,
-        ))
+        track(ordinalViewDriverFor(source, 100, updateTimingAndPlot, setCurrentTime))
 
         const stats = defaultOrdinalStats()
         stats.maxDatum.time = ordinalDatumOf(750, 'a', 1)

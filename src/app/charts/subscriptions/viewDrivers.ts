@@ -1,14 +1,8 @@
 import {interval, type MonoTypeOperatorFunction, type Observable, type OperatorFunction, Subscription} from "rxjs";
 import {bufferCount, bufferTime, map, mergeAll, mergeWith} from "rxjs/operators";
-import {
-    continuousAxisRanges,
-    type ContinuousNumericAxis,
-    ordinalAxisRanges,
-    type OrdinalStringAxis
-} from "../axes/axes";
+import {continuousAxisRanges, type ContinuousNumericAxis} from "../axes/axes";
 import {AxesState} from "../axes/AxesState";
 import {ContinuousAxisRange} from "../axes/ContinuousAxisRange";
-import {OrdinalAxisRange} from "../axes/OrdinalAxisRange";
 import type {AxesAssignment} from "../plots/plot";
 import type {ChartData} from "../observables/ChartData";
 import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
@@ -431,23 +425,28 @@ export function outlierWithCadenceViewDriverFor<M extends readonly number[]>(
 
 /**
  * The view driver for an ordinal (bar) plot: reports the chart-wide current time and asks the
- * plot to redraw as new data arrives. (The stats are kept by the data source.)
+ * plot to redraw as new data arrives. (The stats are kept by the data source.) Unlike the
+ * time-series drivers, it has no axis ranges to advance: an ordinal plot's axes don't scroll as
+ * data arrives, so its axes' ranges change only through the plot's own zoom, pan, and resize.
+ * @param dataSource The data source whose updates drive the view
+ * @param windowingTime The time (ms) over which updates are batched before redrawing
+ * @param updateTimingAndPlot Redraws the plot (and reports the chart time)
+ * @param setCurrentTime Records the chart-wide current time
+ * @param dataUpdatePeriod The period (ms) at which the source emits, when known (see {@link renderBatching})
  * @return The driver's subscription, to unsubscribe when the plot unmounts
  */
 export function ordinalViewDriverFor(
     dataSource: ViewDriverSource<OrdinalChartData>,
     windowingTime: number,
-    yAxesState: AxesState<OrdinalStringAxis>,
-    updateTimingAndPlot: (ranges: Map<string, OrdinalAxisRange>) => void,
+    updateTimingAndPlot: () => void,
     setCurrentTime: (currentTime: number) => void,
     dataUpdatePeriod?: number,
 ): Subscription {
     return dataSource.updates$
         .pipe(renderBatching<OrdinalChartData>(windowingTime, dataUpdatePeriod))
         .subscribe(dataList => dataList.forEach(data => {
-            const yAxisRanges = ordinalAxisRanges(yAxesState.axes as Map<string, OrdinalStringAxis>)
             if (data.newPoints.size > 0) setCurrentTime(data.stats.maxDatum.time.time || NaN)
-            updateTimingAndPlot(yAxisRanges)
+            updateTimingAndPlot()
         }))
 }
 
