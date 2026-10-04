@@ -1,5 +1,4 @@
-import {type JSX, useCallback, useRef, useState} from "react"
-import {Observable} from "rxjs"
+import {type JSX, useCallback, useMemo, useRef, useState} from "react"
 import {
     Grid,
     gridArea,
@@ -14,18 +13,13 @@ import {
 } from "react-resizable-grid-layout"
 import * as d3 from "d3"
 
-import {
-    initialOutlierData,
-    periodicWithSeveralBandsFn,
-    randomOutlierDataObservable
-} from "./dataproviders/randomOutlierData.ts"
+import {initialOutlierData} from "./dataproviders/randomOutlierData.ts"
 import {Chart} from "../charts/Chart"
 import {ContinuousAxis} from "../charts/axes/ContinuousAxis"
 import {AxisLocation, defaultLineStyle} from "../charts/axes/axes"
 import {OutlierPlot} from "../charts/plots/OutlierPlot"
 import {Tooltip} from "../charts/tooltips/Tooltip"
 import {OutlierPlotTooltipContent} from "../charts/tooltips/OutlierPlotTooltipContent"
-import type {OutlierChartData} from "../charts/observables/outliers"
 import {type OutlierSeries, outlierSeriesFrom} from "../charts/series/outlierSeries"
 import {lightTheme, type Theme} from "../ui/Themes.ts"
 import Checkbox from "../ui/Checkbox"
@@ -45,33 +39,30 @@ import {DropDataControl} from "./controls/DropDataControl.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
 import {SeriesFilter} from "./controls/SeriesFilter.tsx";
-import {DEFAULT_DROP_AFTER_100, DROP_AFTER_100_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
+import {DROP_AFTER_100_SEC, dropDataOptionForMs} from "./options/dropDataAfter.ts";
 import {VerticalDivider} from "../ui/VerticalDivider.tsx";
 import {CadenceControl} from "./controls/CadenceControl.tsx";
 import {BufferingControl} from "./controls/BufferingControl.tsx";
 import {DataUpdateRateControl} from "./controls/DataUpdateRateControl.tsx";
 import {noop} from "../charts/utils";
+import {
+    baseDataFnFactory,
+    DEFAULT_DATA_UPDATE_PERIOD,
+    MEASURES,
+    type Measures,
+    NOISE_SIGMA,
+    SERIES_NAME,
+    useOutlierChartStore
+} from "./appstate/outlierChartStore.ts";
 
-// 1 sigma (~68%), 2 sigma (~95%), 3 sigma (~99.7%)
-const MEASURES = [0.68, 0.95, 0.997] as const
-type Measures = typeof MEASURES
 const MEASURE_DESCRIPTIONS = [
     "Points in this band are not outliers.",
     "Points in this band are unlikely to be outliers.",
     "Points in this band are possibly outliers. Points outside of this band are likely outliers.",
 ] as readonly [string, string, string]
 
-const SERIES_NAME = "Spot Price Index"
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
-const UPDATE_PERIOD = 25
-const NOISE_SIGMA = 0.5
-const PERIODS: Array<[period: number, offset: number]> = [[4000, -1], [970, 1.3], [310, 2.1]]
-const PERIOD_MAGNITUDE = 30
 const INITIAL_POINT_COUNT = 400  // 100 * 25ms = 2500ms, fills the default x-axis window
-
-function baseDataFnFactory() {
-    return periodicWithSeveralBandsFn<Measures>(PERIODS, PERIOD_MAGNITUDE)
-}
 
 function defaultInitialOutlierData(): Array<OutlierSeries<Measures>> {
     return initialOutlierData<Measures>(
@@ -79,23 +70,24 @@ function defaultInitialOutlierData(): Array<OutlierSeries<Measures>> {
         baseDataFnFactory(),
         MEASURES,
         NOISE_SIGMA,
-        UPDATE_PERIOD,
+        DEFAULT_DATA_UPDATE_PERIOD,
         INITIAL_POINT_COUNT,
         MEASURE_DESCRIPTIONS
     )
 }
 
-function lastTimeIn(seriesList: Array<OutlierSeries<Measures>>): number {
-    return seriesList.reduce(
-        (tMax, series) => Math.max(tMax, series.last().map(d => d.datum.x).getOrElse(0)),
-        0
-    )
-}
+/**
+ * Compiles the filter's regex string into a `RegExp`, falling back to a match-everything regex
+ * when the string isn't a valid regular expression (see StreamingScatterChart's identical helper).
+ * @param filterValue The string representation of the regex
+ * @return The compiled regex, or a match-everything regex when the string is invalid
+ */
+const filterFrom = (filterValue: string): RegExp => regexFilter(filterValue).getOrElse(new RegExp(''))
 
 /**
- * Builds a fresh array of {@link OutlierSeries} from the given template. The subscription
- * appends to `series.data` in place, so the chart needs its own copy of the data arrays —
- * otherwise the pristine seed gets mutated and "Clear" silently becomes a no-op.
+ * Builds a fresh array of {@link OutlierSeries} from the given template. The data source appends
+ * to `series.data` in place, so it needs its own copy of the data arrays -- otherwise the pristine
+ * seed gets mutated and "Clear" silently becomes a no-op.
  */
 function freshCopyOf(template: Array<OutlierSeries<Measures>>): Array<OutlierSeries<Measures>> {
     return template.map(series => outlierSeriesFrom(series.name, series.data.slice(), series.measures, series.measureDescriptions))
@@ -122,38 +114,58 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
             : defaultInitialOutlierData()
     )
 
-    // tunable streaming settings -- declared before buildObservable since it reads dataUpdatePeriod
-    const [windowingTime, setWindowingTime] = useState<number>(25)
+    // ----------------------------------------------------------------
+    // GRAB STATE FROM STORE (zustand) -- the store survives a route change (unmount/remount), so
+    // navigating away and back keeps the chart's settings, and its data source (which owns the
+    // stream's subscription and the series) keeps ingesting while this chart is unmounted
+    //
+    const dataSource = useOutlierChartStore(state => state.dataSource)
+    const setInitialData = useOutlierChartStore(state => state.setInitialData)
+    const running = useOutlierChartStore(state => state.running)
+    const setRunning = useOutlierChartStore(state => state.setRunning)
+
+    const windowingTime = useOutlierChartStore(state => state.windowingTime)
+    const setWindowingTime = useOutlierChartStore(state => state.setWindowingTime)
     // 0 means disabled (unchecked); CadenceControl's own default of 25ms is what appears once
-    // the checkbox is checked, matching the previous hardcoded `withCadenceOf={20}` value's
-    // intent without enabling cadence by default
-    const [cadence, setCadence] = useState<number>(0)
-    const [dataUpdatePeriod, setDataUpdatePeriod] = useState<number>(UPDATE_PERIOD)
+    // the checkbox is checked
+    const cadence = useOutlierChartStore(state => state.cadence)
+    const setCadence = useOutlierChartStore(state => state.setCadence)
+    const dataUpdatePeriod = useOutlierChartStore(state => state.dataUpdatePeriod)
+    const setDataUpdatePeriod = useOutlierChartStore(state => state.setDataUpdatePeriod)
 
-    const buildObservable = (initData: Array<OutlierSeries<Measures>>): Observable<OutlierChartData<Measures>> =>
-        randomOutlierDataObservable<Measures>(
-            SERIES_NAME,
-            baseDataFnFactory(),
-            MEASURES,
-            NOISE_SIGMA,
-            dataUpdatePeriod,
-            lastTimeIn(initData),
-        )
+    const filterValue = useOutlierChartStore(state => state.filterValue)
+    const setFilterValue = useOutlierChartStore(state => state.setFilterValue)
+    const dropAfterMs = useOutlierChartStore(state => state.dropAfterMs)
+    const setDropAfterMs = useOutlierChartStore(state => state.setDropAfterMs)
 
-    const [initialData, setInitialData] = useState<Array<OutlierSeries<Measures>>>(() => freshCopyOf(seededInitialData))
-    const [observable, setObservable] = useState<Observable<OutlierChartData<Measures>>>(() => buildObservable(seededInitialData))
-    const [running, setRunning] = useState<boolean>(false)
+    const selectedInterpolationName = useOutlierChartStore(state => state.selectedInterpolationName)
+    const setSelectedInterpolationName = useOutlierChartStore(state => state.setSelectedInterpolationName)
+    const showMarkers = useOutlierChartStore(state => state.showMarkers)
+    const setShowMarkers = useOutlierChartStore(state => state.setShowMarkers)
+    const showTooltip = useOutlierChartStore(state => state.showTooltip)
+    const setShowTooltip = useOutlierChartStore(state => state.setShowTooltip)
+    const tooltipType = useOutlierChartStore(state => state.tooltipType)
+    const setTooltipType = useOutlierChartStore(state => state.setTooltipType)
+    const highlightAxes = useOutlierChartStore(state => state.highlightAxes)
+    const setHighlightAxes = useOutlierChartStore(state => state.setHighlightAxes)
+    //
+    // ----------------------------------------------------------------
 
-    const [filterValue, setFilterValue] = useState<string>('')
-    const [filter, setFilter] = useState<RegExp>(new RegExp(''))
-    const [dropAfterMs, setDropAfterMs] = useState<number>(DEFAULT_DROP_AFTER_100[1])
+    const filter = useMemo(() => filterFrom(filterValue), [filterValue])
+    const interpolation = useMemo(
+        () => (INTERPOLATIONS.get(selectedInterpolationName) || ['Linear', d3.curveLinear])[1],
+        [selectedInterpolationName]
+    )
 
-    const [selectedInterpolationName, setSelectedInterpolationName] = useState<string>('curveLinear')
-    const [interpolation, setInterpolation] = useState<d3.CurveFactory>(() => d3.curveLinear)
-    const [showMarkers, setShowMarkers] = useState<boolean>(true)
-    const [showTooltip, setShowTooltip] = useState<boolean>(true)
-    const [tooltipType, setTooltipType] = useState<'html' | 'svg'>('html')
-    const [highlightAxes, setHighlightAxes] = useState<boolean>(false)
+    // seeds the store's data source with the initial data (the store survives remounts, so this
+    // only needs to happen when the store hasn't been seeded yet). The ref guard keeps this from
+    // looping when the supplied initial data is itself empty.
+    const seededRef = useRef<boolean>(false)
+    // eslint-disable-next-line react-hooks/refs
+    if (!seededRef.current && dataSource.seriesList().length === 0) {
+        seededRef.current = true
+        setInitialData(freshCopyOf(seededInitialData))
+    }
 
     const startTimeRef = useRef<number>(new Date().valueOf())
     const intervalRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -177,13 +189,12 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     }
 
     function handleUpdateRegex(updatedFilter: string): void {
+        // the filter's regex is compiled from the filter value (see `filter` above)
         setFilterValue(updatedFilter)
-        regexFilter(updatedFilter).onSuccess((regex: RegExp) => setFilter(regex))
     }
 
     function handleInterpolationChange(name: string): void {
-        const [, factory] = INTERPOLATIONS.get(name) || ['Linear', d3.curveLinear]
-        setInterpolation(() => factory)
+        // the interpolation's curve factory is derived from its name (see `interpolation` above)
         setSelectedInterpolationName(name)
     }
 
@@ -205,7 +216,6 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
 
     function handleRunPauseClick(): void {
         if (!running) {
-            setObservable(buildObservable(initialData))
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(
@@ -220,11 +230,13 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
     }
 
     function handleClearClick(): void {
+        // replaces the data source with a fresh one holding the initial data (which stops the
+        // current one); like before, Clear resets the data and the zoom, not the settings
         setInitialData(freshCopyOf(seededInitialData))
         setElapsed(0)
         setChartTime(0)
 
-        // the axes reset via initialData above, but d3-zoom keeps its own accumulated scale/pan
+        // the axes reset via the new data source above, but d3-zoom keeps its own accumulated scale/pan
         // state on the canvas element itself -- clear that too, or the next zoom gesture would
         // compute its new scale against the stale, pre-reset transform
         resetZoomRef.current()
@@ -409,10 +421,8 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                             highlightWidth: 3,
                         }]
                     ])}
-                    initialData={initialData}
+                    dataSource={dataSource}
                     seriesFilter={filter}
-                    seriesObservable={observable}
-                    shouldSubscribe={running}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={windowingTime}
                     dataUpdatePeriod={dataUpdatePeriod}
@@ -431,7 +441,6 @@ export function StreamingOutlierChart(props: Props): JSX.Element {
                     />
                     <OutlierPlot<Measures>
                         interpolation={interpolation}
-                        dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}
                         zoomKeyModifiersRequired={true}

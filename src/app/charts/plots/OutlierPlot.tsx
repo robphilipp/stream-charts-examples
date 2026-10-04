@@ -1,10 +1,10 @@
 import {useCallback, useEffect, useEffectEvent, useMemo, useRef} from 'react'
 import * as d3 from "d3"
-import {Observable, Subscription} from "rxjs"
 import {Optional} from "result-fn"
 
 import {useChart} from "../hooks/useChart"
 import {useDataObservable} from "../hooks/useDataObservable"
+import {useDataSource, useDataSourceRunning} from "../hooks/useDataSource"
 import {useInitialData} from "../hooks/useInitialData"
 import {usePlotDimensions} from "../hooks/usePlotDimensions"
 import {type AxesAssignment, clipToArea, currentIntervalsFrom} from "./plot"
@@ -26,7 +26,8 @@ import {
     panHandler,
     type SeriesLineStyle
 } from "../axes/axes"
-import {subscriptionOutlierFor, subscriptionOutlierWithCadenceFor, TimeWindowBehavior} from "../subscriptions/subscriptions"
+import {TimeWindowBehavior} from "../subscriptions/subscriptions"
+import {outlierViewDriverFor, outlierWithCadenceViewDriverFor} from "../subscriptions/viewDrivers"
 import type {OutlierChartData} from "../observables/outliers"
 import type {OutlierDatum, OutlierSeries} from "../series/outlierSeries"
 import {FastShiftArray} from "fast-shift-array";
@@ -45,10 +46,6 @@ export interface Props {
      * {@link https://github.com/d3/d3-shape#curves} for information on available interpolations.
      */
     interpolation?: d3.CurveFactory
-    /**
-     * Number of milliseconds of data to hold in memory before dropping it. Defaults to infinity.
-     */
-    dropDataAfter?: number
     /**
      * Whether to enable panning and zooming. Defaults to false.
      */
@@ -190,18 +187,16 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     const {plotDimensions, margin} = usePlotDimensions()
 
     const {
-        seriesObservable,
         windowingTime = 100,
-        dataUpdatePeriod,
-        shouldSubscribe,
-        onSubscribe = noop,
-        onUpdateData,
     } = useDataObservable<OutlierChartData<M>, OutlierDatum<M>>()
+
+    // the application-owned source of the data, and whether it's running (streaming)
+    const dataSource = useDataSource<OutlierChartData<M>, OutlierDatum<M>, OutlierSeries<M>>()
+    const running = useDataSourceRunning(dataSource)
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
         interpolation = d3.curveLinear,
-        dropDataAfter = Infinity,
         panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
@@ -237,15 +232,13 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     const initialTimesRef = useRef<Map<string, number>>(new Map())
     const initialAxisIntervalsRef = useRef<Map<string, [start: number, end: number]>>(new Map())
 
-    // seriesRef is the single source of truth for what to render. It starts from the initial
-    // data and grows as the subscription emits new series. the draw function iterates this
+    // seriesRef is the single source of truth for what to render: the data source's own (live)
+    // series map, which grows as series first appear in the stream. the draw function iterates this
     // directly (rather than a parallel dataRef array) so dynamically-arriving series get rendered.
-    const seriesRef = useRef<Map<string, OutlierSeries<M>>>(
-        new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
+    const seriesRef = useRef<ReadonlyMap<string, OutlierSeries<M>>>(
+        dataSource?.series ?? new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
     )
     const currentTimeRef = useRef<Map<string, number>>(new Map())
-
-    const subscriptionRef = useRef<Subscription>(undefined)
 
     // captured band fill-regions and outlier-marker geometry, in canvas coordinates, used for
     // hit-testing mouse hover on `mousemove` (see the effect below that wires up the listener)
@@ -334,7 +327,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
                     const {regular, outlier} = categorizePoints(plotData, outlierMarkerColors)
 
                     // point markers (one circle per datum) -- decorative only, no hover/tooltip
-                    if (markerRadius != null && markerRadius >= 0 && !shouldSubscribe) {
+                    if (markerRadius != null && markerRadius >= 0 && !running) {
                         context2D.fillStyle = stroke
                         regular.forEach(d => {
                             const x = xAxis.scale(d.datum.x) || 0
@@ -380,7 +373,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
             bandOpacity, bandOpacityStep, markerRadius, outlierMarkerColors, hoveredSeriesName,
-            shouldSubscribe
+            running
         ]
     )
 
@@ -472,7 +465,7 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     // whatever they were when this effect last ran -- that's exactly what an effect event gives us,
     // without having to (falsely) declare them as dependencies that would re-trigger the reset.
     const resetPlotForInitialData = useEffectEvent(() => {
-        seriesRef.current = new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
+        seriesRef.current = dataSource?.series ?? new Map(initialData.map(series => [series.name, series as OutlierSeries<M>]))
         // see the identical `currentTimeRef` reset above for why this is an empty map, not a 0 per axis
         currentTimeRef.current = new Map()
 
@@ -559,10 +552,10 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     // position as usual, since there's no "now" moving target to chase.
     const zoomPivotFor = useCallback(
         (offsetX: number): (axisId: string, axis: ContinuousNumericAxis) => number =>
-            shouldSubscribe ?
+            running ?
                 (axisId, axis) => currentTimeRef.current.get(axisId) ?? axis.scale.domain()[1] :
                 (_axisId, axis) => axis.scale.invert(offsetX - margin.left),
-        [shouldSubscribe, margin]
+        [running, margin]
     )
 
     // the last d3-zoom `event.transform.k` this plot applied -- see ScatterPlot's identical
@@ -668,42 +661,6 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
     // and the effect below all read and update this same map (in place), so that each range's
     // original (un-zoomed) interval survives the window scrolling as data streams in
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
-
-    const subscribe = useCallback(() => {
-        if (seriesObservable === undefined || canvasContext === null) return undefined
-        if (withCadenceOf !== undefined) {
-            return subscriptionOutlierWithCadenceFor<M>(
-                seriesObservable as Observable<OutlierChartData<M>>,
-                onSubscribe,
-                windowingTime,
-                xAxesState,
-                onUpdateData,
-                dropDataAfter,
-                updateTimingAndPlot,
-                seriesRef.current,
-                (axisId: string, end: number) => currentTimeRef.current.set(axisId, end),
-                withCadenceOf,
-            )
-        }
-        return subscriptionOutlierFor<M>(
-            seriesObservable as Observable<OutlierChartData<M>>,
-            onSubscribe,
-            windowingTime,
-            axisAssignments, xAxesState,
-            onUpdateData,
-            dropDataAfter,
-            updateTimingAndPlot,
-            seriesRef.current,
-            (axisId: string, end: number) => currentTimeRef.current.set(axisId, end),
-            timeWindowBehavior,
-            initialTimesRef.current,
-        )
-    }, [
-        axisAssignments, dropDataAfter, canvasContext,
-        onSubscribe, onUpdateData,
-        seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
-        timeWindowBehavior, withCadenceOf, dataUpdatePeriod
-    ])
 
     useEffect(() => {
         if (canvasContext) {
@@ -841,14 +798,44 @@ export function OutlierPlot<M extends readonly number[] = readonly number[]>(pro
         [canvasContext, chartId, margin, seriesFilter, mouseOverHandlerFor, mouseLeaveHandlerFor]
     )
 
+    // the latest `updateTimingAndPlot`, for the view driver to call -- the driver is created once
+    // per run (see below), so it must not capture a stale one (e.g. bound to an older canvas)
+    const updateTimingAndPlotRef = useRef(updateTimingAndPlot)
     useEffect(() => {
-        if (shouldSubscribe && subscriptionRef.current === undefined) {
-            subscriptionRef.current = subscribe()
-        } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
-            subscriptionRef.current?.unsubscribe()
-            subscriptionRef.current = undefined
+        updateTimingAndPlotRef.current = updateTimingAndPlot
+    }, [updateTimingAndPlot])
+
+    // creates the view driver that keeps this plot's view in step with the data source, using the
+    // current settings -- see ScatterPlot's identical effect event
+    const createViewDriver = useEffectEvent(
+        (source: NonNullable<typeof dataSource>) => {
+            const redraw = (ranges: Map<string, ContinuousAxisRange>) => updateTimingAndPlotRef.current(ranges)
+            const setCurrentTime = (axisId: string, end: number) => currentTimeRef.current.set(axisId, end)
+            return withCadenceOf !== undefined ?
+                outlierWithCadenceViewDriverFor<M>(source, windowingTime, xAxesState, redraw, setCurrentTime, withCadenceOf) :
+                outlierViewDriverFor<M>(
+                    source, windowingTime, axisAssignments, xAxesState, redraw, setCurrentTime,
+                    timeWindowBehavior, initialTimesRef.current
+                )
         }
-    }, [shouldSubscribe, subscribe])
+    )
+
+    // while the data source is running (and this plot has a canvas and its x-axes), drive the
+    // view from the data source's updates -- see ScatterPlot's identical effect. The driver
+    // belongs to this plot instance alone and is always torn down with it.
+    const hasXAxes = xAxesState.axes.size > 0
+    useEffect(() => {
+        if (dataSource === undefined || !running || canvasContext === null || !hasXAxes) return
+        const driver = createViewDriver(dataSource)
+        return () => driver.unsubscribe()
+    }, [dataSource, running, canvasContext, hasXAxes])
+
+    // this plot needs a data source (see the `Chart`'s `dataSource` prop)
+    useEffect(() => {
+        if (dataSource === undefined) {
+            console.error("OutlierPlot requires a data source; set the enclosing Chart's `dataSource` prop")
+        }
+    }, [dataSource])
 
     // unregister this plot's draw function on unmount
     useEffect(
