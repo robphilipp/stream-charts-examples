@@ -1,4 +1,4 @@
-import {createContext, useContext} from "react";
+import {createContext, useCallback, useContext, useSyncExternalStore} from "react";
 import type {ChartData} from "../observables/ChartData";
 import type {BaseSeries} from "../series/baseSeries";
 import type {StreamingDataSource} from "../datasources/StreamingDataSource";
@@ -17,4 +17,23 @@ export const DataSourceContext = createContext<unknown>(undefined)
  */
 export function useDataSource<CD extends ChartData, D, S extends BaseSeries<D> = BaseSeries<D>>(): StreamingDataSource<CD, D, S> | undefined {
     return useContext(DataSourceContext) as StreamingDataSource<CD, D, S> | undefined
+}
+
+/**
+ * Subscribes the calling component to the data source's running state, so it re-renders when the
+ * source starts or stops (e.g. to switch the zoom pivot, or hide markers while running).
+ * @param dataSource The data source, or `undefined` (in which case this is always `false`)
+ * @return Whether the data source is currently running
+ */
+export function useDataSourceRunning<CD extends ChartData, D>(dataSource: StreamingDataSource<CD, D> | undefined): boolean {
+    const subscribe = useCallback(
+        (onChange: () => void): (() => void) => {
+            if (dataSource === undefined) return () => {
+            }
+            const subscription = dataSource.running$.subscribe(() => onChange())
+            return () => subscription.unsubscribe()
+        },
+        [dataSource]
+    )
+    return useSyncExternalStore(subscribe, () => dataSource?.running ?? false)
 }

@@ -18,15 +18,12 @@ import {
 } from "../axes/axes";
 import type {CanvasContext} from "../d3types";
 import {seriesAt, canvasLocalPoint, type SeriesGeometry} from "./hitTesting";
-import {Observable, Subscription} from "rxjs";
 import {firstIndexAtOrAfter, noop} from "../utils";
 import type {Dimensions, Margin} from "../styling/margins";
-import {
-    subscriptionTimeSeriesFor,
-    subscriptionTimeSeriesWithCadenceFor,
-    TimeWindowBehavior
-} from "../subscriptions/subscriptions";
+import {TimeWindowBehavior} from "../subscriptions/subscriptions";
+import {timeSeriesViewDriverFor, timeSeriesWithCadenceViewDriverFor} from "../subscriptions/viewDrivers";
 import {useDataObservable} from "../hooks/useDataObservable";
+import {useDataSource, useDataSourceRunning} from "../hooks/useDataSource";
 import type {TimeSeriesChartData} from "../series/timeSeriesChartData";
 import {useInitialData} from "../hooks/useInitialData";
 import type {TooltipData} from "../hooks/useTooltip";
@@ -48,11 +45,6 @@ export interface Props {
      * {@link https://github.com/d3/d3-shape#curves} for information on available interpolations
      */
     interpolation?: d3.CurveFactory
-    /**
-     * The number of milliseconds of data to hold in memory before dropping it. Defaults to
-     * infinity (i.e., no data is dropped)
-     */
-    dropDataAfter?: number
     /**
      * Enables panning (default is false)
      */
@@ -108,17 +100,6 @@ export interface Props {
     highlightAxesOnMouseOver?: boolean
 
     /**
-     * Commonly used when the parent holds the subscription. A common use-case for this
-     * is when the application would like to keep a chart's data accumulating even while the
-     * component itself is unmounted -- e.g. when the user navigates away and back. In this use
-     * case, the subscription is stored at the application level (see the {@link Chart} prop
-     * `onSubscribe`) and handed back to this component when it remounts, purely so the mount-time
-     * effect below can find and tear down that orphaned subscription (never to resume rendering
-     * with it -- see that effect's comment).
-     */
-    subscription?: Subscription
-
-    /**
      * Called (mirroring `onSubscribe`) whenever this plot (re)creates its zoom behavior, handing
      * the caller a `resetZoom` function that programmatically clears d3-zoom's own accumulated
      * scale/pan state back to identity. This exists because d3-zoom keeps that state attached
@@ -133,10 +114,16 @@ export interface Props {
 }
 
 /**
- * Renders a streaming scatter plot for the series in the initial data and those sourced by the
- * observable specified as a property in the {@link Chart}. This component uses the {@link useChart}
- * hook, and therefore must be a child of the {@link Chart} in order to be plugged in to the
- * chart ecosystem (axes, tracker, tooltip).
+ * Renders a streaming scatter plot for the series held by the {@link StreamingDataSource} handed
+ * to the {@link Chart} (its `dataSource` prop). This component uses the {@link useChart} hook, and
+ * therefore must be a child of the {@link Chart} in order to be plugged in to the chart ecosystem
+ * (axes, tracker, tooltip).
+ *
+ * The plot never subscribes to the data stream itself: the application owns the data source (and
+ * starts/stops it), and the data source keeps ingesting even while this plot is unmounted. While
+ * the data source is running, this plot listens to its updates through a view driver that only
+ * advances the plot's own view (auto-scroll, cadence) and redraws -- created when the plot mounts
+ * (or the data source starts) and always torn down when it unmounts (or the data source stops).
  *
  * Internally, this no longer creates/updates SVG `<path>`/`<circle>` elements. Instead, it
  * registers a single draw function with the chart's {@link CanvasContext} that redraws every
@@ -151,7 +138,6 @@ export interface Props {
  *      axisAssignments={new Map([
  *          ['test2', assignAxes("x-axis-2", "y-axis-2")],
  *      ])}
- *      dropDataAfter={10000}
  *      panEnabled={true}
  *      zoomEnabled={true}
  *      zoomKeyModifiersRequired={true}
@@ -186,20 +172,17 @@ export function ScatterPlot(props: Props): null {
     const {plotDimensions, margin} = usePlotDimensions()
 
     const {
-        seriesObservable,
         windowingTime = 100,
         dataUpdatePeriod,
-        shouldSubscribe,
-
-        onSubscribe = noop,
-        onUnsubscribe = noop,
-        onUpdateData,
     } = useDataObservable()
+
+    // the application-owned source of the data, and whether it's running (streaming)
+    const dataSource = useDataSource<TimeSeriesChartData, Datum, TimeSeries>()
+    const running = useDataSourceRunning(dataSource)
 
     const {
         axisAssignments = new Map<string, AxesAssignment>(),
         interpolation = d3.curveLinear,
-        dropDataAfter = Infinity,
         panEnabled = false,
         zoomEnabled = false,
         zoomKeyModifiersRequired = true,
@@ -208,7 +191,6 @@ export function ScatterPlot(props: Props): null {
         markerRadius,
         hideMarkersWhileRunning = true,
         highlightAxesOnMouseOver = false,
-        subscription = undefined,
         onZoomReset = noop,
     } = props
 
@@ -254,57 +236,8 @@ export function ScatterPlot(props: Props): null {
     // fire a "leave" for the old series before firing an "over" for the new one
     const lastHoveredRef = useRef<string | undefined>(undefined)
 
-    // seeded from the incoming `subscription` prop so this instance can detect (and, in the
-    // mount-time effect below, kill) a subscription inherited from a prior instance -- never to
-    // adopt/reuse it for rendering (its tick callback is bound to a different instance's refs,
-    // and would stomp this instance's zoom -- see bug #9 in zoom-pan-architecture-pitfalls). Kept
-    // as a ref (not derived from the `onSubscribe`-reported store value) because it must be
-    // readable synchronously, within the same effect/handler that might be about to create or
-    // check it -- the store round-trip that `onSubscribe` feeds is only visible on a subsequent
-    // render.
-    const subscriptionRef = useRef<Subscription | undefined>(subscription)
-    const isSubscriptionClosed = () => subscriptionRef.current === undefined || subscriptionRef.current.closed
-
-    const allowTooltip = useRef<boolean>(subscription === undefined || subscription.closed)
-
-    // tracks the latest `subscription` prop value, so the unmount cleanup (below) can tell
-    // whether an inherited/orphaned subscription is still meant to be kept alive to bridge a
-    // route change -- even though the effect that reads it at unmount only runs once (deps
-    // `[canvasContext, chartId]`), so its closure would otherwise see a stale value from mount
-    // time. A prior version of this file called this "vestigial" and removed it, on the theory
-    // that the store round-trip only exists to be immediately destroyed by the next mount anyway
-    // -- true for *rendering* purposes, but wrong: leaving an orphaned subscription running
-    // (rather than killing it at this instance's own unmount) is precisely what lets it keep
-    // accumulating real data into `seriesRef.current`/the store's `initialData` (the same,
-    // aliased, mutable arrays) for the entire time the user is away on another route. Killing it
-    // unconditionally at unmount instead (as that removal did) leaves nothing listening to
-    // `seriesObservable` during that gap -- `shareReplay`'s `bufferSize: 1` only remembers the
-    // single latest value, not a history, so every point generated while away is lost, producing
-    // a visible straight-line gap in the plotted data on return. Confirmed live 2026-09-17.
-    const subscriptionPropRef = useRef(subscription)
-    useEffect(
-        () => {
-            subscriptionPropRef.current = subscription
-        },
-        [subscription]
-    )
-
-    // tears down this instance's own subscription: unsubscribes the real RxJS subscription
-    // (the only thing that actually stops it -- see the note on `onUnsubscribe` in
-    // useDataObservable.tsx for why that stays a plot responsibility rather than the
-    // callback's), clears the local ref, and reports the teardown to whoever's listening
-    // (e.g. the store, to keep `state.subscription` from holding a stale/closed reference).
-    // A no-op if nothing is currently subscribed. Memoized (rather than a plain function) so
-    // the effects below that call it can name it in their own dependency arrays without
-    // re-running on every render.
-    const teardownSubscription = useCallback(
-        () => {
-            subscriptionRef.current?.unsubscribe()
-            subscriptionRef.current = undefined
-            onUnsubscribe()
-        },
-        [onUnsubscribe]
-    )
+    // tooltips are only shown while the data source is paused (and not while panning)
+    const allowTooltip = useRef<boolean>(!(dataSource?.running ?? false))
 
     const updatePlot = useCallback(
         /**
@@ -384,7 +317,7 @@ export function ScatterPlot(props: Props): null {
                     const [domainStart] = xAxisLinear.scale.domain()
                     const startIndex = Math.max(0, firstIndexAtOrAfter(plotData, domainStart, (d: Datum) => d.x) - 1)
 
-                    const showMarkers = markerRadius != null && markerRadius >= 0 && (!shouldSubscribe || !hideMarkersWhileRunning)
+                    const showMarkers = markerRadius != null && markerRadius >= 0 && (!running || !hideMarkersWhileRunning)
                     const markerRadiusResolved = isHovered ? markerRadius! + 2 : markerRadius!
 
                     const segments: Array<Array<ScreenPoint>> = []
@@ -469,7 +402,7 @@ export function ScatterPlot(props: Props): null {
             axisAssignments,
             xAxesState, yAxesState,
             seriesStyles, seriesFilter, interpolation,
-            hoveredSeriesName, markerRadius, shouldSubscribe, hideMarkersWhileRunning
+            hoveredSeriesName, markerRadius, running, hideMarkersWhileRunning
         ]
     )
 
@@ -704,10 +637,10 @@ export function ScatterPlot(props: Props): null {
     //   inspecting a frozen view.
     const zoomPivotFor = useCallback(
         (offsetX: number): (axisId: string, axis: ContinuousNumericAxis) => number =>
-            shouldSubscribe ?
+            running ?
                 (axisId, axis) => currentTimeRef.current.get(axisId) ?? axis.scale.domain()[1] :
                 (_axisId, axis) => axis.scale.invert(offsetX - margin.left),
-        [shouldSubscribe, margin]
+        [running, margin]
     )
 
     // the last d3-zoom `event.transform.k` this plot applied -- d3-zoom's own `k` is cumulative
@@ -755,7 +688,7 @@ export function ScatterPlot(props: Props): null {
                         // during panning, we disabled viewing the tooltip to prevent
                         // tooltips from rendering but not getting removed, now that panning
                         // is over, allow tooltips to render again
-                        allowTooltip.current = isSubscriptionClosed();
+                        allowTooltip.current = !(dataSource?.running ?? false)
                     })
 
                 canvasSelection.call(drag)
@@ -843,7 +776,7 @@ export function ScatterPlot(props: Props): null {
                 if (zoomEnabled) canvasSelection.on(".zoom", null)
             }
         },
-        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, zoomPivotFor, onZoomReset, xAxesState, updateTimingAndPlot]
+        [canvasContext, panEnabled, zoomEnabled, onPan, onZoom, plotDimensions, margin, zoomKeyModifiersRequired, zoomPivotFor, onZoomReset, xAxesState, updateTimingAndPlot, dataSource]
     )
 
     const timeRangesRef = useRef<Map<string, ContinuousAxisRange>>(new Map())
@@ -962,113 +895,72 @@ export function ScatterPlot(props: Props): null {
         [canvasContext, chartId, margin, axisAssignments, xAxesState, yAxesState, mouseOverHandlerFor, mouseLeaveHandlerFor]
     )
 
-    // memoized function for subscribing to the chart-data observable
-    const subscribe = useCallback(
+    // the latest `updateTimingAndPlot`, for the view driver to call -- the driver is created once
+    // per run (see below), so it must not capture a stale one (e.g. bound to an older canvas)
+    const updateTimingAndPlotRef = useRef(updateTimingAndPlot)
+    useEffect(
         () => {
-            if (subscriptionRef.current) return subscriptionRef.current
-            if (seriesObservable === undefined || canvasContext === null) return undefined
-            if (withCadenceOf !== undefined) {
-                return subscriptionTimeSeriesWithCadenceFor(
-                    seriesObservable as Observable<TimeSeriesChartData>,
-                    onSubscribe,
-                    windowingTime,
-                    axisAssignments, xAxesState,
-                    onUpdateData,
-                    dropDataAfter,
-                    updateTimingAndPlot,
-                    // as new data flows into the subscription, the subscription
-                    // updates this map directly (for performance)
-                    seriesRef.current,
-                    (axisId, end) => currentTimeRef.current.set(axisId, end),
-                    withCadenceOf
+            updateTimingAndPlotRef.current = updateTimingAndPlot
+        },
+        [updateTimingAndPlot]
+    )
+
+    // creates the view driver that keeps this plot's view in step with the data source, using the
+    // current settings (an effect event, so that the settings aren't dependencies of the effect
+    // below -- the driver is created once per run, not re-created when a setting changes)
+    const createViewDriver = useEffectEvent(
+        (source: NonNullable<typeof dataSource>) => {
+            const redraw = (ranges: Map<string, ContinuousAxisRange>) => updateTimingAndPlotRef.current(ranges)
+            const setCurrentTime = (axisId: string, end: number) => currentTimeRef.current.set(axisId, end)
+            return withCadenceOf !== undefined ?
+                timeSeriesWithCadenceViewDriverFor(
+                    source, windowingTime, axisAssignments, xAxesState, redraw, setCurrentTime, withCadenceOf
+                ) :
+                timeSeriesViewDriverFor(
+                    source, windowingTime, axisAssignments, xAxesState, redraw, setCurrentTime,
+                    timeWindowBehavior, initialTimesRef.current, dataUpdatePeriod
                 )
-            }
-            return subscriptionTimeSeriesFor(
-                seriesObservable as Observable<TimeSeriesChartData>,
-                onSubscribe,
-                windowingTime,
-                axisAssignments, xAxesState,
-                onUpdateData,
-                dropDataAfter,
-                updateTimingAndPlot,
-                // as new data flows into the subscription, the subscription
-                // updates this map directly (for performance)
-                seriesRef.current,
-                (axisId, end) => currentTimeRef.current.set(axisId, end),
-                timeWindowBehavior,
-                initialTimesRef.current,
-                dataUpdatePeriod,
-            )
-        },
-        [
-            axisAssignments, dropDataAfter, canvasContext,
-            onSubscribe, onUpdateData,
-            seriesObservable, updateTimingAndPlot, windowingTime, xAxesState,
-            withCadenceOf,
-            timeWindowBehavior, dataUpdatePeriod
-        ]
+        }
     )
 
-    // If this instance mounted holding a subscription inherited from a previous instance
-    // (stashed in the store to survive a route change -- see `StreamingScatterChart`), it
-    // cannot actually be re-adopted here: its RxJS callback was bound once, at creation, to
-    // the now-unmounted instance's `updateTimingAndPlot`/`notifyIntervalsRef`/
-    // `handleChartTimeUpdate`. Left running *and rendering*, that orphaned subscription would
-    // keep advancing its own copy of the axis time-window and writing it into the store on every
-    // tick, stomping this instance's zoom/pan a frame after every gesture -- see bug #9 in
-    // zoom-pan-architecture-pitfalls. So tear it down here and let the subscribe effect below
-    // create a fresh one that *this* instance owns for rendering. Until this moment, though, that
-    // orphaned subscription was still the only thing accumulating real data into
-    // `seriesRef.current`/the store's `initialData` while this component was unmounted -- see
-    // `subscriptionPropRef`'s comment above for why killing it any earlier (e.g. unconditionally
-    // at the *previous* instance's own unmount) loses data instead.
+    // while the data source is running (and this plot has a canvas and its x-axes), drive the
+    // view from the data source's updates. The driver belongs to this plot instance alone: it's
+    // torn down when the data source stops, and when this plot unmounts -- the data source itself
+    // keeps ingesting regardless, so nothing needs to be kept alive (or adopted) across a remount.
+    const hasXAxes = xAxesState.axes.size > 0
     useEffect(
         () => {
-            if (subscriptionRef.current !== undefined) {
-                teardownSubscription()
-            }
-        },
-        // deliberately mount-only (must run exactly once, before the subscribe effect below) --
-        // `teardownSubscription` is stable as long as `onUnsubscribe` (a store action) is, so
-        // reading whatever it is at mount time is correct here regardless of later identity
-        // changes
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        []
-    )
-
-    // subscribe/unsubscribe to the observable chart data. when the `shouldSubscribe`
-    // is changed to `true` and we haven't subscribed yet, then subscribe. when the
-    // `shouldSubscribe` is `false` and we had subscribed, then unsubscribe. otherwise,
-    // do nothing.
-    useEffect(
-        () => {
-            if (shouldSubscribe && subscriptionRef.current === undefined) {
-                subscriptionRef.current = subscribe()
-                allowTooltip.current = false
-            } else if (!shouldSubscribe && subscriptionRef.current !== undefined) {
-                teardownSubscription()
+            if (dataSource === undefined || !running || canvasContext === null || !hasXAxes) return
+            allowTooltip.current = false
+            const driver = createViewDriver(dataSource)
+            return () => {
+                driver.unsubscribe()
                 allowTooltip.current = true
             }
         },
-        [shouldSubscribe, subscribe, teardownSubscription]
+        [dataSource, running, canvasContext, hasXAxes]
     )
 
-    // unregister this plot's draw function on unmount, and, unless an external owner has
-    // claimed the subscription (see `subscriptionPropRef` above) -- meaning it should be left
-    // running to keep accumulating data until the *next* mount's effect above tears it down --
-    // unsubscribe it so it doesn't keep driving stale draws after the component is gone
+    // this plot needs a data source (see the `Chart`'s `dataSource` prop)
+    useEffect(
+        () => {
+            if (dataSource === undefined) {
+                console.error("ScatterPlot requires a data source; set the enclosing Chart's `dataSource` prop")
+            }
+        },
+        [dataSource]
+    )
+
+    // unregister this plot's draw function on unmount
     useEffect(
         () => {
             return () => {
                 if (canvasContext) {
                     canvasContext.unregister(`scatter-plot-${chartId}`)
                 }
-                if (subscriptionPropRef.current === undefined && subscriptionRef.current !== undefined) {
-                    teardownSubscription()
-                }
             }
         },
-        [canvasContext, chartId, teardownSubscription]
+        [canvasContext, chartId]
     )
 
     return null

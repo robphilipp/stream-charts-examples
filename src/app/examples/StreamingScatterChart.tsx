@@ -115,13 +115,10 @@ export function StreamingScatterChart(props: Props): JSX.Element {
     // ----------------------------------------------------------------
     // GRAB STATE FROM STORE (zustand)
     //
-    const initialData = useScatterChartStore( state => state.initialData)
-    const setInitialData = useScatterChartStore( state => state.setInitialData)
-    const observable = useScatterChartStore( state => state.observable)
-
-    const subscription = useScatterChartStore(state => state.subscription)
-    const setSubscription = useScatterChartStore(state => state.setSubscription)
-    const clearSubscription = useScatterChartStore(state => state.clearSubscription)
+    // the data source owns the stream's subscription and the series; it lives in the store, so it
+    // keeps ingesting while this chart is unmounted (e.g. on another page)
+    const dataSource = useScatterChartStore(state => state.dataSource)
+    const setInitialData = useScatterChartStore(state => state.setInitialData)
 
     const running = useScatterChartStore(state => state.running)
     const setRunning = useScatterChartStore(state => state.setRunning)
@@ -170,6 +167,9 @@ export function StreamingScatterChart(props: Props): JSX.Element {
         () => ({...defaultMargin, top: 40, bottom: 40, right: 60}),
         []
     )
+    // the series held by the data source (a new data source means new initial data)
+    const initialData = useMemo(() => dataSource.seriesList(), [dataSource])
+
     const chartSeriesStyles = useMemo(
         () => new Map(initialData.map(
             (data, index) => [data.name, {
@@ -360,7 +360,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
 
     function handleRunPauseClick(): void {
         if (!running) {
-            setInitialData(initialData)
             startTimeRef.current = new Date().valueOf()
             setElapsed(0)
             intervalRef.current = setInterval(() => setElapsed(new Date().valueOf() - startTimeRef.current), 1000)
@@ -569,12 +568,8 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     color={theme.color}
                     backgroundColor={theme.backgroundColor}
                     seriesStyles={chartSeriesStyles}
-                    initialData={initialData}
+                    dataSource={dataSource}
                     seriesFilter={filter}
-                    seriesObservable={observable}
-                    shouldSubscribe={running}
-                    onSubscribe={setSubscription}
-                    onUnsubscribe={clearSubscription}
                     onUpdateAxesBounds={handleChartTimeUpdate}
                     windowingTime={windowingTime}
                     dataUpdatePeriod={dataUpdatePeriod}
@@ -644,7 +639,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                     <ScatterPlot
                         interpolation={interpolation}
                         axisAssignments={AXIS_ASSIGNMENTS}
-                        dropDataAfter={dropAfterMs}
                         panEnabled={true}
                         zoomEnabled={true}
                         // panEnabled={!running}
@@ -655,7 +649,6 @@ export function StreamingScatterChart(props: Props): JSX.Element {
                         withCadenceOf={cadence > 0 ? cadence : undefined}
                         highlightAxesOnMouseOver={visibility.highlightAxes}
                         // timeWindowBehavior={TimeWindowBehavior.SQUEEZE}
-                        subscription={subscription}
                         onZoomReset={handleZoomReset}
                     />
                 </Chart>

@@ -1,13 +1,13 @@
 import type {UseBoundStore} from "zustand";
 import {create, type StoreApi} from 'zustand';
-import type {Datum, TimeSeries} from "../../charts/series/timeSeries.ts";
-import {Observable} from "rxjs";
+import type {TimeSeries} from "../../charts/series/timeSeries.ts";
 import type {TimeSeriesChartData} from "../../charts/series/timeSeriesChartData.ts";
+import {TimeSeriesDataSource} from "../../charts/datasources/timeSeriesDataSource.ts";
+import type {DataGenerator} from "../../charts/datasources/StreamingDataSource.ts";
 import {randomWeightDataObservable} from "../dataproviders/randomWeightData.ts";
 import {createInitialVisibility} from "../options/visibility.ts";
 import {devtools} from "zustand/middleware";
-import {type DataSlice, dataSliceStateCreator, type DataStateSlice} from "./stateslices/dataStateSlice.ts";
-import {type RunSlice, runSliceStateCreator, type RunStateSlice} from "./stateslices/runStateSlice.ts";
+import {type DataSourceSlice, dataSourceSlice} from "./stateslices/dataSourceStateSlice.ts";
 import {
     type VisibilitySlice,
     visibilitySliceStateCreator,
@@ -24,25 +24,25 @@ const DATA_MIN = 10
 const DATA_MAX = 1000
 const DEFAULT_DATA_UPDATE_PERIOD = 50
 
-const randomData = (delta: number, updatePeriod: number, min: number, max: number): (initialData: Array<TimeSeries>) => Observable<TimeSeriesChartData> => {
-    return initialData => randomWeightDataObservable(initialData, delta, updatePeriod, min, max)
-}
-const randomDataObservable = randomData(DATA_DELTA, DEFAULT_DATA_UPDATE_PERIOD, DATA_MIN, DATA_MAX)
-
-const initialDataState: DataStateSlice<TimeSeriesChartData, Datum, TimeSeries> = {
-    initialData: [],
-    observable: randomDataObservable([]),
-    subscription: undefined
-}
-const createDataSlice = dataSliceStateCreator<TimeSeriesChartData, Datum, TimeSeries>(initialDataState, randomDataObservable)
-
-/*
-    set up the run state
+/**
+ * Creates the random-weight data generator for the specified update period. The data source calls
+ * it with its *current* series each time it starts, so Run after Pause continues from the latest
+ * accumulated data rather than starting over.
+ * @param updatePeriod The period (ms) between generated data points
+ * @return The data generator
  */
-const initialRunState: RunStateSlice = {
-    running: false
-}
-const createRunSlice = runSliceStateCreator(initialRunState)
+const randomData = (updatePeriod: number): DataGenerator<TimeSeriesChartData, TimeSeries> =>
+    currentSeries => randomWeightDataObservable(currentSeries, DATA_DELTA, updatePeriod, DATA_MIN, DATA_MAX)
+
+/**
+ * Creates the chart's data source
+ * @param initialData The initial series (owned by the data source from here on)
+ * @param dataUpdatePeriod The period (ms) between generated data points
+ * @param dropAfterMs Data older than this (ms) is dropped
+ * @return The data source
+ */
+const newDataSource = (initialData: Array<TimeSeries>, dataUpdatePeriod: number, dropAfterMs: number): TimeSeriesDataSource =>
+    new TimeSeriesDataSource({initialData, generator: randomData(dataUpdatePeriod), dropDataAfter: dropAfterMs})
 
 /*
     set up the visibility state
@@ -93,17 +93,20 @@ type ScatterChartActions = {
 }
 
 type ScatterChartStore = ScatterChartState & ScatterChartActions &
-    DataSlice<TimeSeriesChartData, Datum, TimeSeries> &
-    RunSlice &
+    DataSourceSlice<TimeSeriesDataSource, TimeSeries> &
     VisibilitySlice
 
 export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> = create<ScatterChartStore>()(
     devtools<ScatterChartStore>((set, get, store) => ({
         ...initialState,
-        // data slice for initial data, observable, and subscription
-        ...createDataSlice(set, get, store),
-        // run slice to track and manipulate running state
-        ...createRunSlice(set, get, store),
+        // the data source (which owns the data generator's subscription and the series), and
+        // whether it's running
+        ...dataSourceSlice<TimeSeriesDataSource, TimeSeries>(
+            set,
+            get,
+            newDataSource([], initialState.dataUpdatePeriod, initialState.dropAfterMs),
+            initialData => newDataSource(initialData, get().dataUpdatePeriod, get().dropAfterMs)
+        ),
 
         setX1axisRange: (range: Range) => set({x1axisRange: range}),
         setX2axisRange: (range: Range) => set({x2axisRange: range}),
@@ -117,7 +120,11 @@ export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> = 
 
         setSelectedInterpolationName: name => set({selectedInterpolationName: name}),
 
-        setDropAfterMs: (dropAfterMs: number) => set({dropAfterMs}),
+        // data retention belongs to the data source, so keep it in step
+        setDropAfterMs: (dropAfterMs: number) => {
+            get().dataSource.setDropDataAfter(dropAfterMs)
+            set({dropAfterMs})
+        },
 
         setNumberOfSeries: (numberOfSeries: number) => set({numberOfSeries}),
 
@@ -125,27 +132,17 @@ export const useScatterChartStore: UseBoundStore<StoreApi<ScatterChartStore>> = 
 
         setCadence: (cadence: number) => set({cadence}),
 
-        // rebuilds the observable at the new update period, using whatever initial data is
-        // currently in the store -- keeps the RxJS stream's data-generation rate in sync with
-        // this setting, since it's baked into the observable at creation time
-        setDataUpdatePeriod: (dataUpdatePeriod: number) => set(state => ({
-            dataUpdatePeriod,
-            observable: randomData(DATA_DELTA, dataUpdatePeriod, DATA_MIN, DATA_MAX)(state.initialData)
-        })),
+        // the update period is baked into the generator, so give the data source a new one (only
+        // possible while stopped, which is the only time the control is enabled)
+        setDataUpdatePeriod: (dataUpdatePeriod: number) => {
+            get().dataSource.setGenerator(randomData(dataUpdatePeriod))
+            set({dataUpdatePeriod})
+        },
 
-        // overrides the data slice's default setInitialData (see createDataSlice above) so that
-        // regenerating the initial data (e.g. from a number-of-series change) rebuilds the
-        // observable using the *current* dataUpdatePeriod, rather than always reverting to the
-        // slice's original default period
-        setInitialData: (initialData: Array<TimeSeries>) => set(state => ({
-            initialData,
-            observable: randomData(DATA_DELTA, state.dataUpdatePeriod, DATA_MIN, DATA_MAX)(initialData)
-        })),
-
-        reset: () => set({
-            ...initialState,
-            ...initialDataState,
-            ...initialRunState,
-            ...initialVisibilityState
-        })
+        // resets the settings, and replaces the data source with an empty one (which disposes of,
+        // and so stops, the current one) -- the chart re-seeds it with its initial data
+        reset: () => {
+            set({...initialState, ...initialVisibilityState})
+            get().setInitialData([])
+        }
     })));
