@@ -3,6 +3,11 @@ import {LegendLocation} from "../../charts/legends/constants.ts";
 import type {Theme} from "../../ui/Themes.ts";
 import {LEGEND_LOCATIONS} from "../options/legendLocations.ts";
 import Checkbox from "../../ui/Checkbox.tsx";
+import {DropDown, type DropDownOption} from "../../ui/DropDown.tsx";
+
+// the legend locations, labelled with a display name (e.g. "Top-Left")
+const LOCATION_OPTIONS: Array<DropDownOption<LegendLocation>> = Array.from(LEGEND_LOCATIONS.entries())
+    .map(([label, value]) => ({value, label}))
 
 export const EXTERNAL_LEGEND_WIDTH = 100
 export const LEGEND_ANIMATION_DURATION_MS = 220
@@ -43,24 +48,14 @@ export function LegendControl(props: Props): JSX.Element {
                     onChange={() => setVisibility(!visibility)}
                 />
                 <span style={{paddingRight: 10}}></span>
-                <select
+                <DropDown
+                    theme={theme}
                     name="legend-location"
-                    style={{
-                        backgroundColor: visibility ? theme.backgroundColor : theme.disabledBackgroundColor,
-                        color: visibility ? theme.color : theme.disabledColor,
-                        borderColor: visibility ? theme.color : theme.disabledColor,
-                        padding: 5,
-                        borderRadius: 3,
-                        outlineStyle: 'none',
-                    }}
-                    onChange={event => setLegendLocation(event.currentTarget.value as LegendLocation)}
+                    options={LOCATION_OPTIONS}
                     value={legendLocation}
+                    onChange={setLegendLocation}
                     disabled={!visibility}
-                >
-                    {Array.from(LEGEND_LOCATIONS.entries()).map(([name, value]) => (
-                        <option key={name} value={value}>{name}</option>
-                    ))}
-                </select>
+                />
             </label>
         </div>
     )

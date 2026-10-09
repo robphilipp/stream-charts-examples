@@ -41,6 +41,7 @@ import {GaussMapIcon, LagIcon, LogisticMapIcon, TentMapIcon, TooltipIcon, Tracke
 import {CommonControls} from "./controls/CommonControls.tsx";
 import {LagDisplay} from "./controls/LagDisplay.tsx";
 import {Divider} from "../ui/Divider.tsx";
+import {DropDown, type DropDownOption} from "../ui/DropDown.tsx";
 // import {
 //     assignAxes,
 //     AxisLocation,
@@ -112,6 +113,11 @@ const ITERATE_FUNCTIONS: Map<string, IterateFunctionInfo> = new Map([
 ])
 
 const DEFAULT_ITER_FUNC = Array.from(ITERATE_FUNCTIONS.entries())[0]
+
+// the drop-down options for the lag and the iterate function (each named and valued by its key)
+const LAG_OPTIONS: Array<DropDownOption<string>> = Array.from(LAG_N.keys()).map(name => ({value: name, label: name}))
+const ITERATE_FUNCTION_OPTIONS: Array<DropDownOption<string>> = Array.from(ITERATE_FUNCTIONS.keys())
+    .map(name => ({value: name, label: name}))
 
 // calculates a unique chart ID when the module is loaded
 const CHART_ID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
@@ -422,43 +428,23 @@ export function StreamingPoincareChart(props: Props): JSX.Element {
                                 handleInterpolationChange={handleInterpolationChange}
                             />
                             <Divider theme={theme}/>
-                            <select
+                            <DropDown
+                                theme={theme}
                                 name="lagN"
-                                style={{
-                                    backgroundColor: running ? theme.disabledBackgroundColor : theme.backgroundColor,
-                                    color: running ? theme.disabledColor : theme.color,
-                                    borderColor: running ? theme.disabledColor : theme.color,
-                                    padding: 5,
-                                    borderRadius: 3,
-                                    outlineStyle: 'none'
-                                }}
-                                onChange={event => handleUpdateLag(event.currentTarget.value)}
+                                options={LAG_OPTIONS}
                                 value={selectedLagN}
+                                onChange={handleUpdateLag}
                                 disabled={running}
-                            >
-                                {Array.from(LAG_N.entries()).map(([name,]) => (
-                                    <option key={name} value={name}>{name}</option>
-                                ))}
-                            </select>
+                            />
                             <Divider theme={theme}/>
-                            <select
+                            <DropDown
+                                theme={theme}
                                 name="iterate_function"
-                                style={{
-                                    backgroundColor: running ? theme.disabledBackgroundColor : theme.backgroundColor,
-                                    color: running ? theme.disabledColor : theme.color,
-                                    borderColor: running ? theme.disabledColor : theme.color,
-                                    padding: 5,
-                                    borderRadius: 3,
-                                    outlineStyle: 'none'
-                                }}
-                                onChange={event => handleIterateFunctionChange(event.currentTarget.value)}
+                                options={ITERATE_FUNCTION_OPTIONS}
                                 value={selectedIterateFunction}
+                                onChange={handleIterateFunctionChange}
                                 disabled={running}
-                            >
-                                {Array.from(ITERATE_FUNCTIONS.entries()).map(([name,]) => (
-                                    <option key={name} value={name}>{name}</option>
-                                ))}
-                            </select>
+                            />
                             <div>{iterFuncInput}</div>
                         </CommonControls>
                     </ExpandableControlBar>

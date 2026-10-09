@@ -1,6 +1,12 @@
 import {type JSX} from "react";
 import {INTERPOLATIONS} from "../options/interpolations.ts";
 import type {Theme} from "../../ui/Themes.ts";
+import {DropDown, type DropDownOption} from "../../ui/DropDown.tsx";
+
+// the interpolations, valued by their curve's name (e.g. "curveLinear") and labelled with a
+// display name (e.g. "Linear")
+const OPTIONS: Array<DropDownOption<string>> = Array.from(INTERPOLATIONS.entries())
+    .map(([value, [label,]]) => ({value, label}))
 
 type Props = {
     theme: Theme
@@ -17,23 +23,13 @@ export function InterpolationControl(props: Props): JSX.Element {
 
     return (
         <label style={{color: theme.color}}>
-            <select
+            <DropDown
+                theme={theme}
                 name="interpolations"
-                style={{
-                    backgroundColor: theme.backgroundColor,
-                    color: theme.color,
-                    borderColor: theme.color,
-                    padding: 5,
-                    borderRadius: 3,
-                    outlineStyle: 'none'
-                }}
-                onChange={event => handleInterpolationChange(event.currentTarget.value)}
+                options={OPTIONS}
                 value={selectedInterpolationName}
-            >
-                {Array.from(INTERPOLATIONS.entries()).map(([value, [name,]]) => (
-                    <option key={value} value={value}>{name}</option>
-                ))}
-            </select>
+                onChange={handleInterpolationChange}
+            />
             <span style={{paddingLeft: 10}}>Interpolation</span>
         </label>
     )

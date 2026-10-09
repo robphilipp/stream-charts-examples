@@ -1,6 +1,10 @@
 import {type JSX} from "react";
 import {DROP_DATA_AFTER_MS, type DropAfterOptions} from "../options/dropDataAfter.ts";
 import type {Theme} from "../../ui/Themes.ts";
+import {DropDown, type DropDownOption} from "../../ui/DropDown.tsx";
+
+// the drop-after options, by name (e.g. "10 seconds")
+const OPTIONS: Array<DropDownOption<string>> = Array.from(DROP_DATA_AFTER_MS.keys()).map(name => ({value: name, label: name}))
 
 type Props = {
     theme: Theme
@@ -18,27 +22,13 @@ export function DropDataControl(props: Props): JSX.Element {
     } = props
 
     return (
-        <select
+        <DropDown
+            theme={theme}
             name="drop_after"
-            style={{
-                backgroundColor: disabled ? theme.disabledBackgroundColor : theme.backgroundColor,
-                color: disabled ? theme.disabledColor : theme.color,
-                borderColor: disabled ? theme.disabledColor : theme.color,
-                padding: 5,
-                borderRadius: 3,
-                outlineStyle: 'none'
-            }}
-            onChange={event => {
-                const dropAfter = DROP_DATA_AFTER_MS.get(event.currentTarget.value) || Infinity
-                handleDropAfterChange(dropAfter)
-            }}
-            value={value.description}
+            options={OPTIONS}
+            value={value.description ?? ''}
+            onChange={name => handleDropAfterChange(DROP_DATA_AFTER_MS.get(name) || Infinity)}
             disabled={disabled}
-        >
-            {Array.from(DROP_DATA_AFTER_MS.entries()).map(([name, ]) => (
-                <option key={name} value={name}>{name}</option>
-            ))}
-        </select>
-
+        />
     )
 }
