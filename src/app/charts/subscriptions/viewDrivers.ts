@@ -17,7 +17,7 @@ import {iteratesCurrentTime} from "../datasources/iteratesDataSource";
  * View drivers: the *view* half of a streaming plot.
  *
  * A {@link StreamingDataSource} (owned by the application) ingests the stream and keeps the series.
- * A view driver (owned by one mounted plot) listens to the source's `updates$` and keeps that plot's
+ * A view driver (owned by one mounted plot) listens to the source's `chartDataUpdatesObservable` and keeps that plot's
  * view in step with the data -- advancing the visible time-window (auto-scroll, cadence) and asking
  * the plot to redraw. A plot creates its driver when it mounts and *always* unsubscribes it when it
  * unmounts. Nothing here ever outlives the plot that created it, and nothing here ever mutates the

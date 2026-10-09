@@ -110,7 +110,7 @@ describe('streaming data source lifecycle', () => {
         expect(seenLengths).toEqual([2])
     })
 
-    it('reports running changes through running$, starting with the current value', () => {
+    it('reports running changes through isRunningObservable, starting with the current value', () => {
         const {generator} = controllableGenerator<TimeSeriesChartData>()
         const dataSource = sourceWith(generator)
         const states: Array<boolean> = []

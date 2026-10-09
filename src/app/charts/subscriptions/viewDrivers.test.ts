@@ -60,10 +60,10 @@ function chartDataFor(newPoints: Map<string, Array<Datum>>, maxTime: number): Ti
  * A stand-in for a data source: the test pushes updates and sets the latest (ground-truth) time
  */
 function fakeSource<CD>(latestTime: number = -Infinity) {
-    const updates$ = new Subject<CD>()
+    const chartDataUpdatesObservable = new Subject<CD>()
     let latest = latestTime
     return {
-        updates$,
+        chartDataUpdatesObservable,
         latestTime: () => latest,
         setLatestTime: (time: number) => {
             latest = time
@@ -135,7 +135,7 @@ describe('timeSeriesViewDriverFor', () => {
         const setCurrentTime = jest.fn()
         track(timeSeriesViewDriverFor(source, 100, new Map(), axesStateWith('x-axis-1'), updateTimingAndPlot, setCurrentTime))
 
-        source.updates$.next(chartDataFor(new Map([['series-a', [datumOf(1500, 42)]]]), 1500))
+        source.chartDataUpdatesObservable.next(chartDataFor(new Map([['series-a', [datumOf(1500, 42)]]]), 1500))
         jest.advanceTimersByTime(100)
 
         expect(lastRanges(updateTimingAndPlot).get('x-axis-1')!.current.asTuple()).toEqual([500, 1500])
@@ -148,7 +148,7 @@ describe('timeSeriesViewDriverFor', () => {
         const setCurrentTime = jest.fn()
         track(timeSeriesViewDriverFor(source, 100, new Map(), axesStateWith('x-axis-1'), updateTimingAndPlot, setCurrentTime))
 
-        source.updates$.next(chartDataFor(new Map([['series-a', [datumOf(400, 42)]]]), 400))
+        source.chartDataUpdatesObservable.next(chartDataFor(new Map([['series-a', [datumOf(400, 42)]]]), 400))
         jest.advanceTimersByTime(100)
 
         // the window hasn't scrolled, but "now" is still known
@@ -164,7 +164,7 @@ describe('timeSeriesViewDriverFor', () => {
             TimeWindowBehavior.SQUEEZE, new Map([['x-axis-1', 0]]),
         ))
 
-        source.updates$.next(chartDataFor(new Map([['series-a', [datumOf(1500, 42)]]]), 1500))
+        source.chartDataUpdatesObservable.next(chartDataFor(new Map([['series-a', [datumOf(1500, 42)]]]), 1500))
         jest.advanceTimersByTime(100)
 
         expect(lastRanges(updateTimingAndPlot).get('x-axis-1')!.current.asTuple()).toEqual([0, 1500])
@@ -180,7 +180,7 @@ describe('timeSeriesViewDriverFor', () => {
         const updateTimingAndPlot = jest.fn()
         track(timeSeriesViewDriverFor(source, 100, axisAssignments, xAxesState, updateTimingAndPlot, jest.fn()))
 
-        source.updates$.next(chartDataFor(new Map([['series-a', [datumOf(1500, 1)]], ['series-b', [datumOf(1800, 2)]]]), 1800))
+        source.chartDataUpdatesObservable.next(chartDataFor(new Map([['series-a', [datumOf(1500, 1)]], ['series-b', [datumOf(1800, 2)]]]), 1800))
         jest.advanceTimersByTime(100)
 
         expect(lastRanges(updateTimingAndPlot).get('x-axis-1')!.current.end).toBe(1500)
@@ -196,9 +196,9 @@ describe('timeSeriesViewDriverFor', () => {
             TimeWindowBehavior.SCROLL, new Map(), 50,
         ))
 
-        source.updates$.next(chartDataFor(new Map([['series-a', [datumOf(1100, 1)]]]), 1100))
+        source.chartDataUpdatesObservable.next(chartDataFor(new Map([['series-a', [datumOf(1100, 1)]]]), 1100))
         expect(updateTimingAndPlot).not.toHaveBeenCalled()
-        source.updates$.next(chartDataFor(new Map([['series-a', [datumOf(1200, 1)]]]), 1200))
+        source.chartDataUpdatesObservable.next(chartDataFor(new Map([['series-a', [datumOf(1200, 1)]]]), 1200))
         expect(updateTimingAndPlot).toHaveBeenCalledTimes(2)
     })
 
@@ -277,7 +277,7 @@ describe('timeSeriesWithCadenceViewDriverFor', () => {
         drive(source, {updateTimingAndPlot})
 
         jest.advanceTimersByTime(20)
-        source.updates$.next(chartDataFor(new Map([['series-a', [datumOf(50_000, 1)]]]), 50_000))
+        source.chartDataUpdatesObservable.next(chartDataFor(new Map([['series-a', [datumOf(50_000, 1)]]]), 50_000))
         jest.advanceTimersByTime(100)
         expect(lastRanges(updateTimingAndPlot).get('x-axis-1')!.current.end).toBe(50_000)
 
@@ -340,7 +340,7 @@ describe('outlierViewDriverFor', () => {
         track(outlierViewDriverFor(source, 100, new Map(), axesStateWith('x-axis-1'), updateTimingAndPlot, jest.fn()))
 
         const datum = (x: number): OutlierDatum<readonly [number]> => ({datum: {x, y: 1}, bounds: [{lower: 0, upper: 1}]})
-        source.updates$.next({seriesNames: new Set(['a']), newPoints: new Map([['a', [datum(1200), datum(1500)]]])})
+        source.chartDataUpdatesObservable.next({seriesNames: new Set(['a']), newPoints: new Map([['a', [datum(1200), datum(1500)]]])})
         jest.advanceTimersByTime(100)
 
         expect(lastRanges(updateTimingAndPlot).get('x-axis-1')!.current.asTuple()).toEqual([500, 1500])
@@ -352,7 +352,7 @@ describe('outlierViewDriverFor', () => {
         track(outlierViewDriverFor(source, 100, new Map(), axesStateWith('x-axis-1'), jest.fn(), setCurrentTime))
 
         const datum = (x: number): OutlierDatum<readonly [number]> => ({datum: {x, y: 1}, bounds: [{lower: 0, upper: 1}]})
-        source.updates$.next({seriesNames: new Set(['a']), newPoints: new Map([['a', [datum(300), datum(450)]]])})
+        source.chartDataUpdatesObservable.next({seriesNames: new Set(['a']), newPoints: new Map([['a', [datum(300), datum(450)]]])})
         jest.advanceTimersByTime(100)
 
         expect(setCurrentTime).toHaveBeenCalledWith('x-axis-1', 450)
@@ -370,7 +370,7 @@ describe('ordinalViewDriverFor', () => {
 
         const stats = defaultOrdinalStats()
         stats.maxDatum.time = ordinalDatumOf(750, 'a', 1)
-        source.updates$.next({
+        source.chartDataUpdatesObservable.next({
             seriesNames: new Set(['a']),
             stats,
             newPoints: new Map([['a', [ordinalDatumOf(750, 'a', 1)]]]),
@@ -393,7 +393,7 @@ describe('iteratesViewDriverFor', () => {
             source, 100, axesStateWith('x-axis-1'), axesStateWith('y-axis-1'), updateRangesAndPlot, updateCurrentTime,
         ))
 
-        source.updates$.next({
+        source.chartDataUpdatesObservable.next({
             seriesNames: new Set(['a']),
             newPoints: new Map([['a', [{time: 42, iterateN: 0, iterateN_1: 0}]]]),
         } as unknown as IterateChartData)

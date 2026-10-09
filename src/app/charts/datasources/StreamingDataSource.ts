@@ -16,7 +16,7 @@ export type DataGenerator<CD extends ChartData, S> = (currentSeries: Array<S>) =
  *
  * A data source is deliberately *not* tied to any React component. The application creates it
  * (e.g. in a store), starts and stops it (Run/Pause), and hands it to a {@link Chart}. Plots only
- * ever *read* from it -- its `series`, and its `updates$` notifications, which a plot subscribes
+ * ever *read* from it -- its `series`, and its `chartDataUpdatesObservable` notifications, which a plot subscribes
  * to for exactly as long as it is mounted. That split is what lets data keep accumulating while a
  * chart is unmounted (e.g. the user navigated to another page) without any subscription bound to
  * an unmounted plot instance being kept alive, adopted, or torn down later on.
