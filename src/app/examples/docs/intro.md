@@ -27,9 +27,11 @@ You use the navigation bar to navigate between these pages. Yeah, the navigation
     </figcaption>
 </figure>
 
-If the navigation bar gets in the way, you can move it by dragging it. The buttons on the navigation bar allow you to navigation to the next page, previous page, and to the first and last pages – should be pretty obvious &#x1F60A;. 
+If the navigation bar gets in the way, you can move it by dragging it. The buttons on the navigation bar allow you to navigate to the next page, previous page, and to the first and last pages – should be pretty obvious &#x1F60A;. 
 
 When the `First` or `Previous` buttons are disabled, that means you're on the first page. And similarly, when the `Next` and `Last` buttons are disabled, that means you're on the last page.
+
+And if you know where you're headed, the drop-down on the left of the navigation bar is the table of contents. It shows the page you're on, and picking a page from its list takes you straight there – no need to click `Next` a dozen times.
 
 Try navigating to the next page by clicking the `Next` button (but not the one in the figure).
 

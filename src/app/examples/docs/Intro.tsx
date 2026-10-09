@@ -17,6 +17,16 @@ import intro_page from "./intro.md?raw"
 import some_context_page from "./some-context.md?raw"
 import contents_page from "./contents.md?raw";
 import anatomy_of_example_page from "./anatomy-of-example.md?raw";
+import common_controls_page from "./common-controls.md?raw";
+import scatter_chart_page from "./scatter-chart.md?raw";
+import raster_chart_page from "./raster-chart.md?raw";
+import poincare_chart_page from "./poincare-chart.md?raw";
+import bar_chart_page from "./bar-chart.md?raw";
+import outlier_chart_page from "./outlier-chart.md?raw";
+import legends_page from "./legends.md?raw";
+import tooltips_and_trackers_page from "./tooltips-and-trackers.md?raw";
+import where_the_code_lives_page from "./where-the-code-lives.md?raw";
+import how_the_data_flows_page from "./how-the-data-flows.md?raw";
 import ReactMarkdown, {type ExtraProps} from "react-markdown";
 import rehypeRaw from 'rehype-raw';
 import {buttonStyle, interpolateColor} from "../../ui/utils.ts";
@@ -25,13 +35,46 @@ import {FloatingBar} from "../../ui/FloatingBar.tsx";
 import {BackIcon, FirstIcon, ForwardIcon, LastIcon} from "../../ui/Icons.tsx";
 import remarkGfm from "remark-gfm";
 import {useThemeStore} from "../appstate/themeStore.ts";
+import {DropDown, type DropDownOption} from "../../ui/DropDown.tsx";
 
 const pages = [
     intro_page,
     some_context_page,
     contents_page,
-    anatomy_of_example_page
+    anatomy_of_example_page,
+    common_controls_page,
+    scatter_chart_page,
+    raster_chart_page,
+    poincare_chart_page,
+    bar_chart_page,
+    outlier_chart_page,
+    legends_page,
+    tooltips_and_trackers_page,
+    where_the_code_lives_page,
+    how_the_data_flows_page,
 ]
+
+/**
+ * The page's title: the text of its first heading (e.g. "what is stream-charts?")
+ * @param page The page's markdown
+ * @param pageNum The page's index (for the fallback title, when the page has no heading)
+ * @return The page's title
+ */
+function titleOf(page: string, pageNum: number): string {
+    const heading = page.match(/^#{1,6}\s+(.+?)\s*$/m)
+    return heading !== null ? heading[1] : `page ${pageNum + 1}`
+}
+
+// the table of contents: one entry per page, numbered and labelled with the page's title, and
+// valued by the page's index
+const TABLE_OF_CONTENTS: Array<DropDownOption<string>> = pages.map((page, pageNum) => ({
+    value: `${pageNum}`,
+    label: `${pageNum + 1}. ${titleOf(page, pageNum)}`
+}))
+
+// the table of contents' (fixed) width, so that the (centered) navigation bar doesn't shift as the
+// selected page's title changes length
+const TABLE_OF_CONTENTS_WIDTH = 230
 
 function style(theme: Theme, height: number): CSSProperties {
     return {
@@ -139,6 +182,18 @@ function Navigation(props: NavigationProps): JSX.Element {
 
     return (
         <>
+            {/* the table of contents, for going straight to a page */}
+            <span style={{marginLeft: 3, marginRight: 3}}>
+                <DropDown
+                    theme={theme}
+                    name="table-of-contents"
+                    ariaLabel="Table of contents"
+                    options={TABLE_OF_CONTENTS}
+                    value={`${pageNum}`}
+                    onChange={page => updatePageNum(Number(page))}
+                    width={TABLE_OF_CONTENTS_WIDTH}
+                />
+            </span>
             <Button
                 style={style}
                 onClick={() => updatePageNum(0)} disabled={pageNum === 0 || numPages <= 1}

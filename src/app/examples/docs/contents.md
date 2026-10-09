@@ -21,12 +21,12 @@ Currently, there are five chart types available, each presented as an example in
 The next pages describe:
 1. the anatomy of the example charts,
 2. common control bar functions,
-3. control bar functions specific to each chart type and what the chart represents,
+3. each chart type – what the chart represents, and the control bar functions specific to it (one page per chart type),
 4. legends, 
-5. tooltips, and
-6. a description of each chart type.
+5. tooltips and trackers, and
+6. what's going on under the hood – which code is the example's and which is the library's, and how the data flows from one to the other.
 
-Click on the `Next` button in the navigation bar to continue.
+Click on the `Next` button in the navigation bar to continue. Or, if you're the impatient type, jump ahead using the table of contents on the left of the navigation bar.
 
 [//]: # (Each tab in this application contains an example chart for one of the available stream-charts plot types. Each of these)
 

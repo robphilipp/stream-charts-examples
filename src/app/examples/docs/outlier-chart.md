@@ -1,0 +1,35 @@
+### the outlier chart
+
+The outlier chart plots a single time-series along with the bounds that a model says the data *should* stay within. Each bound is drawn as a shaded band around the expected value, and any point that falls outside a band gets flagged with a colored marker. So it answers the question "is this data point unusual?" at a glance.
+
+#### what you're looking at
+
+The example plots a made-up "Spot Price Index" – a sum of a few periodic functions, plus some random noise. Around it are three bands, one for each of the model's bounds:
+
+- the inner band, holding about 68% of the data (1σ),
+- the middle band, holding about 95% (2σ), and
+- the outer band, holding about 99.7% (3σ).
+
+The inner bands are drawn darker than the outer ones. A point outside the inner band gets a yellow marker, outside the middle band an orange one, and outside the outer band a red one. Red points are your outliers – they should be rare.
+
+Hover over a band (with the tooltip on) and the tooltip describes the band – for example, "Points in this band are unlikely to be outliers." Hover over a point, and it tells you about the point.
+
+#### controls just for this chart
+
+- **html/svg toggle** – Next to the tooltip checkbox. The library has two kinds of tooltip content for this chart: one drawn in SVG, and one in plain HTML. Toggle between them to see both. The HTML version is the easier one to style – it's just React. (There's even a commented-out custom tooltip, `MyOutlierHtmlTooltipContent`, in the example's code, if you want to see how to roll your own.) Tooltips get their own page later on.
+- **markers** – Draws a marker on every data point, not just the outliers. Like the scatter chart's markers, they only show while the chart is paused (the outlier markers show all the time). Disabled while running.
+- **interpolation drop-down** – How the line gets from one point to the next, just like the scatter chart's.
+
+There's no tracker in this example, and no **Number of Series** – it's a single series.
+
+#### where the code lives
+
+The example (yours to copy, change, or ignore):
+- `src/app/examples/StreamingOutlierChart.tsx` – the control bar, and the chart itself
+- `src/app/examples/appstate/outlierChartStore.ts` – the example's state, its data source, and the model's bounds
+- `src/app/examples/dataproviders/randomOutlierData.ts` – the noisy periodic data generator
+- `src/app/examples/MyOutlierHtmlTooltipContent.tsx` – an example of a custom tooltip
+
+The library (what you'd use in your own application):
+- `<Chart>`, `<ContinuousAxis>`, `<OutlierPlot>`, `<Tooltip>` with `<OutlierPlotTooltipContent>` (SVG) or `<OutlierPlotHtmlTooltipContent>` (HTML)
+- `OutlierDataSource` – holds the series, along with its bounds
