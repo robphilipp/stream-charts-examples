@@ -54,6 +54,9 @@ const MAX_LIST_HEIGHT = 240
 const TYPE_AHEAD_TIMEOUT_MS = 500
 // the gap between the trigger and the list
 const LIST_OFFSET = 2
+// how long the list stays open after the mouse leaves the drop-down (lets the mouse cross the gap
+// between the button and the list, or briefly overshoot, without the list closing)
+const MOUSE_LEAVE_CLOSE_DELAY_MS = 150
 
 /**
  * Where the open list is placed, in viewport (fixed) coordinates
@@ -79,7 +82,8 @@ type ListPlacement = {
  * points at the highlighted option through `aria-activedescendant`. Keyboard: ArrowDown/ArrowUp,
  * Enter, or Space open the list; while it's open, ArrowDown/ArrowUp/Home/End move the highlight,
  * Enter or Space select it, Tab selects it and moves on, and Escape closes the list unchanged;
- * typing jumps to the first option whose label starts with what was typed.
+ * typing jumps to the first option whose label starts with what was typed. The list also closes
+ * (unchanged) when the mouse leaves the drop-down (the button and the list).
  * @param props The properties
  * @return The drop-down
  * @template V The type of the options' values
@@ -107,6 +111,7 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
     const buttonRef = useRef<HTMLButtonElement>(null)
     const listRef = useRef<HTMLUListElement>(null)
     const typeAheadRef = useRef<{text: string, timeout: ReturnType<typeof setTimeout> | undefined}>({text: '', timeout: undefined})
+    const mouseLeaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const selectedIndex = options.findIndex(option => option.value === value)
     const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined
@@ -203,6 +208,31 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
         () => () => clearTimeout(typeAheadRef.current.timeout),
         []
     )
+
+    // a pending mouse-leave close is dropped once the list closes (or the drop-down unmounts)
+    useEffect(
+        () => {
+            if (!open) return
+            return () => {
+                clearTimeout(mouseLeaveTimeoutRef.current)
+                mouseLeaveTimeoutRef.current = undefined
+            }
+        },
+        [open]
+    )
+
+    // closes the open list shortly after the mouse leaves the button or the list, unless the mouse
+    // enters the other one (or comes back) in the meantime
+    function handleMouseLeave(): void {
+        if (!open) return
+        clearTimeout(mouseLeaveTimeoutRef.current)
+        mouseLeaveTimeoutRef.current = setTimeout(closeList, MOUSE_LEAVE_CLOSE_DELAY_MS)
+    }
+
+    function handleMouseEnter(): void {
+        clearTimeout(mouseLeaveTimeoutRef.current)
+        mouseLeaveTimeoutRef.current = undefined
+    }
 
     /**
      * Jumps to the first option (from the highlighted one onwards, wrapping around) whose label
@@ -327,6 +357,8 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                 data-name={name}
                 style={buttonStyle}
                 onClick={() => open ? closeList() : openList()}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
                 onKeyDown={handleKeyDown}
             >
                 <span>{selected?.label ?? ''}</span>
@@ -346,6 +378,8 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
             {open && placement !== undefined && createPortal(
                 <ul
                     ref={listRef}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
                     id={listId}
                     role="listbox"
                     aria-label={ariaLabel}
@@ -363,7 +397,8 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                         listStyle: 'none',
                         backgroundColor: theme.backgroundColor,
                         color: theme.color,
-                        border: `1px solid ${theme.color}`,
+                        // a softer border than the button's, so the list doesn't look boxed in
+                        border: `1px solid ${interpolateColor(theme.color, theme.backgroundColor, 70)}`,
                         borderRadius: 3,
                         boxShadow: `0 4px 12px ${interpolateColor('transparent', theme.name === 'dark' ? '#000' : '#555', 40)}`,
                         font: 'inherit',
