@@ -31,7 +31,7 @@ If the navigation bar gets in the way, you can move it by dragging it. The butto
 
 When the `First` or `Previous` buttons are disabled, that means you're on the first page. And similarly, when the `Next` and `Last` buttons are disabled, that means you're on the last page.
 
-And if you know where you're headed, the drop-down on the left of the navigation bar is the table of contents. It shows the page you're on, and picking a page from its list takes you straight there – no need to click `Next` a dozen times.
+And if you know where you're headed, the button on the left of the navigation bar (the one that looks like a little list) opens the table of contents, right there in the navigation bar. It marks the page you're on, and clicking a page takes you straight there – no need to click `Next` a dozen times. Click the button again (or just move the mouse away) to put the table of contents away.
 
 Try navigating to the next page by clicking the `Next` button (but not the one in the figure).
 

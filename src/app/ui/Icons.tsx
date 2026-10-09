@@ -475,3 +475,52 @@ export function DropDownClosedIcon(props: { color: string }): JSX.Element {
         </svg>
     )
 }
+
+/**
+ * The lines of a table of contents (three bulleted lines), shared by the table-of-contents icons
+ * @param props The icon's color
+ * @return The lines
+ */
+function TableOfContentsLines(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <>
+            {[3, 7.5, 12].map(y => (
+                <g key={y}>
+                    <circle cx={2} cy={y} r={1.3} fill={color}/>
+                    <line x1={5} y1={y} x2={13} y2={y} stroke={color} strokeWidth={1.8} strokeLinecap="round"/>
+                </g>
+            ))}
+        </>
+    )
+}
+
+/**
+ * A table of contents with a small triangle pointing down: clicking it opens the table of contents
+ * @param props The icon's color (fill and stroke)
+ * @return The icon
+ */
+export function TableOfContentsExpandIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <svg width="20" height="15" viewBox="0 0 20 15" style={{display: 'block', flexShrink: 0}}>
+            <TableOfContentsLines color={color}/>
+            <path d="M15 6 L19 6 L17 9 Z" fill={color} stroke={color} strokeWidth={1} strokeLinejoin="round"/>
+        </svg>
+    )
+}
+
+/**
+ * A table of contents with a small triangle pointing up: clicking it closes the table of contents
+ * @param props The icon's color (fill and stroke)
+ * @return The icon
+ */
+export function TableOfContentsCollapseIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <svg width="20" height="15" viewBox="0 0 20 15" style={{display: 'block', flexShrink: 0}}>
+            <TableOfContentsLines color={color}/>
+            <path d="M15 9 L19 9 L17 6 Z" fill={color} stroke={color} strokeWidth={1} strokeLinejoin="round"/>
+        </svg>
+    )
+}

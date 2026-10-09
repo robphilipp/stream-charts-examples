@@ -26,7 +26,7 @@ The next pages describe:
 5. tooltips and trackers, and
 6. what's going on under the hood – which code is the example's and which is the library's, and how the data flows from one to the other.
 
-Click on the `Next` button in the navigation bar to continue. Or, if you're the impatient type, jump ahead using the table of contents on the left of the navigation bar.
+Click on the `Next` button in the navigation bar to continue. Or, if you're the impatient type, jump ahead using the table of contents (the button on the left of the navigation bar).
 
 [//]: # (Each tab in this application contains an example chart for one of the available stream-charts plot types. Each of these)
 

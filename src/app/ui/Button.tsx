@@ -8,6 +8,11 @@ interface Props {
     disabled?: boolean
     icon?: ((color: string) => JSX.Element)
     children: JSX.Element | string
+    // accessible name, for a button without (descriptive) text, e.g. an icon-only button
+    ariaLabel?: string
+    // for a button that opens and closes something: whether it's open, and the ID of what it opens
+    ariaExpanded?: boolean
+    ariaControls?: string
 }
 
 const defaultButtonStyle: CSSProperties = {
@@ -42,7 +47,10 @@ export function Button(props: Props): JSX.Element {
         onClick,
         disabled = false,
         icon,
-        children
+        children,
+        ariaLabel,
+        ariaExpanded,
+        ariaControls,
     } = props
 
     const [hovered, setHovered] = useState<boolean>(false)
@@ -68,6 +76,9 @@ export function Button(props: Props): JSX.Element {
         onMouseOut={() => setHovered(false)}
         disabled={disabled}
         style={buttonStyle}
+        aria-label={ariaLabel}
+        aria-expanded={ariaExpanded}
+        aria-controls={ariaControls}
     >
         {icon ? icon((disabled ? disabledStyle.color : style.color) as string) : <></>}
         {children}

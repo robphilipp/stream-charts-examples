@@ -48,12 +48,6 @@ type Props<V extends string> = {
      */
     ariaLabel?: string
     /**
-     * A fixed width for the drop-down's button (a label that doesn't fit is truncated with an
-     * ellipsis; the open list still shows the options in full). By default, the button is as wide
-     * as the selected option's label, and so changes width as the selection changes.
-     */
-    width?: CSSProperties['width']
-    /**
      * How long (in milliseconds) the open list stays open after the mouse leaves the drop-down
      * (the button and the list) before it closes. Moving back into either one in the meantime
      * keeps it open. The delay also lets the mouse cross the gap between the button and the list.
@@ -133,7 +127,6 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
         onChange,
         disabled = false,
         ariaLabel,
-        width,
         autoCloseDelay = 500,
         animationDuration = 260,
     } = props
@@ -414,8 +407,6 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 8,
-        width,
-        boxSizing: 'border-box',
         backgroundColor: disabled ? theme.disabledBackgroundColor : theme.backgroundColor,
         color,
         border: `1px solid ${color}`,
@@ -450,7 +441,7 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                 onKeyDown={handleKeyDown}
                 onKeyUp={handleKeyUp}
             >
-                <span style={{overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0}}>{selected?.label ?? ''}</span>
+                <span>{selected?.label ?? ''}</span>
                 {open ?
                     <DropDownOpenIcon color={color}/> :
                     <DropDownClosedIcon color={color}/>}

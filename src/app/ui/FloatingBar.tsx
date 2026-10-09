@@ -1,5 +1,5 @@
 import type {Theme} from "./Themes.ts";
-import React, {type CSSProperties, type JSX, useRef, useState} from "react";
+import React, {type CSSProperties, type JSX, useEffect, useLayoutEffect, useRef, useState} from "react";
 
 type Location = {
     // offset from the top or bottom of the screen
@@ -17,6 +17,27 @@ type Props = {
     location?: Location
     style: FloatingNavigationStyle
     children: JSX.Element
+    /**
+     * Optional content for a panel that expands below the bar's controls (e.g. a table of
+     * contents). The panel is as wide as the bar (its content never widens the bar).
+     */
+    panel?: JSX.Element
+    /**
+     * Whether the panel is expanded. The panel is controlled by the parent, which also supplies
+     * the control that toggles it (e.g. a button among the bar's children).
+     */
+    panelExpanded?: boolean
+    /**
+     * Called when the bar wants to collapse its expanded panel by itself: `autoCollapseDelay`
+     * after the mouse leaves the bar (unless the mouse comes back in the meantime), like the
+     * expandable control bar
+     */
+    onPanelCollapse?: () => void
+    /**
+     * How long (in milliseconds) after the mouse leaves the bar that it collapses its expanded
+     * panel. Defaults to 500 ms (the same as the expandable control bar's).
+     */
+    autoCollapseDelay?: number
 }
 
 /**
@@ -24,6 +45,10 @@ type Props = {
  * determined by the `location` prop, which can be either "top" or "bottom" with the
  * offset from that location. The `location` prop can be used to adjust the initial
  * position of the navigation bar.
+ *
+ * The bar can also have a panel that expands below its controls (see the `panel` prop), which
+ * animates open and closed like the expandable control bar: it grows to its content's height while
+ * the content fades in, and the reverse when it collapses.
  * @param props
  * @return A floating navigation bar
  */
@@ -31,7 +56,11 @@ export function FloatingBar(props: Props): JSX.Element {
     const {
         location = {offsetFrom: "bottom", offset: 20},
         style,
-        children
+        children,
+        panel,
+        panelExpanded = false,
+        onPanelCollapse,
+        autoCollapseDelay = 500,
     } = props
 
     const {
@@ -51,6 +80,46 @@ export function FloatingBar(props: Props): JSX.Element {
     const [offset, setOffset] = useState<{x: number, y: number}>({x: 0, y: 0})
     const [isDragging, setIsDragging] = useState<boolean>(false)
     const [mouseInBounds, setMouseInBounds] = useState<boolean>(false)
+
+    // the panel's content height (for animating the panel open, like the expandable control bar)
+    const panelContentRef = useRef<HTMLDivElement>(null)
+    const [panelContentHeight, setPanelContentHeight] = useState<number>(0)
+    const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+    useLayoutEffect(
+        () => {
+            const element = panelContentRef.current
+            if (element === null) return
+            const updateHeight = () => setPanelContentHeight(element.scrollHeight)
+            updateHeight()
+            const observer = new ResizeObserver(updateHeight)
+            observer.observe(element)
+            return () => observer.disconnect()
+        },
+        [panel]
+    )
+
+    // a pending auto-collapse is dropped once the panel collapses (or the bar unmounts)
+    useEffect(
+        () => {
+            if (!panelExpanded) return
+            return () => clearTimeout(collapseTimeoutRef.current)
+        },
+        [panelExpanded]
+    )
+
+    function handleMouseEnter(): void {
+        clearTimeout(collapseTimeoutRef.current)
+        setMouseInBounds(true)
+    }
+
+    function handleMouseLeave(): void {
+        setMouseInBounds(false)
+        if (panelExpanded && onPanelCollapse !== undefined) {
+            clearTimeout(collapseTimeoutRef.current)
+            collapseTimeoutRef.current = setTimeout(onPanelCollapse, autoCollapseDelay)
+        }
+    }
 
     function beginDrag(event: React.PointerEvent<HTMLDivElement>): void {
         if (event.button !== 0) {
@@ -114,22 +183,42 @@ export function FloatingBar(props: Props): JSX.Element {
         onPointerMove={updateDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onMouseOver={() => setMouseInBounds(true)}
-        onMouseLeave={() => setMouseInBounds(false)}
-        style={navStyle({boxShadowColor, borderColor}, location, offset.x, offset.y, isDragging, mouseInBounds)}
+        onMouseOver={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        style={navStyle({boxShadowColor, borderColor}, location, offset.x, offset.y, isDragging, mouseInBounds, panelExpanded)}
     >
-        <div style={{
-            cursor: "grab",
-            display: "flex",
-            flexDirection: "column",
-            gap: "2px",
-            touchAction: "none",
-        }}>
-            <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
-            <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
-            <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
+        <div style={{display: "flex", alignItems: "center", gap: 5}}>
+            <div style={{
+                cursor: "grab",
+                display: "flex",
+                flexDirection: "column",
+                gap: "2px",
+                touchAction: "none",
+            }}>
+                <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
+                <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
+                <div style={{width: "12px", height: "2px", backgroundColor: style.color, borderRadius: "1px"}}/>
+            </div>
+            {children}
         </div>
-        {children}
+        {panel !== undefined &&
+            // (`width: 0` with `minWidth: 100%` makes the panel exactly as wide as the bar, without
+            // its content ever widening the bar)
+            <div style={{
+                width: 0,
+                minWidth: "100%",
+                maxHeight: panelExpanded ? panelContentHeight : 0,
+                opacity: panelExpanded ? 1 : 0,
+                overflow: "hidden",
+                borderTop: `1px solid ${panelExpanded ? borderColor : "transparent"}`,
+                marginTop: panelExpanded ? 6 : 0,
+                transition: "max-height 260ms ease, opacity 180ms ease, border-top-color 180ms ease, margin-top 260ms ease",
+            }}>
+                <div ref={panelContentRef}>
+                    {panel}
+                </div>
+            </div>
+        }
     </div>
 }
 
@@ -139,7 +228,8 @@ function navStyle(
     x: number = 0,
     y: number = 0,
     isDragging: boolean = false,
-    mouseInBounds: boolean = false
+    mouseInBounds: boolean = false,
+    panelExpanded: boolean = false
 ): CSSProperties {
     const dynamicStyle: CSSProperties = {
         transform: `translate3d(calc(-50% + ${x}px), ${y}px, 0)`,
@@ -159,13 +249,14 @@ function navStyle(
         userSelect: "none",
         touchAction: "none",
 
+        // the bar's controls, with the (expandable) panel below them
         display: "flex",
-        alignItems: "center",
-        gap: 5,
+        flexDirection: "column",
 
-        /* Floating pill styling */
+        /* Floating pill styling (with less rounded corners while the panel is expanded) */
         padding: "7px 20px 7px 15px",
-        borderRadius: 50,
+        borderRadius: panelExpanded ? 20 : 50,
+        transition: "border-radius 260ms ease",
     }
     switch (location.offsetFrom) {
         case "top":

@@ -32,10 +32,16 @@ import rehypeRaw from 'rehype-raw';
 import {buttonStyle, interpolateColor} from "../../ui/utils.ts";
 import {useGridCell} from "react-resizable-grid-layout";
 import {FloatingBar} from "../../ui/FloatingBar.tsx";
-import {BackIcon, FirstIcon, ForwardIcon, LastIcon} from "../../ui/Icons.tsx";
+import {
+    BackIcon,
+    FirstIcon,
+    ForwardIcon,
+    LastIcon,
+    TableOfContentsCollapseIcon,
+    TableOfContentsExpandIcon
+} from "../../ui/Icons.tsx";
 import remarkGfm from "remark-gfm";
 import {useThemeStore} from "../appstate/themeStore.ts";
-import {DropDown, type DropDownOption} from "../../ui/DropDown.tsx";
 
 const pages = [
     intro_page,
@@ -65,16 +71,11 @@ function titleOf(page: string, pageNum: number): string {
     return heading !== null ? heading[1] : `page ${pageNum + 1}`
 }
 
-// the table of contents: one entry per page, numbered and labelled with the page's title, and
-// valued by the page's index
-const TABLE_OF_CONTENTS: Array<DropDownOption<string>> = pages.map((page, pageNum) => ({
-    value: `${pageNum}`,
-    label: `${pageNum + 1}. ${titleOf(page, pageNum)}`
-}))
+// the table of contents: each page's entry, numbered and labelled with the page's title
+const TABLE_OF_CONTENTS: Array<string> = pages.map((page, pageNum) => `${pageNum + 1}. ${titleOf(page, pageNum)}`)
 
-// the table of contents' (fixed) width, so that the (centered) navigation bar doesn't shift as the
-// selected page's title changes length
-const TABLE_OF_CONTENTS_WIDTH = 230
+// the ID of the table of contents (which the button that opens and closes it controls)
+const TABLE_OF_CONTENTS_ID = "intro-table-of-contents"
 
 function style(theme: Theme, height: number): CSSProperties {
     return {
@@ -127,6 +128,9 @@ export default function Intro() {
         [pageNum, scrollEntry]
     )
 
+    // whether the table of contents (which expands below the navigation bar's buttons) is open
+    const [tableOfContentsOpen, setTableOfContentsOpen] = useState<boolean>(false)
+
     function updatePageNum(nextPage: number): void {
         navigate({to: "/intro", search: {page: Math.min(Math.max(0, nextPage), numPages - 1)}})
     }
@@ -155,12 +159,29 @@ export default function Intro() {
                 {pages[pageNum]}
             </ReactMarkdown>
 
-            <FloatingBar style={{...theme}} location={{offsetFrom: "top", offset: 120}}>
+            <FloatingBar
+                style={{...theme}}
+                location={{offsetFrom: "top", offset: 120}}
+                panel={
+                    <TableOfContents
+                        theme={theme}
+                        pageNum={pageNum}
+                        onSelectPage={page => {
+                            setTableOfContentsOpen(false)
+                            updatePageNum(page)
+                        }}
+                    />
+                }
+                panelExpanded={tableOfContentsOpen}
+                onPanelCollapse={() => setTableOfContentsOpen(false)}
+            >
                 <Navigation
                     theme={theme}
                     pageNum={pageNum}
                     numPages={numPages}
                     updatePageNum={updatePageNum}
+                    tableOfContentsOpen={tableOfContentsOpen}
+                    onTableOfContentsToggle={() => setTableOfContentsOpen(open => !open)}
                 />
             </FloatingBar>
         </div>
@@ -173,27 +194,31 @@ type NavigationProps = {
     pageNum: number,
     numPages: number,
     updatePageNum: (pageNum: number) => void
+    tableOfContentsOpen: boolean
+    onTableOfContentsToggle: () => void
 }
 
 function Navigation(props: NavigationProps): JSX.Element {
 
-    const {theme, pageNum, numPages, updatePageNum} = props
+    const {theme, pageNum, numPages, updatePageNum, tableOfContentsOpen, onTableOfContentsToggle} = props
     const style = {...buttonStyle(theme), marginLeft: 3, marginRight: 3, marginTop: 6, marginBottom: 6}
 
     return (
         <>
-            {/* the table of contents, for going straight to a page */}
-            <span style={{marginLeft: 3, marginRight: 3}}>
-                <DropDown
-                    theme={theme}
-                    name="table-of-contents"
-                    ariaLabel="Table of contents"
-                    options={TABLE_OF_CONTENTS}
-                    value={`${pageNum}`}
-                    onChange={page => updatePageNum(Number(page))}
-                    width={TABLE_OF_CONTENTS_WIDTH}
-                />
-            </span>
+            {/* opens and closes the table of contents (its icon shows which a click will do) */}
+            <Button
+                style={style}
+                onClick={onTableOfContentsToggle}
+                icon={color => tableOfContentsOpen ?
+                    <TableOfContentsCollapseIcon color={color}/> :
+                    <TableOfContentsExpandIcon color={color}/>
+                }
+                ariaLabel={tableOfContentsOpen ? "Close the table of contents" : "Open the table of contents"}
+                ariaExpanded={tableOfContentsOpen}
+                ariaControls={TABLE_OF_CONTENTS_ID}
+            >
+                {""}
+            </Button>
             <Button
                 style={style}
                 onClick={() => updatePageNum(0)} disabled={pageNum === 0 || numPages <= 1}
@@ -223,6 +248,78 @@ function Navigation(props: NavigationProps): JSX.Element {
                 Last
             </Button>
         </>
+    )
+}
+
+type TableOfContentsProps = {
+    theme: Theme
+    pageNum: number
+    onSelectPage: (pageNum: number) => void
+}
+
+/**
+ * The table of contents: a list of the pages (numbered and titled), with the current page marked.
+ * Selecting a page goes to it. Shown in the navigation bar's expandable panel.
+ * @param props The properties
+ * @return The table of contents
+ */
+function TableOfContents(props: TableOfContentsProps): JSX.Element {
+    const {theme, pageNum, onSelectPage} = props
+    const [hoveredPage, setHoveredPage] = useState<number | undefined>(undefined)
+
+    return (
+        <nav id={TABLE_OF_CONTENTS_ID} aria-label="Table of contents">
+            <ol style={{
+                listStyle: 'none',
+                margin: 0,
+                padding: '4px 0 2px',
+                // (scrolls when the pages don't fit on the screen)
+                maxHeight: '60vh',
+                overflowY: 'auto',
+                scrollbarWidth: 'thin',
+            }}>
+                {TABLE_OF_CONTENTS.map((title, page) => {
+                    const isCurrent = page === pageNum
+                    return (
+                        <li key={page}>
+                            <button
+                                onClick={() => onSelectPage(page)}
+                                onMouseEnter={() => setHoveredPage(page)}
+                                onMouseLeave={() => setHoveredPage(undefined)}
+                                aria-current={isCurrent ? 'page' : undefined}
+                                title={title}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    width: '100%',
+                                    padding: '4px 8px',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    backgroundColor: hoveredPage === page ?
+                                        interpolateColor(theme.backgroundColor, theme.color, 12) :
+                                        'transparent',
+                                    color: theme.color,
+                                    font: 'inherit',
+                                    fontSize: 13,
+                                    fontWeight: isCurrent ? 600 : 'normal',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {/* marks the current page (keeps every title aligned) */}
+                                <span aria-hidden="true" style={{width: 10, flexShrink: 0, textAlign: 'center'}}>
+                                    {isCurrent ? '✓' : ''}
+                                </span>
+                                <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                                    {title}
+                                </span>
+                            </button>
+                        </li>
+                    )
+                })}
+            </ol>
+        </nav>
     )
 }
 
