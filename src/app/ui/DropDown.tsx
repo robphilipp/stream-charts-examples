@@ -54,6 +54,12 @@ type Props<V extends string> = {
      * Defaults to 500 ms (the same as the expandable control bar's auto-collapse delay).
      */
     autoCloseDelay?: number
+    /**
+     * How long (in milliseconds) the list takes to open (grow to its full height and fade in), and
+     * to close (shrink and fade out). Defaults to 260 ms (the same as the expandable control
+     * bar's expand/collapse animation).
+     */
+    animationDuration?: number
 }
 
 // the largest the list gets before it scrolls
@@ -62,6 +68,13 @@ const MAX_LIST_HEIGHT = 240
 const TYPE_AHEAD_TIMEOUT_MS = 500
 // the gap between the trigger and the list
 const LIST_OFFSET = 2
+// the list's top and bottom borders (its height includes them, because of the border-box sizing)
+const LIST_BORDERS_HEIGHT = 2
+// the list's top and bottom padding (none while collapsed, so it collapses to no height at all)
+const LIST_PADDING_Y = 3
+// the fade runs for this fraction of the animation's duration (the expandable control bar fades
+// for 180 ms of its 260 ms expand/collapse)
+const FADE_FRACTION = 180 / 260
 
 /**
  * Where the open list is placed, in viewport (fixed) coordinates
@@ -104,6 +117,7 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
         disabled = false,
         ariaLabel,
         autoCloseDelay = 500,
+        animationDuration = 260,
     } = props
 
     const id = useId()
@@ -114,6 +128,16 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
     // the highlighted option (keyboard focus or mouse hover) while the list is open
     const [activeIndex, setActiveIndex] = useState<number>(-1)
     const [placement, setPlacement] = useState<ListPlacement | undefined>(undefined)
+
+    // The list animates like the expandable control bar: it grows from no height to its content's
+    // height while fading in, and the reverse when it closes. So it is rendered ("mounted") from
+    // the moment it opens until its closing animation has finished, and is "expanded" once its
+    // height has been measured (a frame after it is mounted, collapsed, so the transition runs).
+    const [mounted, setMounted] = useState<boolean>(false)
+    const [expanded, setExpanded] = useState<boolean>(false)
+    // the list's height when fully open, and whether its content is taller than that (scrolls)
+    const [listSize, setListSize] = useState<{height: number, scrolls: boolean}>({height: 0, scrolls: false})
+    if (open && !mounted) setMounted(true)
 
     const buttonRef = useRef<HTMLButtonElement>(null)
     const listRef = useRef<HTMLUListElement>(null)
@@ -169,6 +193,42 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
             })
         },
         [open]
+    )
+
+    // once the list is mounted (collapsed), measures the height of its content, and then (in the
+    // next frame, after the collapsed list has been painted) expands it to that height
+    useLayoutEffect(
+        () => {
+            if (!open || !mounted || placement === undefined || listRef.current === null) return
+            // (measured while collapsed, so without the padding)
+            const contentHeight = listRef.current.scrollHeight + 2 * LIST_PADDING_Y + LIST_BORDERS_HEIGHT
+            const frame = requestAnimationFrame(() => {
+                setListSize({
+                    height: Math.min(contentHeight, placement.maxHeight),
+                    scrolls: contentHeight > placement.maxHeight
+                })
+                setExpanded(true)
+            })
+            return () => cancelAnimationFrame(frame)
+        },
+        [open, mounted, placement]
+    )
+
+    // once closed, removes the list after its closing animation has finished (reopening it in the
+    // meantime cancels the removal, and the list animates back open from wherever it got to)
+    useEffect(
+        () => {
+            if (open || !mounted) return
+            const timeout = setTimeout(
+                () => {
+                    setMounted(false)
+                    setExpanded(false)
+                },
+                animationDuration
+            )
+            return () => clearTimeout(timeout)
+        },
+        [open, mounted, animationDuration]
     )
 
     // while open: close on a pointer press outside the drop-down, or when the page scrolls or
@@ -329,6 +389,8 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
     }
 
     const borderColor = disabled ? theme.disabledColor : theme.color
+    // the list is shown fully open once it has been measured, for as long as it is open
+    const showExpanded = open && expanded
     const textColor = disabled ? theme.disabledColor : theme.color
     const buttonStyle: CSSProperties = {
         display: 'inline-flex',
@@ -376,7 +438,7 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
             </button>
             {/* the drop-down's value, for forms (as a native select's would be) */}
             <input type="hidden" name={name} value={value}/>
-            {open && placement !== undefined && createPortal(
+            {mounted && placement !== undefined && createPortal(
                 <ul
                     ref={listRef}
                     onMouseEnter={handleMouseEnter}
@@ -384,22 +446,33 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                     id={listId}
                     role="listbox"
                     aria-label={ariaLabel}
+                    // while closing, the list is on its way out: hidden from assistive technology,
+                    // and not clickable
+                    aria-hidden={!open}
                     style={{
                         position: 'fixed',
                         left: placement.left,
                         top: placement.top,
                         bottom: placement.bottom,
                         minWidth: placement.minWidth,
-                        maxHeight: placement.maxHeight,
-                        overflowY: 'auto',
+                        maxHeight: showExpanded ? listSize.height : 0,
+                        opacity: showExpanded ? 1 : 0,
+                        // only scrolls when its content doesn't fit (so no scrollbar flashes while
+                        // it grows)
+                        overflowY: listSize.scrolls ? 'auto' : 'hidden',
+                        pointerEvents: open ? 'auto' : 'none',
+                        transition: `max-height ${animationDuration}ms ease, padding ${animationDuration}ms ease, ` +
+                            `opacity ${Math.round(animationDuration * FADE_FRACTION)}ms ease, ` +
+                            `border-color ${Math.round(animationDuration * FADE_FRACTION)}ms ease`,
                         boxSizing: 'border-box',
                         margin: 0,
-                        padding: '3px 0',
+                        padding: `${showExpanded ? LIST_PADDING_Y : 0}px 0`,
                         listStyle: 'none',
                         backgroundColor: theme.backgroundColor,
                         color: theme.color,
                         // a softer border than the button's, so the list doesn't look boxed in
-                        border: `1px solid ${interpolateColor(theme.color, theme.backgroundColor, 70)}`,
+                        // (transparent while collapsed, so it doesn't show as a line)
+                        border: `1px solid ${showExpanded ? interpolateColor(theme.color, theme.backgroundColor, 70) : 'transparent'}`,
                         borderRadius: 3,
                         boxShadow: `0 4px 12px ${interpolateColor('transparent', theme.name === 'dark' ? '#000' : '#555', 40)}`,
                         font: 'inherit',
