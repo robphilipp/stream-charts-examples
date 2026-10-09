@@ -34,7 +34,11 @@ export function ExpandableControlBar(props: Props): JSX.Element {
     } = props
 
     const [expanded, setExpanded] = useState<boolean>(defaultExpanded)
-    const [expandButtonColor, setExpandButtonColor] = useState<string>(borderColor)
+    // whether the mouse is over the control bar (the expand button is highlighted while it is). The
+    // button's color is derived from this on each render, rather than held in state, so that it
+    // follows the colors passed in (e.g. when the theme changes).
+    const [hovered, setHovered] = useState<boolean>(false)
+    const expandButtonColor = hovered ? expandButtonStyle.color || borderColor : borderColor
     const collapseTimeoutRef = useRef<number | null>(null)
 
     const contentRef = useRef<HTMLDivElement>(null)
@@ -83,11 +87,11 @@ export function ExpandableControlBar(props: Props): JSX.Element {
                 }
                 // when auto-expand is set to true, then expand the control bar (but don't collapse)
                 if (autoExpandOnMouseEnter) setExpanded(true)
-                setExpandButtonColor(expandButtonStyle.color || borderColor)
+                setHovered(true)
             }}
             onMouseLeave={(event) => {
-                // always change the expand-button color to reflect whether the mouse is over the control bar
-                setExpandButtonColor(borderColor)
+                // the expand-button color always reflects whether the mouse is over the control bar
+                setHovered(false)
 
                 // when not auto-collapsing, then don't collapse the control bar
                 if (!autoCollapseOnMouseLeave) return;
