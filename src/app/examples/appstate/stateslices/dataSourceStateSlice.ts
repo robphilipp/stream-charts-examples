@@ -4,7 +4,7 @@ import type {ChartData} from "../../../charts/observables/ChartData.ts";
 /**
  * The part of a data source the store manages: its lifecycle and running state
  */
-type ManagedDataSource = Pick<StreamingDataSource<ChartData, unknown>, 'start' | 'stop' | 'dispose' | 'running$' | 'running'>
+type ManagedDataSource = Pick<StreamingDataSource<ChartData, unknown>, 'start' | 'stop' | 'dispose' | 'isRunningObservable' | 'running'>
 
 /**
  * Holds the chart's data source, which owns the (single) subscription to the data generator and
@@ -58,7 +58,7 @@ export function dataSourceSlice<DS extends ManagedDataSource, S>(
     // mirrors the data source's own running state into the store, for as long as it is the
     // store's current data source (its observables complete when it's disposed)
     const mirrorRunning = (dataSource: DS): DS => {
-        dataSource.running$.subscribe(running => {
+        dataSource.isRunningObservable.subscribe(running => {
             const state = get()
             if (state !== undefined && state.dataSource === dataSource && state.running !== running) {
                 set({running})

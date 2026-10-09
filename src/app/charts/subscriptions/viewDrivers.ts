@@ -44,7 +44,7 @@ export type TimeWindowBehavior = (typeof TimeWindowBehavior)[keyof typeof TimeWi
 /**
  * The part of a data source a view driver needs
  */
-export type ViewDriverSource<CD extends ChartData> = Pick<StreamingDataSource<CD, unknown>, 'updates$' | 'latestTime'>
+export type ViewDriverSource<CD extends ChartData> = Pick<StreamingDataSource<CD, unknown>, 'chartDataUpdatesObservable' | 'latestTime'>
 
 /**
  * Batches the source's updates for rendering. When the source's own emission period is known,
@@ -213,7 +213,7 @@ export function timeSeriesViewDriverFor(
     const timesWindows = continuousAxisRanges(xAxesState.axes)
     const groupFor = xAxisGroupFor(axisAssignments, xAxesState)
 
-    return dataSource.updates$
+    return dataSource.chartDataUpdatesObservable
         .pipe(renderBatching<TimeSeriesChartData>(windowingTime, dataUpdatePeriod))
         .subscribe(dataList => dataList.forEach(data => {
             const groupTimes = currentTimesByGroup(data, groupFor)
@@ -279,7 +279,7 @@ export function timeSeriesWithCadenceViewDriverFor(
         newPoints: new Map()
     })
 
-    const subscription = withCadence(dataSource.updates$, windowingTime, cadencePeriod, cadenceTick)
+    const subscription = withCadence(dataSource.chartDataUpdatesObservable, windowingTime, cadencePeriod, cadenceTick)
         .subscribe(data => {
             if (data.currentTime !== undefined) {
                 // a cadence tick: advance every axis to the projected stream time
@@ -337,7 +337,7 @@ export function outlierViewDriverFor<M extends readonly number[]>(
 ): Subscription {
     const timesWindows = continuousAxisRanges(xAxesState.axes)
 
-    return dataSource.updates$
+    return dataSource.chartDataUpdatesObservable
         .pipe(renderBatching<OutlierChartData<M>>(windowingTime, dataUpdatePeriod))
         .subscribe(dataList => dataList.forEach(data => {
             data.newPoints.forEach((newData, name) => {
@@ -387,7 +387,7 @@ export function outlierWithCadenceViewDriverFor<M extends readonly number[]>(
         currentTime: elapsed,
     })
 
-    const subscription = withCadence(dataSource.updates$, windowingTime, cadencePeriod, cadenceTick)
+    const subscription = withCadence(dataSource.chartDataUpdatesObservable, windowingTime, cadencePeriod, cadenceTick)
         .subscribe(data => {
             if (data.currentTime !== undefined) {
                 const cadenceTime = anchor.now()
@@ -442,7 +442,7 @@ export function ordinalViewDriverFor(
     setCurrentTime: (currentTime: number) => void,
     dataUpdatePeriod?: number,
 ): Subscription {
-    return dataSource.updates$
+    return dataSource.chartDataUpdatesObservable
         .pipe(renderBatching<OrdinalChartData>(windowingTime, dataUpdatePeriod))
         .subscribe(dataList => dataList.forEach(data => {
             if (data.newPoints.size > 0) setCurrentTime(data.stats.maxDatum.time.time || NaN)
@@ -463,7 +463,7 @@ export function iteratesViewDriverFor(
     updateRangesAndPlot: () => void,
     updateCurrentTime: (time: number) => void,
 ): Subscription {
-    return dataSource.updates$
+    return dataSource.chartDataUpdatesObservable
         .pipe(bufferTime<IterateChartData>(windowingTime))
         .subscribe(dataList => dataList.forEach(data => {
             if (data.newPoints.size > 0) updateCurrentTime(iteratesCurrentTime(data))

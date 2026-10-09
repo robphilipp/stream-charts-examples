@@ -42,11 +42,11 @@ export interface StreamingDataSource<CD extends ChartData, D, S extends BaseSeri
      * subscriber only sees data that arrives after it subscribes (everything before that is
      * already in {@link series}).
      */
-    readonly updates$: Observable<CD>
+    readonly chartDataUpdatesObservable: Observable<CD>
     /**
      * Emits whether the source is running, starting with the current value
      */
-    readonly running$: Observable<boolean>
+    readonly isRunningObservable: Observable<boolean>
     /**
      * @return The series, as an array, in insertion order
      */
@@ -93,8 +93,8 @@ export abstract class BaseStreamingDataSource<CD extends ChartData, D, S extends
     private readonly updatesSubject = new Subject<CD>()
     private readonly runningSubject = new BehaviorSubject<boolean>(false)
 
-    readonly updates$: Observable<CD> = this.updatesSubject.asObservable()
-    readonly running$: Observable<boolean> = this.runningSubject.asObservable()
+    readonly chartDataUpdatesObservable: Observable<CD> = this.updatesSubject.asObservable()
+    readonly isRunningObservable: Observable<boolean> = this.runningSubject.asObservable()
 
     /**
      * @param initialData The initial series. The source takes ownership of these series and

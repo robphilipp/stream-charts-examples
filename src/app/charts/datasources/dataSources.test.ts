@@ -103,7 +103,7 @@ describe('streaming data source lifecycle', () => {
         const {source, generator} = controllableGenerator<TimeSeriesChartData>()
         const dataSource = sourceWith(generator)
         const seenLengths: Array<number> = []
-        dataSource.updates$.subscribe(() => seenLengths.push(dataSource.series.get('a')!.data.length))
+        dataSource.chartDataUpdatesObservable.subscribe(() => seenLengths.push(dataSource.series.get('a')!.data.length))
 
         dataSource.start()
         source.next(timeSeriesData(new Map([['a', [datumOf(100, 2)]]])))
@@ -114,7 +114,7 @@ describe('streaming data source lifecycle', () => {
         const {generator} = controllableGenerator<TimeSeriesChartData>()
         const dataSource = sourceWith(generator)
         const states: Array<boolean> = []
-        dataSource.running$.subscribe(running => states.push(running))
+        dataSource.isRunningObservable.subscribe(running => states.push(running))
 
         dataSource.start()
         dataSource.stop()
@@ -157,7 +157,7 @@ describe('streaming data source lifecycle', () => {
         const {generator, live} = controllableGenerator<TimeSeriesChartData>()
         const dataSource = sourceWith(generator)
         let completed = false
-        dataSource.updates$.subscribe({complete: () => completed = true})
+        dataSource.chartDataUpdatesObservable.subscribe({complete: () => completed = true})
 
         dataSource.start()
         dataSource.dispose()

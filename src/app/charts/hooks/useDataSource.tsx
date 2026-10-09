@@ -30,7 +30,7 @@ export function useDataSourceRunning<CD extends ChartData, D>(dataSource: Stream
         (onChange: () => void): (() => void) => {
             if (dataSource === undefined) return () => {
             }
-            const subscription = dataSource.running$.subscribe(() => onChange())
+            const subscription = dataSource.isRunningObservable.subscribe(() => onChange())
             return () => subscription.unsubscribe()
         },
         [dataSource]
