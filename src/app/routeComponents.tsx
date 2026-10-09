@@ -1,6 +1,6 @@
 // this file exports only components (TabNav, RootLayout, and the per-chart route components),
 // so react-refresh's "only export components" rule is satisfied without needing a disable
-import {type CSSProperties, type JSX, useState} from "react";
+import {type CSSProperties, type JSX, type Ref, useLayoutEffect, useRef, useState} from "react";
 import {Link, Outlet} from "@tanstack/react-router";
 import {
     Grid,
@@ -87,10 +87,29 @@ export function TabNav(): JSX.Element {
  */
 export function RootLayout(): JSX.Element {
     const {theme, updateTheme} = useThemeStore()
+    const pageRef = useRef<HTMLDivElement>(null)
 
     function handleThemeChange(status: ToggleStatus): void {
+        // Turns off the page's transitions (see `THEME_CHANGING_ATTRIBUTE`) *before* React applies
+        // the new theme, rather than in an effect: the page's components may read their layout in
+        // their own layout effects (which run before this component's), and that applies the new
+        // theme's styles -- starting any transitions that are still on.
+        pageRef.current?.setAttribute(THEME_CHANGING_ATTRIBUTE, '')
         updateTheme(status === ToggleStatus.OFF ? lightTheme : darkTheme)
     }
+
+    // once the new theme has been rendered, applies its styles (while the transitions are still
+    // off), and then turns the transitions back on
+    useLayoutEffect(
+        () => {
+            const page = pageRef.current
+            if (page === null || !page.hasAttribute(THEME_CHANGING_ATTRIBUTE)) return
+            // (reading the layout makes the browser apply the new styles now)
+            page.getBoundingClientRect()
+            page.removeAttribute(THEME_CHANGING_ATTRIBUTE)
+        },
+        [theme]
+    )
 
     return (
         <Grid
@@ -167,12 +186,35 @@ export function RootLayout(): JSX.Element {
                         <TabNav/>
                     </GridItem>
                     <GridItem gridAreaName="tab">
-                        <Outlet/>
+                        <ThemeChangeScope ref={pageRef}>
+                            <Outlet/>
+                        </ThemeChangeScope>
                     </GridItem>
                 </Grid>
             </GridItem>
         </Grid>
     )
+}
+
+/**
+ * While a theme change is being applied, this attribute is set on the page (the routed content),
+ * which turns off its transitions (see `index.css`). Without that, the components' own transitions
+ * (e.g. the expandable control bar's background and shadow, which animate expanding and
+ * collapsing) would also animate the change of theme colors, fading from the old theme to the new
+ * one while everything else switches at once -- which shows as a flash.
+ */
+const THEME_CHANGING_ATTRIBUTE = 'data-theme-changing'
+
+/**
+ * The element whose descendants' transitions are turned off while a theme change is applied. It
+ * has no box of its own (`display: contents`), so it doesn't affect the page's layout. (It's a
+ * component, rather than a plain `<div>`, because the enclosing `GridItem` hands its child `width`
+ * and `height` props, which a `<div>` would render as attributes.)
+ * @param props The ref to the scope's element, and the page
+ * @return The scope
+ */
+function ThemeChangeScope({ref, children}: { ref: Ref<HTMLDivElement>, children: JSX.Element }): JSX.Element {
+    return <div ref={ref} style={{display: 'contents'}}>{children}</div>
 }
 
 /*
