@@ -72,9 +72,13 @@ const LIST_OFFSET = 2
 const LIST_BORDERS_HEIGHT = 2
 // the list's top and bottom padding (none while collapsed, so it collapses to no height at all)
 const LIST_PADDING_Y = 3
-// the fade runs for this fraction of the animation's duration (the expandable control bar fades
-// for 180 ms of its 260 ms expand/collapse)
+// the options fade for this fraction of the animation's duration (the expandable control bar
+// fades its content for 180 ms of its 260 ms expand/collapse)
 const FADE_FRACTION = 180 / 260
+// when closing, the list's border and shadow fade out over this last fraction of the animation,
+// once the list has (almost) shrunk away -- so the shrinking list stays visible, but doesn't leave
+// its border behind as a line
+const CHROME_FADE_OUT_FRACTION = 0.4
 
 /**
  * Where the open list is placed, in viewport (fixed) coordinates
@@ -391,6 +395,9 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
     const borderColor = disabled ? theme.disabledColor : theme.color
     // the list is shown fully open once it has been measured, for as long as it is open
     const showExpanded = open && expanded
+    // how long the options fade, and how long the list's border and shadow fade out when it closes
+    const optionsFade = Math.round(animationDuration * FADE_FRACTION)
+    const chromeFadeOut = Math.round(animationDuration * CHROME_FADE_OUT_FRACTION)
     const textColor = disabled ? theme.disabledColor : theme.color
     const buttonStyle: CSSProperties = {
         display: 'inline-flex',
@@ -456,14 +463,19 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                         bottom: placement.bottom,
                         minWidth: placement.minWidth,
                         maxHeight: showExpanded ? listSize.height : 0,
-                        opacity: showExpanded ? 1 : 0,
                         // only scrolls when its content doesn't fit (so no scrollbar flashes while
                         // it grows)
                         overflowY: listSize.scrolls ? 'auto' : 'hidden',
                         pointerEvents: open ? 'auto' : 'none',
+                        // Like the expandable control bar, the list itself (its background, border,
+                        // and shadow) stays visible as it grows and shrinks, and only the options fade.
+                        // Its border and shadow appear at once when it opens, and fade out at the end
+                        // of its closing animation.
                         transition: `max-height ${animationDuration}ms ease, padding ${animationDuration}ms ease, ` +
-                            `opacity ${Math.round(animationDuration * FADE_FRACTION)}ms ease, ` +
-                            `border-color ${Math.round(animationDuration * FADE_FRACTION)}ms ease`,
+                            (showExpanded ?
+                                'border-color 0ms, box-shadow 0ms' :
+                                `border-color ${chromeFadeOut}ms ease ${animationDuration - chromeFadeOut}ms, ` +
+                                `box-shadow ${chromeFadeOut}ms ease ${animationDuration - chromeFadeOut}ms`),
                         boxSizing: 'border-box',
                         margin: 0,
                         padding: `${showExpanded ? LIST_PADDING_Y : 0}px 0`,
@@ -474,7 +486,9 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                         // (transparent while collapsed, so it doesn't show as a line)
                         border: `1px solid ${showExpanded ? interpolateColor(theme.color, theme.backgroundColor, 70) : 'transparent'}`,
                         borderRadius: 3,
-                        boxShadow: `0 4px 12px ${interpolateColor('transparent', theme.name === 'dark' ? '#000' : '#555', 40)}`,
+                        boxShadow: showExpanded ?
+                            `0 4px 12px ${interpolateColor('transparent', theme.name === 'dark' ? '#000' : '#555', 40)}` :
+                            '0 4px 12px transparent',
                         font: 'inherit',
                         fontSize: 13,
                         lineHeight: '18px',
@@ -499,6 +513,9 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                                     whiteSpace: 'nowrap',
                                     cursor: 'pointer',
                                     fontWeight: isSelected ? 600 : 'normal',
+                                    // the options fade in as the list opens, and out as it closes
+                                    opacity: showExpanded ? 1 : 0,
+                                    transition: `opacity ${optionsFade}ms ease`,
                                     backgroundColor: isActive ?
                                         interpolateColor(theme.backgroundColor, theme.color, 15) :
                                         'transparent',
