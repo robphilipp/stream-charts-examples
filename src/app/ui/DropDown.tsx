@@ -263,15 +263,41 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
         [open]
     )
 
-    // keeps the highlighted option scrolled into view
+    // Keeps the highlighted option scrolled into view, for a list whose options don't all fit (a
+    // list whose options fit never scrolls, so it always opens showing its first option).
+    //
+    // The scroll position is calculated for the list's *fully open* height, rather than with
+    // `scrollIntoView`: the list starts out collapsed, so `scrollIntoView` would scroll the
+    // highlighted option to the top of the still-tiny list, and then the content would slide back
+    // down as the growing list's scroll position got clamped (a visible hitch when opening on an
+    // option in the middle of the list). Scrolled for its final height, the list simply grows
+    // into its final view.
     useEffect(
         () => {
-            if (!open || activeIndex < 0) return
-            document.getElementById(optionId(activeIndex))?.scrollIntoView({block: 'nearest'})
+            const list = listRef.current
+            if (!open || !expanded || !listSize.scrolls || activeIndex < 0 || list === null) return
+            const option = document.getElementById(optionId(activeIndex))
+            const firstOption = list.firstElementChild as HTMLElement | null
+            if (option === null || firstOption === null) return
+            // Where the option will be in the fully open list. Measured from the first option,
+            // because the list's padding is still animating in (from none) when it opens. The first
+            // and last options also bring the list's padding into view, so that they scroll the
+            // list all the way to its top or bottom.
+            const top = LIST_PADDING_Y + option.offsetTop - firstOption.offsetTop -
+                (activeIndex === 0 ? LIST_PADDING_Y : 0)
+            const bottom = LIST_PADDING_Y + option.offsetTop - firstOption.offsetTop + option.offsetHeight +
+                (activeIndex === options.length - 1 ? LIST_PADDING_Y : 0)
+            // the visible height of the fully open list's content (and padding)
+            const visibleHeight = listSize.height - LIST_BORDERS_HEIGHT
+            if (top < list.scrollTop) {
+                list.scrollTop = top
+            } else if (bottom > list.scrollTop + visibleHeight) {
+                list.scrollTop = bottom - visibleHeight
+            }
         },
         // `optionId` only depends on `id`, which never changes
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [open, activeIndex, placement]
+        [open, expanded, listSize, activeIndex, options.length]
     )
 
     // clears any pending type-ahead timer on unmount
