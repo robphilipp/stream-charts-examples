@@ -62,6 +62,15 @@ export function FloatingBar(props: Props): JSX.Element {
             return
         }
 
+        // React delivers events from a portal to the portal's React ancestors, so a press in a
+        // child's portaled content (e.g. a drop-down's open list, which is rendered into the
+        // document body) reaches this handler too. Only presses on the bar itself start a drag:
+        // otherwise the pointer capture below would retarget the press's click to the bar, and
+        // the portaled content (e.g. the drop-down option) would never receive it.
+        if (!(target instanceof Node) || !event.currentTarget.contains(target)) {
+            return
+        }
+
         dragStateRef.current = {
             pointerId: event.pointerId,
             startX: event.clientX,
