@@ -401,7 +401,7 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
     const color = disabled ? theme.disabledColor : theme.color
     // how long the options fade, and how long the list's border and shadow fade out when it closes
     const optionsFade = Math.round(animationDuration * FADE_FRACTION)
-    const chromeFadeOut = Math.round(animationDuration * CHROME_FADE_OUT_FRACTION)
+    const animationFadeOut = Math.round(animationDuration * CHROME_FADE_OUT_FRACTION)
     const buttonStyle: CSSProperties = {
         display: 'inline-flex',
         alignItems: 'center',
@@ -474,8 +474,8 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                         transition: `max-height ${animationDuration}ms ease, ` +
                             (expanded ?
                                 'border-color 0ms, box-shadow 0ms' :
-                                `border-color ${chromeFadeOut}ms ease ${animationDuration - chromeFadeOut}ms, ` +
-                                `box-shadow ${chromeFadeOut}ms ease ${animationDuration - chromeFadeOut}ms`),
+                                `border-color ${animationFadeOut}ms ease ${animationDuration - animationFadeOut}ms, ` +
+                                `box-shadow ${animationFadeOut}ms ease ${animationDuration - animationFadeOut}ms`),
                         boxSizing: 'border-box',
                         backgroundColor: theme.backgroundColor,
                         color: theme.color,
