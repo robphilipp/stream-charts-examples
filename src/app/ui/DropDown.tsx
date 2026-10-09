@@ -70,6 +70,9 @@ const TYPE_AHEAD_TIMEOUT_MS = 500
 const LIST_OFFSET = 2
 // the list's top and bottom borders (its height includes them, because of the border-box sizing)
 const LIST_BORDERS_HEIGHT = 2
+// the height of the indicators at the top and bottom of a scrolling list, which show that there are
+// more options above or below
+const SCROLL_HINT_HEIGHT = 18
 // the options fade for this fraction of the animation's duration (the expandable control bar
 // fades its content for 180 ms of its 260 ms expand/collapse)
 const FADE_FRACTION = 180 / 260
@@ -95,6 +98,34 @@ type ListPlacement = {
 type ListSize = {
     height: number
     scrolls: boolean
+}
+
+/**
+ * Whether a scrolling list has options hidden above or below what's visible
+ */
+type ScrollHints = {
+    above: boolean
+    below: boolean
+}
+
+const NO_SCROLL_HINTS: ScrollHints = {above: false, below: false}
+
+/**
+ * Calculates whether a scrolling list has options hidden above or below what's visible. Calculated
+ * for the list's *fully open* height (rather than its current one), so that it's already right
+ * while the list is still growing open.
+ * @param box The list's box (which scrolls)
+ * @param list The options
+ * @param listSize The list's height when fully open, and whether it scrolls
+ * @return Whether there are options hidden above and below
+ */
+function scrollHintsFor(box: HTMLElement, list: HTMLElement, listSize: ListSize): ScrollHints {
+    if (!listSize.scrolls) return NO_SCROLL_HINTS
+    const visibleHeight = listSize.height - LIST_BORDERS_HEIGHT
+    return {
+        above: box.scrollTop > 1,
+        below: box.scrollTop + visibleHeight < list.offsetHeight - 1,
+    }
 }
 
 /**
@@ -143,6 +174,8 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
     // (a frame later, so that the transition runs).
     const [placement, setPlacement] = useState<ListPlacement | undefined>(undefined)
     const [listSize, setListSize] = useState<ListSize | undefined>(undefined)
+    // whether a scrolling list has options hidden above or below (shown by indicators at its edges)
+    const [scrollHints, setScrollHints] = useState<ScrollHints>(NO_SCROLL_HINTS)
 
     const buttonRef = useRef<HTMLButtonElement>(null)
     // the list's box (which clips, scrolls, and animates), and the options in it
@@ -201,11 +234,18 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
     useLayoutEffect(
         () => {
             if (!open || placement === undefined || listRef.current === null) return
-            const contentHeight = listRef.current.offsetHeight + LIST_BORDERS_HEIGHT
-            const frame = requestAnimationFrame(() => setListSize({
-                height: Math.min(contentHeight, placement.maxHeight),
-                scrolls: contentHeight > placement.maxHeight
-            }))
+            const list = listRef.current
+            const contentHeight = list.offsetHeight + LIST_BORDERS_HEIGHT
+            const frame = requestAnimationFrame(() => {
+                const size = {
+                    height: Math.min(contentHeight, placement.maxHeight),
+                    scrolls: contentHeight > placement.maxHeight
+                }
+                setListSize(size)
+                // (scrolling the highlighted option into view, once expanded, updates these
+                // through the list's scroll event)
+                if (boxRef.current !== null) setScrollHints(scrollHintsFor(boxRef.current, list, size))
+            })
             return () => cancelAnimationFrame(frame)
         },
         [open, placement]
@@ -290,6 +330,16 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [expanded, listSize, activeIndex]
     )
+
+    // keeps the scroll indicators up to date as the list scrolls (by the user, or to keep the
+    // highlighted option in view)
+    function handleListScroll(): void {
+        const box = boxRef.current
+        const list = listRef.current
+        if (box === null || list === null || listSize === undefined) return
+        const hints = scrollHintsFor(box, list, listSize)
+        if (hints.above !== scrollHints.above || hints.below !== scrollHints.below) setScrollHints(hints)
+    }
 
     // closes the open list `autoCloseDelay` after the mouse leaves the button or the list, unless
     // the mouse enters the other one (or comes back) in the meantime
@@ -455,6 +505,7 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                 // fade out at the end of its closing animation, once it has (almost) shrunk away.
                 <div
                     ref={boxRef}
+                    onScroll={handleListScroll}
                     onMouseEnter={cancelAutoClose}
                     onMouseLeave={handleMouseLeave}
                     // while closing, the list is on its way out: hidden from assistive technology,
@@ -492,6 +543,11 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                         zIndex: 10000,
                     }}
                 >
+                    <ScrollHint
+                        edge="top"
+                        visible={expanded && scrollHints.above}
+                        theme={theme}
+                    />
                     <ul
                         ref={listRef}
                         id={listId}
@@ -535,9 +591,63 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                             )
                         })}
                     </ul>
+                    <ScrollHint
+                        edge="bottom"
+                        visible={expanded && scrollHints.below}
+                        theme={theme}
+                    />
                 </div>,
                 document.body
             )}
         </>
+    )
+}
+
+type ScrollHintProps = {
+    // the edge of the list the indicator sits at
+    edge: 'top' | 'bottom'
+    // whether there are options hidden beyond that edge
+    visible: boolean
+    theme: Theme
+}
+
+/**
+ * An indicator at the top or bottom edge of a scrolling list, showing that there are more options
+ * hidden beyond that edge: the list's background fading in towards the edge, with a small
+ * triangle pointing the way. It's placed in the list's scrolling content as a sticky, zero-height
+ * element, so it stays at the edge of the visible options without affecting their layout, and
+ * ignores the pointer, so the option underneath can still be clicked.
+ * @param props The properties
+ * @return The indicator
+ */
+function ScrollHint(props: ScrollHintProps): JSX.Element {
+    const {edge, visible, theme} = props
+    const atTop = edge === 'top'
+    return (
+        <div aria-hidden="true" style={{
+            position: 'sticky',
+            [edge]: 0,
+            height: 0,
+            zIndex: 1,
+            pointerEvents: 'none',
+        }}>
+            <div style={{
+                position: 'absolute',
+                [edge]: 0,
+                left: 0,
+                right: 0,
+                height: SCROLL_HINT_HEIGHT,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: atTop ? 'flex-start' : 'flex-end',
+                padding: '2px 0',
+                boxSizing: 'border-box',
+                background: `linear-gradient(to ${atTop ? 'bottom' : 'top'}, ${theme.backgroundColor} 40%, transparent)`,
+                opacity: visible ? 1 : 0,
+                transition: 'opacity 150ms ease',
+            }}>
+                {atTop ? <DropDownOpenIcon color={theme.color}/> : <DropDownClosedIcon color={theme.color}/>}
+            </div>
+        </div>
     )
 }
