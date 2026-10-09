@@ -2,6 +2,7 @@ import {type CSSProperties, type JSX, type KeyboardEvent, useCallback, useEffect
 import {createPortal} from "react-dom";
 import type {Theme} from "./Themes.ts";
 import {interpolateColor} from "./utils.ts";
+import {DropDownClosedIcon, DropDownOpenIcon} from "./Icons.tsx";
 
 /**
  * An option in a {@link DropDown}
@@ -328,13 +329,14 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
     }
 
     const borderColor = disabled ? theme.disabledColor : theme.color
+    const textColor = disabled ? theme.disabledColor : theme.color
     const buttonStyle: CSSProperties = {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 8,
         backgroundColor: disabled ? theme.disabledBackgroundColor : theme.backgroundColor,
-        color: disabled ? theme.disabledColor : theme.color,
+        color: textColor,
         border: `1px solid ${borderColor}`,
         borderRadius: 3,
         padding: '4px 6px 4px 8px',
@@ -368,16 +370,9 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
                 onKeyDown={handleKeyDown}
             >
                 <span>{selected?.label ?? ''}</span>
-                <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true" style={{flexShrink: 0}}>
-                    <path
-                        d={open ? "M1.5 6.5 L5 3 L8.5 6.5" : "M1.5 3.5 L5 7 L8.5 3.5"}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    />
-                </svg>
+                {open ?
+                    <DropDownOpenIcon color={textColor}/> :
+                    <DropDownClosedIcon color={textColor}/>}
             </button>
             {/* the drop-down's value, for forms (as a native select's would be) */}
             <input type="hidden" name={name} value={value}/>

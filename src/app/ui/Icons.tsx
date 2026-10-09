@@ -433,3 +433,45 @@ export function WindowedMeanIcon(props: { color: string }): JSX.Element {
         </div>
     )
 }
+
+/**
+ * A filled triangle pointing up, shown on a drop-down whose list is open
+ * @param props The icon's color (fill and stroke)
+ * @return The icon
+ */
+export function DropDownOpenIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <svg width="10" height="10" viewBox="0 0 10 10" style={{display: 'block', flexShrink: 0}}>
+            <path
+                d="M1.5 7 L8.5 7 L5 2.5 Z"
+                stroke={color}
+                fill={color}
+                strokeWidth={1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+            />
+        </svg>
+    )
+}
+
+/**
+ * A filled triangle pointing down, shown on a drop-down whose list is closed
+ * @param props The icon's color (fill and stroke)
+ * @return The icon
+ */
+export function DropDownClosedIcon(props: { color: string }): JSX.Element {
+    const {color} = props
+    return (
+        <svg width="10" height="10" viewBox="0 0 10 10" style={{display: 'block', flexShrink: 0}}>
+            <path
+                d="M1.5 3 L8.5 3 L5 7.5 Z"
+                stroke={color}
+                fill={color}
+                strokeWidth={1}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+            />
+        </svg>
+    )
+}
