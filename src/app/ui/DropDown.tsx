@@ -46,6 +46,13 @@ type Props<V extends string> = {
      * An accessible name for the drop-down, when there's no visible label for it
      */
     ariaLabel?: string
+    /**
+     * How long (in milliseconds) the open list stays open after the mouse leaves the drop-down
+     * (the button and the list) before it closes. Moving back into either one in the meantime
+     * keeps it open. The delay also lets the mouse cross the gap between the button and the list.
+     * Defaults to 500 ms (the same as the expandable control bar's auto-collapse delay).
+     */
+    autoCloseDelay?: number
 }
 
 // the largest the list gets before it scrolls
@@ -54,9 +61,6 @@ const MAX_LIST_HEIGHT = 240
 const TYPE_AHEAD_TIMEOUT_MS = 500
 // the gap between the trigger and the list
 const LIST_OFFSET = 2
-// how long the list stays open after the mouse leaves the drop-down (lets the mouse cross the gap
-// between the button and the list, or briefly overshoot, without the list closing)
-const MOUSE_LEAVE_CLOSE_DELAY_MS = 150
 
 /**
  * Where the open list is placed, in viewport (fixed) coordinates
@@ -83,7 +87,8 @@ type ListPlacement = {
  * Enter, or Space open the list; while it's open, ArrowDown/ArrowUp/Home/End move the highlight,
  * Enter or Space select it, Tab selects it and moves on, and Escape closes the list unchanged;
  * typing jumps to the first option whose label starts with what was typed. The list also closes
- * (unchanged) when the mouse leaves the drop-down (the button and the list).
+ * (unchanged) shortly after the mouse leaves the drop-down (the button and the list), after the
+ * `autoCloseDelay`.
  * @param props The properties
  * @return The drop-down
  * @template V The type of the options' values
@@ -97,6 +102,7 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
         onChange,
         disabled = false,
         ariaLabel,
+        autoCloseDelay = 500,
     } = props
 
     const id = useId()
@@ -221,12 +227,12 @@ export function DropDown<V extends string>(props: Props<V>): JSX.Element {
         [open]
     )
 
-    // closes the open list shortly after the mouse leaves the button or the list, unless the mouse
-    // enters the other one (or comes back) in the meantime
+    // closes the open list `autoCloseDelay` after the mouse leaves the button or the list, unless
+    // the mouse enters the other one (or comes back) in the meantime
     function handleMouseLeave(): void {
         if (!open) return
         clearTimeout(mouseLeaveTimeoutRef.current)
-        mouseLeaveTimeoutRef.current = setTimeout(closeList, MOUSE_LEAVE_CLOSE_DELAY_MS)
+        mouseLeaveTimeoutRef.current = setTimeout(closeList, autoCloseDelay)
     }
 
     function handleMouseEnter(): void {
